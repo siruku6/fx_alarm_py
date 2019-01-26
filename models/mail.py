@@ -1,6 +1,3 @@
-# # # # # # # # # # # # # # #
-#         参考サイト         #
-# # # # # # # # # # # # # # #
 # GmailAPI公式
 # https://developers.google.com/gmail/api/quickstart/python
 # Pythonを使ってGmail APIからメールを取得する(認証処理の参考)
@@ -11,9 +8,6 @@
 # Gmail送信処理
 # https://qiita.com/okhrn/items/630a87ce1a44778bbeb1
 
-# # # # # # # # # # # # # # #
-#       module import       #
-# # # # # # # # # # # # # # #
 # Gmail認証に必要
 from __future__                import print_function
 from googleapiclient.discovery import build
@@ -22,27 +16,31 @@ from oauth2client              import file, client, tools
 import os
 
 # メール送信に必要
-import smtplib
-from email.mime.text import MIMEText
-from email.utils     import formatdate
-import base64
+import smtplib, base64
+from email.mime.base      import MIMEBase
+from email.mime.multipart import MIMEMultipart
+from email.mime.text      import MIMEText
+from email.mime.image     import MIMEImage
+from email.utils          import formatdate
 
 # エラー処理のためにやむを得ずimport
 import googleapiclient as gapi_client
 import traceback
 
-# # # # # # # # # # # # # # #
-#     class definition      #
-# # # # # # # # # # # # # # #
 class GmailAPI:
     def __init__(self):
         # scopeの選択方法
         # https://developers.google.com/gmail/api/auth/scopes
         # If modifying these scopes, delete the file token.json.
-        self.__SCOPES = 'https://www.googleapis.com/auth/gmail.send'
+        self.__SCOPES       = 'https://www.googleapis.com/auth/gmail.send'
+        self.__FROM_ADDRESS = os.environ['MAIL_FROM']
+        self.__TO_ADDRESS   = os.environ['MAIL_TO']
+        # self.__BCC          = ''
+        self.__SUBJECT      = 'GmailのSMTPサーバ経由てすと'
+        self.__BODY         = 'pythonでメール送信する'
 
     ### AUTHENTICTION
-    def ConnectGmail(self):
+    def __ConnectGmail(self):
         # The file token.json stores the user's access and refresh tokens, and is
         # created automatically when the authorization flow completes for the first
         # time.
@@ -52,11 +50,10 @@ class GmailAPI:
             flow = client.flow_from_clientsecrets('gmail_credentials.json', self.__SCOPES)
             creds = tools.run_flow(flow, store)
         service = build('gmail', 'v1', http=creds.authorize(Http()))
-
         return service
 
     def get_label_list(self):
-        service = self.ConnectGmail()
+        service = self.__ConnectGmail()
         # Call the Gmail API
         results = service.users().labels().list(userId='me').execute()
         labels  = results.get('labels', [])
@@ -68,35 +65,11 @@ class GmailAPI:
             for label in labels:
                 print(label['name'])
 
-    def send(self, msg, mail_from):
-        ''' send mail with GmailAPI '''
-        service = self.ConnectGmail()
-        try:
-            result = service.users().messages().send(
-                userId=mail_from,
-                body=msg
-            ).execute()
-
-            print("Message Id: {}".format(result["id"]))
-
-        except gapi_client.errors.HttpError:
-            print("------start trace------")
-            traceback.print_exc()
-            print("------end trace------")
-
-class Mail:
-    def __init__(self):
-        self.FROM_ADDRESS = os.environ['MAIL_FROM']
-        self.__TO_ADDRESS   = os.environ['MAIL_TO']
-        # self.__BCC          = ''
-        self.__SUBJECT      = 'GmailのSMTPサーバ経由てすと'
-        self.__BODY         = 'pythonでメール送信する'
-
     def create_message(self):
         ''' メールobject生成 '''
         msg = MIMEText(self.__BODY)
         msg['Subject'] = self.__SUBJECT
-        msg['From']    = self.FROM_ADDRESS
+        msg['From']    = self.__FROM_ADDRESS
         msg['To']      = self.__TO_ADDRESS
         # msg['Bcc']     = self.__BCC
         msg['Date']    = formatdate()
@@ -107,13 +80,53 @@ class Mail:
         str_msg_b64encoded  = byte_msg_b64encoded.decode(encoding="UTF-8")
         return {"raw": str_msg_b64encoded}
 
-# # # # # # # # # # # # # # #
-#           MAIN            #
-# # # # # # # # # # # # # # #
-if __name__ == '__main__':
-    gmail_test  = GmailAPI()
-    mail_module = Mail()
-    msg         = mail_module.create_message()
+    def create_message_with_image(self):
+        ''' 添付画像付きメッセージを生成 '''
+        msg = MIMEMultipart()
+        msg['Subject'] = self.__SUBJECT
+        msg['From']    = self.__FROM_ADDRESS
+        msg['To']      = self.__TO_ADDRESS
+        msg['Date']    = formatdate()
+        msg.attach(MIMEText(self.__BODY))
 
-    gmail_test.send(msg=msg, mail_from=mail_module.FROM_ADDRESS)
-    # gmail_test.get_label_list()
+        # open(path, mode='rb') の理由
+        # https://stackoverflow.com/questions/42339876/error-unicodedecodeerror-utf-8-codec-cant-decode-byte-0xff-in-position-0-in
+        with open('./figure.png', mode='rb') as f:
+            # email.mime: メールと MIME オブジェクトを一から作成
+            # https://docs.python.org/ja/3.7/library/email.mime.html
+            atchment_file = MIMEImage(f.read(), _subtype='png')
+
+        # この行何も意味をなしてない
+        atchment_file.add_header('Content-Dispositon','attachment',filename='figure.png')
+        msg.attach(atchment_file)
+
+        # エンコード方法わかるかも
+        # https://docs.python.jp/3.5/library/email.encoders.html?highlight=encoders
+
+        # Encoders.encode_base64(atchment_file)
+        byte_msg            = msg.as_string().encode(encoding="UTF-8")
+        byte_msg_b64encoded = base64.urlsafe_b64encode(byte_msg)
+        str_msg_b64encoded  = byte_msg_b64encoded.decode(encoding="UTF-8")
+        return {"raw": str_msg_b64encoded}
+
+    def send(self, msg):
+        ''' send mail with GmailAPI '''
+        service = self.__ConnectGmail()
+        try:
+            result = service.users().messages().send(
+                userId=self.__FROM_ADDRESS,
+                body=msg
+            ).execute()
+
+            print("Message Id: {}".format(result["id"]))
+
+        except gapi_client.errors.HttpError:
+            print("------start trace------")
+            traceback.print_exc()
+            print("------end trace------")
+
+if __name__ == '__main__':
+    gmail_test = GmailAPI()
+    msg        = gmail_test.create_message_with_image()
+    # msg        = gmail_test.create_message()
+    gmail_test.send(msg=msg)
