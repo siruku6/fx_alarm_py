@@ -3,7 +3,6 @@ import datetime
 import pandas as pd
 
 # For trading
-import mpl_finance
 from   oandapyV20 import API
 import oandapyV20.endpoints.instruments as oandapy
 
