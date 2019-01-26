@@ -14,30 +14,33 @@ FXの為替レートを自動取得し、今後の予測が容易なタイミン
 まだ全然できてません！
 
 ## Requirement
-* python3
-* pip modeules ...
-```bash
-$ sudo pip install numpy
-$ sudo pip install pandas
-$ sudo pip install schedule
+- python3
+- pip modules
+    ```
+    # 一般的な子たち
+    numpy
+    scipy
+    pandas
+    schedule
 
-# GmailAPIに必要
-$ sudo pip install --upgrade google-api-python-client oauth2client
+    # GmailAPIとの通信に必要
+    google-api-python-client
+    oauth2client
 
-# OandaAPIとの通信や、投資データ処理に必要
-$ sudo pip install mpl_finance
-$ sudo pip install requests
-$ sudo pip install oandapyV20
-```
+    # OandaAPIとの通信や、投資データ処理に必要
+    mpl_finance
+    requests
+    oandapyV20
+    ```
 洩れてたら追加します>д<
 
 * 環境変数
-```
-$ vim ~/.bash_profile
-export OANDA_ACCESS_TOKEN=YOUR TOKEN
-export MAIL_TO=通知メール宛先
-export MAIL_FROM=送信元となるGmailメルアド
-```
+    ```
+    $ vim ~/.bash_profile
+    export OANDA_ACCESS_TOKEN=YOUR TOKEN
+    export MAIL_TO=通知メール宛先
+    export MAIL_FROM=送信元となるGmailメルアド
+    ```
 
 * Enable your GmailAPI  
 coming soon ...
