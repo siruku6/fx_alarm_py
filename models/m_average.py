@@ -104,8 +104,9 @@ if __name__ == '__main__':
     import chart_watcher as cw
     c_watcher = cw.ChartWatcher()
     c_watcher.request_chart()
-    g_indi = Indicators()
     if FXBase.candles is None:
         print('表示可能なデータが存在しません')
     else:
+        FXBase.candles['time_id']= FXBase.candles.index + 1
+        g_indi = Indicators()
         print(g_indi.desc_trends.tail())
