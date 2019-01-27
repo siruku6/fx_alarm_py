@@ -1,0 +1,18 @@
+###### Requirements without Version Specifiers ######
+# 一般的な子たち
+schedule
+numpy
+scipy
+pandas
+matplotlib
+
+# GmailAPIとの通信に必要
+google-api-python-client
+oauth2client
+
+# OandaAPIとの通信や、投資データ処理に必要
+mpl_finance
+requests
+oandapyV20
+
+###### Requirements with Version Specifiers ######
