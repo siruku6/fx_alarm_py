@@ -8,9 +8,12 @@ if __name__ == '__main__':
 
     # 1回目のリクエスト
     c_watcher = watcher.ChartWatcher()
-    if c_watcher.request_chart():
+    result    = c_watcher.request_chart()
+    if 'success' in result:
+        print(result['success'])
         print(watcher.FXBase.candles.tail())
     else:
+        print(result['error'])
         exit()
 
     # 定期処理

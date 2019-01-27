@@ -5,15 +5,7 @@ from chart_watcher import FXBase
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 #     トレンドライン生成・ブレイクポイント判定処理
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
-class Indicators(FXBase):
-    def __init__(self):
-        result = self.__generate_trendlines()
-        if 'success' in result:
-            print(result['success'])
-        else:
-            print(result['error'])
-
-
+class Analyzer(FXBase):
     def __get_local_extremum(self, start, end, bool_high):
         ''' 高値(high) / 安値(low)の始点 / 支点を取得
             チャートを単回帰分析し、結果直線よりも上（下）の値だけで再度単回帰分析...
@@ -35,7 +27,7 @@ class Indicators(FXBase):
 
     # iterate dataframe
     # https://stackoverflow.com/questions/7837722/what-is-the-most-efficient-way-to-loop-through-dataframes-with-pandas
-    def __generate_trendlines(self, span=20, min_interval=3):
+    def calc_trendlines(self, span=20, min_interval=3):
         if FXBase.candles is None: return { 'error': 'データが存在しません' }
         trendlines = { 'high': [], 'low': [] }
 
@@ -106,7 +98,13 @@ if __name__ == '__main__':
     c_watcher.request_chart()
     if FXBase.candles is None:
         print('表示可能なデータが存在しません')
+        exit()
+
+    FXBase.candles['time_id']= FXBase.candles.index + 1
+    ana    = Analyzer()
+    result = ana.calc_trendlines()
+    if 'success' in result:
+        print(result['success'])
+        print(ana.desc_trends.tail())
     else:
-        FXBase.candles['time_id']= FXBase.candles.index + 1
-        g_indi = Indicators()
-        print(g_indi.desc_trends.tail())
+        print(result['error'])

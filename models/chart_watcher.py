@@ -32,10 +32,8 @@ class ChartWatcher(FXBase):
         # weekday_num
         # 0:Mon, 1:Tue, 2:Wed, 3:Thu, 4:Fri, 5:Sat, 6:Sun
         if weekday_num < 5: # 平日なら
-            print(weekday_num, ' :本日営業中！')
             return True
         else:
-            print(weekday_num, ' :本日はFX休みナリ')
             return False
 
     def __reset_params(self):
@@ -67,8 +65,9 @@ class ChartWatcher(FXBase):
 
     def request_chart(self):
         ''' チャートを更新 '''
-        if self.__is_uptime() == False: return False
+        if self.__is_uptime() == False: return { 'error': '休日のためAPIへのrequestをcancelしました' }
         request = self.__request_oanda_instruments()
+        if request.response['candles'] == []: return { 'error': 'request結果、データがありませんでした' }
 
         # 為替データの整形
         candle         = pd.DataFrame.from_dict([ row['mid'] for row in request.response['candles'] ])
@@ -89,11 +88,24 @@ class ChartWatcher(FXBase):
             FXBase.candles = pd.concat([FXBase.candles, candle]) \
                                .drop_duplicates(subset='time') \
                                .reset_index(drop=True)
-        return True
+        return { 'success': 'Oandaからのレート取得に成功' }
 
 if __name__ == '__main__':
     watcher = ChartWatcher()
-    if watcher.request_chart():
+    result  = watcher.request_chart()
+    if 'success' in result:
+        print(result['success'])
         print(FXBase.candles.head())
     else:
-        print('残念（>д<。）')
+        print(result['error'])
+        exit()
+
+    FXBase.candles['time_id']= FXBase.candles.index + 1
+    ana    = Analyzer()
+    result = ana.calc_trendlines()
+    if 'success' in result:
+        print(result['success'])
+        print(ana.desc_trends.tail())
+        ptint(pd.concat([FXBase.candles, ana.desc_trends], axis=1).head())
+    else:
+        print(result['error'])
