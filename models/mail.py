@@ -118,18 +118,18 @@ class GmailAPI:
         ''' send mail with GmailAPI '''
         service = self.__ConnectGmail()
         msg     = self.__create_message_with_image()
-        # try:
-        result  = service.users().messages().send(
-            userId=self.__FROM_ADDRESS,
-            body=msg
-        ).execute()
+        try:
+            result  = service.users().messages().send(
+                userId=self.__FROM_ADDRESS,
+                body=msg
+            ).execute()
 
-        print("Message Id: {}".format(result["id"]))
+            print("Message Id: {}".format(result["id"]))
 
-        # except gapi_client.errors.HttpError:
-        #     print("------start trace------")
-        #     traceback.print_exc()
-        #     print("------end trace------")
+        except gapi_client.errors.HttpError:
+            print("------start trace------")
+            traceback.print_exc()
+            print("------end trace------")
 
 if __name__ == '__main__':
     gmail_test = GmailAPI()
