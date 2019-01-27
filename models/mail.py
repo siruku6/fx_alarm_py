@@ -1,27 +1,35 @@
 # GmailAPI公式
 # https://developers.google.com/gmail/api/quickstart/python
+
 # Pythonを使ってGmail APIからメールを取得する(認証処理の参考)
 # https://qiita.com/orikei/items/73dc1ccc95d1872ab1cf
 
 # 一般的なmail送信処理 詳しい 一番役に立った
 # http://thinkami.hatenablog.com/entry/2016/06/09/062528
+
 # Gmail送信処理
 # https://qiita.com/okhrn/items/630a87ce1a44778bbeb1
 
-# Gmail認証に必要
-from __future__                import print_function
-from googleapiclient.discovery import build
-from httplib2                  import Http
-from oauth2client              import file, client, tools
-import os
+# エンコード方法わかるかも
+# https://docs.python.jp/3.5/library/email.encoders.html?highlight=encoders
+
+# 画像添付方法はここを参考にした
+# https://qiita.com/obana2010/items/579f54c414d65b939457
 
 # メール送信に必要
-import smtplib, base64
-from email.mime.base      import MIMEBase
+# import smtplib # Gmail経由ならいらない
+import base64
 from email.mime.multipart import MIMEMultipart
 from email.mime.text      import MIMEText
 from email.mime.image     import MIMEImage
 from email.utils          import formatdate
+
+# Gmail認証に必要
+# from __future__                import print_function
+from googleapiclient.discovery import build
+from httplib2                  import Http
+from oauth2client              import file, client, tools
+import os
 
 # エラー処理のためにやむを得ずimport
 import googleapiclient as gapi_client
@@ -54,7 +62,6 @@ class GmailAPI:
 
     def get_label_list(self):
         service = self.__ConnectGmail()
-        # Call the Gmail API
         results = service.users().labels().list(userId='me').execute()
         labels  = results.get('labels', [])
 
@@ -65,7 +72,7 @@ class GmailAPI:
             for label in labels:
                 print(label['name'])
 
-    def create_message(self):
+    def __create_message(self):
         ''' メールobject生成 '''
         msg = MIMEText(self.__BODY)
         msg['Subject'] = self.__SUBJECT
@@ -78,9 +85,9 @@ class GmailAPI:
         byte_msg            = msg.as_string().encode(encoding="UTF-8")
         byte_msg_b64encoded = base64.urlsafe_b64encode(byte_msg)
         str_msg_b64encoded  = byte_msg_b64encoded.decode(encoding="UTF-8")
-        return {"raw": str_msg_b64encoded}
+        return { "raw": str_msg_b64encoded }
 
-    def create_message_with_image(self):
+    def __create_message_with_image(self):
         ''' 添付画像付きメッセージを生成 '''
         msg = MIMEMultipart()
         msg['Subject'] = self.__SUBJECT
@@ -96,37 +103,34 @@ class GmailAPI:
             # https://docs.python.org/ja/3.7/library/email.mime.html
             atchment_file = MIMEImage(f.read(), _subtype='png')
 
-        # この行何も意味をなしてない
+        atchment_file.set_param('name', 'figure.png')
         atchment_file.add_header('Content-Dispositon','attachment',filename='figure.png')
         msg.attach(atchment_file)
 
-        # エンコード方法わかるかも
-        # https://docs.python.jp/3.5/library/email.encoders.html?highlight=encoders
-
-        # Encoders.encode_base64(atchment_file)
+        # エンコード方法
+        # http://thinkami.hatenablog.com/entry/2016/06/10/065731
         byte_msg            = msg.as_string().encode(encoding="UTF-8")
         byte_msg_b64encoded = base64.urlsafe_b64encode(byte_msg)
         str_msg_b64encoded  = byte_msg_b64encoded.decode(encoding="UTF-8")
-        return {"raw": str_msg_b64encoded}
+        return { "raw": str_msg_b64encoded }
 
-    def send(self, msg):
+    def send(self):
         ''' send mail with GmailAPI '''
         service = self.__ConnectGmail()
-        try:
-            result = service.users().messages().send(
-                userId=self.__FROM_ADDRESS,
-                body=msg
-            ).execute()
+        msg     = self.__create_message_with_image()
+        # try:
+        result  = service.users().messages().send(
+            userId=self.__FROM_ADDRESS,
+            body=msg
+        ).execute()
 
-            print("Message Id: {}".format(result["id"]))
+        print("Message Id: {}".format(result["id"]))
 
-        except gapi_client.errors.HttpError:
-            print("------start trace------")
-            traceback.print_exc()
-            print("------end trace------")
+        # except gapi_client.errors.HttpError:
+        #     print("------start trace------")
+        #     traceback.print_exc()
+        #     print("------end trace------")
 
 if __name__ == '__main__':
     gmail_test = GmailAPI()
-    msg        = gmail_test.create_message_with_image()
-    # msg        = gmail_test.create_message()
-    gmail_test.send(msg=msg)
+    gmail_test.send()
