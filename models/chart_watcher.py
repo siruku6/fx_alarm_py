@@ -82,7 +82,6 @@ class ChartWatcher(FXBase):
         # pandas_df == None という比較はできない
         # https://stackoverflow.com/questions/36217969/how-to-compare-pandas-dataframe-against-none-in-python
         if FXBase.candles is None:
-            print('candles is none')
             FXBase.candles = candle
         else:
             FXBase.candles = pd.concat([FXBase.candles, candle]) \
