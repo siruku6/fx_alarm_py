@@ -1,6 +1,8 @@
 import math
-from scipy.stats   import linregress
-from chart_watcher import FXBase
+import pandas as pd
+from scipy.stats          import linregress
+from models.chart_watcher import FXBase
+import models.drawer as drawer
 
 #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 #     トレンドライン生成・ブレイクポイント判定処理
@@ -27,7 +29,7 @@ class Analyzer(FXBase):
 
     # iterate dataframe
     # https://stackoverflow.com/questions/7837722/what-is-the-most-efficient-way-to-loop-through-dataframes-with-pandas
-    def calc_trendlines(self, span=20, min_interval=3):
+    def __calc_trendlines(self, span=20, min_interval=3):
         if FXBase.candles is None: return { 'error': 'データが存在しません' }
         trendlines = { 'high': [], 'low': [] }
 
@@ -92,6 +94,21 @@ class Analyzer(FXBase):
                             break
         return trendbreaks
 
+    def perform(self):
+        result = self.__calc_trendlines()
+        if 'success' in result:
+            print(result['success'])
+            print(self.desc_trends.tail())
+        else:
+            print(result['error'])
+
+        drwr = drawer.FigureDrawer()
+        drwr.draw_df_on_plt(df=self.desc_trends)
+        drwr.draw_df_on_plt(df=self.asc_trends)
+        drwr.draw_candles()
+        result = drwr.create_png()
+        return { 'success': 'チャート分析、png生成完了' }
+
 if __name__ == '__main__':
     import chart_watcher as cw
     c_watcher = cw.ChartWatcher()
@@ -102,9 +119,8 @@ if __name__ == '__main__':
 
     FXBase.candles['time_id']= FXBase.candles.index + 1
     ana    = Analyzer()
-    result = ana.calc_trendlines()
+    result = ana.perform()
     if 'success' in result:
         print(result['success'])
-        print(ana.desc_trends.tail())
     else:
-        print(result['error'])
+        print('analyzer error')
