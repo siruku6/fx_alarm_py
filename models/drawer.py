@@ -25,6 +25,22 @@ class FigureDrawer(FXBase):
             self.__axis1.plot(df.index, column.values, label=key)
         return { 'success': 'dfを描画' }
 
+    def draw_array_on_plt(self, array, over_candle=True):
+        ''' arrayを受け取って、各値(int)を描画 '''
+        if over_candle:
+            gap   = 1.0005
+            color = 'red'
+            label = 'GC'
+        else:
+            gap   = 0.9995
+            color = 'blue'
+            label = 'DC'
+        self.__axis1.scatter(
+            array,
+            FXBase.candles.close[array]*gap,
+            marker='o', color=color, label=label, s=20
+        )
+
     def draw_candles(self):
         ''' 取得済みチャートを描画 '''
         mpl_finance.candlestick2_ohlc(
@@ -39,7 +55,7 @@ class FigureDrawer(FXBase):
 
     def create_png(self):
         ''' 描画済みイメージをpngファイルに書き出す '''
-        plt.legend(loc='upper right')
+        plt.legend(loc='upper left')
         plt.savefig('figure.png')
         return { 'success': '描画済みイメージをpng化' }
 

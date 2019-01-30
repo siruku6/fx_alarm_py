@@ -60,7 +60,7 @@ class Analyzer(FXBase):
         self.asc_trends  = pd.concat(trendlines['low'],  axis=1)
         return { 'success': 'トレンドラインを生成しました' }
 
-    def get_breakpoints(self):
+    def __get_breakpoints(self):
         ''' トレンドブレイク箇所を配列で返す：今は下降トレンドのブレイクのみ '''
         close_candles = FXBase.candles.copy().close
         trendbreaks   = { 'jump': [], 'fall': [] }
@@ -92,12 +92,16 @@ class Analyzer(FXBase):
                            trend_line[i+1] > close_candles[i+1]:
                             trendbreaks[jump_or_fall].append(i+1)
                             break
+
+        self.jump_trendbreaks = trendbreaks['jump']
+        self.fall_trendbreaks = trendbreaks['fall']
         return trendbreaks
 
     def perform(self):
         result = self.__calc_trendlines()
         if 'success' in result:
             print(result['success'])
+            self.__get_breakpoints()
             print(self.desc_trends.tail())
         else:
             print(result['error'])
@@ -105,22 +109,8 @@ class Analyzer(FXBase):
         drwr = drawer.FigureDrawer()
         drwr.draw_df_on_plt(df=self.desc_trends)
         drwr.draw_df_on_plt(df=self.asc_trends)
+        drwr.draw_array_on_plt(array=self.jump_trendbreaks, over_candle=True)
+        drwr.draw_array_on_plt(array=self.fall_trendbreaks, over_candle=False)
         drwr.draw_candles()
         result = drwr.create_png()
         return { 'success': 'チャート分析、png生成完了' }
-
-if __name__ == '__main__':
-    import chart_watcher as cw
-    c_watcher = cw.ChartWatcher()
-    c_watcher.request_chart()
-    if FXBase.candles is None:
-        print('表示可能なデータが存在しません')
-        exit()
-
-    FXBase.candles['time_id']= FXBase.candles.index + 1
-    ana    = Analyzer()
-    result = ana.perform()
-    if 'success' in result:
-        print(result['success'])
-    else:
-        print('analyzer error')
