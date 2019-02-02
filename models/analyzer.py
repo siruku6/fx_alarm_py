@@ -4,10 +4,10 @@ from scipy.stats          import linregress
 from models.chart_watcher import FXBase
 import models.drawer as drawer
 
-#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
-#     トレンドライン生成・ブレイクポイント判定処理
-#  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 class Analyzer(FXBase):
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #                     TrendLine                       #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def __get_local_extremum(self, start, end, bool_high):
         ''' 高値(high) / 安値(low)の始点 / 支点を取得
             チャートを単回帰分析し、結果直線よりも上（下）の値だけで再度単回帰分析...
@@ -79,7 +79,6 @@ class Analyzer(FXBase):
                     # i, i+1 がトレンドラインに存在しない場合にスキップ
                     if not(i in trend_line.index) or not(i+1 in trend_line.index):
                         continue
-                    # i, i+1 の行に Nan が入っている場合もスキップ
                     if math.isnan(trend_line[i]) or math.isnan(trend_line[i+1]):
                         continue
                     if bool_jump:
@@ -97,6 +96,66 @@ class Analyzer(FXBase):
         self.fall_trendbreaks = trendbreaks['fall']
         return trendbreaks
 
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #                   Parabolic SAR                     #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    INITIAL_AF = 0.02
+    MAX_AF     = 0.2
+
+    def __is_touched(self, bull, current_parabo, current_h, current_l):
+        if bull:
+            if current_parabo > current_l:
+                return True
+        else:
+            if current_parabo < current_h:
+                return True
+        return False
+
+    def __re_calc(self):
+        # 初期状態は上昇トレンドと仮定して計算
+        bull                = True
+        acceleration_factor = INITIAL_AF
+        extreme_price       = FXBase.candles['high'][0]
+        self.SARs           = [FXBase.candles['low'][0]]
+
+        for i, row in FXBase.candles.iterrows():
+            current_high = FXBase.candles['high'][i]
+            current_low  = FXBase.candles['low'][i]
+
+            # レートがparabolicに触れたときの処理
+            if parabolic_is_touched(
+                bull=bull,
+                current_parabo=self.SARs[-1],
+                current_h=current_high, current_l=current_low
+            ):
+                parabolicSAR        = extreme_price
+                acceleration_factor = INITIAL_AF
+                if bull:
+                    bull = False
+                    extreme_price = current_low
+                else:
+                    bull = True
+                    extreme_price = current_high
+
+            else:
+                if bull:
+                    if extreme_price < current_high:
+                        extreme_price       = current_high
+                        acceleration_factor = min(acceleration_factor + INITIAL_AF, MAX_AF)
+                else:
+                    if extreme_price > current_low:
+                        extreme_price       = current_low
+                        acceleration_factor = min(acceleration_factor + INITIAL_AF, MAX_AF)
+                parabolicSAR = self.SARs[-1] + acceleration_factor * (extreme_price - self.SARs[-1])
+
+            if i == 0:
+                self.SARs[-1] = parabolicSAR
+            else:
+                self.SARs.append(parabolicSAR)
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #                       Driver                        #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def perform(self):
         result = self.__calc_trendlines()
         if 'success' in result:
