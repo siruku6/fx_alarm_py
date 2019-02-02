@@ -17,7 +17,7 @@ if __name__ == '__main__':
         exit()
 
     # 定期処理
-    timer = intrvl.MethodTimer(c_watcher.request_chart)
+    timer = intrvl.MethodTimer(span_minutes=5, method=c_watcher.request_chart)
     while True:
         intrvl.schedule.run_pending()
         next_time = intrvl.schedule.next_run().strftime('%Y-%m-%d %H:%M')

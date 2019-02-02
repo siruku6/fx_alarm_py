@@ -2,13 +2,13 @@ import schedule
 import time
 
 class MethodTimer():
-    def __init__(self, method):
-        schedule.every(5).minutes.do(method)
+    def __init__(self, span_minutes, method):
+        schedule.every(span_minutes).minutes.do(method)
 
 if __name__ == '__main__':
     def hoge():
         print('hoge')
-    timer = MethodTimer(hoge)
+    timer = MethodTimer(span_minutes=5, method=hoge)
 
     while True:
         schedule.run_pending()
