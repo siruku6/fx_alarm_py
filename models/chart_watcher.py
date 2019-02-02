@@ -12,6 +12,20 @@ class FXBase():
         ''' 継承されるためにあるクラスのため、実行(init)されない '''
         print('FXBase is inited.')
 
+    # クラスメソッドのルール
+    # https://www.st-hakky-blog.com/entry/2017/11/15/155523
+    @classmethod
+    def union_candles_distinct(cls, candle):
+        # 起動後の初回のみ candles is None
+        # pandas_df == None という比較はできない
+        # https://stackoverflow.com/questions/36217969/how-to-compare-pandas-dataframe-against-none-in-python
+        if cls.candles is None:
+            cls.candles = candle
+        else:
+            cls.candles = pd.concat([cls.candles, candle]) \
+                            .drop_duplicates(subset='time') \
+                            .reset_index(drop=True)
+
 class ChartWatcher(FXBase):
     def __init__(self, candles=None, days=1):
         ''' 固定パラメータの設定 '''
@@ -78,15 +92,7 @@ class ChartWatcher(FXBase):
         # 冗長な日時データを短縮 https://note.nkmk.me/python-pandas-datetime-timestamp/
         candle['time'] = pd.to_datetime(candle['time']).astype(str) # TODO .astype(str) これでいいのか？
 
-        # 起動後の初回のみ candles is None
-        # pandas_df == None という比較はできない
-        # https://stackoverflow.com/questions/36217969/how-to-compare-pandas-dataframe-against-none-in-python
-        if FXBase.candles is None:
-            FXBase.candles = candle
-        else:
-            FXBase.candles = pd.concat([FXBase.candles, candle]) \
-                               .drop_duplicates(subset='time') \
-                               .reset_index(drop=True)
+        FXBase.union_candles_distinct(candle=candle)
         return { 'success': 'Oandaからのレート取得に成功' }
 
 if __name__ == '__main__':
