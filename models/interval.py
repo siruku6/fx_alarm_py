@@ -2,7 +2,7 @@ import schedule
 import time
 
 class MethodTimer():
-    def __init__(self, span_minutes=5, method):
+    def __init__(self, method, span_minutes=5):
         schedule.every(span_minutes).minutes.do(method)
 
     def wait_until_killed(self, report_span_sec=20):
@@ -19,5 +19,5 @@ class MethodTimer():
 if __name__ == '__main__':
     def hoge():
         print('hoge')
-    timer = MethodTimer(span_minutes=5, method=hoge)
+    timer = MethodTimer(method=hoge, span_minutes=5)
     timer.wait_until_killed(report_span_sec=3)
