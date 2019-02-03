@@ -1,4 +1,4 @@
-models/test_cord.py
-*.json
 __pycache__/
 samples/
+test_cord.py
+*.json
