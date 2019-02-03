@@ -18,11 +18,14 @@ class Main():
             print(result['error'])
             exit()
 
-        watcher.FXBase.candles['time_id']= watcher.FXBase.candles.index + 1
         result = self.ana.perform()
-        num = len(watcher.FXBase.candles)
-        if self.ana.jump_trendbreaks[-1] == num or self.ana.fall_trendbreaks[-1] == num:
-            self.gmailer.send()
+        if 'success' in result:
+            if result['success']['alart_necessary']:
+                print('ALART MAIL 送信')
+                self.gmailer.send()
+        else:
+            print(result['error'])
+
 
 if __name__ == '__main__':
     main = Main()

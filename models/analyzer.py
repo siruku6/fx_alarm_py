@@ -31,6 +31,7 @@ class Analyzer(FXBase):
     # https://stackoverflow.com/questions/7837722/what-is-the-most-efficient-way-to-loop-through-dataframes-with-pandas
     def __calc_trendlines(self, span=20, min_interval=3):
         if FXBase.candles is None: return { 'error': 'データが存在しません' }
+        FXBase.candles['time_id']= FXBase.candles.index + 1
         trendlines = { 'high': [], 'low': [] }
 
         # [下降・上昇]の２回ループ
@@ -159,11 +160,11 @@ class Analyzer(FXBase):
     def perform(self):
         result = self.__calc_trendlines()
         if 'success' in result:
-            print(result['success'])
             self.__get_breakpoints()
+            print(result['success'])
             print(self.desc_trends.tail())
         else:
-            print(result['error'])
+            return result
 
         drwr = drawer.FigureDrawer()
         drwr.draw_df_on_plt(df=self.desc_trends)
@@ -172,4 +173,16 @@ class Analyzer(FXBase):
         drwr.draw_array_on_plt(array=self.fall_trendbreaks, over_candle=False)
         drwr.draw_candles()
         result = drwr.create_png()
-        return { 'success': 'チャート分析、png生成完了' }
+
+        num = len(FXBase.candles)
+        if self.jump_trendbreaks[-1] == num or self.fall_trendbreaks[-1] == num:
+            alart_necessary = True
+        else:
+            alart_necessary = False
+
+        return {
+            'success': {
+                'msg': 'チャート分析、png生成完了',
+                'alart_necessary': alart_necessary
+            }
+        }
