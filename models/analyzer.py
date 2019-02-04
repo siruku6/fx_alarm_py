@@ -6,6 +6,16 @@ import models.drawer as drawer
 
 class Analyzer(FXBase):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #                  Moving Average                     #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def __calc_EMA(self):
+        # TODO: scipyを使うと早くなる
+        # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
+        self.__10EMA = pd.DataFrame(
+            FXBase.candles['close'].ewm(span=10).mean()
+        ).rename(columns={ 'close': '10EMA' })
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def __get_local_extremum(self, start, end, bool_high):
@@ -111,7 +121,7 @@ class Analyzer(FXBase):
                 return True
         return False
 
-    def __re_calc_parabolic(self):
+    def __calc_parabolic(self):
         # 初期状態は上昇トレンドと仮定して計算
         bull                = True
         acceleration_factor = Analyzer.INITIAL_AF
@@ -165,12 +175,14 @@ class Analyzer(FXBase):
             print(self.desc_trends.tail())
         else:
             print(result['error'])
-        self.__re_calc_parabolic()
+        self.__calc_parabolic()
+        self.__calc_EMA()
 
         drwr = drawer.FigureDrawer()
         drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['line'])
         drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['line'])
-        drwr.draw_df_on_plt(df=self.SARs, plot_type=drwr.PLOT_TYPE['dot'])
+        drwr.draw_df_on_plt(df=self.__10EMA,     plot_type=drwr.PLOT_TYPE['line'])
+        drwr.draw_df_on_plt(df=self.SARs,        plot_type=drwr.PLOT_TYPE['dot'])
         drwr.draw_indexes_on_plt(array=self.jump_trendbreaks, over_candle=True)
         drwr.draw_indexes_on_plt(array=self.fall_trendbreaks, over_candle=False)
         drwr.draw_candles()
