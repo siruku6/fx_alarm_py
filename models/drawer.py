@@ -63,6 +63,12 @@ class FigureDrawer(FXBase):
 
     def create_png(self):
         ''' 描画済みイメージをpngファイルに書き出す '''
+        ## X軸の見た目を整える
+        xticks_number  = 12 # 12本(60分)刻みに目盛りを書く
+        xticks_index   = range(0, len(FXBase.candles), xticks_number)
+        xticks_display = [FXBase.candles.time.values[i][11:16] for i in xticks_index] # 時間を切り出すため、先頭12文字目から取る
+        plt.sca(self.__axis1)
+        plt.xticks(xticks_index, xticks_display)
         plt.legend(loc='upper left')
         plt.savefig('figure.png')
         return { 'success': '描画済みイメージをpng化' }
