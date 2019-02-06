@@ -1,3 +1,4 @@
+import os
 from flask import Flask, request
 
 def init_app():
