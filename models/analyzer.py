@@ -186,11 +186,11 @@ class Analyzer(FXBase):
 
     def draw_chart(self):
         drwr = drawer.FigureDrawer()
-        drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['line'])
-        drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['line'])
-        drwr.draw_df_on_plt(df=self.__SMA,       plot_type=drwr.PLOT_TYPE['line'])
-        drwr.draw_df_on_plt(df=self.__EMA,       plot_type=drwr.PLOT_TYPE['line'])
-        drwr.draw_df_on_plt(df=self.SARs,        plot_type=drwr.PLOT_TYPE['dot'])
+        drwr.draw_df_on_plt(df=self.__SMA,       plot_type=drwr.PLOT_TYPE['simple-line'], color='red')
+        drwr.draw_df_on_plt(df=self.__EMA,       plot_type=drwr.PLOT_TYPE['simple-line'], color='yellow')
+        drwr.draw_df_on_plt(df=self.SARs,        plot_type=drwr.PLOT_TYPE['dot'],         color='lightpink')
+        drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
+        drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
         drwr.draw_indexes_on_plt(array=self.jump_trendbreaks, over_candle=True)
         drwr.draw_indexes_on_plt(array=self.fall_trendbreaks, over_candle=False)
         drwr.draw_candles()

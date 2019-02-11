@@ -1,3 +1,6 @@
+# pyplot 指定可能な colors list
+# https://pythondatascience.plavox.info/matplotlib/%E8%89%B2%E3%81%AE%E5%90%8D%E5%89%8D
+
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
@@ -6,14 +9,14 @@ import mpl_finance
 from models.chart_watcher import FXBase
 
 class FigureDrawer(FXBase):
-    PLOT_TYPE = { 'dot': 0, 'line': 1 }
+    PLOT_TYPE = { 'dot': 0, 'simple-line': 1, 'dashed-line': 2 }
 
     def __init__(self):
         self.__figure, (self.__axis1) = \
             plt.subplots(nrows=1, ncols=1, figsize=(10,5), dpi=200)
         self.__axis1.set_title('FX candles')
 
-    def draw_df_on_plt(self, df, plot_type=PLOT_TYPE['line']):
+    def draw_df_on_plt(self, df, plot_type=PLOT_TYPE['simple-line'], color='black'):
         ''' DataFrameを受け取って、各columnを描画 '''
         # エラー防止処理
         if df is None:
@@ -23,14 +26,15 @@ class FigureDrawer(FXBase):
 
         # 描画
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
-        if plot_type == FigureDrawer.PLOT_TYPE['line']:
+        if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
             for key, column in df.iteritems():
-                self.__axis1.plot(df.index, column.values, label=key)
-
+                self.__axis1.plot(df.index, column.values, label=key, c=color)
+        elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
+            for key, column in df.iteritems():
+                self.__axis1.plot(df.index, column.values, label=key, c=color, linestyle='dashed', linewidth=0.7)
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
             for key, column in df.iteritems():
-                self.__axis1.scatter(df.index, column.values, label=key, marker='d', c='lightpink', s=3)
-
+                self.__axis1.scatter(df.index, column.values, label=key, c=color, marker='d', s=3)
         return { 'success': 'dfを描画' }
 
     def draw_indexes_on_plt(self, array, over_candle=True):
@@ -67,6 +71,8 @@ class FigureDrawer(FXBase):
         xticks_number  = 12 # 12本(60分)刻みに目盛りを書く
         xticks_index   = range(0, len(FXBase.candles), xticks_number)
         xticks_display = [FXBase.candles.time.values[i][11:16] for i in xticks_index] # 時間を切り出すため、先頭12文字目から取る
+        self.__axis1.yaxis.tick_right()
+        self.__axis1.yaxis.grid(color='lightgray', linestyle='dashed')
         plt.sca(self.__axis1)
         plt.xticks(xticks_index, xticks_display)
         plt.legend(loc='upper left')
