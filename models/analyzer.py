@@ -8,12 +8,16 @@ class Analyzer(FXBase):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Moving Average                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def __calc_EMA(self):
+    def __calc_SMA(self, window_size=20):
+        close      = FXBase.candles.close
+        sma        = pd.Series.rolling(close, window=window_size).mean() #.dropna().reset_index(drop = True)
+        self.__SMA = pd.DataFrame(sma).rename(columns={ 'close': '20SMA' })
+
+    def __calc_EMA(self, window_size=10):
         # TODO: scipyを使うと早くなる
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
-        self.__10EMA = pd.DataFrame(
-            FXBase.candles['close'].ewm(span=10).mean()
-        ).rename(columns={ 'close': '10EMA' })
+        ema        = FXBase.candles.close.ewm(span=window_size).mean()
+        self.__EMA = pd.DataFrame(ema).rename(columns={ 'close': '10EMA' })
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
@@ -50,7 +54,7 @@ class Analyzer(FXBase):
             sign        = 1      if bool_high else -1
 
             # for i in array[start:end-1:step]:
-            for i in FXBase.candles.index[::span/2]:
+            for i in FXBase.candles.index[::int(span/2)]:
                 extremals = self.__get_local_extremum(i, i + span, bool_high=bool_high)
                 if len(extremals) < 2:
                     continue
@@ -63,7 +67,7 @@ class Analyzer(FXBase):
                 )
                 print(regression[0]*sign < 0.0, '傾き: ', regression[0], ', 切片: ', regression[1], )
                 if regression[0]*sign < 0.0: # 傾き
-                    trendline = regression[0] * FXBase.candles['time_id'][i:i+span*2] + regression[1]
+                    trendline = regression[0] * FXBase.candles.time_id[i:i+span*2] + regression[1]
                     trendline.name = 'x_%s' % str(i)
                     trendlines[high_or_low].append(trendline)
 
@@ -126,12 +130,12 @@ class Analyzer(FXBase):
         # 初期状態は上昇トレンドと仮定して計算
         bull                = True
         acceleration_factor = Analyzer.INITIAL_AF
-        extreme_price       = FXBase.candles['high'][0]
-        self.SARs           = [FXBase.candles['low'][0]]
+        extreme_price       = FXBase.candles.high[0]
+        self.SARs           = [FXBase.candles.low[0]]
 
         for i, row in FXBase.candles.iterrows():
-            current_high = FXBase.candles['high'][i]
-            current_low  = FXBase.candles['low'][i]
+            current_high = FXBase.candles.high[i]
+            current_low  = FXBase.candles.low[i]
 
             # レートがparabolicに触れたときの処理
             if self.__parabolic_is_touched(
@@ -171,19 +175,21 @@ class Analyzer(FXBase):
     def perform(self):
         result = self.__calc_trendlines()
         if 'success' in result:
+            self.__calc_SMA()
+            self.__calc_EMA()
+            self.__calc_parabolic()
             self.__get_breakpoints()
             print(result['success'])
             print(self.desc_trends.tail())
-        else:
-            return result
 
-        self.__calc_parabolic()
-        self.__calc_EMA()
+        return result
 
+    def draw_chart(self):
         drwr = drawer.FigureDrawer()
         drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['line'])
         drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['line'])
-        drwr.draw_df_on_plt(df=self.__10EMA,     plot_type=drwr.PLOT_TYPE['line'])
+        drwr.draw_df_on_plt(df=self.__SMA,       plot_type=drwr.PLOT_TYPE['line'])
+        drwr.draw_df_on_plt(df=self.__EMA,       plot_type=drwr.PLOT_TYPE['line'])
         drwr.draw_df_on_plt(df=self.SARs,        plot_type=drwr.PLOT_TYPE['dot'])
         drwr.draw_indexes_on_plt(array=self.jump_trendbreaks, over_candle=True)
         drwr.draw_indexes_on_plt(array=self.fall_trendbreaks, over_candle=False)

@@ -1,7 +1,5 @@
-import models.mail          as mail
-import models.interval      as interval
+from models import analyzer, interval, mail
 import models.chart_watcher as watcher
-import models.analyzer      as analyzer
 
 class Main():
     def __init__(self):
@@ -18,7 +16,11 @@ class Main():
             print(result['error'])
             exit()
 
-        result = self.ana.perform()
+        if 'success' in self.ana.perform():
+            result = self.ana.draw_chart()
+        else:
+            exit()
+
         if 'success' in result:
             if result['success']['alart_necessary']:
                 print('ALART MAIL 送信')
