@@ -3,7 +3,8 @@ from flask          import Flask, request
 from logging.config import dictConfig
 
 def set_logger():
-    filepath = './log/flask.log'
+    root_path = os.path.dirname(os.path.dirname(__file__))
+    filepath  = os.path.join(root_path, 'log/flask.log')
     if not os.path.isfile(filepath):
         with open(filepath, 'w') as f:
             pass
@@ -20,7 +21,7 @@ def set_logger():
             'file': {
                 'class': 'logging.handlers.TimedRotatingFileHandler',
                 'formatter': 'file',
-                'filename': './log/flask.log',
+                'filename': filepath,
                 'backupCount': 3,
                 'when': 'D',
             }
