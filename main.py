@@ -32,5 +32,5 @@ if __name__ == '__main__':
     main.periodic_processes()
 
     # 2回目以降の定期処理
-    timer = interval.MethodTimer(method=main.periodic_processes, span_minutes=5)
-    timer.wait_until_killed(report_span_sec=20)
+    interval.periodically_exec(method=main.periodic_processes, span_minutes=5)
+    interval.wait_until_killed(report_span_sec=20)
