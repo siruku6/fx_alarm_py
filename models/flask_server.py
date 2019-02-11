@@ -31,7 +31,8 @@ app = Flask(__name__)
 def index():
     return 'flask is opening !'
 
-if __name__ == 'server':
+# file_name
+if __name__ == 'flask_server':
     set_logger()
 
 if __name__ == '__main__':
