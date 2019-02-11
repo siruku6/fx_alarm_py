@@ -1,2 +1,2 @@
-web: gunicorn app: models/flask_server.py --log-file=-
+web: gunicorn models/flask_server:app --log-file=-
 # web: models/flask_server.py
