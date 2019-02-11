@@ -9,15 +9,33 @@ class Analyzer(FXBase):
     #                  Moving Average                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def __calc_SMA(self, window_size=20):
+        ''' 単純移動平均線を生成 '''
         close      = FXBase.candles.close
         sma        = pd.Series.rolling(close, window=window_size).mean() #.dropna().reset_index(drop = True)
         self.__SMA = pd.DataFrame(sma).rename(columns={ 'close': '20SMA' })
 
     def __calc_EMA(self, window_size=10):
+        ''' 指数平滑移動平均線を生成 '''
         # TODO: scipyを使うと早くなる
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
         ema        = FXBase.candles.close.ewm(span=window_size).mean()
         self.__EMA = pd.DataFrame(ema).rename(columns={ 'close': '10EMA' })
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #                       Thrust                        #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def __detect_thrust(self):
+        ''' スラストを検出 '''
+        high_candles  = FXBase.candles.high
+        low_candles   = FXBase.candles.low
+        close_candles = FXBase.candles.close[1:] # 0番目は過去の価格がないのでパス
+        self.thrusts  = { 'up': [], 'down': [] }
+
+        for i, c_price in enumerate(close_candles, 1):
+            if c_price > high_candles[i-1]:
+                self.thrusts['up'].append(i)
+            elif c_price < low_candles[i-1]:
+                self.thrusts['down'].append(i)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
@@ -173,11 +191,12 @@ class Analyzer(FXBase):
     #                       Driver                        #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def perform(self):
+        self.__calc_SMA()
+        self.__calc_EMA()
+        self.__calc_parabolic()
+        self.__detect_thrust()
         result = self.__calc_trendlines()
         if 'success' in result:
-            self.__calc_SMA()
-            self.__calc_EMA()
-            self.__calc_parabolic()
             self.__get_breakpoints()
             print(result['success'])
             print(self.desc_trends.tail())
@@ -191,8 +210,10 @@ class Analyzer(FXBase):
         drwr.draw_df_on_plt(df=self.SARs,        plot_type=drwr.PLOT_TYPE['dot'],         color='lightpink')
         drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
         drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
-        drwr.draw_indexes_on_plt(array=self.jump_trendbreaks, over_candle=True)
-        drwr.draw_indexes_on_plt(array=self.fall_trendbreaks, over_candle=False)
+        drwr.draw_indexes_on_plt(array=self.thrusts['up'],    dot_type=drwr.DOT_TYPE['thrust'], over_candle=True)
+        drwr.draw_indexes_on_plt(array=self.thrusts['down'],  dot_type=drwr.DOT_TYPE['thrust'], over_candle=False)
+        drwr.draw_indexes_on_plt(array=self.jump_trendbreaks, dot_type=drwr.DOT_TYPE['break'],  over_candle=True)
+        drwr.draw_indexes_on_plt(array=self.fall_trendbreaks, dot_type=drwr.DOT_TYPE['break'],  over_candle=False)
         drwr.draw_candles()
         result = drwr.create_png()
 

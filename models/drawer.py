@@ -9,7 +9,8 @@ import mpl_finance
 from models.chart_watcher import FXBase
 
 class FigureDrawer(FXBase):
-    PLOT_TYPE = { 'dot': 0, 'simple-line': 1, 'dashed-line': 2 }
+    PLOT_TYPE = { 'dot':    0, 'simple-line': 1, 'dashed-line': 2 }
+    DOT_TYPE  = { 'thrust': 0, 'break':       1 }
 
     def __init__(self):
         self.__figure, (self.__axis1) = \
@@ -37,16 +38,26 @@ class FigureDrawer(FXBase):
                 self.__axis1.scatter(df.index, column.values, label=key, c=color, marker='d', s=3)
         return { 'success': 'dfを描画' }
 
-    def draw_indexes_on_plt(self, array, over_candle=True):
+    def draw_indexes_on_plt(self, array, dot_type=DOT_TYPE['thrust'], over_candle=True):
         ''' arrayを受け取って、各値(int)を描画 '''
-        if over_candle:
-            gap   = 1.0005
-            color = 'red'
-            label = 'GC'
-        else:
-            gap   = 0.9995
-            color = 'blue'
-            label = 'DC'
+        if dot_type == FigureDrawer.DOT_TYPE['thrust']:
+            size = 10
+            if over_candle:
+                color = 'lawngreen'
+                label = 'thrust-up'
+            else:
+                color = 'firebrick'
+                label = 'thrust-down'
+        elif dot_type == FigureDrawer.DOT_TYPE['break']:
+            size = 20
+            if over_candle:
+                color = 'red'
+                label = 'GC'
+            else:
+                color = 'blue'
+                label = 'DC'
+
+        gap = 1.0005 if over_candle else 0.9995
         self.__axis1.scatter(
             array,
             FXBase.candles.close[array]*gap,
