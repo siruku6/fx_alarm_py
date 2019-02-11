@@ -1,5 +1,6 @@
 ###### Requirements without Version Specifiers ######
 # 一般的な子たち
+flask
 schedule
 numpy
 scipy
