@@ -3,6 +3,11 @@ from flask          import Flask, request
 from logging.config import dictConfig
 
 def set_logger():
+    filepath = './log/flask.log'
+    if not os.path.isfile(filepath):
+        with open(filepath, 'w') as f:
+            pass
+
     # https://qiita.com/sky_jokerxx/items/15b2be7a97342988d734
     dictConfig({
         'version': 1,
