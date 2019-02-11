@@ -2,3 +2,5 @@ __pycache__/
 samples/
 test_cord.py
 *.json
+log/*.log
+
