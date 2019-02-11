@@ -6,6 +6,16 @@ import models.drawer as drawer
 
 class Analyzer(FXBase):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #                  Moving Average                     #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def __calc_EMA(self):
+        # TODO: scipyを使うと早くなる
+        # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
+        self.__10EMA = pd.DataFrame(
+            FXBase.candles['close'].ewm(span=10).mean()
+        ).rename(columns={ 'close': '10EMA' })
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def __get_local_extremum(self, start, end, bool_high):
@@ -103,7 +113,7 @@ class Analyzer(FXBase):
     INITIAL_AF = 0.02
     MAX_AF     = 0.2
 
-    def __is_touched(self, bull, current_parabo, current_h, current_l):
+    def __parabolic_is_touched(self, bull, current_parabo, current_h, current_l):
         if bull:
             if current_parabo > current_l:
                 return True
@@ -112,10 +122,10 @@ class Analyzer(FXBase):
                 return True
         return False
 
-    def __re_calc(self):
+    def __calc_parabolic(self):
         # 初期状態は上昇トレンドと仮定して計算
         bull                = True
-        acceleration_factor = INITIAL_AF
+        acceleration_factor = Analyzer.INITIAL_AF
         extreme_price       = FXBase.candles['high'][0]
         self.SARs           = [FXBase.candles['low'][0]]
 
@@ -124,13 +134,13 @@ class Analyzer(FXBase):
             current_low  = FXBase.candles['low'][i]
 
             # レートがparabolicに触れたときの処理
-            if parabolic_is_touched(
+            if self.__parabolic_is_touched(
                 bull=bull,
                 current_parabo=self.SARs[-1],
                 current_h=current_high, current_l=current_low
             ):
                 parabolicSAR        = extreme_price
-                acceleration_factor = INITIAL_AF
+                acceleration_factor = Analyzer.INITIAL_AF
                 if bull:
                     bull = False
                     extreme_price = current_low
@@ -142,17 +152,18 @@ class Analyzer(FXBase):
                 if bull:
                     if extreme_price < current_high:
                         extreme_price       = current_high
-                        acceleration_factor = min(acceleration_factor + INITIAL_AF, MAX_AF)
+                        acceleration_factor = min(acceleration_factor + Analyzer.INITIAL_AF, Analyzer.MAX_AF)
                 else:
                     if extreme_price > current_low:
                         extreme_price       = current_low
-                        acceleration_factor = min(acceleration_factor + INITIAL_AF, MAX_AF)
+                        acceleration_factor = min(acceleration_factor + Analyzer.INITIAL_AF, Analyzer.MAX_AF)
                 parabolicSAR = self.SARs[-1] + acceleration_factor * (extreme_price - self.SARs[-1])
 
             if i == 0:
                 self.SARs[-1] = parabolicSAR
             else:
                 self.SARs.append(parabolicSAR)
+        self.SARs = pd.DataFrame(data=self.SARs, columns=['SAR'])
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                       Driver                        #
@@ -166,11 +177,16 @@ class Analyzer(FXBase):
         else:
             return result
 
+        self.__calc_parabolic()
+        self.__calc_EMA()
+
         drwr = drawer.FigureDrawer()
-        drwr.draw_df_on_plt(df=self.desc_trends)
-        drwr.draw_df_on_plt(df=self.asc_trends)
-        drwr.draw_array_on_plt(array=self.jump_trendbreaks, over_candle=True)
-        drwr.draw_array_on_plt(array=self.fall_trendbreaks, over_candle=False)
+        drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['line'])
+        drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['line'])
+        drwr.draw_df_on_plt(df=self.__10EMA,     plot_type=drwr.PLOT_TYPE['line'])
+        drwr.draw_df_on_plt(df=self.SARs,        plot_type=drwr.PLOT_TYPE['dot'])
+        drwr.draw_indexes_on_plt(array=self.jump_trendbreaks, over_candle=True)
+        drwr.draw_indexes_on_plt(array=self.fall_trendbreaks, over_candle=False)
         drwr.draw_candles()
         result = drwr.create_png()
 
