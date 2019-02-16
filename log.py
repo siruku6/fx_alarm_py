@@ -1,7 +1,8 @@
 from datetime import datetime
 
 def update_log():
-    enum_weekday = {
+    hist_file_path = 'log/heroku_scheduler.hist'
+    enum_weekday   = {
         0: 'Mon', 1: 'Tue', 2: 'Wed', 3:'Thu',
         4: 'Fri', 5: 'Sat', 6: 'Sun'
     }
@@ -11,7 +12,7 @@ def update_log():
     weekday   = enum_weekday[now_delta.weekday()]
     action    = 'now sleeping ...' if weekday in ['Sat', 'Sun'] else 'updated ...'
     line      = '{now}({weekday}) {action} \n'.format(now=now, weekday=weekday, action=action)
-    with open('sleep_test.txt', mode='a', encoding='utf-8') as file:
+    with open(hist_file_path, mode='a', encoding='utf-8') as file:
         file.write(line)
 
 if __name__ == '__main__':
