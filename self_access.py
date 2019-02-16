@@ -1,29 +1,18 @@
-import requests
 from datetime import datetime
-import models.interval as interval
 
-# http://docs.python-requests.org/en/master/
-def request_hoge():
-    response = requests.get('https://fx-alarm-py.herokuapp.com/')
-    status   = response.status_code
-    print('status: {status_code}'.format(status_code=status))
-    # print(response.headers['content-type'])
-    # print(response.encoding)
-    print(response.text[:100])
+def update_log():
+    enum_weekday = {
+        0: 'Mon', 1: 'Tue', 2: 'Wed', 3:'Thu',
+        4: 'Fri', 5: 'Sat', 6: 'Sun'
+    }
 
+    now_delta = datetime.now()
+    now       = now_delta.strftime("%Y/%m/%d %H:%M:%S")
+    weekday   = enum_weekday[now_delta.weekday()]
+    action    = 'now sleeping ...' if weekday in ['Sat', 'Sun'] else 'updated ...'
+    line      = '{now}({weekday}) {action} \n'.format(now=now, weekday=weekday, action=action)
     with open('sleep_test.txt', mode='a', encoding='utf-8') as file:
-        now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-        if int(status) < 300:
-            msg = '{now} updated ...\n'.format(now=now)
-            file.write(msg)
-        else:
-            msg = '{now} server closed !\n'.format(now=now)
-            file.write(msg)
-            exit()
+        file.write(line)
 
 if __name__ == '__main__':
-    access_timer = interval.MethodTimer(
-        method=request_hoge,
-        span_minutes=1
-    )
-    access_timer.wait_until_killed(report_span_sec=5)
+    update_log()
