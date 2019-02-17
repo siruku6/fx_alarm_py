@@ -1,9 +1,9 @@
-from models import analyzer, interval, mail
+from models import analyzer, interval, mailer
 import models.chart_watcher as watcher
 
 class Main():
     def __init__(self):
-        self.gmailer   = mail.GmailAPI()
+        self.gmailer   = mailer.GmailAPI()
         self.c_watcher = watcher.ChartWatcher()
         self.ana       = analyzer.Analyzer()
 
