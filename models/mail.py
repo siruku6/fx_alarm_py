@@ -25,11 +25,14 @@ from email.mime.image     import MIMEImage
 from email.utils          import formatdate
 
 # Gmail認証に必要
-# from __future__                import print_function
 from googleapiclient.discovery import build
 from httplib2                  import Http
 from oauth2client              import file, client, tools
 import os
+
+# sendgridでのメール送信に必要
+import sendgrid
+import sendgrid.helpers.mail as sg_helper
 
 # エラー処理のためにやむを得ずimport
 import googleapiclient as gapi_client
@@ -37,15 +40,19 @@ import traceback
 
 class GmailAPI:
     def __init__(self):
-        # scopeの選択方法
-        # https://developers.google.com/gmail/api/auth/scopes
-        # If modifying these scopes, delete the file token.json.
-        self.__SCOPES       = 'https://www.googleapis.com/auth/gmail.send'
-        self.__FROM_ADDRESS = os.environ['MAIL_FROM']
-        self.__TO_ADDRESS   = os.environ['MAIL_TO']
-        # self.__BCC          = ''
-        self.__SUBJECT      = 'GmailのSMTPサーバ経由てすと'
-        self.__BODY         = 'pythonでメール送信する'
+        if os.path.isfile('gmail_credentials.json_bk') and os.path.isfile('token.json'):
+            # scopeの選択方法
+            # https://developers.google.com/gmail/api/auth/scopes
+            # If modifying these scopes, delete the file token.json.
+            self.__SCOPES       = 'https://www.googleapis.com/auth/gmail.send'
+            self.__FROM_ADDRESS = os.environ['MAIL_FROM']
+            self.__TO_ADDRESS   = os.environ['MAIL_TO']
+            # self.__BCC          = ''
+            self.__SUBJECT      = 'GmailのSMTPサーバ経由てすと'
+            self.__BODY         = 'pythonでメール送信する'
+            self.inited         = True
+        else:
+            self.inited         = False
 
     ### AUTHENTICTION
     def __ConnectGmail(self):
@@ -131,6 +138,50 @@ class GmailAPI:
             traceback.print_exc()
             print("------end trace------")
 
+class SendGridAPI:
+    def __init__(self):
+        if os.environ['SENDGRID_APIKEY']:
+            self.__apikey       = os.environ['SENDGRID_APIKEY']
+            self.__FROM_ADDRESS = os.environ['MAIL_FROM']
+            self.__TO_ADDRESS   = os.environ['MAIL_TO']
+            self.__SUBJECT      = 'sendgridメールてすと'
+            self.__BODY         = 'pythonでメール送信する'
+            self.inited         = True
+
+            self.__sg           = sendgrid.SendGridAPIClient(apikey=self.__apikey)
+        else:
+            self.inited         = False
+
+    def __prepare_image(self):
+        with open('figure.png', 'rb') as f:
+            encoded = base64.b64encode(f.read()).decode()
+        attachment = sg_helper.Attachment()
+        attachment.content     = encoded
+        attachment.type        = 'image/png'
+        attachment.filename    = 'figure.png'
+        attachment.disposition = 'attachment'
+        attachment.set_content_id = 1
+        return attachment
+
+    def send_mail(self):
+        message = sg_helper.Mail(
+            from_email=sg_helper.Email(self.__FROM_ADDRESS),
+            subject=self.__SUBJECT,
+            to_email=sg_helper.Email(self.__TO_ADDRESS),
+            content=sg_helper.Content("text/html", '<h1>{body}<h1>'.format(body='sendgridテスト'))
+        )
+        message.add_attachment(self.__prepare_image())
+
+        response = self.__sg.client.mail.send.post(request_body=message.get())
+        print(response.status_code)
+        print(response.body)
+        print(response.headers)
+
 if __name__ == '__main__':
     gmail_test = GmailAPI()
-    gmail_test.send()
+    if gmail_test.inited:
+        print('success')
+        # gmail_test.send()
+    else:
+        sendgrid_ins = SendGridAPI()
+        sendgrid_ins.send_mail()
