@@ -25,6 +25,7 @@ FXの為替レートを自動取得し、今後の予測が容易なタイミン
     ```
     $ vim ~/.bash_profile
     export OANDA_ACCESS_TOKEN=YOUR TOKEN
+    export SENDGRID_APIKEY=sendgridのapikey
     export MAIL_TO=通知メール宛先
     export MAIL_FROM=送信元となるGmailメルアド
     ```

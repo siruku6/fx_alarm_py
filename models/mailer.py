@@ -170,7 +170,7 @@ class SendGridAPI:
             to_email=sg_helper.Email(self.__TO_ADDRESS),
             content=sg_helper.Content("text/html", '<h1>{body}<h1>'.format(body='sendgridテスト'))
         )
-        message.add_attachment(self.__prepare_image())
+        # message.add_attachment(self.__prepare_image())
 
         response = self.__sg.client.mail.send.post(request_body=message.get())
         print(response.status_code)
