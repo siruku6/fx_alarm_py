@@ -1,4 +1,5 @@
 from models import analyzer, interval, mailer
+from models.chart_watcher import FXBase
 import models.chart_watcher as watcher
 
 class Main():
@@ -8,10 +9,10 @@ class Main():
         self.ana       = analyzer.Analyzer()
 
     def periodic_processes(self):
-        result = self.c_watcher.request_chart()
+        result = self.c_watcher.reload_chart()
         if 'success' in result:
             print(result['success'])
-            print(watcher.FXBase.candles.tail())
+            print(FXBase.get_candles().tail())
         else:
             print(result['error'])
             exit()

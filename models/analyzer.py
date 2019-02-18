@@ -4,13 +4,13 @@ from scipy.stats          import linregress
 from models.chart_watcher import FXBase
 import models.drawer as drawer
 
-class Analyzer(FXBase):
+class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Moving Average                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def __calc_SMA(self, window_size=20):
         ''' 単純移動平均線を生成 '''
-        close      = FXBase.candles.close
+        close      = FXBase.get_candles().close
         sma        = pd.Series.rolling(close, window=window_size).mean() #.dropna().reset_index(drop = True)
         self.__SMA = pd.DataFrame(sma).rename(columns={ 'close': '20SMA' })
 
@@ -18,7 +18,7 @@ class Analyzer(FXBase):
         ''' 指数平滑移動平均線を生成 '''
         # TODO: scipyを使うと早くなる
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
-        ema        = FXBase.candles.close.ewm(span=window_size).mean()
+        ema        = FXBase.get_candles().close.ewm(span=window_size).mean()
         self.__EMA = pd.DataFrame(ema).rename(columns={ 'close': '10EMA' })
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -26,9 +26,9 @@ class Analyzer(FXBase):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def __detect_thrust(self):
         ''' スラストを検出 '''
-        high_candles  = FXBase.candles.high
-        low_candles   = FXBase.candles.low
-        close_candles = FXBase.candles.close[1:] # 0番目は過去の価格がないのでパス
+        high_candles  = FXBase.get_candles().high
+        low_candles   = FXBase.get_candles().low
+        close_candles = FXBase.get_candles().close[1:] # 0番目は過去の価格がないのでパス
         self.thrusts  = { 'up': [], 'down': [] }
 
         for i, c_price in enumerate(close_candles, 1):
@@ -46,7 +46,7 @@ class Analyzer(FXBase):
             を繰り返し、2～3点に絞り込む
             local_extremum 又は extremal: 局所的極値のこと、極大値と極小値両方を指す（数学用語） '''
         sign = 'high' if bool_high else 'low'
-        extremals = FXBase.candles[start:end+1]
+        extremals = FXBase.get_candles()[start:end+1]
         while len(extremals) > 3:
             regression = linregress(x=extremals['time_id'], y=extremals[sign],)
             if bool_high:
@@ -62,8 +62,8 @@ class Analyzer(FXBase):
     # iterate dataframe
     # https://stackoverflow.com/questions/7837722/what-is-the-most-efficient-way-to-loop-through-dataframes-with-pandas
     def __calc_trendlines(self, span=20, min_interval=3):
-        if FXBase.candles is None: return { 'error': 'データが存在しません' }
-        FXBase.candles['time_id']= FXBase.candles.index + 1
+        if FXBase.get_candles() is None: return { 'error': 'データが存在しません' }
+        FXBase.set_timeID()
         trendlines = { 'high': [], 'low': [] }
 
         # [下降・上昇]の２回ループ
@@ -72,7 +72,7 @@ class Analyzer(FXBase):
             sign        = 1      if bool_high else -1
 
             # for i in array[start:end-1:step]:
-            for i in FXBase.candles.index[::int(span/2)]:
+            for i in FXBase.get_candles().index[::int(span/2)]:
                 extremals = self.__get_local_extremum(i, i + span, bool_high=bool_high)
                 if len(extremals) < 2:
                     continue
@@ -85,7 +85,7 @@ class Analyzer(FXBase):
                 )
                 print(regression[0]*sign < 0.0, '傾き: ', regression[0], ', 切片: ', regression[1], )
                 if regression[0]*sign < 0.0: # 傾き
-                    trendline = regression[0] * FXBase.candles.time_id[i:i+span*2] + regression[1]
+                    trendline = regression[0] * FXBase.get_candles().time_id[i:i+span*2] + regression[1]
                     trendline.name = 'x_%s' % str(i)
                     trendlines[high_or_low].append(trendline)
 
@@ -95,7 +95,7 @@ class Analyzer(FXBase):
 
     def __get_breakpoints(self):
         ''' トレンドブレイク箇所を配列で返す：今は下降トレンドのブレイクのみ '''
-        close_candles = FXBase.candles.copy().close
+        close_candles = FXBase.get_candles().copy().close
         trendbreaks   = { 'jump': [], 'fall': [] }
 
         for bool_jump in [True, False]:
@@ -148,12 +148,12 @@ class Analyzer(FXBase):
         # 初期状態は上昇トレンドと仮定して計算
         bull                = True
         acceleration_factor = Analyzer.INITIAL_AF
-        extreme_price       = FXBase.candles.high[0]
-        self.SARs           = [FXBase.candles.low[0]]
+        extreme_price       = FXBase.get_candles().high[0]
+        self.SARs           = [FXBase.get_candles().low[0]]
 
-        for i, row in FXBase.candles.iterrows():
-            current_high = FXBase.candles.high[i]
-            current_low  = FXBase.candles.low[i]
+        for i, row in FXBase.get_candles().iterrows():
+            current_high = FXBase.get_candles().high[i]
+            current_low  = FXBase.get_candles().low[i]
 
             # レートがparabolicに触れたときの処理
             if self.__parabolic_is_touched(
@@ -217,7 +217,7 @@ class Analyzer(FXBase):
         drwr.draw_candles()
         result = drwr.create_png()
 
-        num = len(FXBase.candles)
+        num = len(FXBase.get_candles())
         if self.jump_trendbreaks[-1] == num or self.fall_trendbreaks[-1] == num:
             alart_necessary = True
         else:
