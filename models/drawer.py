@@ -10,8 +10,9 @@ from models.chart_watcher import FXBase
 
 class FigureDrawer():
 
-    PLOT_TYPE = { 'dot':    0, 'simple-line': 1, 'dashed-line': 2 }
-    DOT_TYPE  = { 'thrust': 0, 'break':       1 }
+    PLOT_TYPE = { 'dot':     0, 'simple-line': 1, 'dashed-line': 2 }
+    DOT_TYPE  = { 'entry':   0, 'exit':        1, 'break':       2 }
+    POS_TYPE  = { 'neutral': 0, 'over':        1, 'beneath':     2 }
 
     def __init__(self):
         self.__figure, (self.__axis1) = \
@@ -30,39 +31,49 @@ class FigureDrawer():
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
         if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
             for key, column in df.iteritems():
-                self.__axis1.plot(df.index, column.values, label=key, c=color)
+                self.__axis1.plot(df.index, column.values, label=key, c=color, linewidth=1.0)
         elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
             for key, column in df.iteritems():
-                self.__axis1.plot(df.index, column.values, label=key, c=color, linestyle='dashed', linewidth=0.7)
+                self.__axis1.plot(df.index, column.values, label=key, c=color, linestyle='dashed', linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
             for key, column in df.iteritems():
                 self.__axis1.scatter(df.index, column.values, label=key, c=color, marker='d', s=3)
         return { 'success': 'dfを描画' }
 
-    def draw_indexes_on_plt(self, index_array, dot_type=DOT_TYPE['thrust'], over_candle=True):
+    def draw_indexes_on_plt(self, index_array, dot_type=DOT_TYPE['entry'], pos=POS_TYPE['neutral']):
         ''' index_arrayを受け取って、各値(int)を描画 '''
-        if dot_type == FigureDrawer.DOT_TYPE['thrust']:
-            size = 10
-            if over_candle:
-                color = 'lawngreen'
-                label = 'thrust-up'
-            else:
-                color = 'firebrick'
-                label = 'thrust-down'
+        if dot_type == FigureDrawer.DOT_TYPE['entry']:
+            size  = 40
+            color = 'red'
+            label = 'entry'
+            mark  = 'v'
+        elif dot_type == FigureDrawer.DOT_TYPE['exit']:
+            size  = 40
+            color = 'red'
+            label = 'exit'
+            mark  = 'x'
         elif dot_type == FigureDrawer.DOT_TYPE['break']:
-            size = 20
-            if over_candle:
+            size = 10
+            mark = 'o'
+            if pos:
                 color = 'red'
                 label = 'GC'
             else:
                 color = 'blue'
                 label = 'DC'
 
-        gap = 1.0005 if over_candle else 0.9995
+        if pos == FigureDrawer.POS_TYPE['over']:
+            gap = 1.0005
+        elif pos == FigureDrawer.POS_TYPE['beneath']:
+            gap = 0.9995
+        else :
+            gap = 1.0
+
         self.__axis1.scatter(
             index_array,
             FXBase.get_candles().close[index_array] * gap,
-            marker='o', color=color, label=label, s=20
+            marker=mark, color=color, facecolor=None,
+            label=label, s=size
         )
 
     def draw_candles(self):
@@ -84,7 +95,7 @@ class FigureDrawer():
         xticks_index   = range(0, len(FXBase.get_candles()), xticks_number)
         xticks_display = [FXBase.get_candles().time.values[i][11:16] for i in xticks_index] # 時間を切り出すため、先頭12文字目から取る
         self.__axis1.yaxis.tick_right()
-        self.__axis1.yaxis.grid(color='lightgray', linestyle='dashed')
+        self.__axis1.yaxis.grid(color='lightgray', linestyle='dashed', linewidth=0.5)
         plt.sca(self.__axis1)
         plt.xticks(xticks_index, xticks_display)
         plt.legend(loc='upper left')

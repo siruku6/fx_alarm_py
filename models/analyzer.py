@@ -21,21 +21,6 @@ class Analyzer():
         ema        = FXBase.get_candles().close.ewm(span=window_size).mean()
         self.__EMA = pd.DataFrame(ema).rename(columns={ 'close': '10EMA' })
 
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    #                       Thrust                        #
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def __detect_thrust(self):
-        ''' スラストを検出 '''
-        high_candles  = FXBase.get_candles().high
-        low_candles   = FXBase.get_candles().low
-        close_candles = FXBase.get_candles().close[1:] # 0番目は過去の価格がないのでパス
-        self.thrusts  = { 'up': [], 'down': [] }
-
-        for i, c_price in enumerate(close_candles, 1):
-            if c_price > high_candles[i-1]:
-                self.thrusts['up'].append(i)
-            elif c_price < low_candles[i-1]:
-                self.thrusts['down'].append(i)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
@@ -149,7 +134,7 @@ class Analyzer():
         bull                = True
         acceleration_factor = Analyzer.INITIAL_AF
         extreme_price       = FXBase.get_candles().high[0]
-        self.SARs           = [FXBase.get_candles().low[0]]
+        self.__SARs         = [FXBase.get_candles().low[0]]
 
         for i, row in FXBase.get_candles().iterrows():
             current_high = FXBase.get_candles().high[i]
@@ -158,7 +143,7 @@ class Analyzer():
             # レートがparabolicに触れたときの処理
             if self.__parabolic_is_touched(
                 bull=bull,
-                current_parabo=self.SARs[-1],
+                current_parabo=self.__SARs[-1],
                 current_h=current_high, current_l=current_low
             ):
                 parabolicSAR        = extreme_price
@@ -179,13 +164,95 @@ class Analyzer():
                     if extreme_price > current_low:
                         extreme_price       = current_low
                         acceleration_factor = min(acceleration_factor + Analyzer.INITIAL_AF, Analyzer.MAX_AF)
-                parabolicSAR = self.SARs[-1] + acceleration_factor * (extreme_price - self.SARs[-1])
+                parabolicSAR = self.__SARs[-1] + acceleration_factor * (extreme_price - self.__SARs[-1])
 
             if i == 0:
-                self.SARs[-1] = parabolicSAR
+                self.__SARs[-1] = parabolicSAR
             else:
-                self.SARs.append(parabolicSAR)
-        self.SARs = pd.DataFrame(data=self.SARs, columns=['SAR'])
+                self.__SARs.append(parabolicSAR)
+        self.__SARs = pd.DataFrame(data=self.__SARs, columns=['SAR'])
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #                    Entry judge                      #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def __judge_swing_entry(self, StopLoss_buffer_pips=0.05):
+        ''' スイングトレードのentry pointを検出 '''
+        self.__position = { 'none': 0.0 }
+        # TODO: 入値とstop値も持てるdataframeに変更する
+        self.__e_points = { 'up': [], 'down': [] }
+        self.__x_points = []
+
+        high_candles  = FXBase.get_candles().high
+        low_candles   = FXBase.get_candles().low
+        close_candles = FXBase.get_candles().close
+        sma           = self.__SMA['20SMA']
+        ema           = self.__EMA['10EMA']
+
+        def check_trend(index, c_price):
+            parabo = self.__SARs['SAR'][i]
+            if sma[index] < ema[index] and \
+               ema[index] < c_price    and \
+               parabo     < c_price:
+                trend = 'bull'
+            elif sma[index] > ema[index] and \
+                 ema[index] > c_price    and \
+                 parabo     > c_price:
+                trend = 'bear'
+            else:
+                trend = None
+            return trend
+
+        def find_thrust(index, trend, c_price):
+            if trend == 'bull' and c_price > high_candles[i-1]:
+                result = 'buy'
+            elif trend == 'bear' and c_price < low_candles[i-1]:
+                result = 'sell'
+            else:
+                result = None
+            return result
+
+        def create_position(index, result, c_price):
+            print(index, ': take position !')
+            if result == 'buy':
+                self.__position = { 'buy': c_price, 'stop': low_candles[index-1] - StopLoss_buffer_pips }
+                self.__e_points['up'].append(index)
+            else:
+                self.__position = { 'sell': c_price, 'stop': high_candles[index-1] + StopLoss_buffer_pips }
+                self.__e_points['down'].append(index)
+
+        def settle_position(i, c_price):
+            if 'buy' in self.__position:
+                if low_candles[i-1] - StopLoss_buffer_pips > self.__position['stop']:
+                    self.__position['stop'] = low_candles[i-1] - StopLoss_buffer_pips
+                if self.__position['stop'] > low_candles[i] or self.__SARs['SAR'][i] > c_price:
+                    self.__position = { 'none': 0.0 }
+                    self.__x_points.append(i)
+                    # ここでファイルにも書き込み
+                    print(i, ': settle position !')
+            elif 'sell' in self.__position:
+                if high_candles[i-1] + StopLoss_buffer_pips < self.__position['stop']:
+                    self.__position['stop'] = high_candles[i-1] + StopLoss_buffer_pips
+                if self.__position['stop'] < high_candles[i] or self.__SARs['SAR'][i] < c_price:
+                    self.__position = { 'none': 0.0 }
+                    self.__x_points.append(i)
+                    # ここでファイルにも書き込み
+                    print(i, ': settle position !')
+
+        for i, c_price in enumerate(close_candles):
+            position_buf = self.__position.copy()
+            if 'none' in self.__position:
+                if math.isnan(sma[i]): continue
+
+                trend = check_trend(i, c_price)
+                if trend == None: continue
+                result = find_thrust(i, trend, c_price)
+                if result == None: continue
+                create_position(i, result, c_price)
+            else:
+                settle_position(i, c_price)
+
+            if not position_buf == self.__position:
+                print('# recent position {pos}'.format(pos=self.__position))
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                       Driver                        #
@@ -194,26 +261,25 @@ class Analyzer():
         self.__calc_SMA()
         self.__calc_EMA()
         self.__calc_parabolic()
-        self.__detect_thrust()
         result = self.__calc_trendlines()
         if 'success' in result:
             self.__get_breakpoints()
             print(result['success'])
-            print(self.desc_trends.tail())
-
+            self.__judge_swing_entry()
         return result
 
     def draw_chart(self):
         drwr = drawer.FigureDrawer()
-        drwr.draw_df_on_plt(df=self.__SMA,       plot_type=drwr.PLOT_TYPE['simple-line'], color='red')
-        drwr.draw_df_on_plt(df=self.__EMA,       plot_type=drwr.PLOT_TYPE['simple-line'], color='yellow')
-        drwr.draw_df_on_plt(df=self.SARs,        plot_type=drwr.PLOT_TYPE['dot'],         color='lightpink')
+        drwr.draw_df_on_plt(df=self.__SMA,       plot_type=drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
+        drwr.draw_df_on_plt(df=self.__EMA,       plot_type=drwr.PLOT_TYPE['simple-line'], color='cyan')
+        drwr.draw_df_on_plt(df=self.__SARs,      plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
         drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
         drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
-        drwr.draw_indexes_on_plt(index_array=self.thrusts['up'],    dot_type=drwr.DOT_TYPE['thrust'], over_candle=True)
-        drwr.draw_indexes_on_plt(index_array=self.thrusts['down'],  dot_type=drwr.DOT_TYPE['thrust'], over_candle=False)
-        drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks, dot_type=drwr.DOT_TYPE['break'],  over_candle=True)
-        drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks, dot_type=drwr.DOT_TYPE['break'],  over_candle=False)
+        drwr.draw_indexes_on_plt(index_array=self.__e_points['up'],   dot_type=drwr.DOT_TYPE['entry'])
+        drwr.draw_indexes_on_plt(index_array=self.__e_points['down'], dot_type=drwr.DOT_TYPE['entry'])
+        drwr.draw_indexes_on_plt(index_array=self.__x_points,         dot_type=drwr.DOT_TYPE['exit'])
+        drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks,   dot_type=drwr.DOT_TYPE['break'], pos=drwr.POS_TYPE['over'])
+        drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks,   dot_type=drwr.DOT_TYPE['break'], pos=drwr.POS_TYPE['beneath'])
         drwr.draw_candles()
         result = drwr.create_png()
 
