@@ -283,15 +283,10 @@ class Analyzer():
         drwr.draw_candles()
         result = drwr.create_png()
 
-        num = len(FXBase.get_candles())
-        if self.jump_trendbreaks[-1] == num or self.fall_trendbreaks[-1] == num:
-            alart_necessary = True
-        else:
-            alart_necessary = False
-
         return {
             'success': {
                 'msg': 'チャート分析、png生成完了',
-                'alart_necessary': alart_necessary
+                # メール送信フラグ: 今は必要ない
+                'alart_necessary': False
             }
         }

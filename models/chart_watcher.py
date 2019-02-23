@@ -35,6 +35,8 @@ class ChartWatcher():
         ''' 固定パラメータの設定 '''
         print('initing ...')
         self.__a_step_time  = 5
+        # http://developer.oanda.com/rest-live-v20/instrument-ep/
+        # 5000本まで許容されることを確認した
         self.__num_candles  = int(days * 24 * 60 / self.__a_step_time) # 24h * 60min / 5分刻み
         self.__minutes      = self.__num_candles * self.__a_step_time  # 60 = 12 * 5 分
         self.__access_token = os.environ['OANDA_ACCESS_TOKEN']
@@ -54,17 +56,17 @@ class ChartWatcher():
         else:
             return False
 
-    def __reset_params(self):
-        ''' チャート取得の起点(from)を変更してparamsを返す '''
+    def __reset_time_params(self):
+        ''' 時間に関係するparamsをリセット(現在時含む) '''
         now        = datetime.datetime.now() - datetime.timedelta(hours=9) # 標準時に合わせる
         start_time = now - datetime.timedelta(minutes=self.__minutes - self.__a_step_time)
-        start_time = start_time.strftime("%Y-%m-%dT%H:%M:00.000000Z")
+        start_time = start_time.strftime('%Y-%m-%dT%H:%M:00.000000Z')
 
         params = {
-            "alignmentTimezone": "Japan",
-            "from":  start_time,
-            "count": self.__num_candles,
-            "granularity": "M5" # per 5 Minute
+            'alignmentTimezone': 'Asia/Tokyo',
+            'from':  start_time,
+            'count': self.__num_candles,
+            'granularity': 'M5' # per 5 Minute
         }
         return params
 
@@ -76,7 +78,7 @@ class ChartWatcher():
         )
         request_obj = oandapy.InstrumentsCandles(
             instrument = "USD_JPY",
-            params     = self.__reset_params()
+            params     = self.__reset_time_params()
         )
         api.request(request_obj)
         return request_obj
