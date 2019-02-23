@@ -1,19 +1,16 @@
+from models   import mailer
 from datetime import datetime
+import matplotlib.pyplot as plt
+import numpy             as np
 
-def update_log():
-    hist_file_path = 'log/heroku_scheduler.hist'
-    enum_weekday   = {
-        0: 'Mon', 1: 'Tue', 2: 'Wed', 3:'Thu',
-        4: 'Fri', 5: 'Sat', 6: 'Sun'
-    }
-
-    now_delta = datetime.now()
-    now       = now_delta.strftime("%Y/%m/%d %H:%M:%S")
-    weekday   = enum_weekday[now_delta.weekday()]
-    action    = 'now sleeping ...' if weekday in ['Sat', 'Sun'] else 'updated ...'
-    line      = '{now}({weekday}) {action} \n'.format(now=now, weekday=weekday, action=action)
-    with open(hist_file_path, mode='a', encoding='utf-8') as file:
-        file.write(line)
+def make_figure():
+    fig  = plt.figure()
+    axis = fig.add_subplot(111)
+    data = np.random.rand(10)
+    axis.plot(data)
+    plt.savefig('figure.png')
 
 if __name__ == '__main__':
-    update_log()
+    make_figure()
+    sendgrid_ins = mailer.SendGridAPI()
+    sendgrid_ins.send_mail()

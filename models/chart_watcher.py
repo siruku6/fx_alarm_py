@@ -43,16 +43,17 @@ class ChartWatcher():
 
     def __is_uptime(self):
         ''' 市場が動いている（営業中）か否か(bool型)を返す '''
+        enum_weekday    = {
+            0: 'Mon', 1: 'Tue', 2: 'Wed', 3:'Thu',
+            4: 'Fri', 5: 'Sat', 6: 'Sun'
+        }
         now_delta       = datetime.datetime.now()
         six_hours_delta = datetime.timedelta(hours=6) # 大体このくらいずらすと、ちょうど動いてる（気がする）
         weekday_num     = (now_delta - six_hours_delta).weekday()
-
-        # weekday_num
-        # 0:Mon, 1:Tue, 2:Wed, 3:Thu, 4:Fri, 5:Sat, 6:Sun
-        if weekday_num < 5: # 平日なら
-            return True
-        else:
+        if enum_weekday[weekday_num] in ['Sat', 'Sun']:
             return False
+        else:
+            return True
 
     def __reset_params(self):
         ''' チャート取得の起点(from)を変更してparamsを返す '''

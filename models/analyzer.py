@@ -191,7 +191,6 @@ class Analyzer():
     #                       Driver                        #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def perform(self):
-        # Analyzing
         self.__calc_SMA()
         self.__calc_EMA()
         self.__calc_parabolic()
@@ -201,6 +200,7 @@ class Analyzer():
             self.__get_breakpoints()
             print(result['success'])
             print(self.desc_trends.tail())
+
         return result
 
     def draw_chart(self):
