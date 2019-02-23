@@ -17,7 +17,7 @@ class FXBase():
 
     @classmethod
     def set_timeID(cls):
-        cls.__candles.time_id = cls.get_candles().index + 1
+        cls.__candles['time_id'] = cls.get_candles().index + 1
 
     @classmethod
     def union_candles_distinct(cls, candle):
