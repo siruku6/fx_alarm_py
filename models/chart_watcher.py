@@ -7,27 +7,31 @@ from   oandapyV20 import API
 import oandapyV20.endpoints.instruments as oandapy
 
 class FXBase():
-    candles = None
-    def __init__(self):
-        ''' 継承されるためにあるクラスのため、実行(init)されない '''
-        print('FXBase is inited.')
+    __candles = None
 
     # クラスメソッドのルール
     # https://www.st-hakky-blog.com/entry/2017/11/15/155523
     @classmethod
+    def get_candles(cls):
+        return cls.__candles
+
+    @classmethod
+    def set_timeID(cls):
+        cls.__candles['time_id'] = cls.get_candles().index + 1
+
+    @classmethod
     def union_candles_distinct(cls, candle):
-        # 起動後の初回のみ candles is None
         # pandas_df == None という比較はできない
         # https://stackoverflow.com/questions/36217969/how-to-compare-pandas-dataframe-against-none-in-python
-        if cls.candles is None:
-            cls.candles = candle
+        if cls.__candles is None:
+            cls.__candles = candle
         else:
-            cls.candles = pd.concat([cls.candles, candle]) \
+            cls.__candles = pd.concat([cls.get_candles(), candle]) \
                             .drop_duplicates(subset='time') \
                             .reset_index(drop=True)
 
-class ChartWatcher(FXBase):
-    def __init__(self, candles=None, days=1):
+class ChartWatcher():
+    def __init__(self, days=1):
         ''' 固定パラメータの設定 '''
         print('initing ...')
         self.__a_step_time  = 5
@@ -77,7 +81,7 @@ class ChartWatcher(FXBase):
         api.request(request_obj)
         return request_obj
 
-    def request_chart(self):
+    def reload_chart(self):
         ''' チャートを更新 '''
         if self.__is_uptime() == False: return { 'error': '休日のためAPIへのrequestをcancelしました' }
         request = self.__request_oanda_instruments()
@@ -97,20 +101,11 @@ class ChartWatcher(FXBase):
 
 if __name__ == '__main__':
     watcher = ChartWatcher()
-    result  = watcher.request_chart()
+    result  = watcher.reload_chart()
     if 'success' in result:
         print(result['success'])
-        print(FXBase.candles.head())
+        FXBase.set_timeID()
+        print(FXBase.get_candles().head())
     else:
         print(result['error'])
         exit()
-
-    FXBase.candles['time_id']= FXBase.candles.index + 1
-    ana    = Analyzer()
-    result = ana.calc_trendlines()
-    if 'success' in result:
-        print(result['success'])
-        print(ana.desc_trends.tail())
-        ptint(pd.concat([FXBase.candles, ana.desc_trends], axis=1).head())
-    else:
-        print(result['error'])
