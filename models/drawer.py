@@ -91,9 +91,11 @@ class FigureDrawer():
     def create_png(self):
         ''' 描画済みイメージをpngファイルに書き出す '''
         ## X軸の見た目を整える
-        xticks_number  = 12 # 12本(60分)刻みに目盛りを書く
-        xticks_index   = range(0, len(FXBase.get_candles()), xticks_number)
-        xticks_display = [FXBase.get_candles().time.values[i][11:16] for i in xticks_index] # 時間を切り出すため、先頭12文字目から取る
+        candles        = FXBase.get_candles()
+        # xticks_number  = 12 # 12本(60分)刻みに目盛りを書く
+        xticks_number  = int(len(candles) / 16) # 現画像サイズだとジャストな数
+        xticks_index   = range(0, len(candles), xticks_number)
+        xticks_display = [candles.time.values[i][11:16] for i in xticks_index] # 時間を切り出すため、先頭12文字目から取る
         self.__axis1.yaxis.tick_right()
         self.__axis1.yaxis.grid(color='lightgray', linestyle='dashed', linewidth=0.5)
         plt.sca(self.__axis1)

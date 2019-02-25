@@ -4,7 +4,7 @@ import models.chart_watcher as watcher
 
 class Main():
     def __init__(self):
-        self.gmailer   = mailer.GmailAPI()
+        # self.gmailer   = mailer.GmailAPI()
         self.c_watcher = watcher.ChartWatcher()
         self.ana       = analyzer.Analyzer()
 
@@ -25,7 +25,7 @@ class Main():
         if 'success' in result:
             if result['success']['alart_necessary']:
                 print('ALART MAIL 送信')
-                self.gmailer.send()
+                # self.gmailer.send()
         else:
             print(result['error'])
 
