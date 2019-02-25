@@ -1,14 +1,12 @@
 # FX_Alarm_py
-This alarms the timing for trading currency, with python. (now being developed...)
+Verifying one trade rule and Alarming trader (now being developed...)
 
 ## Overview
-FXの為替レートを自動取得し、今後の予測が容易なタイミングでメールを送信する。  
-以下のような流れで動作する。  
-1. FXの為替レートをOandaAPI経由で取得
-2. トレンドラインを自動生成
-3. 終値が2回トレンドラインを突破したタイミングでメールを送信
+FXの為替レートを自動取得し、
+- 指定した期間中、特定のルールでトレードした場合の損益を自動集計
+- 今後の予測が容易なタイミングでメールを送信
 
-するようになる予定
+するようにする予定（したい）
 
 ## Description
 まだ全然できてません！
@@ -30,5 +28,5 @@ FXの為替レートを自動取得し、今後の予測が容易なタイミン
     export MAIL_FROM=送信元となるGmailメルアド
     ```
 
-- Enable your GmailAPI  
-coming soon ...
+- Enable your GmailAPI or SendGrid  
+
