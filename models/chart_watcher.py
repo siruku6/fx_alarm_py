@@ -27,11 +27,18 @@ class FXBase():
                               .drop_duplicates(subset='time') \
                               .reset_index(drop=True)
 
+    @classmethod
+    def write_candles_on_csv(cls):
+        cls.__candles.to_csv('./candles.csv')
+
 class ChartWatcher():
     def __init__(self):
         ''' 固定パラメータの設定 '''
         print('initing ...')
-        self.__access_token  = os.environ['OANDA_ACCESS_TOKEN']
+        self.__api = API(
+            access_token=os.environ['OANDA_ACCESS_TOKEN'],
+            environment ='practice'
+        )
 
     def __is_uptime(self):
         ''' 市場が動いている（営業中）か否か(bool型)を返す '''
@@ -46,6 +53,12 @@ class ChartWatcher():
         else:
             return False
 
+    def __calc_start_time(self, days, end_datetime=datetime.datetime.now()):
+        end_datetime -= datetime.timedelta(hours=9) # UTC化
+        start_time    = end_datetime - datetime.timedelta(days=days)
+        start_time    = start_time.strftime('%Y-%m-%dT%H:%M:00.000000Z')
+        return start_time
+
     def __calc_candles_wanted(self, days=1, granularity='M5'):
         time_unit = granularity[0]
         time_span = int(granularity[1:])
@@ -56,27 +69,27 @@ class ChartWatcher():
         if time_unit == 'M':
             return int(days * 24 * 60 / time_span)
 
-    def __calc_start_time(self, days, end_datetime=datetime.datetime.now()):
-        end_datetime -= datetime.timedelta(hours=9) # UTC化
-        start_time    = end_datetime - datetime.timedelta(days=days)
-        start_time    = start_time.strftime('%Y-%m-%dT%H:%M:00.000000Z')
-        return start_time
-
-    def __request_oanda_instruments(self, start_time, candles_count, granularity):
+    def __request_oanda_instruments(self, start, end=None,
+        candles_count=None, granularity='M5'):
         ''' OandaAPIと直接通信し、為替データを取得 '''
-        api = API(
-            access_token=self.__access_token,
-            environment ='practice'
-        )
-        request_obj   = oandapy.InstrumentsCandles(
-            instrument='USD_JPY', params={
+        if candles_count is not None:
+            time_params = {
+                'alignmentTimezone':   'Asia/Tokyo',
+                'from': start, 'count': candles_count,
+                'granularity':          granularity
+            }
+        else:
+            time_params = {
                 'alignmentTimezone': 'Asia/Tokyo',
-                'from':               start_time,
-                'count':              candles_count,
+                'from': start, 'to':  end,
                 'granularity':        granularity
             }
+
+        request_obj = oandapy.InstrumentsCandles(
+            instrument='USD_JPY',
+            params=time_params
         )
-        api.request(request_obj)
+        self.__api.request(request_obj)
         return request_obj
 
     def __transform_to_candle_chart(self, response):
@@ -97,7 +110,7 @@ class ChartWatcher():
         candles_count = self.__calc_candles_wanted(days=days, granularity=granularity)
         # pd.set_option("display.max_rows", candles_count) # 表示可能な最大行数を設定
         request = self.__request_oanda_instruments(
-            start_time   =start_time,
+            start        =start_time,
             candles_count=candles_count,
             granularity  =granularity
         )
@@ -128,14 +141,24 @@ class ChartWatcher():
         print('何日分のデータを取得する？(半角数字): ', end='')
         requestable_max_days = self.__calc_requestable_max_days(granularity='M5')
         days = int(input())
+        now  = datetime.datetime.now() - datetime.timedelta(hours=9) # UTC化
         while days > 0:
-
+            start_datetime = now - datetime.timedelta(days=days)
             days -= requestable_max_days
             if days < 0: days = 0
+            end_datetime = now - datetime.timedelta(days=days)
+            request = self.__request_oanda_instruments(
+                start=       start_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z'),
+                end=         end_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z'),
+                granularity='M5'
+            )
+            candles = self.__transform_to_candle_chart(request.response)
+            FXBase.union_candles_distinct(candles=candles)
+            # return { 'success': 'Oandaからのレート取得に成功' }
             print('残り: {days}days'.format(days=days))
             time.sleep(1)
-        # self.reload_chart(days=days)
 
+        FXBase.write_candles_on_csv()
         # import analyzer
         # ana = analyzer.Analyzer()
         # ana.perform()
