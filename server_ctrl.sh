@@ -4,8 +4,8 @@ menu=$(cat << EOS
 /         開発用シェル         /
 / / / / / / / / / / / / / / / /
 操作を選択してください。
-{1} :サーバ起動
-{2} :rails console
+{1} :python main.py
+{2} :testコード実行
 {5} :find (find ./[dir] -type f -print | xargs grep [str])
 {99}:LINUX shutdown
 {*} :exit
@@ -20,13 +20,12 @@ while true; do
 
   case $select in
     1)
-      echo 'test'
-      echo press Enter ...
-      read Wait
+      echo 'main.pyファイル実行'
+      python main.py
       ;;
     2)
-      echo 'test'
-      echo press Enter ...
+      echo 'test_cord.pyファイル実行'
+      python test_cord.py
       ;;
     5)
       echo -n '検索対象ディレクトリを入力してね：'
