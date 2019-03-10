@@ -31,9 +31,11 @@ class Analyzer():
         self.__calc_parabolic()
         result = self.__calc_trendlines()
         if 'success' in result:
-            self.__get_breakpoints()
             print(result['success'])
-        return result
+            self.__get_breakpoints()
+            return { 'success': '[Analyzer] indicators算出完了' }
+        else:
+            return { 'error': '[Analyzer] indicators算出失敗' }
 
     def get_indicators(self):
         indicators = pd.concat(
@@ -84,7 +86,7 @@ class Analyzer():
     # iterate dataframe
     # https://stackoverflow.com/questions/7837722/what-is-the-most-efficient-way-to-loop-through-dataframes-with-pandas
     def __calc_trendlines(self, span=20, min_interval=3):
-        if FXBase.get_candles() is None: return { 'error': 'データが存在しません' }
+        if FXBase.get_candles() is None: return { 'error': '[Analyzer] データが存在しません' }
         FXBase.set_timeID()
         trendlines = { 'high': [], 'low': [] }
 
@@ -113,7 +115,7 @@ class Analyzer():
 
         self.desc_trends = pd.concat(trendlines['high'], axis=1)
         self.asc_trends  = pd.concat(trendlines['low'],  axis=1)
-        return { 'success': 'トレンドラインを生成しました' }
+        return { 'success': '[Analyzer] トレンドラインを生成しました' }
 
     def __get_breakpoints(self):
         ''' トレンドブレイク箇所を配列で返す：今は下降トレンドのブレイクのみ '''

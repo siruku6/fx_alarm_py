@@ -8,7 +8,7 @@ class Main():
         self.c_watcher = watcher.ChartWatcher()
 
     def periodic_processes(self):
-        result = self.c_watcher.reload_chart(days=3)
+        result = self.c_watcher.reload_chart(days=2)
         if 'success' in result:
             print(result['success'])
             print(FXBase.get_candles().tail())
@@ -16,12 +16,13 @@ class Main():
             print(result['error'])
             exit()
 
-        tr     = trader.Trader()
+        tr = trader.Trader()
         tr.auto_verify_trading_rule()
         result = tr.draw_chart()
 
         if 'success' in result:
-            if result['success']['alart_necessary']:
+            print(result['success'])
+            if result['alart_necessary']:
                 print('ALART MAIL 送信')
                 # self.gmailer.send()
         else:

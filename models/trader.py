@@ -11,18 +11,21 @@ class Trader():
         result = self.__ana.calc_indicators()
 
         if 'success' in result:
+            print(result['success'])
             self.__indicators = self.__ana.get_indicators()
             self.__position = { 'none': 0.0 }
             # TODO: 入値とstop値も持てるdataframeに変更する
             self.__e_points = { 'up': [], 'down': [] }
             self.__x_points = []
+        else:
+            print(result['error'])
 
     #
     # public
     #
     def auto_verify_trading_rule(self):
-        self.__judge_swing_entry()
-        return self.__indicators
+        result = self.__judge_swing_entry()
+        if 'success' in result: print(result['success'])
 
     def draw_chart(self):
         drwr = self.__drawer
@@ -31,19 +34,18 @@ class Trader():
         drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['SAR']],   plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
         # drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
         # drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
-        drwr.draw_indexes_on_plt(index_array=self.__e_points['up'],   dot_type=drwr.DOT_TYPE['long'])
-        drwr.draw_indexes_on_plt(index_array=self.__e_points['down'], dot_type=drwr.DOT_TYPE['short'])
-        drwr.draw_indexes_on_plt(index_array=self.__x_points,         dot_type=drwr.DOT_TYPE['exit'])
         # drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks,   dot_type=drwr.DOT_TYPE['break'], pos=drwr.POS_TYPE['over'])
         # drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks,   dot_type=drwr.DOT_TYPE['break'], pos=drwr.POS_TYPE['beneath'])
         drwr.draw_candles()
+        drwr.draw_indexes_on_plt(index_array=self.__e_points['up'],   dot_type=drwr.DOT_TYPE['long'])
+        drwr.draw_indexes_on_plt(index_array=self.__e_points['down'], dot_type=drwr.DOT_TYPE['short'])
+        drwr.draw_indexes_on_plt(index_array=self.__x_points,         dot_type=drwr.DOT_TYPE['exit'])
         result = drwr.create_png()
+        if 'success' in result: print(result['success'])
         return {
-            'success': {
-                'msg': 'チャート分析、png生成完了',
-                # メール送信フラグ: 今は必要ない
-                'alart_necessary': False
-            }
+            'success': '[Trader] チャート分析、png生成完了',
+            # メール送信フラグ: 今は必要ない
+            'alart_necessary': False
         }
 
     #
@@ -123,3 +125,5 @@ class Trader():
 
             if not position_buf == self.__position:
                 print('# recent position {pos}'.format(pos=self.__position))
+
+        return { 'success': '[Trader] 売買判定終了' }

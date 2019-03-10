@@ -106,7 +106,7 @@ class ChartWatcher():
 
     def reload_chart(self, days=1, granularity='M5'):
         ''' チャート情報を更新 '''
-        # if self.__is_uptime() == False: return { 'error': '休日のためAPIへのrequestをcancelしました' }
+        # if self.__is_uptime() == False: return { 'error': '[Watcher] 休日のためAPIへのrequestをcancelしました' }
         start_time    = self.__calc_start_time(days=days)
         candles_count = self.__calc_candles_wanted(days=days, granularity=granularity)
         # pd.set_option("display.max_rows", candles_count) # 表示可能な最大行数を設定
@@ -116,11 +116,11 @@ class ChartWatcher():
             granularity  =granularity
         )
         if request.response['candles'] == []:
-            return { 'error': 'request結果、データがありませんでした' }
+            return { 'error': '[Watcher] request結果、データがありませんでした' }
         else:
             candles = self.__transform_to_candle_chart(request.response)
             FXBase.union_candles_distinct(candles=candles)
-            return { 'success': 'Oandaからのレート取得に成功' }
+            return { 'success': '[Watcher] Oandaからのレート取得に成功' }
 
     def __calc_requestable_max_days(self, granularity='M5'):
         time_unit = granularity[0]
@@ -160,8 +160,8 @@ class ChartWatcher():
             time.sleep(1)
 
         FXBase.write_candles_on_csv()
-        if days is 0: return { 'success': 'APIリクエスト成功' }
-        else: return { 'error': '処理中断' }
+        if days is 0: return { 'success': '[Watcher] APIリクエスト成功' }
+        else: return { 'error': '[Watcher] 処理中断' }
 
 if __name__ == '__main__':
     watcher = ChartWatcher()

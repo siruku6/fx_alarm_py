@@ -23,9 +23,9 @@ class FigureDrawer():
         ''' DataFrameを受け取って、各columnを描画 '''
         # エラー防止処理
         if df is None:
-            return { 'error': 'データがありません' }
+            return { 'error': '[Drawer] データがありません' }
         if type(df) is not pd.core.frame.DataFrame:
-            return { 'error': 'DataFrame型以外が渡されました' }
+            return { 'error': '[Drawer] DataFrame型以外が渡されました' }
 
         # 描画
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
@@ -42,20 +42,21 @@ class FigureDrawer():
 
     def draw_indexes_on_plt(self, index_array, dot_type=DOT_TYPE['long'], pos=POS_TYPE['neutral']):
         ''' index_arrayを受け取って、各値(int)を描画 '''
+        trade_marker_size = 40
         if dot_type == FigureDrawer.DOT_TYPE['long']:
-            size  = 40
+            size  = trade_marker_size
             color = 'white'
             edgecolors = 'red'
             label = 'long'
             mark  = '^'
         elif dot_type == FigureDrawer.DOT_TYPE['short']:
-            size  = 40
+            size  = trade_marker_size
             color = 'white'
-            edgecolors = 'red'
+            edgecolors = 'blue'
             label = 'short'
             mark  = 'v'
         elif dot_type == FigureDrawer.DOT_TYPE['exit']:
-            size  = 40
+            size  = trade_marker_size
             color = 'red'
             edgecolors = None
             label = 'exit'
@@ -98,19 +99,21 @@ class FigureDrawer():
 
     def create_png(self):
         ''' 描画済みイメージをpngファイルに書き出す '''
+        # 現画像サイズだとジャストな数:16
+        num_break_xticks_into = 16
+
         ## X軸の見た目を整える
         candles        = FXBase.get_candles()
-        # xticks_number  = 12 # 12本(60分)刻みに目盛りを書く
-        xticks_number  = int(len(candles) / 16) # 現画像サイズだとジャストな数
+        xticks_number  = int(len(candles) / num_break_xticks_into)
         xticks_index   = range(0, len(candles), xticks_number)
         xticks_display = [candles.time.values[i][11:16] for i in xticks_index] # 時間を切り出すため、先頭12文字目から取る
         self.__axis1.yaxis.tick_right()
         self.__axis1.yaxis.grid(color='lightgray', linestyle='dashed', linewidth=0.5)
         plt.sca(self.__axis1)
         plt.xticks(xticks_index, xticks_display)
-        plt.legend(loc='upper left')
+        plt.legend(loc='best')
         plt.savefig('figure.png')
-        return { 'success': '描画済みイメージをpng化' }
+        return { 'success': '[Drawer] 描画済みイメージをpng化' }
 
     def get_sample_df(self):
         ''' サンプルdf生成 '''
