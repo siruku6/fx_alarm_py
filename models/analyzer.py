@@ -4,15 +4,17 @@ from scipy.stats          import linregress
 from models.chart_watcher import FXBase
 
 class Analyzer():
+    # For Trendline
+    MAX_EXTREMAL_CNT = 3
+
+    # For Parabolic
+    INITIAL_AF = 0.02
+    MAX_AF     = 0.2
+
     def __init__(self):
         self.__SMA  = None
         self.__EMA  = None
-        self.__SARs = None
-
-        self.__position = { 'none': 0.0 }
-        # TODO: 入値とstop値も持てるdataframeに変更する
-        self.__e_points = { 'up': [], 'down': [] }
-        self.__x_points = []
+        self.__SAR  = []
 
         # Trendline
         self.desc_trends      = None
@@ -35,7 +37,7 @@ class Analyzer():
 
     def get_indicators(self):
         indicators = pd.concat(
-            [self.__SMA, self.__EMA, self.__SARs],
+            [self.__SMA, self.__EMA, self.__SAR],
             axis=1
         )
         return indicators
@@ -56,7 +58,6 @@ class Analyzer():
         ema        = FXBase.get_candles().close.ewm(span=window_size).mean()
         self.__EMA = pd.DataFrame(ema).rename(columns={ 'close': '10EMA' })
 
-
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -64,10 +65,11 @@ class Analyzer():
         ''' 高値(high) / 安値(low)の始点 / 支点を取得
             チャートを単回帰分析し、結果直線よりも上（下）の値だけで再度単回帰分析...
             を繰り返し、2～3点に絞り込む
-            local_extremum 又は extremal: 局所的極値のこと、極大値と極小値両方を指す（数学用語） '''
+            local_extremum 又は extremal: 局所的極値のこと。
+            極大値と極小値両方を指す（数学用語） '''
         sign = 'high' if bool_high else 'low'
         extremals = FXBase.get_candles()[start:end+1]
-        while len(extremals) > 3:
+        while len(extremals) > Analyzer.MAX_EXTREMAL_CNT:
             regression = linregress(x=extremals['time_id'], y=extremals[sign],)
             if bool_high:
                 extremals = extremals.loc[
@@ -152,9 +154,6 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                   Parabolic SAR                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    INITIAL_AF = 0.02
-    MAX_AF     = 0.2
-
     def __parabolic_is_touched(self, bull, current_parabo, current_h, current_l):
         if bull:
             if current_parabo > current_l:
@@ -169,7 +168,7 @@ class Analyzer():
         bull                = True
         acceleration_factor = Analyzer.INITIAL_AF
         extreme_price       = FXBase.get_candles().high[0]
-        self.__SARs         = [FXBase.get_candles().low[0]]
+        self.__SAR          = [FXBase.get_candles().low[0]]
 
         for i, row in FXBase.get_candles().iterrows():
             current_high = FXBase.get_candles().high[i]
@@ -178,7 +177,7 @@ class Analyzer():
             # レートがparabolicに触れたときの処理
             if self.__parabolic_is_touched(
                 bull=bull,
-                current_parabo=self.__SARs[-1],
+                current_parabo=self.__SAR[-1],
                 current_h=current_high, current_l=current_low
             ):
                 parabolicSAR        = extreme_price
@@ -189,20 +188,25 @@ class Analyzer():
                 else:
                     bull = True
                     extreme_price = current_high
-
             else:
                 if bull:
                     if extreme_price < current_high:
                         extreme_price       = current_high
-                        acceleration_factor = min(acceleration_factor + Analyzer.INITIAL_AF, Analyzer.MAX_AF)
+                        acceleration_factor = min(
+                            acceleration_factor + Analyzer.INITIAL_AF,
+                            Analyzer.MAX_AF
+                        )
                 else:
                     if extreme_price > current_low:
                         extreme_price       = current_low
-                        acceleration_factor = min(acceleration_factor + Analyzer.INITIAL_AF, Analyzer.MAX_AF)
-                parabolicSAR = self.__SARs[-1] + acceleration_factor * (extreme_price - self.__SARs[-1])
+                        acceleration_factor = min(
+                            acceleration_factor + Analyzer.INITIAL_AF,
+                            Analyzer.MAX_AF
+                        )
+                parabolicSAR = self.__SAR[-1] + acceleration_factor * (extreme_price - self.__SAR[-1])
 
             if i == 0:
-                self.__SARs[-1] = parabolicSAR
+                self.__SAR[-1] = parabolicSAR
             else:
-                self.__SARs.append(parabolicSAR)
-        self.__SARs = pd.DataFrame(data=self.__SARs, columns=['SAR'])
+                self.__SAR.append(parabolicSAR)
+        self.__SAR = pd.DataFrame(data=self.__SAR, columns=['SAR'])
