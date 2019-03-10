@@ -13,10 +13,13 @@ class Trader():
         if 'success' in result:
             print(result['success'])
             self.__indicators = self.__ana.get_indicators()
-            self.__position = { 'none': 0.0 }
-            # TODO: 入値とstop値も持てるdataframeに変更する
-            self.__e_points = { 'up': [], 'down': [] }
-            self.__x_points = []
+            self.__position = { 'type': 'none' }
+            # TODO: 入値とstoploss値も持てるdataframeに変更する
+            self.__e_points  = { 'long': [], 'short': [] }
+            self.__x_points  = []
+
+            self.__columns   = ['type', 'price', 'stoploss']
+            self.__positions = pd.DataFrame(columns=self.__columns)
         else:
             print(result['error'])
 
@@ -37,8 +40,8 @@ class Trader():
         # drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks,   dot_type=drwr.DOT_TYPE['break'], pos=drwr.POS_TYPE['over'])
         # drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks,   dot_type=drwr.DOT_TYPE['break'], pos=drwr.POS_TYPE['beneath'])
         drwr.draw_candles()
-        drwr.draw_indexes_on_plt(index_array=self.__e_points['up'],   dot_type=drwr.DOT_TYPE['long'])
-        drwr.draw_indexes_on_plt(index_array=self.__e_points['down'], dot_type=drwr.DOT_TYPE['short'])
+        drwr.draw_indexes_on_plt(index_array=self.__e_points['long'],   dot_type=drwr.DOT_TYPE['long'])
+        drwr.draw_indexes_on_plt(index_array=self.__e_points['short'], dot_type=drwr.DOT_TYPE['short'])
         drwr.draw_indexes_on_plt(index_array=self.__x_points,         dot_type=drwr.DOT_TYPE['exit'])
         result = drwr.create_png()
         if 'success' in result: print(result['success'])
@@ -76,53 +79,59 @@ class Trader():
 
         def find_thrust(index, trend, c_price):
             if trend == 'bull' and c_price > high_candles[i-1]:
-                result = 'buy'
+                direction = 'long'
             elif trend == 'bear' and c_price < low_candles[i-1]:
-                result = 'sell'
+                direction = 'short'
             else:
-                result = None
-            return result
+                direction = None
+            return direction
 
-        def create_position(index, result, c_price):
+        def create_position(index, direction, c_price):
             print(index, ': take position !')
-            if result == 'buy':
-                self.__position = { 'buy': c_price, 'stop': low_candles[index-1] - StopLoss_buffer_pips }
-                self.__e_points['up'].append(index)
-            else:
-                self.__position = { 'sell': c_price, 'stop': high_candles[index-1] + StopLoss_buffer_pips }
-                self.__e_points['down'].append(index)
+            if direction == 'long':
+                stoploss = low_candles[index-1] - StopLoss_buffer_pips
+                # testing
+                # s = pd.Series(['long', c_price, 110.5], index=columns)
+            elif direction == 'short':
+                stoploss = high_candles[index-1] + StopLoss_buffer_pips
+
+            self.__position = {
+                'type': direction, 'price': c_price, 'stoploss': stoploss
+            }
+            self.__e_points[direction].append(index)
 
         def settle_position(i, c_price):
-            if 'buy' in self.__position:
-                if low_candles[i-1] - StopLoss_buffer_pips > self.__position['stop']:
-                    self.__position['stop'] = low_candles[i-1] - StopLoss_buffer_pips
-                if self.__position['stop'] > low_candles[i] or parabolic[i] > c_price:
-                    self.__position = { 'none': 0.0 }
+            if self.__position['type'] == 'long':
+                if low_candles[i-1] - StopLoss_buffer_pips > self.__position['stoploss']:
+                    self.__position['stoploss'] = low_candles[i-1] - StopLoss_buffer_pips
+                if self.__position['stoploss'] > low_candles[i] or parabolic[i] > c_price:
+                    self.__position = { 'type': 'none' }
                     self.__x_points.append(i)
                     # ここでファイルにも書き込み
                     print(i, ': settle position !')
-            elif 'sell' in self.__position:
-                if high_candles[i-1] + StopLoss_buffer_pips < self.__position['stop']:
-                    self.__position['stop'] = high_candles[i-1] + StopLoss_buffer_pips
-                if self.__position['stop'] < high_candles[i] or parabolic[i] < c_price:
-                    self.__position = { 'none': 0.0 }
+            elif self.__position['type'] == 'short':
+                if high_candles[i-1] + StopLoss_buffer_pips < self.__position['stoploss']:
+                    self.__position['stoploss'] = high_candles[i-1] + StopLoss_buffer_pips
+                if self.__position['stoploss'] < high_candles[i] or parabolic[i] < c_price:
+                    self.__position = { 'type': 'none' }
                     self.__x_points.append(i)
                     # ここでファイルにも書き込み
                     print(i, ': settle position !')
 
         for i, c_price in enumerate(close_candles):
             position_buf = self.__position.copy()
-            if 'none' in self.__position:
+            if self.__position['type'] == 'none':
                 if math.isnan(sma[i]): continue
 
                 trend = check_trend(i, c_price)
-                if trend == None: continue
-                result = find_thrust(i, trend, c_price)
-                if result == None: continue
-                create_position(i, result, c_price)
+                if trend is None: continue
+                direction = find_thrust(i, trend, c_price)
+                if direction is None: continue
+                create_position(i, direction, c_price)
             else:
                 settle_position(i, c_price)
 
+            # loop開始時と比較してpositionに変化があったら、状況をprintする
             if not position_buf == self.__position:
                 print('# recent position {pos}'.format(pos=self.__position))
 
