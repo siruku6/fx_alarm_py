@@ -1,4 +1,4 @@
-from models import analyzer, interval, mailer
+from models import interval, mailer, trader
 from models.chart_watcher import FXBase
 import models.chart_watcher as watcher
 
@@ -6,10 +6,9 @@ class Main():
     def __init__(self):
         # self.gmailer   = mailer.GmailAPI()
         self.c_watcher = watcher.ChartWatcher()
-        self.ana       = analyzer.Analyzer()
 
     def periodic_processes(self):
-        result = self.c_watcher.reload_chart()
+        result = self.c_watcher.reload_chart(days=3)
         if 'success' in result:
             print(result['success'])
             print(FXBase.get_candles().tail())
@@ -17,10 +16,9 @@ class Main():
             print(result['error'])
             exit()
 
-        if 'success' in self.ana.perform():
-            result = self.ana.draw_chart()
-        else:
-            exit()
+        tr     = trader.Trader()
+        tr.auto_verify_trading_rule()
+        result = tr.draw_chart()
 
         if 'success' in result:
             if result['success']['alart_necessary']:

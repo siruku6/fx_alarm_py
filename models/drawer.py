@@ -11,7 +11,7 @@ from models.chart_watcher import FXBase
 class FigureDrawer():
 
     PLOT_TYPE = { 'dot':     0, 'simple-line': 1, 'dashed-line': 2 }
-    DOT_TYPE  = { 'entry':   0, 'exit':        1, 'break':       2 }
+    DOT_TYPE  = { 'long':    0, 'short':       1, 'exit':        2, 'break': 3 }
     POS_TYPE  = { 'neutral': 0, 'over':        1, 'beneath':     2 }
 
     def __init__(self):
@@ -40,16 +40,24 @@ class FigureDrawer():
                 self.__axis1.scatter(df.index, column.values, label=key, c=color, marker='d', s=3)
         return { 'success': 'dfを描画' }
 
-    def draw_indexes_on_plt(self, index_array, dot_type=DOT_TYPE['entry'], pos=POS_TYPE['neutral']):
+    def draw_indexes_on_plt(self, index_array, dot_type=DOT_TYPE['long'], pos=POS_TYPE['neutral']):
         ''' index_arrayを受け取って、各値(int)を描画 '''
-        if dot_type == FigureDrawer.DOT_TYPE['entry']:
+        if dot_type == FigureDrawer.DOT_TYPE['long']:
             size  = 40
-            color = 'red'
-            label = 'entry'
+            color = 'white'
+            edgecolors = 'red'
+            label = 'long'
+            mark  = '^'
+        elif dot_type == FigureDrawer.DOT_TYPE['short']:
+            size  = 40
+            color = 'white'
+            edgecolors = 'red'
+            label = 'short'
             mark  = 'v'
         elif dot_type == FigureDrawer.DOT_TYPE['exit']:
             size  = 40
             color = 'red'
+            edgecolors = None
             label = 'exit'
             mark  = 'x'
         elif dot_type == FigureDrawer.DOT_TYPE['break']:
@@ -72,7 +80,7 @@ class FigureDrawer():
         self.__axis1.scatter(
             index_array,
             FXBase.get_candles().close[index_array] * gap,
-            marker=mark, color=color, facecolor=None,
+            marker=mark, color=color, edgecolors=edgecolors,
             label=label, s=size
         )
 
