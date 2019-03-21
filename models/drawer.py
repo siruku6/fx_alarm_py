@@ -45,30 +45,31 @@ class FigureDrawer():
         return { 'success': 'dfを描画' }
 
     def draw_positionDf_on_plt(self, df, plot_type=PLOT_TYPE['long']):
+        ''' __hist_positionsから抽出したdfを受け取って描画 '''
         trade_marker_size = 40
         if plot_type == FigureDrawer.PLOT_TYPE['long']:
+            color = 'white'
             edgecolors = 'red'
             label = 'long'
             mark  = '^'
         elif plot_type == FigureDrawer.PLOT_TYPE['short']:
+            color = 'white'
             edgecolors = 'blue'
             label = 'short'
             mark  = 'v'
-        self.__axis1.scatter(x=df.index, y=df.price,
-            marker=mark, edgecolors=edgecolors, label=label,
-            color='white', s=trade_marker_size
-        )
-
-    def draw_indexes_on_plt(self, index_array, plot_type=PLOT_TYPE['long'], pos=POS_TYPE['neutral']):
-        ''' index_arrayを受け取って、各値(int)を描画 '''
-        trade_marker_size = 40
-        if plot_type == FigureDrawer.PLOT_TYPE['exit']:
-            size  = trade_marker_size
+        elif plot_type == FigureDrawer.PLOT_TYPE['exit']:
             color = 'red'
             edgecolors = None
             label = 'exit'
             mark  = 'x'
-        elif plot_type == FigureDrawer.PLOT_TYPE['break']:
+        self.__axis1.scatter(x=df.sequence, y=df.price,
+            marker=mark, edgecolors=edgecolors, label=label,
+            color=color, s=trade_marker_size
+        )
+
+    def draw_indexes_on_plt(self, index_array, plot_type=PLOT_TYPE['long'], pos=POS_TYPE['neutral']):
+        ''' index_arrayを受け取って、各値(int)を描画 '''
+        if plot_type == FigureDrawer.PLOT_TYPE['break']:
             size = 10
             mark = 'o'
             if pos:
