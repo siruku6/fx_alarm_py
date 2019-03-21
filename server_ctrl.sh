@@ -22,10 +22,14 @@ while true; do
     1)
       echo 'main.pyファイル実行'
       python main.py
+      echo press Enter ...
+	  read Wait
       ;;
     2)
       echo 'test_cord.pyファイル実行'
       python test_cord.py
+      echo press Enter ...
+	  read Wait
       ;;
     5)
       echo -n '検索対象ディレクトリを入力してね：'
