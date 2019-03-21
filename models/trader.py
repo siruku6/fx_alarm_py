@@ -8,6 +8,7 @@ class Trader():
     def __init__(self):
         self.__ana    = analyzer.Analyzer()
         self.__drawer = drawer.FigureDrawer()
+        self.__columns = ['price', 'stoploss', 'type']
         result = self.__ana.calc_indicators()
 
         if 'success' in result:
@@ -15,11 +16,11 @@ class Trader():
             self.__indicators = self.__ana.get_indicators()
             self.__position = { 'type': 'none' }
             # TODO: 入値とstoploss値も持てるdataframeに変更する
-            self.__e_points  = { 'long': [], 'short': [] }
+            self.__hist_positions = {
+                'long':  pd.DataFrame(columns=self.__columns),
+                'short': pd.DataFrame(columns=self.__columns)
+            }
             self.__x_points  = []
-
-            self.__columns   = ['type', 'price', 'stoploss']
-            self.__positions = pd.DataFrame(columns=self.__columns)
         else:
             print(result['error'])
 
@@ -37,12 +38,12 @@ class Trader():
         drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['SAR']],   plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
         # drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
         # drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
-        # drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks,   dot_type=drwr.DOT_TYPE['break'], pos=drwr.POS_TYPE['over'])
-        # drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks,   dot_type=drwr.DOT_TYPE['break'], pos=drwr.POS_TYPE['beneath'])
+        # drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['over'])
+        # drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['beneath'])
         drwr.draw_candles()
-        drwr.draw_indexes_on_plt(index_array=self.__e_points['long'],   dot_type=drwr.DOT_TYPE['long'])
-        drwr.draw_indexes_on_plt(index_array=self.__e_points['short'], dot_type=drwr.DOT_TYPE['short'])
-        drwr.draw_indexes_on_plt(index_array=self.__x_points,         dot_type=drwr.DOT_TYPE['exit'])
+        drwr.draw_positionDf_on_plt(df=self.__hist_positions['long'],  plot_type=drwr.PLOT_TYPE['long'])
+        drwr.draw_positionDf_on_plt(df=self.__hist_positions['short'], plot_type=drwr.PLOT_TYPE['short'])
+        drwr.draw_indexes_on_plt(index_array=self.__x_points,          plot_type=drwr.PLOT_TYPE['exit'])
         result = drwr.create_png()
         if 'success' in result: print(result['success'])
         return {
@@ -64,7 +65,7 @@ class Trader():
         parabolic     = self.__indicators['SAR']
 
         def check_trend(index, c_price):
-            parabo = parabolic[i]
+            parabo = parabolic[index]
             if sma[index] < ema[index] and \
                ema[index] < c_price    and \
                parabo     < c_price:
@@ -77,7 +78,7 @@ class Trader():
                 trend = None
             return trend
 
-        def find_thrust(index, trend, c_price):
+        def find_thrust(i, trend, c_price):
             if trend == 'bull' and c_price > high_candles[i-1]:
                 direction = 'long'
             elif trend == 'bear' and c_price < low_candles[i-1]:
@@ -87,18 +88,15 @@ class Trader():
             return direction
 
         def create_position(index, direction, c_price):
-            print(index, ': take position !')
             if direction == 'long':
                 stoploss = low_candles[index-1] - StopLoss_buffer_pips
-                # testing
-                # s = pd.Series(['long', c_price, 110.5], index=columns)
             elif direction == 'short':
                 stoploss = high_candles[index-1] + StopLoss_buffer_pips
 
             self.__position = {
-                'type': direction, 'price': c_price, 'stoploss': stoploss
+                'price': c_price, 'stoploss': stoploss, 'type': direction
             }
-            self.__e_points[direction].append(index)
+            self.__hist_positions[direction].loc[index] = self.__position
 
         def settle_position(i, c_price):
             if self.__position['type'] == 'long':
@@ -107,32 +105,30 @@ class Trader():
                 if self.__position['stoploss'] > low_candles[i] or parabolic[i] > c_price:
                     self.__position = { 'type': 'none' }
                     self.__x_points.append(i)
-                    # ここでファイルにも書き込み
-                    print(i, ': settle position !')
+                    # TODO: ここでファイルにも書き込み
             elif self.__position['type'] == 'short':
                 if high_candles[i-1] + StopLoss_buffer_pips < self.__position['stoploss']:
                     self.__position['stoploss'] = high_candles[i-1] + StopLoss_buffer_pips
                 if self.__position['stoploss'] < high_candles[i] or parabolic[i] < c_price:
                     self.__position = { 'type': 'none' }
                     self.__x_points.append(i)
-                    # ここでファイルにも書き込み
-                    print(i, ': settle position !')
+                    # TODO: ここでファイルにも書き込み
 
-        for i, c_price in enumerate(close_candles):
+        for index, c_price in enumerate(close_candles):
             position_buf = self.__position.copy()
             if self.__position['type'] == 'none':
-                if math.isnan(sma[i]): continue
+                if math.isnan(sma[index]): continue
 
-                trend = check_trend(i, c_price)
+                trend = check_trend(index, c_price)
                 if trend is None: continue
-                direction = find_thrust(i, trend, c_price)
+                direction = find_thrust(index, trend, c_price)
                 if direction is None: continue
-                create_position(i, direction, c_price)
+                create_position(index, direction, c_price)
             else:
-                settle_position(i, c_price)
+                settle_position(index, c_price)
 
-            # loop開始時と比較してpositionに変化があったら、状況をprintする
-            if not position_buf == self.__position:
-                print('# recent position {pos}'.format(pos=self.__position))
+            # # loop開始時と比較してpositionに変化があったら、状況をprintする
+            # if not position_buf == self.__position:
+            #     print('# recent position {pos}'.format(pos=self.__position))
 
         return { 'success': '[Trader] 売買判定終了' }

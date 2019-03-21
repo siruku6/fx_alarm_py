@@ -10,9 +10,11 @@ from models.chart_watcher import FXBase
 
 class FigureDrawer():
 
-    PLOT_TYPE = { 'dot':     0, 'simple-line': 1, 'dashed-line': 2 }
-    DOT_TYPE  = { 'long':    0, 'short':       1, 'exit':        2, 'break': 3 }
-    POS_TYPE  = { 'neutral': 0, 'over':        1, 'beneath':     2 }
+    PLOT_TYPE = {
+        'dot': 0, 'long':  1, 'short': 2, 'exit': 3, 'break': 4,
+        'simple-line': 11, 'dashed-line': 12
+    }
+    POS_TYPE  = { 'neutral': 0, 'over': 1, 'beneath': 2 }
 
     def __init__(self):
         self.__figure, (self.__axis1) = \
@@ -31,37 +33,40 @@ class FigureDrawer():
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
         if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
             for key, column in df.iteritems():
-                self.__axis1.plot(df.index, column.values, label=key, c=color, linewidth=1.0)
+                self.__axis1.plot(x=df.index, y=column.values, label=key, c=color, linewidth=1.0)
         elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
             for key, column in df.iteritems():
-                self.__axis1.plot(df.index, column.values, label=key, c=color, linestyle='dashed', linewidth=0.5)
+                self.__axis1.plot(x=df.index, y=column.values, label=key, c=color, linestyle='dashed', linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
             for key, column in df.iteritems():
-                self.__axis1.scatter(df.index, column.values, label=key, c=color, marker='d', s=3)
+                self.__axis1.scatter(x=df.index, y=column.values, label=key, c=color, marker='d', s=3)
         return { 'success': 'dfを描画' }
 
-    def draw_indexes_on_plt(self, index_array, dot_type=DOT_TYPE['long'], pos=POS_TYPE['neutral']):
-        ''' index_arrayを受け取って、各値(int)を描画 '''
+    def draw_positionDf_on_plt(self, df, plot_type=PLOT_TYPE['long']):
         trade_marker_size = 40
-        if dot_type == FigureDrawer.DOT_TYPE['long']:
-            size  = trade_marker_size
-            color = 'white'
+        if plot_type == FigureDrawer.PLOT_TYPE['long']:
             edgecolors = 'red'
             label = 'long'
             mark  = '^'
-        elif dot_type == FigureDrawer.DOT_TYPE['short']:
-            size  = trade_marker_size
-            color = 'white'
+        elif plot_type == FigureDrawer.PLOT_TYPE['short']:
             edgecolors = 'blue'
             label = 'short'
             mark  = 'v'
-        elif dot_type == FigureDrawer.DOT_TYPE['exit']:
+        self.__axis1.scatter(x=df.index, y=df.price,
+            marker=mark, edgecolors=edgecolors, label=label,
+            color='white', s=trade_marker_size
+        )
+
+    def draw_indexes_on_plt(self, index_array, plot_type=PLOT_TYPE['long'], pos=POS_TYPE['neutral']):
+        ''' index_arrayを受け取って、各値(int)を描画 '''
+        trade_marker_size = 40
+        if plot_type == FigureDrawer.PLOT_TYPE['exit']:
             size  = trade_marker_size
             color = 'red'
             edgecolors = None
             label = 'exit'
             mark  = 'x'
-        elif dot_type == FigureDrawer.DOT_TYPE['break']:
+        elif plot_type == FigureDrawer.PLOT_TYPE['break']:
             size = 10
             mark = 'o'
             if pos:
@@ -79,8 +84,8 @@ class FigureDrawer():
             gap = 1.0
 
         self.__axis1.scatter(
-            index_array,
-            FXBase.get_candles().close[index_array] * gap,
+            x=index_array,
+            y=FXBase.get_candles().close[index_array] * gap,
             marker=mark, color=color, edgecolors=edgecolors,
             label=label, s=size
         )
@@ -134,7 +139,6 @@ if __name__ == '__main__':
 
     # 描画
     drawer = FigureDrawer()
-    # drawer.draw_df_on_plt(df=FXBase.get_candles().drop('time', axis=1))
     drawer.draw_candles()
     result = drawer.create_png()
 
