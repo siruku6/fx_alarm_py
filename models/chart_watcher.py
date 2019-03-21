@@ -31,6 +31,8 @@ class FXBase():
     def write_candles_on_csv(cls):
         cls.__candles.to_csv('./candles.csv')
 
+# granularity list
+# http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class ChartWatcher():
     def __init__(self):
         ''' 固定パラメータの設定 '''
@@ -62,9 +64,10 @@ class ChartWatcher():
 
     def __calc_candles_wanted(self, days=1, granularity='M5'):
         time_unit = granularity[0]
-        time_span = int(granularity[1:])
         if time_unit == 'D':
             return int(days)
+
+        time_span = int(granularity[1:])
         if time_unit == 'H':
             return int(days * 24 / time_span)
         if time_unit == 'M':

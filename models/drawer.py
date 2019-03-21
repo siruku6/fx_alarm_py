@@ -33,13 +33,15 @@ class FigureDrawer():
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
         if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
             for key, column in df.iteritems():
-                self.__axis1.plot(x=df.index, y=column.values, label=key, c=color, linewidth=1.0)
+                self.__axis1.plot(df.index, column.values, label=key, c=color, linewidth=1.0)
         elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
             for key, column in df.iteritems():
-                self.__axis1.plot(x=df.index, y=column.values, label=key, c=color, linestyle='dashed', linewidth=0.5)
+                self.__axis1.plot(df.index, column.values, label=key, c=color, linestyle='dashed', linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
             for key, column in df.iteritems():
                 self.__axis1.scatter(x=df.index, y=column.values, label=key, c=color, marker='d', s=3)
+
+        print('[Drawer] ', df.columns[0], 'を描画')
         return { 'success': 'dfを描画' }
 
     def draw_positionDf_on_plt(self, df, plot_type=PLOT_TYPE['long']):
