@@ -33,9 +33,11 @@ class Trader():
     def draw_chart(self):
         ''' チャートや指標をpngに描画 '''
         drwr = self.__drawer
-        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['20SMA']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
-        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['10EMA']], plot_type=drwr.PLOT_TYPE['simple-line'], color='cyan')
-        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['SAR']],   plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
+        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['20SMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
+        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['10EMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='cyan')
+        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['band_+2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='blue')
+        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['band_-2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='blue')
+        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['SAR']],      plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
         # drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
         # drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
         # drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['over'])

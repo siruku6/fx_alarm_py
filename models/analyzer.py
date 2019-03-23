@@ -12,9 +12,11 @@ class Analyzer():
     MAX_AF     = 0.2
 
     def __init__(self):
-        self.__SMA  = None
-        self.__EMA  = None
-        self.__SAR  = []
+        self.__SMA = None
+        self.__EMA = None
+        self.__DOUBLE_SIGMA_BAND       = None
+        self.__MINUS_DOUBLE_SIGMA_BAND = None
+        self.__SAR = []
 
         # Trendline
         self.desc_trends      = None
@@ -28,6 +30,7 @@ class Analyzer():
     def calc_indicators(self):
         self.__calc_SMA()
         self.__calc_EMA()
+        self.__calc_bollinger_bands()
         self.__calc_parabolic()
         result = self.__calc_trendlines()
         if 'success' in result:
@@ -39,7 +42,9 @@ class Analyzer():
 
     def get_indicators(self):
         indicators = pd.concat(
-            [self.__SMA, self.__EMA, self.__SAR],
+            [self.__SMA, self.__EMA,
+             self.__DOUBLE_SIGMA_BAND, self.__MINUS_DOUBLE_SIGMA_BAND,
+             self.__SAR],
             axis=1
         )
         return indicators
@@ -59,6 +64,17 @@ class Analyzer():
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
         ema        = FXBase.get_candles().close.ewm(span=window_size).mean()
         self.__EMA = pd.DataFrame(ema).rename(columns={ 'close': '10EMA' })
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #                  Bollinger Bands                    #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def __calc_bollinger_bands(self, window_size=20):
+        '''ボリンジャーバンドを生成'''
+        close = FXBase.get_candles().close
+        mean               = pd.Series.rolling(close, window=window_size).mean()
+        standard_deviation = pd.Series.rolling(close, window=window_size).std()
+        self.__DOUBLE_SIGMA_BAND       = pd.DataFrame(mean + standard_deviation * 2).rename(columns={ 'close': 'band_+2σ' })
+        self.__MINUS_DOUBLE_SIGMA_BAND = pd.DataFrame(mean - standard_deviation * 2).rename(columns={ 'close': 'band_-2σ' })
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
