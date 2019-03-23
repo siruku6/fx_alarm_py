@@ -8,6 +8,7 @@ import oandapyV20.endpoints.instruments as oandapy
 
 class FXBase():
     __candles = None
+    __latest_candle = None
 
     @classmethod
     def get_candles(cls):
@@ -30,6 +31,14 @@ class FXBase():
     @classmethod
     def write_candles_on_csv(cls):
         cls.__candles.to_csv('./candles.csv')
+
+    @classmethod
+    def get_latest_candle(cls):
+        return cls.__latest_candle
+
+    @classmethod
+    def set_latest_candle(cls, df_candle):
+        cls.__latest_candle = df_candle
 
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
@@ -78,13 +87,14 @@ class ChartWatcher():
         ''' OandaAPIと直接通信し、為替データを取得 '''
         if candles_count is not None:
             time_params = {
-                'alignmentTimezone':   'Asia/Tokyo',
+                # INFO: つけない方が一般的なレートに近くなる
+                # 'alignmentTimezone':   'Asia/Tokyo',
                 'from': start, 'count': candles_count,
                 'granularity':          granularity
             }
         else:
             time_params = {
-                'alignmentTimezone': 'Asia/Tokyo',
+                # 'alignmentTimezone': 'Asia/Tokyo',
                 'from': start, 'to':  end,
                 'granularity':        granularity
             }
@@ -104,7 +114,7 @@ class ChartWatcher():
         candle['time'] = [ row['time'] for row in response['candles'] ]
         # 冗長な日時データを短縮
         # https://note.nkmk.me/python-pandas-datetime-timestamp/
-        candle['time'] = pd.to_datetime(candle['time']).astype(str) # TODO .astype(str) これでいいのか？
+        candle['time'] = pd.to_datetime(candle['time']).astype(str)
         return candle
 
     def reload_chart(self, days=1, granularity='M5'):
@@ -141,31 +151,46 @@ class ChartWatcher():
         max_days = int(5000 / candles_per_a_day)
         return max_days
 
-    def load_long_chart(self, granularity='M5'):
+    def load_long_chart(self, days=1, granularity='M5'):
         ''' 長期間のチャート取得のために複数回APIリクエスト '''
-        print('何日分のデータを取得する？(半角数字): ', end='')
+        remaining_days = days
+        candles = None
         requestable_max_days = self.__calc_requestable_max_days(granularity=granularity)
-        days = int(input())
+
         now  = datetime.datetime.now() - datetime.timedelta(hours=9) # UTC化
-        while days > 0:
-            start_datetime = now - datetime.timedelta(days=days)
-            days -= requestable_max_days
-            if days < 0: days = 0
-            end_datetime = now - datetime.timedelta(days=days)
+        while remaining_days > 0:
+            start_datetime = now - datetime.timedelta(days=remaining_days)
+            remaining_days -= requestable_max_days
+            if remaining_days < 0: remaining_days = 0
+            end_datetime = now - datetime.timedelta(days=remaining_days)
             request = self.__request_oanda_instruments(
                 start=start_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z'),
                 end=  end_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z'),
-                granularity='M5'
+                granularity=granularity
             )
-            candles = self.__transform_to_candle_chart(request.response)
-            FXBase.union_candles_distinct(candles=candles)
-            print('残り: {days}days'.format(days=days))
+            tmp_candles = self.__transform_to_candle_chart(request.response)
+            candles = pd.concat([candles, tmp_candles]) \
+                        .drop_duplicates(subset='time') \
+                        .reset_index(drop=True)
+            print('残り: {remaining_days}日分'.format(remaining_days=remaining_days))
             time.sleep(1)
 
-        FXBase.write_candles_on_csv()
-        if days is 0: return { 'success': '[Watcher] APIリクエスト成功' }
-        else: return { 'error': '[Watcher] 処理中断' }
+        if remaining_days is 0:
+            return { 'success': '[Watcher] APIリクエスト成功',
+                     'candles': candles }
+        else:
+            return { 'error': '[Watcher] 処理中断' }
 
 if __name__ == '__main__':
+    print('何日分のデータを取得する？(半角数字): ', end='')
+    days = int(input())
+    if days > 300:
+        print('[ALERT] 現在は300日までに制限しています')
+        exit()
     watcher = ChartWatcher()
-    watcher.load_long_chart()
+    result = watcher.load_long_chart(days=days)
+    if 'error' in result:
+        print(result['error'])
+        exit()
+    FXBase.union_candles_distinct(candles=result['candles'])
+    FXBase.write_candles_on_csv()
