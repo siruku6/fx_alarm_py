@@ -58,11 +58,12 @@ class Trader():
         ''' ポジション履歴をcsv出力 '''
         self.__hist_positions['long'].to_csv('./long_history.csv')
         self.__hist_positions['short'].to_csv('./short_history.csv')
+        print('[Trader] ポジション履歴をcsv出力完了')
 
     #
     # private
     #
-    def __demo_swing_trade(self, StopLoss_buffer_pips=0.05):
+    def __demo_swing_trade(self, STOPLOSS_BUFFER_pips=0.5):
         ''' スイングトレードのentry pointを検出 '''
         high_candles  = FXBase.get_candles().high
         low_candles   = FXBase.get_candles().low
@@ -96,34 +97,41 @@ class Trader():
 
         def create_position(index, direction, c_price):
             if direction == 'long':
-                stoploss = low_candles[index-1] - StopLoss_buffer_pips
+                stoploss = low_candles[index-1] - STOPLOSS_BUFFER_pips
             elif direction == 'short':
-                stoploss = high_candles[index-1] + StopLoss_buffer_pips
+                stoploss = high_candles[index-1] + STOPLOSS_BUFFER_pips
 
             self.__position = {
                 'sequence': index, 'price': c_price, 'stoploss': stoploss, 'type': direction
             }
             self.__hist_positions[direction].loc[index] = self.__position
 
-        def settle_position(i, c_price):
+        def judge_settle_position(i, c_price):
             position_type = self.__position['type']
+            stoploss_price = self.__position['stoploss']
             if position_type == 'long':
-                if low_candles[i-1] - StopLoss_buffer_pips > self.__position['stoploss']:
-                    self.__position['stoploss'] = low_candles[i-1] - StopLoss_buffer_pips
-                if self.__position['stoploss'] > low_candles[i] or parabolic[i] > c_price:
-                    self.__position = { 'type': 'none' }
-                    self.__hist_positions[position_type] = self.__append_position_history(
-                        row=[i, c_price, 0.0, 'close'],
-                        position_type=position_type
+                if low_candles[i-1] - STOPLOSS_BUFFER_pips > stoploss_price:
+                    stoploss_price = low_candles[i-1] - STOPLOSS_BUFFER_pips
+                    self.__trail_stoploss(index=i, new_SL=stoploss_price, position_type=position_type)
+                if stoploss_price > low_candles[i]:
+                    self.__settle_position(
+                        index=i, price=stoploss_price, position_type=position_type
+                    )
+                elif parabolic[i] > c_price:
+                    self.__settle_position(
+                        index=i, price=c_price, position_type=position_type
                     )
             elif position_type == 'short':
-                if high_candles[i-1] + StopLoss_buffer_pips < self.__position['stoploss']:
-                    self.__position['stoploss'] = high_candles[i-1] + StopLoss_buffer_pips
-                if self.__position['stoploss'] < high_candles[i] or parabolic[i] < c_price:
-                    self.__position = { 'type': 'none' }
-                    self.__hist_positions[position_type] = self.__append_position_history(
-                        row=[i, c_price, 0.0, 'close'],
-                        position_type=position_type
+                if high_candles[i-1] + STOPLOSS_BUFFER_pips < stoploss_price:
+                    stoploss_price = high_candles[i-1] + STOPLOSS_BUFFER_pips
+                    self.__trail_stoploss(index=i, new_SL=stoploss_price, position_type=position_type)
+                if stoploss_price < high_candles[i]:
+                    self.__settle_position(
+                        index=i, price=stoploss_price, position_type=position_type
+                    )
+                elif parabolic[i] < c_price:
+                    self.__settle_position(
+                        index=i, price=c_price, position_type=position_type
                     )
 
         for index, c_price in enumerate(close_candles):
@@ -137,7 +145,7 @@ class Trader():
                 if direction is None: continue
                 create_position(index, direction, c_price)
             else:
-                settle_position(index, c_price)
+                judge_settle_position(index, c_price)
 
             # # loop開始時と比較してpositionに変化があったら、状況をprintする
             # if not position_buf == self.__position:
@@ -147,8 +155,16 @@ class Trader():
         self.__hist_positions['short'] = self.__hist_positions['short'].reset_index(drop=True)
         return { 'success': '[Trader] 売買判定終了' }
 
-    def __append_position_history(self, row, position_type):
-        return pd.concat([
+    def __trail_stoploss(self, index, new_SL, position_type):
+        self.__position['stoploss'] = new_SL
+        self.__hist_positions[position_type] =  pd.concat([
             self.__hist_positions[position_type],
-            pd.DataFrame([row], columns=self.__columns)
+            pd.DataFrame(self.__position, index=[index])
+        ])
+
+    def __settle_position(self, index, price, position_type):
+        self.__position = { 'type': 'none' }
+        self.__hist_positions[position_type] =  pd.concat([
+            self.__hist_positions[position_type],
+            pd.DataFrame([[index, price, 0.0, 'close']], columns=self.__columns)
         ])
