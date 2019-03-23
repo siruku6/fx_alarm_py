@@ -42,9 +42,9 @@ class Trader():
         # drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['beneath'])
         drwr.draw_candles()
         df_pos = self.__hist_positions
-        drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type!='close'],   plot_type=drwr.PLOT_TYPE['long'])
+        drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='long'],   plot_type=drwr.PLOT_TYPE['long'])
         drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='close'],   plot_type=drwr.PLOT_TYPE['exit'])
-        drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type!='close'], plot_type=drwr.PLOT_TYPE['short'])
+        drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
         drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='close'], plot_type=drwr.PLOT_TYPE['exit'])
         result = drwr.create_png()
         if 'success' in result: print(result['success'])
@@ -135,8 +135,9 @@ class Trader():
                     )
 
         for index, c_price in enumerate(close_candles):
+            self.__position['sequence'] = index
             position_buf = self.__position.copy()
-            if self.__position['type'] == 'none':
+            if position_buf['type'] == 'none':
                 if math.isnan(sma[index]): continue
 
                 trend = check_trend(index, c_price)
@@ -157,9 +158,11 @@ class Trader():
 
     def __trail_stoploss(self, index, new_SL, position_type):
         self.__position['stoploss'] = new_SL
+        position_after_trailing = self.__position.copy()
+        position_after_trailing['type'] = 'trail'
         self.__hist_positions[position_type] =  pd.concat([
             self.__hist_positions[position_type],
-            pd.DataFrame(self.__position, index=[index])
+            pd.DataFrame(position_after_trailing, index=[index])
         ])
 
     def __settle_position(self, index, price, position_type):
