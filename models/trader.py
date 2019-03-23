@@ -56,6 +56,7 @@ class Trader():
 
     def report_trading_result(self):
         ''' ポジション履歴をcsv出力 '''
+        self.__calc_profit()
         self.__hist_positions['long'].to_csv('./long_history.csv')
         self.__hist_positions['short'].to_csv('./short_history.csv')
         print('[Trader] ポジション履歴をcsv出力完了')
@@ -171,3 +172,24 @@ class Trader():
             self.__hist_positions[position_type],
             pd.DataFrame([[index, price, 0.0, 'close']], columns=self.__columns)
         ])
+
+    def __calc_profit(self):
+        # longエントリーの損益を計算
+        self.__hist_positions['long']['profit'] = pd.Series([], index=[])
+
+        long_hist = self.__hist_positions['long']
+        for i, row in long_hist[long_hist.type=='close'].iterrows():
+            profit = row.price - long_hist.price[i-1]
+            self.__hist_positions['long'].loc[i, ['profit']] = profit
+
+        # shortエントリーの損益を計算
+        self.__hist_positions['short']['profit'] = pd.Series([], index=[])
+
+        short_hist = self.__hist_positions['short']
+        for i, row in short_hist[short_hist.type=='close'].iterrows():
+            profit = short_hist.price[i-1] - row.price
+            self.__hist_positions['short'].loc[i, ['profit']] = profit
+
+        sum_profit = self.__hist_positions['long'][['profit']].sum() \
+                   + self.__hist_positions['short'][['profit']].sum()
+        print('[合計損益] {profit}pips'.format( profit=round(sum_profit['profit'], 3) ))
