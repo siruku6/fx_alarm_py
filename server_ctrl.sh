@@ -7,6 +7,7 @@ menu=$(cat << EOS
 {1} :python main.py
 {2} :testコード実行
 {5} :find (find ./[dir] -type f -print | xargs grep [str])
+{6} :unittest全実行
 {99}:LINUX shutdown
 {*} :exit
 数字を選択：
@@ -40,6 +41,12 @@ while true; do
       echo press Enter ...
       read Wait
       ;;
+	6)
+	  echo 'unittest実行準備中...'
+	  python -m unittest
+	  echo press Enter ...
+	  read Wait
+	  ;;
     99)
       echo -e 'Input 1(DO SHUTDOWN) or 9(cancel):'
       read select
