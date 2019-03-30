@@ -72,7 +72,7 @@ class ChartWatcher():
     def __calc_start_time(self, days, end_datetime=datetime.datetime.now()):
         end_datetime -= datetime.timedelta(hours=9) # UTC化
         start_time    = end_datetime - datetime.timedelta(days=days)
-        start_time    = start_time.strftime('%Y-%m-%dT%H:%M:00.000000Z')
+        start_time    = self.__format_dt_into_OandapyV20(start_time)
         return start_time
 
     def __calc_candles_wanted(self, days=1, granularity='M5'):
@@ -118,7 +118,7 @@ class ChartWatcher():
         candle['time'] = [ row['time'] for row in response['candles'] ]
         # 冗長な日時データを短縮
         # https://note.nkmk.me/python-pandas-datetime-timestamp/
-        candle['time'] = pd.to_datetime(candle['time']).astype(str)
+        candle['time'] = pd.to_datetime(candle['time']).astype(str) # '2018-06-03 21:00:00'
         return candle
 
     def reload_chart(self, days=1, granularity='M5'):
@@ -172,8 +172,8 @@ class ChartWatcher():
             if remaining_days < 0: remaining_days = 0
             end_datetime = now - datetime.timedelta(days=remaining_days)
             request = self.__request_oanda_instruments(
-                start=start_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z'),
-                end=  end_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z'),
+                start=self.__format_dt_into_OandapyV20(start_datetime),
+                end=  self.__format_dt_into_OandapyV20(end_datetime),
                 granularity=granularity
             )
             tmp_candles = self.__transform_to_candle_chart(request.response)
@@ -187,8 +187,20 @@ class ChartWatcher():
         else:
             return { 'error': '[Watcher] 処理中断' }
 
-    def request_latest_candle(self):
-        return 4
+    def request_latest_candles(self, target_datetime, granularity='M10'):
+        target_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
+        start_datetime  = target_datetime + datetime.timedelta(hours=21)
+        end_datetime    = start_datetime + datetime.timedelta(days=1)
+        request = self.__request_oanda_instruments(
+            start=self.__format_dt_into_OandapyV20(start_datetime),
+            end=  self.__format_dt_into_OandapyV20(end_datetime),
+            granularity=granularity
+        )
+        candles = self.__transform_to_candle_chart(request.response)
+        return candles
+
+    def __format_dt_into_OandapyV20(self, dt):
+        return dt.strftime('%Y-%m-%dT%H:%M:00.000000Z')
 
 if __name__ == '__main__':
     print('何日分のデータを取得する？(半角数字): ', end='')
