@@ -4,7 +4,7 @@ import models.chart_watcher as watcher
 
 class TestWatcher(unittest.TestCase):
     def setUp(self):
-        print('setup')
+        print('[Watcher] setup')
         self.__watcher_instance = watcher.ChartWatcher()
 
     def test_request_latest_candles(self):

@@ -66,7 +66,8 @@ class Trader():
     #
     # private
     #
-    def __demo_swing_trade(self, STOPLOSS_BUFFER_pips=0.5):
+    # TODO: STOPLOSS_BUFFER_pips は要検討
+    def __demo_swing_trade(self, STOPLOSS_BUFFER_pips=0.05):
         ''' スイングトレードのentry pointを検出 '''
         high_candles  = FXBase.get_candles().high
         low_candles   = FXBase.get_candles().low
@@ -158,6 +159,9 @@ class Trader():
         self.__hist_positions['long']  = self.__hist_positions['long'].reset_index(drop=True)
         self.__hist_positions['short'] = self.__hist_positions['short'].reset_index(drop=True)
         return { 'success': '[Trader] 売買判定終了' }
+
+    def __check_entry_timing(self):
+        pass
 
     def __trail_stoploss(self, index, new_SL, position_type):
         self.__position['stoploss'] = new_SL

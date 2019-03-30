@@ -28,6 +28,8 @@ class Analyzer():
     #                       Driver                        #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def calc_indicators(self):
+        if FXBase.get_candles() is None:
+            return { 'error': '[ERROR] Analyzer: 分析対象データがありません' }
         self.__calc_SMA()
         self.__calc_EMA()
         self.__calc_bollinger_bands()
