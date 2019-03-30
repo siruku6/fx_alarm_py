@@ -19,14 +19,18 @@ class FXBase():
         cls.__candles['time_id'] = cls.get_candles().index + 1
 
     @classmethod
-    def union_candles_distinct(cls, candles):
+    def union_candles_distinct(cls, old_candles, new_candles):
         # pandas_df == None という比較はできない
-        if cls.__candles is None:
-            cls.__candles = candles
+        if old_candles is None:
+            return new_candles
         else:
-            cls.__candles = pd.concat([cls.get_candles(), candles]) \
-                              .drop_duplicates(subset='time') \
-                              .reset_index(drop=True)
+            return pd.concat([old_candles, new_candles]) \
+                     .drop_duplicates(subset='time') \
+                     .reset_index(drop=True)
+
+    @classmethod
+    def set_candles(cls, candles):
+        cls.__candles = candles
 
     @classmethod
     def write_candles_on_csv(cls):
@@ -132,18 +136,22 @@ class ChartWatcher():
             return { 'error': '[Watcher] request結果、データがありませんでした' }
         else:
             candles = self.__transform_to_candle_chart(request.response)
-            FXBase.union_candles_distinct(candles=candles)
+            FXBase.set_candles(
+                candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
+            )
             return { 'success': '[Watcher] Oandaからのレート取得に成功' }
 
     def __calc_requestable_max_days(self, granularity='M5'):
         time_unit = granularity[0]
-        time_span = int(granularity[1:])
+
         # 1日当たりのローソク足本数を計算
         if time_unit == 'D':
             candles_per_a_day = 1
         elif time_unit == 'H':
+            time_span = int(granularity[1:])
             candles_per_a_day = 1 * 24 / time_span
         elif time_unit == 'M':
+            time_span = int(granularity[1:])
             candles_per_a_day = 1 * 24 * 60 / time_span
 
         # http://developer.oanda.com/rest-live-v20/instrument-ep/
@@ -169,9 +177,7 @@ class ChartWatcher():
                 granularity=granularity
             )
             tmp_candles = self.__transform_to_candle_chart(request.response)
-            candles = pd.concat([candles, tmp_candles]) \
-                        .drop_duplicates(subset='time') \
-                        .reset_index(drop=True)
+            candles = FXBase.union_candles_distinct(candles, tmp_candles)
             print('残り: {remaining_days}日分'.format(remaining_days=remaining_days))
             time.sleep(1)
 
@@ -187,10 +193,13 @@ if __name__ == '__main__':
     if days > 300:
         print('[ALERT] 現在は300日までに制限しています')
         exit()
+    print('取得スパンは？(ex: M5): ', end='')
+    granularity = str(input())
+
     watcher = ChartWatcher()
-    result = watcher.load_long_chart(days=days)
+    result = watcher.load_long_chart(days=days, granularity=granularity)
     if 'error' in result:
         print(result['error'])
         exit()
-    FXBase.union_candles_distinct(candles=result['candles'])
+    FXBase.set_candles(FXBase.union_candles_distinct(candles=result['candles']))
     FXBase.write_candles_on_csv()
