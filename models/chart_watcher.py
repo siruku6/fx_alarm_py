@@ -187,6 +187,9 @@ class ChartWatcher():
         else:
             return { 'error': '[Watcher] 処理中断' }
 
+    def request_latest_candle(self):
+        return 4
+
 if __name__ == '__main__':
     print('何日分のデータを取得する？(半角数字): ', end='')
     days = int(input())
