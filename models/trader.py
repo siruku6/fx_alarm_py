@@ -28,9 +28,8 @@ class Trader():
     #
     def auto_verify_trading_rule(self):
         ''' tradeルールを自動検証 '''
-        result = self.__demo_swing_trade()
-        # self.__accurize_entry_prices()
-        if 'success' in result: print(result['success'])
+        print(self.__demo_swing_trade()['success'])
+        print(self.__accurize_entry_prices()['success'])
 
     def draw_chart(self):
         ''' チャートや指標をpngに描画 '''
@@ -174,16 +173,36 @@ class Trader():
         '''
         ポジション履歴のエントリーpriceを、実際にエントリー可能な価格に修正する
         '''
-        longs = self.__hist_positions['long']
-        long_sequences = longs[longs['type']=='long']['sequence'].values
-        query_array = '[' + ','.join(map(str, long_sequences)) + ']'
-        # import pdb; pdb.set_trace()
-        long_timing = FXBase.get_candles().query('index in {array}'.format(array=query_array))['time']
-        # pass
-        # self.__watcher.request_latest_candles(
-        #     target_datetime='2018-07-12 00:00:00',
-        #     granularity='M10'
-        # )
+        # long価格の修正
+        long_hist = self.__hist_positions['long']
+        long_pos  = long_hist[long_hist['type']=='long']
+        for index, row in long_pos.iterrows():
+            M10_candles = self.__watcher.request_latest_candles(
+                target_datetime=row.time,
+                granularity='M10',
+                period_m=1440
+            )
+            for i, M10_row in M10_candles.iterrows():
+                if row.price < M10_row.high:
+                    self.__hist_positions['long'].loc[index, 'price'] = M10_row.high
+                    self.__hist_positions['long'].loc[index, 'time'] = M10_row.time
+                    break
+
+        # short価格の修正
+        short_hist = self.__hist_positions['short']
+        short_pos  = short_hist[short_hist['type']=='short']
+        for index, row in short_pos.iterrows():
+            M10_candles = self.__watcher.request_latest_candles(
+                target_datetime=row.time,
+                granularity='M10',
+                period_m=1440
+            )
+            for i, M10_row in M10_candles.iterrows():
+                if row.price > M10_row.low:
+                    self.__hist_positions['short'].loc[index, 'price'] = M10_row.low
+                    self.__hist_positions['short'].loc[index, 'time'] = M10_row.time
+                    break
+        return { 'success': '[Trader] entry価格を、現実的に取引可能な値に修正' }
 
     def __trail_stoploss(self, index, new_SL, position_type):
         self.__position['stoploss'] = new_SL

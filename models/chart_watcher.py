@@ -189,7 +189,6 @@ class ChartWatcher():
 
     def request_latest_candles(self, target_datetime, granularity='M10', period_m=1440):
         start_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
-        import pdb; pdb.set_trace()
         end_datetime   = start_datetime + datetime.timedelta(minutes=period_m)
         request = self.__request_oanda_instruments(
             start=self.__format_dt_into_OandapyV20(start_datetime),
