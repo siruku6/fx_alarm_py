@@ -171,6 +171,9 @@ class Trader():
         return { 'success': '[Trader] 売買判定終了' }
 
     def __accurize_entry_prices(self):
+        '''
+        ポジション履歴のエントリーpriceを、実際にエントリー可能な価格に修正する
+        '''
         longs = self.__hist_positions['long']
         long_sequences = longs[longs['type']=='long']['sequence'].values
         query_array = '[' + ','.join(map(str, long_sequences)) + ']'
@@ -192,6 +195,24 @@ class Trader():
         ])
 
     def __settle_position(self, index, price, position_type, time):
+        '''
+        ポジション解消の履歴を残す
+
+        Parameters
+        ----------
+        index : int
+            ポジションを解消するタイミングを表す
+        price : float
+            ポジション解消時の価格
+        position_type : string
+            -
+        time : string
+            ポジションを解消する日（時）
+
+        Returns
+        -------
+        None
+        '''
         self.__position = { 'type': 'none' }
         self.__hist_positions[position_type] =  pd.concat([
             self.__hist_positions[position_type],
@@ -199,6 +220,9 @@ class Trader():
         ])
 
     def __calc_profit(self):
+        '''
+        ポジション履歴から総損益を算出する
+        '''
         # longエントリーの損益を計算
         self.__hist_positions['long']['profit'] = pd.Series([], index=[])
 
