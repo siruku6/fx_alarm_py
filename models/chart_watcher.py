@@ -33,16 +33,16 @@ class FXBase():
         cls.__candles = candles
 
     @classmethod
-    def write_candles_on_csv(cls):
-        cls.__candles.to_csv('./candles.csv')
+    def write_candles_on_csv(cls, filename='./candles.csv'):
+        cls.__candles.to_csv(filename)
 
-    @classmethod
-    def get_latest_candle(cls):
-        return cls.__latest_candle
-
-    @classmethod
-    def set_latest_candle(cls, df_candle):
-        cls.__latest_candle = df_candle
+    # @classmethod
+    # def get_latest_candle(cls):
+    #     return cls.__latest_candle
+    #
+    # @classmethod
+    # def set_latest_candle(cls, df_candle):
+    #     cls.__latest_candle = df_candle
 
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity

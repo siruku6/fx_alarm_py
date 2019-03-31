@@ -6,8 +6,8 @@ class TestTrader(unittest.TestCase):
         print('[Trader] setup')
         self.__trader_instance = trader.Trader()
 
-    def test_sample(self):
-        self.__trader_instance._Trader__check_entry_timing()
+    def test__accurize_entry_prices(self):
+        self.__trader_instance._Trader__accurize_entry_prices()
 
 if __name__ == '__main__':
     unittest.main()
