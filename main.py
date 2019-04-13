@@ -1,4 +1,5 @@
-from models import interval, mailer, trader
+from models import interval, mailer
+from models.trader import Trader
 from models.oanda_py_client import FXBase
 from models.oanda_py_client import OandaPyClient
 
@@ -8,7 +9,7 @@ class Main():
         self.client = OandaPyClient()
 
     def periodic_processes(self):
-        result = self.client.reload_chart(days=2)
+        result = self.client.reload_chart(days=2, instrument='USD_JPY')
         if 'success' in result:
             print(result['success'])
             print(FXBase.get_candles().tail())
@@ -16,7 +17,7 @@ class Main():
             print(result['error'])
             exit()
 
-        tr = trader.Trader()
+        tr = Trader()
         tr.auto_verify_trading_rule()
         result = tr.draw_chart()
 

@@ -5,13 +5,18 @@ import math
 import pandas as pd
 
 class Trader():
-    def __init__(self):
-        self.__client  = OandaPyClient()
-        self.__ana     = Analyzer()
-        self.__drawer  = FigureDrawer()
+    def __init__(self, operation='verification'):
+        self.__client = OandaPyClient()
+        self.__ana    = Analyzer()
+        self.__drawer = FigureDrawer()
+        self.__instrument = 'USD_JPY'
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time']
         # TODO: STOPLOSS_BUFFER_pips は要検討
         self.__STOPLOSS_BUFFER_pips = 0.05
+
+        if operation == 'custom':
+            self.__instrument = self.__request_custom_candles()
+
         result = self.__ana.calc_indicators()
         if 'error' in result:
             print(result['error'])
@@ -28,10 +33,10 @@ class Trader():
     #
     # public
     #
-    def auto_verify_trading_rule(self):
+    def auto_verify_trading_rule(self, accurize=False):
         ''' tradeルールを自動検証 '''
         print(self.__demo_swing_trade()['success'])
-        print(self.__accurize_entry_prices()['success'])
+        if accurize: print(self.__accurize_entry_prices()['success'])
 
     def draw_chart(self):
         ''' チャートや指標をpngに描画 '''
@@ -69,22 +74,55 @@ class Trader():
     #
     # private
     #
+    def __request_custom_candles(self):
+        # Custom request
+        print('何日分のデータを取得する？(半角数字): ', end='')
+        days = int(input())
+        if days > 300:
+            print('[ALERT] 現在は300日までに制限しています')
+            exit()
+
+        print('取得スパンは？(ex: M5): ', end='')
+        granularity = str(input())
+
+        print('通貨ペアは？')
+        instruments = ['USD_JPY', 'EUR_USD', 'GBP_JPY']
+        prompt_message = ''
+        for i, inst in enumerate(instruments):
+            prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst)
+        print(prompt_message + '(半角数字): ', end='')
+        inst_id = int(input())
+
+        result = self.__client.load_long_chart(
+            days=days,
+            instrument=instruments[inst_id],
+            granularity=granularity
+        )
+        if 'error' in result:
+            print(result['error'])
+            exit()
+        FXBase.set_candles(result['candles'])
+
+        return instruments[inst_id]
+
     def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''
         sma = self.__indicators['20SMA']
-        for index, c_price in enumerate(FXBase.get_candles().close):
+        for index, close_price in enumerate(FXBase.get_candles().close):
             self.__position['sequence'] = index
             position_buf = self.__position.copy()
             if position_buf['type'] == 'none':
                 if math.isnan(sma[index]): continue
 
-                trend = self.__check_trend(index, c_price)
+                trend = self.__check_trend(index, close_price)
                 if trend is None: continue
+
                 direction = self.__find_thrust(index, trend)
                 if direction is None: continue
+
                 self.__create_position(index, direction)
             else:
-                self.__judge_settle_position(index, c_price)
+                self.__judge_settle_position(index, close_price)
 
             # # loop開始時と比較してpositionに変化があったら、状況をprintする
             # if not position_buf == self.__position:
@@ -114,7 +152,10 @@ class Trader():
         return trend
 
     def __find_thrust(self, i, trend):
-        candles = FXBase.get_candles()
+        '''
+        thrust発生の有無と方向を判定して返却する
+        '''
+        candles = FXBase.get_candles()[['high', 'low']]
         if trend == 'bull' and candles.high[i] > candles.high[i-1]:
             direction = 'long'
         elif trend == 'bear' and candles.low[i] < candles.low[i-1]:
@@ -127,19 +168,21 @@ class Trader():
         '''
         ルールに基づいてポジションをとる
         '''
+        candles = FXBase.get_candles()
         if direction == 'long':
-            entry_price = FXBase.get_candles().high[index-1]
-            stoploss    = FXBase.get_candles().low[index-1] - self.__STOPLOSS_BUFFER_pips
+            entry_price = candles.high[index-1]
+            stoploss    = candles.low[index-1] - self.__STOPLOSS_BUFFER_pips
         elif direction == 'short':
-            entry_price = FXBase.get_candles().low[index-1]
-            stoploss    = FXBase.get_candles().high[index-1] + self.__STOPLOSS_BUFFER_pips
+            entry_price = candles.low[index-1]
+            stoploss    = candles.high[index-1] + self.__STOPLOSS_BUFFER_pips
 
         self.__position = {
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
-            'type': direction, 'time': FXBase.get_candles().time[index]
+            'type': direction, 'time': candles.time[index]
         }
         self.__hist_positions[direction].loc[index] = self.__position
 
+    # TODO: bug trailした時間がcsvに出力されない
     def __trail_stoploss(self, index, new_SL, position_type):
         self.__position['stoploss'] = new_SL
         position_after_trailing = self.__position.copy()
@@ -219,6 +262,7 @@ class Trader():
         for index, row in long_pos.iterrows():
             M10_candles = self.__client.request_latest_candles(
                 target_datetime=row.time,
+                instrument=self.__instrument,
                 granularity='M10',
                 # TODO: granurarityがDの時しか正常動作しない
                 period_m=1440
@@ -235,6 +279,7 @@ class Trader():
         for index, row in short_pos.iterrows():
             M10_candles = self.__client.request_latest_candles(
                 target_datetime=row.time,
+                instrument=self.__instrument,
                 granularity='M10',
                 period_m=1440
             )

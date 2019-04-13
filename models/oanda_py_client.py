@@ -55,6 +55,75 @@ class OandaPyClient():
             environment ='practice'
         )
 
+    #
+    # Public
+    #
+    def reload_chart(self, days=1, granularity='M5', instrument='USD_JPY'):
+        ''' チャート情報を更新 '''
+        # if self.__is_uptime() == False: return { 'error': '[Watcher] 休日のためAPIへのrequestをcancelしました' }
+        start_time    = self.__calc_start_time(days=days)
+        candles_count = self.__calc_candles_wanted(days=days, granularity=granularity)
+        # pd.set_option("display.max_rows", candles_count) # 表示可能な最大行数を設定
+        request = self.__request_oanda_instruments(
+            start=start_time,
+            candles_count=candles_count,
+            instrument=instrument,
+            granularity=granularity
+        )
+        if request.response['candles'] == []:
+            return { 'error': '[Watcher] request結果、データがありませんでした' }
+        else:
+            candles = self.__transform_to_candle_chart(request.response)
+            FXBase.set_candles(
+                candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
+            )
+            return { 'success': '[Watcher] Oandaからのレート取得に成功' }
+
+    def load_long_chart(self, days=1, granularity='M5', instrument='USD_JPY'):
+        ''' 長期間のチャート取得のために複数回APIリクエスト '''
+        remaining_days = days
+        candles = None
+        requestable_max_days = self.__calc_requestable_max_days(granularity=granularity)
+
+        now  = datetime.datetime.now() - datetime.timedelta(hours=9) # UTC化
+        while remaining_days > 0:
+            start_datetime = now - datetime.timedelta(days=remaining_days)
+            remaining_days -= requestable_max_days
+            if remaining_days < 0: remaining_days = 0
+            end_datetime = now - datetime.timedelta(days=remaining_days)
+            request = self.__request_oanda_instruments(
+                start=self.__format_dt_into_OandapyV20(start_datetime),
+                end=self.__format_dt_into_OandapyV20(end_datetime),
+                instrument=instrument, granularity=granularity
+            )
+            tmp_candles = self.__transform_to_candle_chart(request.response)
+            candles = FXBase.union_candles_distinct(candles, tmp_candles)
+            print('残り: {remaining_days}日分'.format(remaining_days=remaining_days))
+            time.sleep(1)
+
+        if remaining_days is 0:
+            return { 'success': '[Watcher] APIリクエスト成功',
+                     'candles': candles }
+        else:
+            return { 'error': '[Watcher] 処理中断' }
+
+    def request_latest_candles(self, target_datetime,
+        granularity='M10', instrument='USD_JPY', period_m=1440
+    ):
+        start_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
+        end_datetime   = start_datetime + datetime.timedelta(minutes=period_m)
+        request = self.__request_oanda_instruments(
+            start=self.__format_dt_into_OandapyV20(start_datetime),
+            end=  self.__format_dt_into_OandapyV20(end_datetime),
+            instrument=instrument,
+            granularity=granularity
+        )
+        candles = self.__transform_to_candle_chart(request.response)
+        return candles
+
+    #
+    # Private
+    #
     def __is_uptime(self):
         ''' 市場が動いている（営業中）か否か(bool型)を返す '''
         now_delta       = datetime.datetime.now()
@@ -87,24 +156,24 @@ class OandaPyClient():
             return int(days * 24 * 60 / time_span)
 
     def __request_oanda_instruments(self, start, end=None,
-        candles_count=None, granularity='M5'):
+        candles_count=None, instrument='USD_JPY', granularity='M5'):
         ''' OandaAPIと直接通信し、為替データを取得 '''
         if candles_count is not None:
             time_params = {
                 # INFO: つけない方が一般的なレートに近くなる
                 # 'alignmentTimezone':   'Asia/Tokyo',
                 'from': start, 'count': candles_count,
-                'granularity':          granularity
+                'granularity': granularity
             }
         else:
             time_params = {
                 # 'alignmentTimezone': 'Asia/Tokyo',
                 'from': start, 'to':  end,
-                'granularity':        granularity
+                'granularity': granularity
             }
 
         request_obj = oandapy.InstrumentsCandles(
-            instrument='USD_JPY',
+            instrument=instrument,
             params=time_params
         )
         self.__api.request(request_obj)
@@ -120,26 +189,6 @@ class OandaPyClient():
         # https://note.nkmk.me/python-pandas-datetime-timestamp/
         candle['time'] = pd.to_datetime(candle['time']).astype(str) # '2018-06-03 21:00:00'
         return candle
-
-    def reload_chart(self, days=1, granularity='M5'):
-        ''' チャート情報を更新 '''
-        # if self.__is_uptime() == False: return { 'error': '[Watcher] 休日のためAPIへのrequestをcancelしました' }
-        start_time    = self.__calc_start_time(days=days)
-        candles_count = self.__calc_candles_wanted(days=days, granularity=granularity)
-        # pd.set_option("display.max_rows", candles_count) # 表示可能な最大行数を設定
-        request = self.__request_oanda_instruments(
-            start        =start_time,
-            candles_count=candles_count,
-            granularity  =granularity
-        )
-        if request.response['candles'] == []:
-            return { 'error': '[Watcher] request結果、データがありませんでした' }
-        else:
-            candles = self.__transform_to_candle_chart(request.response)
-            FXBase.set_candles(
-                candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
-            )
-            return { 'success': '[Watcher] Oandaからのレート取得に成功' }
 
     def __calc_requestable_max_days(self, granularity='M5'):
         time_unit = granularity[0]
@@ -158,45 +207,6 @@ class OandaPyClient():
         # 1 requestにつき5000本まで許容される
         max_days = int(5000 / candles_per_a_day)
         return max_days
-
-    def load_long_chart(self, days=1, granularity='M5'):
-        ''' 長期間のチャート取得のために複数回APIリクエスト '''
-        remaining_days = days
-        candles = None
-        requestable_max_days = self.__calc_requestable_max_days(granularity=granularity)
-
-        now  = datetime.datetime.now() - datetime.timedelta(hours=9) # UTC化
-        while remaining_days > 0:
-            start_datetime = now - datetime.timedelta(days=remaining_days)
-            remaining_days -= requestable_max_days
-            if remaining_days < 0: remaining_days = 0
-            end_datetime = now - datetime.timedelta(days=remaining_days)
-            request = self.__request_oanda_instruments(
-                start=self.__format_dt_into_OandapyV20(start_datetime),
-                end=  self.__format_dt_into_OandapyV20(end_datetime),
-                granularity=granularity
-            )
-            tmp_candles = self.__transform_to_candle_chart(request.response)
-            candles = FXBase.union_candles_distinct(candles, tmp_candles)
-            print('残り: {remaining_days}日分'.format(remaining_days=remaining_days))
-            time.sleep(1)
-
-        if remaining_days is 0:
-            return { 'success': '[Watcher] APIリクエスト成功',
-                     'candles': candles }
-        else:
-            return { 'error': '[Watcher] 処理中断' }
-
-    def request_latest_candles(self, target_datetime, granularity='M10', period_m=1440):
-        start_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
-        end_datetime   = start_datetime + datetime.timedelta(minutes=period_m)
-        request = self.__request_oanda_instruments(
-            start=self.__format_dt_into_OandapyV20(start_datetime),
-            end=  self.__format_dt_into_OandapyV20(end_datetime),
-            granularity=granularity
-        )
-        candles = self.__transform_to_candle_chart(request.response)
-        return candles
 
     def __format_dt_into_OandapyV20(self, dt):
         return dt.strftime('%Y-%m-%dT%H:%M:00.000000Z')
