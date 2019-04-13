@@ -46,7 +46,7 @@ class FXBase():
 
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
-class ChartWatcher():
+class OandaPyClient():
     def __init__(self):
         ''' 固定パラメータの設定 '''
         print('initing ...')
@@ -210,7 +210,7 @@ if __name__ == '__main__':
     print('取得スパンは？(ex: M5): ', end='')
     granularity = str(input())
 
-    watcher = ChartWatcher()
+    watcher = OandaPyClient()
     result = watcher.load_long_chart(days=days, granularity=granularity)
     if 'error' in result:
         print(result['error'])

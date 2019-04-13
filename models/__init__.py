@@ -1,1 +1,1 @@
-from . import analyzer, chart_watcher, drawer, interval, mailer, trader
+from . import analyzer, oanda_py_client, drawer, interval, mailer, trader

@@ -7,6 +7,7 @@ class TestTrader(unittest.TestCase):
         self.__trader_instance = trader.Trader()
 
     def test__accurize_entry_prices(self):
+        pass
         self.__trader_instance._Trader__accurize_entry_prices()
 
 if __name__ == '__main__':

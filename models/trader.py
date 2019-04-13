@@ -1,14 +1,14 @@
-from models.chart_watcher import FXBase, ChartWatcher
-import models.analyzer as analyzer
-import models.drawer   as drawer
+from models.oanda_py_client import FXBase, OandaPyClient
+from models.analyzer import Analyzer
+from models.drawer   import FigureDrawer
 import math
 import pandas as pd
 
 class Trader():
     def __init__(self):
-        self.__watcher = ChartWatcher()
-        self.__ana     = analyzer.Analyzer()
-        self.__drawer  = drawer.FigureDrawer()
+        self.__client  = OandaPyClient()
+        self.__ana     = Analyzer()
+        self.__drawer  = FigureDrawer()
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time']
         # TODO: STOPLOSS_BUFFER_pips は要検討
         self.__STOPLOSS_BUFFER_pips = 0.05
@@ -217,7 +217,7 @@ class Trader():
         long_hist = self.__hist_positions['long']
         long_pos  = long_hist[long_hist['type']=='long']
         for index, row in long_pos.iterrows():
-            M10_candles = self.__watcher.request_latest_candles(
+            M10_candles = self.__client.request_latest_candles(
                 target_datetime=row.time,
                 granularity='M10',
                 # TODO: granurarityがDの時しか正常動作しない
@@ -233,7 +233,7 @@ class Trader():
         short_hist = self.__hist_positions['short']
         short_pos  = short_hist[short_hist['type']=='short']
         for index, row in short_pos.iterrows():
-            M10_candles = self.__watcher.request_latest_candles(
+            M10_candles = self.__client.request_latest_candles(
                 target_datetime=row.time,
                 granularity='M10',
                 period_m=1440

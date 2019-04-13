@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import mpl_finance
-from models.chart_watcher import FXBase
+from models.oanda_py_client import FXBase
 
 class FigureDrawer():
 
@@ -134,8 +134,8 @@ class FigureDrawer():
         return df
 
 if __name__ == '__main__':
-    import chart_watcher as watcher
-    w = watcher.ChartWatcher()
+    import oanda_py_client as watcher
+    w = watcher.OandaPyClient()
     if 'error' in w.reload_chart():
         print('失敗')
         exit()

@@ -1,7 +1,7 @@
 import math
 import pandas as pd
 from scipy.stats          import linregress
-from models.chart_watcher import FXBase
+from models.oanda_py_client import FXBase
 
 class Analyzer():
     # For Trendline

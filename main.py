@@ -1,14 +1,14 @@
 from models import interval, mailer, trader
-from models.chart_watcher import FXBase
-import models.chart_watcher as watcher
+from models.oanda_py_client import FXBase
+from models.oanda_py_client import OandaPyClient
 
 class Main():
     def __init__(self):
         # self.gmailer   = mailer.GmailAPI()
-        self.c_watcher = watcher.ChartWatcher()
+        self.client = OandaPyClient()
 
     def periodic_processes(self):
-        result = self.c_watcher.reload_chart(days=2)
+        result = self.client.reload_chart(days=2)
         if 'success' in result:
             print(result['success'])
             print(FXBase.get_candles().tail())
