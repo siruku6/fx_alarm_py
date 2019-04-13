@@ -34,13 +34,14 @@ class Analyzer():
         self.__calc_EMA()
         self.__calc_bollinger_bands()
         self.__calc_parabolic()
-        result = self.__calc_trendlines()
-        if 'success' in result:
-            print(result['success'])
-            self.__get_breakpoints()
-            return { 'success': '[Analyzer] indicators算出完了' }
-        else:
-            return { 'error': '[Analyzer] indicators算出失敗' }
+        # result = self.__calc_trendlines()
+        # if 'success' in result:
+        #     print(result['success'])
+        #     self.__get_breakpoints()
+        #     return { 'success': '[Analyzer] indicators算出完了' }
+        # else:
+        #     return { 'error': '[Analyzer] indicators算出失敗' }
+        return { 'success': '[Analyzer] indicators算出完了' }
 
     def get_indicators(self):
         indicators = pd.concat(

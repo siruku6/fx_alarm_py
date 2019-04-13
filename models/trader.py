@@ -10,6 +10,8 @@ class Trader():
         self.__ana     = analyzer.Analyzer()
         self.__drawer  = drawer.FigureDrawer()
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time']
+        # TODO: STOPLOSS_BUFFER_pips は要検討
+        self.__STOPLOSS_BUFFER_pips = 0.05
         result = self.__ana.calc_indicators()
         if 'error' in result:
             print(result['error'])
@@ -67,30 +69,14 @@ class Trader():
     #
     # private
     #
-    # TODO: STOPLOSS_BUFFER_pips は要検討
-    def __demo_swing_trade(self, STOPLOSS_BUFFER_pips=0.05):
+    def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''
         candles_time  = FXBase.get_candles().time
         high_candles  = FXBase.get_candles().high
         low_candles   = FXBase.get_candles().low
         close_candles = FXBase.get_candles().close
         sma           = self.__indicators['20SMA']
-        ema           = self.__indicators['10EMA']
         parabolic     = self.__indicators['SAR']
-
-        def check_trend(index, c_price):
-            parabo = parabolic[index]
-            if sma[index] < ema[index] and \
-               ema[index] < c_price    and \
-               parabo     < c_price:
-                trend = 'bull'
-            elif sma[index] > ema[index] and \
-                 ema[index] > c_price    and \
-                 parabo     > c_price:
-                trend = 'bear'
-            else:
-                trend = None
-            return trend
 
         def find_thrust(i, trend):
             if trend == 'bull' and high_candles[i] > high_candles[i-1]:
@@ -101,26 +87,12 @@ class Trader():
                 direction = None
             return direction
 
-        def create_position(index, direction):
-            if direction == 'long':
-                entry_price = high_candles[index-1]
-                stoploss    = low_candles[index-1] - STOPLOSS_BUFFER_pips
-            elif direction == 'short':
-                entry_price = low_candles[index-1]
-                stoploss    = high_candles[index-1] + STOPLOSS_BUFFER_pips
-
-            self.__position = {
-                'sequence': index, 'price': entry_price, 'stoploss': stoploss,
-                'type': direction, 'time': candles_time[index]
-            }
-            self.__hist_positions[direction].loc[index] = self.__position
-
         def judge_settle_position(i, c_price):
             position_type = self.__position['type']
             stoploss_price = self.__position['stoploss']
             if position_type == 'long':
-                if low_candles[i-1] - STOPLOSS_BUFFER_pips > stoploss_price:
-                    stoploss_price = low_candles[i-1] - STOPLOSS_BUFFER_pips
+                if low_candles[i-1] - self.__STOPLOSS_BUFFER_pips > stoploss_price:
+                    stoploss_price = low_candles[i-1] - self.__STOPLOSS_BUFFER_pips
                     self.__trail_stoploss(index=i, new_SL=stoploss_price, position_type=position_type)
                 if stoploss_price > low_candles[i]:
                     self.__settle_position(
@@ -133,8 +105,8 @@ class Trader():
                         position_type=position_type, time=candles_time[i]
                     )
             elif position_type == 'short':
-                if high_candles[i-1] + STOPLOSS_BUFFER_pips < stoploss_price:
-                    stoploss_price = high_candles[i-1] + STOPLOSS_BUFFER_pips
+                if high_candles[i-1] + self.__STOPLOSS_BUFFER_pips < stoploss_price:
+                    stoploss_price = high_candles[i-1] + self.__STOPLOSS_BUFFER_pips
                     self.__trail_stoploss(index=i, new_SL=stoploss_price, position_type=position_type)
                 if stoploss_price < high_candles[i]:
                     self.__settle_position(
@@ -153,11 +125,11 @@ class Trader():
             if position_buf['type'] == 'none':
                 if math.isnan(sma[index]): continue
 
-                trend = check_trend(index, c_price)
+                trend = self.__check_trend(index, c_price)
                 if trend is None: continue
                 direction = find_thrust(index, trend)
                 if direction is None: continue
-                create_position(index, direction)
+                self.__create_position(index, direction)
             else:
                 judge_settle_position(index, c_price)
 
@@ -169,40 +141,41 @@ class Trader():
         self.__hist_positions['short'] = self.__hist_positions['short'].reset_index(drop=True)
         return { 'success': '[Trader] 売買判定終了' }
 
-    def __accurize_entry_prices(self):
+    def __check_trend(self, index, c_price):
         '''
-        ポジション履歴のエントリーpriceを、実際にエントリー可能な価格に修正する
+        ルールに基づいてトレンドの有無を判定
         '''
-        # long価格の修正
-        long_hist = self.__hist_positions['long']
-        long_pos  = long_hist[long_hist['type']=='long']
-        for index, row in long_pos.iterrows():
-            M10_candles = self.__watcher.request_latest_candles(
-                target_datetime=row.time,
-                granularity='M10',
-                period_m=1440
-            )
-            for i, M10_row in M10_candles.iterrows():
-                if row.price < M10_row.high:
-                    self.__hist_positions['long'].loc[index, 'price'] = M10_row.high
-                    self.__hist_positions['long'].loc[index, 'time'] = M10_row.time
-                    break
+        sma    = self.__indicators['20SMA'][index]
+        ema    = self.__indicators['10EMA'][index]
+        parabo = self.__indicators['SAR'][index]
+        if sma    < ema     and \
+           ema    < c_price and \
+           parabo < c_price:
+            trend = 'bull'
+        elif sma    > ema     and \
+             ema    > c_price and \
+             parabo > c_price:
+            trend = 'bear'
+        else:
+            trend = None
+        return trend
 
-        # short価格の修正
-        short_hist = self.__hist_positions['short']
-        short_pos  = short_hist[short_hist['type']=='short']
-        for index, row in short_pos.iterrows():
-            M10_candles = self.__watcher.request_latest_candles(
-                target_datetime=row.time,
-                granularity='M10',
-                period_m=1440
-            )
-            for i, M10_row in M10_candles.iterrows():
-                if row.price > M10_row.low:
-                    self.__hist_positions['short'].loc[index, 'price'] = M10_row.low
-                    self.__hist_positions['short'].loc[index, 'time'] = M10_row.time
-                    break
-        return { 'success': '[Trader] entry価格を、現実的に取引可能な値に修正' }
+    def __create_position(self, index, direction):
+        '''
+        ルールに基づいてポジションをとる
+        '''
+        if direction == 'long':
+            entry_price = FXBase.get_candles().high[index-1]
+            stoploss    = FXBase.get_candles().low[index-1] - self.__STOPLOSS_BUFFER_pips
+        elif direction == 'short':
+            entry_price = FXBase.get_candles().low[index-1]
+            stoploss    = FXBase.get_candles().high[index-1] + self.__STOPLOSS_BUFFER_pips
+
+        self.__position = {
+            'sequence': index, 'price': entry_price, 'stoploss': stoploss,
+            'type': direction, 'time': FXBase.get_candles().time[index]
+        }
+        self.__hist_positions[direction].loc[index] = self.__position
 
     def __trail_stoploss(self, index, new_SL, position_type):
         self.__position['stoploss'] = new_SL
@@ -237,6 +210,43 @@ class Trader():
             self.__hist_positions[position_type],
             pd.DataFrame([[index, price, 0.0, 'close', time]], columns=self.__columns)
         ])
+
+    def __accurize_entry_prices(self):
+        '''
+        ポジション履歴のエントリーpriceを、実際にエントリー可能な価格に修正する
+        '''
+        # TODO: 総リクエスト数と所要時間、rpsをこまめに表示した方がよさそう
+        # long価格の修正
+        long_hist = self.__hist_positions['long']
+        long_pos  = long_hist[long_hist['type']=='long']
+        for index, row in long_pos.iterrows():
+            M10_candles = self.__watcher.request_latest_candles(
+                target_datetime=row.time,
+                granularity='M10',
+                # TODO: granurarityがDの時しか正常動作しない
+                period_m=1440
+            )
+            for i, M10_row in M10_candles.iterrows():
+                if row.price < M10_row.high:
+                    self.__hist_positions['long'].loc[index, 'price'] = M10_row.high
+                    self.__hist_positions['long'].loc[index, 'time'] = M10_row.time
+                    break
+
+        # short価格の修正
+        short_hist = self.__hist_positions['short']
+        short_pos  = short_hist[short_hist['type']=='short']
+        for index, row in short_pos.iterrows():
+            M10_candles = self.__watcher.request_latest_candles(
+                target_datetime=row.time,
+                granularity='M10',
+                period_m=1440
+            )
+            for i, M10_row in M10_candles.iterrows():
+                if row.price > M10_row.low:
+                    self.__hist_positions['short'].loc[index, 'price'] = M10_row.low
+                    self.__hist_positions['short'].loc[index, 'time'] = M10_row.time
+                    break
+        return { 'success': '[Trader] entry価格を、現実的に取引可能な値に修正' }
 
     def __calc_profit(self):
         '''
