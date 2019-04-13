@@ -71,55 +71,52 @@ class Trader():
     #
     def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''
-        candles_time  = FXBase.get_candles().time
-        high_candles  = FXBase.get_candles().high
-        low_candles   = FXBase.get_candles().low
-        close_candles = FXBase.get_candles().close
-        sma           = self.__indicators['20SMA']
-        parabolic     = self.__indicators['SAR']
-
         def find_thrust(i, trend):
-            if trend == 'bull' and high_candles[i] > high_candles[i-1]:
+            candles = FXBase.get_candles()
+            if trend == 'bull' and candles.high[i] > candles.high[i-1]:
                 direction = 'long'
-            elif trend == 'bear' and low_candles[i] < low_candles[i-1]:
+            elif trend == 'bear' and candles.low[i] < candles.low[i-1]:
                 direction = 'short'
             else:
                 direction = None
             return direction
 
         def judge_settle_position(i, c_price):
+            candles       = FXBase.get_candles()
+            parabolic     = self.__indicators['SAR']
             position_type = self.__position['type']
             stoploss_price = self.__position['stoploss']
             if position_type == 'long':
-                if low_candles[i-1] - self.__STOPLOSS_BUFFER_pips > stoploss_price:
-                    stoploss_price = low_candles[i-1] - self.__STOPLOSS_BUFFER_pips
+                if candles.low[i-1] - self.__STOPLOSS_BUFFER_pips > stoploss_price:
+                    stoploss_price = candles.low[i-1] - self.__STOPLOSS_BUFFER_pips
                     self.__trail_stoploss(index=i, new_SL=stoploss_price, position_type=position_type)
-                if stoploss_price > low_candles[i]:
+                if stoploss_price > candles.low[i]:
                     self.__settle_position(
                         index=i, price=stoploss_price,
-                        position_type=position_type, time=candles_time[i]
+                        position_type=position_type, time=candles.time[i]
                     )
                 elif parabolic[i] > c_price:
                     self.__settle_position(
                         index=i, price=c_price,
-                        position_type=position_type, time=candles_time[i]
+                        position_type=position_type, time=candles.time[i]
                     )
             elif position_type == 'short':
-                if high_candles[i-1] + self.__STOPLOSS_BUFFER_pips < stoploss_price:
-                    stoploss_price = high_candles[i-1] + self.__STOPLOSS_BUFFER_pips
+                if candles.high[i-1] + self.__STOPLOSS_BUFFER_pips < stoploss_price:
+                    stoploss_price = candles.high[i-1] + self.__STOPLOSS_BUFFER_pips
                     self.__trail_stoploss(index=i, new_SL=stoploss_price, position_type=position_type)
-                if stoploss_price < high_candles[i]:
+                if stoploss_price < candles.high[i]:
                     self.__settle_position(
                         index=i, price=stoploss_price,
-                        position_type=position_type, time=candles_time[i]
+                        position_type=position_type, time=candles.time[i]
                     )
                 elif parabolic[i] < c_price:
                     self.__settle_position(
                         index=i, price=c_price,
-                        position_type=position_type, time=candles_time[i]
+                        position_type=position_type, time=candles.time[i]
                     )
 
-        for index, c_price in enumerate(close_candles):
+        sma = self.__indicators['20SMA']
+        for index, c_price in enumerate(FXBase.get_candles().close):
             self.__position['sequence'] = index
             position_buf = self.__position.copy()
             if position_buf['type'] == 'none':
