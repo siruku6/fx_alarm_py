@@ -7,15 +7,14 @@ pandas
 matplotlib
 
 # GmailAPIとの通信に必要
-google-api-python-client
-oauth2client
+# google-api-python-client
+# oauth2client
 
 # sendgridでのメール送信に必要
 sendgrid
 
 # OandaAPIとの通信や、投資データ処理に必要
 mpl_finance
-requests
 oandapyV20
 
 ###### Requirements with Version Specifiers ######
