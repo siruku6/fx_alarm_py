@@ -4,7 +4,8 @@ import pandas as pd
 
 # For trading
 from   oandapyV20 import API
-import oandapyV20.endpoints.instruments as oandapy
+import oandapyV20.endpoints.trades as trades
+import oandapyV20.endpoints.instruments as inst
 
 class FXBase():
     __candles = None
@@ -121,6 +122,18 @@ class OandaPyClient():
         candles = self.__transform_to_candle_chart(request.response)
         return candles
 
+    def request_open_trades(self, instrument):
+        ''' OANDA上でopenなポジションの情報を取得 '''
+        request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
+        self.__api.request(request_obj)
+        all_trades = request_obj.response['trades']
+
+        extracted_trades = [trade for trade in all_trades if
+            'clientExtensions' not in trade.keys() and
+            trade['instrument'] == instrument
+        ]
+        return extracted_trades
+
     #
     # Private
     #
@@ -172,7 +185,7 @@ class OandaPyClient():
                 'granularity': granularity
             }
 
-        request_obj = oandapy.InstrumentsCandles(
+        request_obj = inst.InstrumentsCandles(
             instrument=instrument,
             params=time_params
         )

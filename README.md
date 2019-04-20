@@ -12,7 +12,7 @@ FXの為替レートを自動取得し、
 まだ全然できてません！
 
 ## Requirement
-- python3
+- python3.x
 - pip modules
     ```bash
     # 詳細は requirements.txt を参照
@@ -23,10 +23,10 @@ FXの為替レートを自動取得し、
     ```
     $ vim ~/.bash_profile
     export OANDA_ACCESS_TOKEN=YOUR TOKEN
+    export OANDA_ACCOUNT_ID=YOUR Account ID
     export SENDGRID_APIKEY=sendgridのapikey
     export MAIL_TO=通知メール宛先
     export MAIL_FROM=送信元となるGmailメルアド
     ```
 
 - Enable your GmailAPI or SendGrid  
-

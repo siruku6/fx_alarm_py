@@ -1,12 +1,12 @@
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
-from models.drawer   import FigureDrawer
+from models.drawer import FigureDrawer
 import math
 import pandas as pd
 
 class Trader():
     def __init__(self, operation='verification'):
-        self.__client = OandaPyClient()
+        self._client  = OandaPyClient()
         self.__ana    = Analyzer()
         self.__drawer = FigureDrawer()
         self.__instrument = 'USD_JPY'
@@ -52,7 +52,7 @@ class Trader():
         # drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['beneath'])
         drwr.draw_candles()
         df_pos = self.__hist_positions
-        drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='long'],   plot_type=drwr.PLOT_TYPE['long'])
+        drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='long'],    plot_type=drwr.PLOT_TYPE['long'])
         drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='close'],   plot_type=drwr.PLOT_TYPE['exit'])
         drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
         drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='close'], plot_type=drwr.PLOT_TYPE['exit'])
@@ -93,7 +93,7 @@ class Trader():
         print(prompt_message + '(半角数字): ', end='')
         inst_id = int(input())
 
-        result = self.__client.load_long_chart(
+        result = self._client.load_long_chart(
             days=days,
             instrument=instruments[inst_id],
             granularity=granularity
@@ -193,9 +193,9 @@ class Trader():
         ])
 
     def __judge_settle_position(self, i, c_price):
-        candles       = FXBase.get_candles()
-        parabolic     = self.__indicators['SAR']
-        position_type = self.__position['type']
+        candles        = FXBase.get_candles()
+        parabolic      = self.__indicators['SAR']
+        position_type  = self.__position['type']
         stoploss_price = self.__position['stoploss']
         if position_type == 'long':
             if candles.low[i-1] - self.__STOPLOSS_BUFFER_pips > stoploss_price:
@@ -260,7 +260,7 @@ class Trader():
         long_hist = self.__hist_positions['long']
         long_pos  = long_hist[long_hist['type']=='long']
         for index, row in long_pos.iterrows():
-            M10_candles = self.__client.request_latest_candles(
+            M10_candles = self._client.request_latest_candles(
                 target_datetime=row.time,
                 instrument=self.__instrument,
                 granularity='M10',
@@ -277,7 +277,7 @@ class Trader():
         short_hist = self.__hist_positions['short']
         short_pos  = short_hist[short_hist['type']=='short']
         for index, row in short_pos.iterrows():
-            M10_candles = self.__client.request_latest_candles(
+            M10_candles = self._client.request_latest_candles(
                 target_datetime=row.time,
                 instrument=self.__instrument,
                 granularity='M10',
@@ -313,3 +313,54 @@ class Trader():
         sum_profit = self.__hist_positions['long'][['profit']].sum() \
                    + self.__hist_positions['short'][['profit']].sum()
         print('[合計損益] {profit}pips'.format( profit=round(sum_profit['profit'] * 100, 3) ))
+
+
+class RealTrader(Trader):
+    #
+    # Public
+    #
+    def apply_trading_rule(self):
+        print(self.__load_position())
+
+    #
+    # Private
+    #
+    def __play_swing_trade(self):
+        ''' 現在のレートにおいて、スイングトレードルールでトレード '''
+        sma = self.__indicators['20SMA']
+        index = FXBase.get_candles().tail(1).index
+        close_price = FXBase.get_candles().tail(1).close
+
+        self.__position['sequence'] = index
+
+        # position_buf = self.__position.copy()
+        if position_buf['type'] == 'none':
+            if math.isnan(sma[index]): return
+
+            trend = self.__check_trend(index, close_price)
+            if trend is None: return
+
+            direction = self.__find_thrust(index, trend)
+            if direction is None: return
+
+            self.__create_position(index, direction)
+        else:
+            self.__judge_settle_position(index, close_price)
+
+    def __load_position(self):
+        pos = { 'type': 'none' }
+        open_trades = self._client.request_open_trades(instrument='EUR_USD')
+        if open_trades == []: return pos
+
+        # Open position の情報抽出
+        target = open_trades[0]
+        id = target['id']
+        pos['price'] = float(target['price'])
+        if target['currentUnits'][0] == '-':
+            pos['type'] = 'short'
+        else:
+            pos['type'] = 'long'
+        if 'stopLossOrder' not in target: return pos
+
+        pos['stoploss'] = float(target['stopLossOrder']['price'])
+        return pos
