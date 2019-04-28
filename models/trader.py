@@ -29,6 +29,9 @@ class Trader():
 
         print(result['success'])
         self.__indicators = self.__ana.get_indicators()
+        self.__initialize_position_variables()
+
+    def __initialize_position_variables(self):
         self.__position = { 'type': 'none' }
         self.__hist_positions = {
             'long':  pd.DataFrame(columns=self.__columns),
@@ -55,6 +58,7 @@ class Trader():
             self.__STOPLOSS_BUFFER_pips = sl
             self.auto_verify_trading_rule(accurize=True)
 
+            self.__calc_profit()
             _df = pd.concat(
                 [ self.__hist_positions['long'],
                   self.__hist_positions['short'] ],
@@ -139,8 +143,9 @@ class Trader():
     def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''
         sma = self.__indicators['20SMA']
-        # INFO: 繰り返しデモする場合に、前回のpositionが残っているので消す
-        self.__position = { 'type': 'none' }
+        # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする
+        self.__initialize_position_variables()
+
         for index, close_price in enumerate(FXBase.get_candles().close):
             self.__position['sequence'] = index
             position_buf = self.__position.copy()
