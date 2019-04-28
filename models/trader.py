@@ -2,20 +2,25 @@ from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 import math
+import numpy as np
 import pandas as pd
 
 class Trader():
     def __init__(self, operation='verification'):
-        self._client  = OandaPyClient()
+        if operation == 'custom':
+            self.__instrument = self.__select_instrument()
+        else:
+            self.__instrument = 'USD_JPY'
+
+        self._client  = OandaPyClient(instrument=self.__instrument)
         self.__ana    = Analyzer()
         self.__drawer = FigureDrawer()
-        self.__instrument = 'USD_JPY'
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time']
         # TODO: STOPLOSS_BUFFER_pips は要検討
         self.__STOPLOSS_BUFFER_pips = 0.05
 
         if operation == 'custom':
-            self.__instrument = self.__request_custom_candles()
+            self.__request_custom_candles()
 
         result = self.__ana.calc_indicators()
         if 'error' in result:
@@ -37,6 +42,33 @@ class Trader():
         ''' tradeルールを自動検証 '''
         print(self.__demo_swing_trade()['success'])
         if accurize: print(self.__accurize_entry_prices()['success'])
+
+    def verify_varios_stoploss(self, accurize=False):
+        ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
+        verification_dataframes_array = []
+
+        stoploss_buffer_list = np.append(
+            np.round(np.arange(0.01, 0.10, 0.02), decimals=2), [0.50]
+        )
+        for sl in stoploss_buffer_list:
+            print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(sl))
+            self.__STOPLOSS_BUFFER_pips = sl
+            self.auto_verify_trading_rule(accurize=True)
+
+            _df = pd.concat(
+                [ self.__hist_positions['long'],
+                  self.__hist_positions['short'] ],
+                axis=1, keys=['long', 'short'],
+                names=['type', '-']
+            )
+            verification_dataframes_array.append(_df)
+
+        result = pd.concat(
+            verification_dataframes_array,
+            axis=1, keys=stoploss_buffer_list,
+            names=['SL_buffer']
+        )
+        result.to_csv('./sl_verify_{inst}.csv'.format(inst=self.__instrument))
 
     def draw_chart(self):
         ''' チャートや指標をpngに描画 '''
@@ -74,6 +106,16 @@ class Trader():
     #
     # private
     #
+    def __select_instrument(self):
+        print('通貨ペアは？')
+        instruments = ['USD_JPY', 'EUR_USD', 'GBP_JPY']
+        prompt_message = ''
+        for i, inst in enumerate(instruments):
+            prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst)
+        print(prompt_message + '(半角数字): ', end='')
+        inst_id = int(input())
+        return instruments[inst_id]
+
     def __request_custom_candles(self):
         # Custom request
         print('何日分のデータを取得する？(半角数字): ', end='')
@@ -85,17 +127,8 @@ class Trader():
         print('取得スパンは？(ex: M5): ', end='')
         granularity = str(input())
 
-        print('通貨ペアは？')
-        instruments = ['USD_JPY', 'EUR_USD', 'GBP_JPY']
-        prompt_message = ''
-        for i, inst in enumerate(instruments):
-            prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst)
-        print(prompt_message + '(半角数字): ', end='')
-        inst_id = int(input())
-
         result = self._client.load_long_chart(
             days=days,
-            instrument=instruments[inst_id],
             granularity=granularity
         )
         if 'error' in result:
@@ -103,11 +136,11 @@ class Trader():
             exit()
         FXBase.set_candles(result['candles'])
 
-        return instruments[inst_id]
-
     def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''
         sma = self.__indicators['20SMA']
+        # INFO: 繰り返しデモする場合に、前回のpositionが残っているので消す
+        self.__position = { 'type': 'none' }
         for index, close_price in enumerate(FXBase.get_candles().close):
             self.__position['sequence'] = index
             position_buf = self.__position.copy()
@@ -182,11 +215,11 @@ class Trader():
         }
         self.__hist_positions[direction].loc[index] = self.__position
 
-    # TODO: bug trailした時間がcsvに出力されない
     def __trail_stoploss(self, index, new_SL, position_type):
         self.__position['stoploss'] = new_SL
         position_after_trailing = self.__position.copy()
         position_after_trailing['type'] = 'trail'
+        position_after_trailing['time'] = FXBase.get_candles().time[index]
         self.__hist_positions[position_type] =  pd.concat([
             self.__hist_positions[position_type],
             pd.DataFrame(position_after_trailing, index=[index])
@@ -264,7 +297,7 @@ class Trader():
                 target_datetime=row.time,
                 instrument=self.__instrument,
                 granularity='M10',
-                # TODO: granurarityがDの時しか正常動作しない
+                # TODO: granularityがDの時しか正常動作しない
                 period_m=1440
             )
             for i, M10_row in M10_candles.iterrows():
