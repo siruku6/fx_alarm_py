@@ -27,7 +27,7 @@ class TestTrader(unittest.TestCase):
         with patch('models.oanda_py_client.OandaPyClient.request_open_trades', return_value=dummy_open_trades()):
             pos = self.__real_trader._RealTrader__load_position()
 
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         self.assertTrue('type' in  pos)
         self.assertTrue('price' in  pos)
         self.assertTrue('stoploss' in  pos)

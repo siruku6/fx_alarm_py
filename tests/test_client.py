@@ -1,8 +1,15 @@
+# Open modules
 import unittest
 import datetime
-import models.oanda_py_client as watcher
+from unittest.mock import patch
+import oandapyV20
+import oandapyV20.endpoints.trades
 
-class TestWatcher(unittest.TestCase):
+# My-made modules
+import models.oanda_py_client as watcher
+from tests.oanda_dummy_responses import dummy_trades_list
+
+class TestClient(unittest.TestCase):
     def setUp(self):
         print('[Watcher] setup')
         self.__watcher_instance = watcher.OandaPyClient()
@@ -45,6 +52,15 @@ class TestWatcher(unittest.TestCase):
         self.assertEqual(result_end,   expected_end,   '[request_latest_candles] 最終行のtime')
         self.assertEqual(result_size,  expected_size,  '[request_latest_candles] 戻り値のサイズ')
 
+    def test_request_trades_history(self):
+        # HACK: side_effect はイテラブルを1つずつしか返さないので、返却値を配列として渡す
+        with patch('oandapyV20.endpoints.trades.TradesList', side_effect=[dummy_trades_list()]):
+            with patch('oandapyV20.API.request', return_value=None):
+                trades_list = self.__watcher_instance.request_trades_history()
+
+        for trade in trades_list:
+            self.assertEqual(trade['state'], 'CLOSED')
+            self.assertNotEqual(trade['state'], 'OPEN')
 
 if __name__ == '__main__':
     unittest.main()

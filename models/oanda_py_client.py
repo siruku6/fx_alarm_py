@@ -134,6 +134,22 @@ class OandaPyClient():
         ]
         return extracted_trades
 
+    def request_trades_history(self):
+        ''' OANDAのトレード履歴を取得 '''
+        params ={
+            'instrument': 'EUR_USD',
+            'state': 'ALL', # 全過去分を取得
+        }
+        request_obj = trades.TradesList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
+        self.__api.request(request_obj)
+
+        past_trades = [
+            trade for trade in request_obj.response['trades'] if
+                'clientExtensions' not in trade.keys() and
+                trade['state'] != 'OPEN'
+        ]
+        return past_trades
+
     #
     # Private
     #
