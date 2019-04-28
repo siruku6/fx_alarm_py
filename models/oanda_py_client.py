@@ -48,18 +48,19 @@ class FXBase():
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class OandaPyClient():
-    def __init__(self):
+    def __init__(self, instrument='USD_JPY'):
         ''' 固定パラメータの設定 '''
         print('initing ...')
         self.__api = API(
             access_token=os.environ['OANDA_ACCESS_TOKEN'],
             environment ='practice'
         )
+        self.__instrument = instrument
 
     #
     # Public
     #
-    def reload_chart(self, days=1, granularity='M5', instrument='USD_JPY'):
+    def reload_chart(self, days=1, granularity='M5', instrument=None):
         ''' チャート情報を更新 '''
         # if self.__is_uptime() == False: return { 'error': '[Watcher] 休日のためAPIへのrequestをcancelしました' }
         start_time    = self.__calc_start_time(days=days)
@@ -68,7 +69,7 @@ class OandaPyClient():
         request = self.__request_oanda_instruments(
             start=start_time,
             candles_count=candles_count,
-            instrument=instrument,
+            instrument=instrument or self.__instrument,
             granularity=granularity
         )
         if request.response['candles'] == []:
@@ -80,7 +81,7 @@ class OandaPyClient():
             )
             return { 'success': '[Watcher] Oandaからのレート取得に成功' }
 
-    def load_long_chart(self, days=1, granularity='M5', instrument='USD_JPY'):
+    def load_long_chart(self, days=1, granularity='M5', instrument=None):
         ''' 長期間のチャート取得のために複数回APIリクエスト '''
         remaining_days = days
         candles = None
@@ -95,7 +96,7 @@ class OandaPyClient():
             request = self.__request_oanda_instruments(
                 start=self.__format_dt_into_OandapyV20(start_datetime),
                 end=self.__format_dt_into_OandapyV20(end_datetime),
-                instrument=instrument, granularity=granularity
+                instrument=instrument or self.__instrument, granularity=granularity
             )
             tmp_candles = self.__transform_to_candle_chart(request.response)
             candles = FXBase.union_candles_distinct(candles, tmp_candles)
@@ -109,20 +110,20 @@ class OandaPyClient():
             return { 'error': '[Watcher] 処理中断' }
 
     def request_latest_candles(self, target_datetime,
-        granularity='M10', instrument='USD_JPY', period_m=1440
+        granularity='M10', instrument=None, period_m=1440
     ):
         start_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
         end_datetime   = start_datetime + datetime.timedelta(minutes=period_m)
         request = self.__request_oanda_instruments(
             start=self.__format_dt_into_OandapyV20(start_datetime),
             end=  self.__format_dt_into_OandapyV20(end_datetime),
-            instrument=instrument,
+            instrument=instrument or self.__instrument,
             granularity=granularity
         )
         candles = self.__transform_to_candle_chart(request.response)
         return candles
 
-    def request_open_trades(self, instrument):
+    def request_open_trades(self, instrument=None):
         ''' OANDA上でopenなポジションの情報を取得 '''
         request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
         self.__api.request(request_obj)
@@ -130,15 +131,15 @@ class OandaPyClient():
 
         extracted_trades = [trade for trade in all_trades if
             'clientExtensions' not in trade.keys() and
-            trade['instrument'] == instrument
+            trade['instrument'] == instrument or self.__instrument
         ]
         return extracted_trades
 
     def request_trades_history(self):
         ''' OANDAのトレード履歴を取得 '''
         params ={
-            'instrument': 'EUR_USD',
-            'state': 'ALL', # 全過去分を取得
+            'instrument': self.__instrument,
+            'state': 'ALL' # 全過去分を取得
         }
         request_obj = trades.TradesList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
         self.__api.request(request_obj)
@@ -185,7 +186,7 @@ class OandaPyClient():
             return int(days * 24 * 60 / time_span)
 
     def __request_oanda_instruments(self, start, end=None,
-        candles_count=None, instrument='USD_JPY', granularity='M5'):
+        candles_count=None, instrument=None, granularity='M5'):
         ''' OandaAPIと直接通信し、為替データを取得 '''
         if candles_count is not None:
             time_params = {
@@ -202,7 +203,7 @@ class OandaPyClient():
             }
 
         request_obj = inst.InstrumentsCandles(
-            instrument=instrument,
+            instrument=instrument or self.__instrument,
             params=time_params
         )
         self.__api.request(request_obj)
