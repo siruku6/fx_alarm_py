@@ -4,6 +4,7 @@ import pandas as pd
 
 # For trading
 from   oandapyV20 import API
+import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.instruments as inst
 
@@ -48,14 +49,16 @@ class FXBase():
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class OandaPyClient():
-    def __init__(self, instrument='USD_JPY'):
+    def __init__(self, instrument=None):
         ''' 固定パラメータの設定 '''
         print('initing ...')
-        self.__api = API(
+        self.__api_client = API(
             access_token=os.environ['OANDA_ACCESS_TOKEN'],
             environment ='practice'
         )
-        self.__instrument = instrument
+        self.__instrument = instrument or 'USD_JPY'
+        self.__units = os.environ.get('UNITS') or '1'
+        self.__tradeIDs = []
 
     #
     # Public
@@ -65,7 +68,7 @@ class OandaPyClient():
         # if self.__is_uptime() == False: return { 'error': '[Watcher] 休日のためAPIへのrequestをcancelしました' }
         start_time    = self.__calc_start_time(days=days)
         candles_count = self.__calc_candles_wanted(days=days, granularity=granularity)
-        # pd.set_option("display.max_rows", candles_count) # 表示可能な最大行数を設定
+        # pd.set_option('display.max_rows', candles_count) # 表示可能な最大行数を設定
         request = self.__request_oanda_instruments(
             start=start_time,
             candles_count=candles_count,
@@ -126,14 +129,66 @@ class OandaPyClient():
     def request_open_trades(self, instrument=None):
         ''' OANDA上でopenなポジションの情報を取得 '''
         request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
-        self.__api.request(request_obj)
-        all_trades = request_obj.response['trades']
+        self.__api_client.request(request_obj)
+        open_trades = request_obj.response['trades']
 
-        extracted_trades = [trade for trade in all_trades if
+        extracted_trades = [trade for trade in open_trades if
             'clientExtensions' not in trade.keys() and
             trade['instrument'] == instrument or self.__instrument
         ]
+        self.__tradeIDs = [trade['id'] for trade in extracted_trades]
         return extracted_trades
+
+    def request_market_ordering(self, posi_nega_sign='', stoploss_price=None):
+        ''' 成行注文を実施 '''
+        if stoploss_price is None: return { 'error': '[Client] StopLoss注文なしでの成り行き注文を禁止します。' }
+
+        data = {
+          'order': {
+            'stopLossOnFill': {
+              'timeInForce': 'GTC',
+              'price': str(stoploss_price)
+            },
+            'instrument': self.__instrument,
+            'units': '{sign}{units}'.format(sign=posi_nega_sign, units=self.__units),
+            'type': 'MARKET',
+            'positionFill': 'DEFAULT'
+          }
+        }
+
+        request_obj = orders.OrderCreate(
+            accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
+        )
+        self.__api_client.request(request_obj)
+        return request_obj.response
+
+    def request_closing_trade(self):
+        ''' ポジションをclose '''
+        if self.__tradeIDs == []: return { 'error': '[Client] closeすべきポジションが見つかりませんでした。' }
+
+        target_tradeID = self.__tradeIDs[0]
+        # data = { 'units': self.__units }
+        request_obj = trades.TradeClose(
+            accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_tradeID # , data=data
+        )
+        self.__api_client.request(request_obj)
+        return request_obj.response
+
+    def request_trailing_stoploss(self, stoploss_price=None):
+        ''' ポジションのstoplossを強気方向に修正 '''
+        if self.__tradeIDs == []: return { 'error': '[Client] trailすべきポジションが見つかりませんでした。' }
+        if stoploss_price is None: return { 'error': '[Client] StopLoss価格がなく、trailできませんでした。' }
+
+        data = {
+            'stopLoss': { 'timeInForce': 'GTC', 'price': str(stoploss_price) }
+        }
+        request_obj = trades.TradeCRCDO(
+            accountID=os.environ['OANDA_ACCOUNT_ID'],
+            tradeID=self.__tradeIDs[0],
+            data=data
+        )
+        self.__api_client.request(request_obj)
+        return request_obj.response
 
     def request_trades_history(self):
         ''' OANDAのトレード履歴を取得 '''
@@ -142,7 +197,7 @@ class OandaPyClient():
             'state': 'ALL' # 全過去分を取得
         }
         request_obj = trades.TradesList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
-        self.__api.request(request_obj)
+        self.__api_client.request(request_obj)
 
         past_trades = [
             trade for trade in request_obj.response['trades'] if
@@ -206,7 +261,7 @@ class OandaPyClient():
             instrument=instrument or self.__instrument,
             params=time_params
         )
-        self.__api.request(request_obj)
+        self.__api_client.request(request_obj)
         return request_obj
 
     def __transform_to_candle_chart(self, response):

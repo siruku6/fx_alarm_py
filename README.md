@@ -22,11 +22,16 @@ FXの為替レートを自動取得し、
 - 環境変数
     ```
     $ vim ~/.bash_profile
+
+    # Necessary
     export OANDA_ACCESS_TOKEN=YOUR TOKEN
     export OANDA_ACCOUNT_ID=YOUR Account ID
     export SENDGRID_APIKEY=sendgridのapikey
     export MAIL_TO=通知メール宛先
     export MAIL_FROM=送信元となるGmailメルアド
+
+    # Option
+    export UNITS=注文毎の購入通貨数 # default: UNITS=1
     ```
 
 - Enable your GmailAPI or SendGrid  
