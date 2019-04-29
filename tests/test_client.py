@@ -5,9 +5,12 @@ from unittest.mock import patch
 
 # My-made modules
 import models.oanda_py_client as watcher
-from tests.oanda_dummy_responses import dummy_trades_list
+from tests.oanda_dummy_responses import *
 
 class TestClient(unittest.TestCase):
+    #  - - - - - - - - - - - - - -
+    #     Preparing & Clearing
+    #  - - - - - - - - - - - - - -
     def setUp(self):
         print('[Watcher] setup')
         self.__watcher_instance = watcher.OandaPyClient()
@@ -19,14 +22,14 @@ class TestClient(unittest.TestCase):
 
     def tearDown(self):
         print('[Watcher] tearDown')
-        # INFO: Preventing ResourceWarning
+        # INFO: Preventing ResourceWarning: unclosed <ssl.SSLSocket
         # https://stackoverflow.com/questions/48160728/resourcewarning-unclosed-socket-in-python-3-unit-test
         self.__watcher_instance._OandaPyClient__api_client.client.close()
 
+    #  - - - - - - - - - - -
+    #    Public methods
+    #  - - - - - - - - - - -
     def test_request_latest_candles(self):
-        # ResourceWarning: unclosed <ssl.SSLSocket
-        # https://qiita.com/zaneli@github/items/db680489d1fbccac44f2
-
         # Case1
         result = self.__watcher_instance.request_latest_candles(
             target_datetime='2018-07-12 21:00:00',
@@ -82,6 +85,26 @@ class TestClient(unittest.TestCase):
         for trade in trades_list:
             self.assertEqual(trade['state'], 'CLOSED')
             self.assertNotEqual(trade['state'], 'OPEN')
+
+    #  - - - - - - - - - - -
+    #    Private methods
+    #  - - - - - - - - - - -
+    def test___transform_to_candle_chart(self):
+        candles = self.__watcher_instance._OandaPyClient__transform_to_candle_chart(
+            response=dummy_instruments
+        )
+        expected_array = ['close', 'high', 'low', 'open', 'time']
+        self.assertTrue((candles.columns == expected_array).all())
+
+    def test___calc_requestable_max_days(self):
+        correction = {
+            'D': 5000, 'M12': int(5000/120), 'H12': int(5000/2)
+        }
+        for key, val in correction.items():
+            cnt = self.__watcher_instance._OandaPyClient__calc_requestable_max_days(
+                granularity=key
+            )
+            self.assertEqual(cnt, val, '[Client __calc_requestable_max_days] {}'.format(key))
 
 if __name__ == '__main__':
     unittest.main()

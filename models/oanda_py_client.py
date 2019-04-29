@@ -266,8 +266,13 @@ class OandaPyClient():
 
     def __transform_to_candle_chart(self, response):
         ''' APIレスポンスをチャートデータに整形 '''
-        candle         = pd.DataFrame.from_dict([ row['mid'] for row in response['candles'] ])
-        candle         = candle.astype({'c': 'float64', 'l': 'float64', 'h': 'float64', 'o': 'float64'})
+        candle = pd.DataFrame.from_dict([ row['mid'] for row in response['candles'] ])
+        candle = candle.astype({
+            'c': 'float64',
+            'l': 'float64',
+            'h': 'float64',
+            'o': 'float64'
+        })
         candle.columns = ['close', 'high', 'low', 'open']
         candle['time'] = [ row['time'] for row in response['candles'] ]
         # 冗長な日時データを短縮

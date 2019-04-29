@@ -1,5 +1,28 @@
 from unittest import mock
 
+dummy_instruments = {
+    'candles': [{
+        'complete': True,
+        'mid': {'c': '111.576', 'h': '111.576', 'l': '111.566', 'o': '111.573'},
+        'time': '2019-04-28T21:00:00.000000000Z',
+        'volume': 5
+    },
+    {
+        'complete': True,
+        'mid': {'c': '111.571', 'h': '111.571', 'l': '111.571', 'o': '111.571'},
+        'time': '2019-04-28T21:05:00.000000000Z',
+        'volume': 1
+    },
+    {
+        'complete': True,
+        'mid': {'c': '111.568', 'h': '111.590', 'l': '111.568', 'o': '111.574'},
+        'time': '2019-04-28T21:10:00.000000000Z',
+        'volume': 24
+    }],
+    'granularity': 'M5',
+    'instrument': 'USD_JPY'
+}
+
 def dummy_open_trades():
     return [{'currentUnits': '-1',
       'financing': '0.0000',
