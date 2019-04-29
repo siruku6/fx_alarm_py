@@ -1,16 +1,13 @@
 ###### Requirements without Version Specifiers ######
-# 一般的な子たち
+# General
 schedule
 numpy
 scipy
-pandas
 matplotlib
 
-# GmailAPIとの通信に必要
+# For sending mail
 # google-api-python-client
 # oauth2client
-
-# sendgridでのメール送信に必要
 sendgrid
 
 # OandaAPIとの通信や、投資データ処理に必要
@@ -18,3 +15,4 @@ mpl_finance
 oandapyV20
 
 ###### Requirements with Version Specifiers ######
+pandas>=0.24.2
