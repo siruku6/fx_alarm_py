@@ -1,9 +1,7 @@
 # Open modules
 import unittest
-import datetime
+from datetime import datetime
 from unittest.mock import patch
-import oandapyV20
-import oandapyV20.endpoints.trades
 
 # My-made modules
 import models.oanda_py_client as watcher
@@ -13,6 +11,17 @@ class TestClient(unittest.TestCase):
     def setUp(self):
         print('[Watcher] setup')
         self.__watcher_instance = watcher.OandaPyClient()
+
+    # @classmethod
+    # def setUpClass(self):
+    #     print('[Watcher] setup')
+    #     self.__watcher_instance = watcher.OandaPyClient()
+
+    def tearDown(self):
+        print('[Watcher] tearDown')
+        # INFO: Preventing ResourceWarning
+        # https://stackoverflow.com/questions/48160728/resourcewarning-unclosed-socket-in-python-3-unit-test
+        self.__watcher_instance._OandaPyClient__api_client.client.close()
 
     def test_request_latest_candles(self):
         # ResourceWarning: unclosed <ssl.SSLSocket
@@ -24,12 +33,12 @@ class TestClient(unittest.TestCase):
             granularity='M10',
             period_m=1440
         )
-        result_start = result['time'][0]
-        result_end   = result.tail(1)['time'].values[0]
+        result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S+00:00')
+        result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S+00:00')
         result_size  = len(result)
 
-        expected_start = str(datetime.datetime(2018, 7, 12, 21))
-        expected_end   = str(datetime.datetime(2018, 7, 13, 20, 50))
+        expected_start = datetime(2018, 7, 12, 21)
+        expected_end   = datetime(2018, 7, 13, 20, 50)
         expected_size  = 144
         self.assertEqual(result_start, expected_start, '[request_latest_candles] １行目のtime')
         self.assertEqual(result_end,   expected_end,   '[request_latest_candles] 最終行のtime')
@@ -41,16 +50,28 @@ class TestClient(unittest.TestCase):
             granularity='M30',
             period_m=240
         )
-        result_start = result['time'][0]
-        result_end   = result.tail(1)['time'].values[0]
+        result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S+00:00')
+        result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S+00:00')
         result_size  = len(result)
 
-        expected_start = str(datetime.datetime(2017, 6, 29, 21))
-        expected_end   = str(datetime.datetime(2017, 6, 30,  0, 30))
+        expected_start = datetime(2017, 6, 29, 21)
+        expected_end   = datetime(2017, 6, 30,  0, 30)
         expected_size  = 8
         self.assertEqual(result_start, expected_start, '[request_latest_candles] １行目のtime')
         self.assertEqual(result_end,   expected_end,   '[request_latest_candles] 最終行のtime')
         self.assertEqual(result_size,  expected_size,  '[request_latest_candles] 戻り値のサイズ')
+
+    def test_request_market_ordering(self):
+        result = self.__watcher_instance.request_market_ordering(stoploss_price=None)
+        self.assertTrue('error' in result)
+
+    def test_request_trailing_stoploss(self):
+        result = self.__watcher_instance.request_trailing_stoploss()
+        self.assertTrue('error' in result)
+
+    def test_request_closing_position(self):
+        result = self.__watcher_instance.request_closing_position()
+        self.assertTrue('error' in result)
 
     def test_request_trades_history(self):
         # HACK: side_effect はイテラブルを1つずつしか返さないので、返却値を配列として渡す

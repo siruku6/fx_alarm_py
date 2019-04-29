@@ -162,7 +162,7 @@ class OandaPyClient():
         self.__api_client.request(request_obj)
         return request_obj.response
 
-    def request_closing_trade(self):
+    def request_closing_position(self):
         ''' ポジションをclose '''
         if self.__tradeIDs == []: return { 'error': '[Client] closeすべきポジションが見つかりませんでした。' }
 
