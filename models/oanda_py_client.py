@@ -328,21 +328,3 @@ class OandaPyClient():
             gain_df = gain_df.append( tmp_series, ignore_index=True )
 
         return gain_df
-
-
-if __name__ == '__main__':
-    print('何日分のデータを取得する？(半角数字): ', end='')
-    days = int(input())
-    if days > 300:
-        print('[ALERT] 現在は300日までに制限しています')
-        exit()
-    print('取得スパンは？(ex: M5): ', end='')
-    granularity = str(input())
-
-    watcher = OandaPyClient()
-    result = watcher.load_long_chart(days=days, granularity=granularity)
-    if 'error' in result:
-        print(result['error'])
-        exit()
-    FXBase.set_candles(FXBase.union_candles_distinct(candles=result['candles']))
-    FXBase.write_candles_on_csv()

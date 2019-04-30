@@ -132,21 +132,3 @@ class FigureDrawer():
         y2 = np.sin(xs) * 50000
         df = pd.DataFrame({ 'y': y, 'sin': y2 }, index=xs)
         return df
-
-if __name__ == '__main__':
-    import oanda_py_client as watcher
-    w = watcher.OandaPyClient()
-    if 'error' in w.reload_chart():
-        print('失敗')
-        exit()
-
-    # 描画
-    drawer = FigureDrawer()
-    drawer.draw_candles()
-    result = drawer.create_png()
-
-    # 結果表示
-    if 'success' in result:
-        print(result['success'], '(^ワ^*)')
-    else:
-        print(result['error'],   '(´・ω・`)')

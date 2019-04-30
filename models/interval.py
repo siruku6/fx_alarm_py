@@ -14,9 +14,3 @@ def wait_until_killed(report_span_sec=20):
             'interval:',       str(schedule.idle_seconds())
         )
         time.sleep(report_span_sec)
-
-if __name__ == '__main__':
-    def hoge():
-        print('hoge')
-    periodically_exec(method=hoge, span_minutes=5)
-    wait_until_killed(report_span_sec=3)

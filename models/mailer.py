@@ -176,12 +176,3 @@ class SendGridAPI:
         print(response.status_code)
         print(response.body)
         print(response.headers)
-
-if __name__ == '__main__':
-    gmail_test = GmailAPI()
-    if gmail_test.inited:
-        print('success')
-        # gmail_test.send()
-    else:
-        sendgrid_ins = SendGridAPI()
-        sendgrid_ins.send_mail()
