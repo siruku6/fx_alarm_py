@@ -49,12 +49,12 @@ class FXBase():
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class OandaPyClient():
-    def __init__(self, instrument=None):
+    def __init__(self, instrument=None, environment='practice'):
         ''' 固定パラメータの設定 '''
         print('initing ...')
         self.__api_client = API(
             access_token=os.environ['OANDA_ACCESS_TOKEN'],
-            environment ='practice'
+            environment=environment # or 'live' is valid
         )
         self.__instrument = instrument or 'USD_JPY'
         self.__units = os.environ.get('UNITS') or '1'
