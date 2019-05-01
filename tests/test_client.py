@@ -1,7 +1,7 @@
 # Open modules
 import unittest
 from datetime import datetime
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 # My-made modules
 import models.oanda_py_client as watcher
@@ -11,17 +11,18 @@ class TestClient(unittest.TestCase):
     #  - - - - - - - - - - - - - -
     #     Preparing & Clearing
     #  - - - - - - - - - - - - - -
-    def setUp(self):
-        print('[Watcher] setup')
-        self.__watcher_instance = watcher.OandaPyClient()
-
-    # @classmethod
-    # def setUpClass(self):
+    # def setUp(self):
     #     print('[Watcher] setup')
     #     self.__watcher_instance = watcher.OandaPyClient()
 
-    def tearDown(self):
-        print('[Watcher] tearDown')
+    @classmethod
+    def setUpClass(self):
+        print('\n[Watcher] setup')
+        self.__watcher_instance = watcher.OandaPyClient()
+
+    @classmethod
+    def tearDownClass(self):
+        print('\n[Watcher] tearDown')
         # INFO: Preventing ResourceWarning: unclosed <ssl.SSLSocket
         # https://stackoverflow.com/questions/48160728/resourcewarning-unclosed-socket-in-python-3-unit-test
         self.__watcher_instance._OandaPyClient__api_client.client.close()
@@ -77,14 +78,28 @@ class TestClient(unittest.TestCase):
         self.assertTrue('error' in result)
 
     def test_request_trades_history(self):
+        # INFO: Mock解説
+        # https://akiyoko.hatenablog.jp/entry/2015/01/04/114642
+        # https://thinkami.hatenablog.com/entry/2016/12/24/002922
+        # mock = MagicMock()
+        # mock.request_open_trades.return_value = dummy_open_trades()
+
+        dummy_return = MagicMock(response=dummy_trades_list)
+
         # HACK: side_effect はイテラブルを1つずつしか返さないので、返却値を配列として渡す
-        with patch('oandapyV20.endpoints.trades.TradesList', side_effect=[dummy_trades_list()]):
+        with patch('oandapyV20.endpoints.trades.TradesList', return_value=dummy_return):
             with patch('oandapyV20.API.request', return_value=None):
                 trades_list = self.__watcher_instance.request_trades_history()
 
-        for trade in trades_list:
-            self.assertEqual(trade['state'], 'CLOSED')
-            self.assertNotEqual(trade['state'], 'OPEN')
+        expected_columns = [
+            'openTime', 'closeTime', 'position_type',
+            'open', 'close', 'units',
+            'gain', 'realizedPL'
+        ]
+        self.assertEqual(len(trades_list), 2, '生成されるレコード数は3')
+        # self.assertNotEqual(trade['state'], 'OPEN')
+        for index, trade in trades_list.iterrows():
+            self.assertTrue((trade.index.values == expected_columns).all(), '列名が正しい')
 
     #  - - - - - - - - - - -
     #    Private methods

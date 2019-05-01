@@ -1,7 +1,7 @@
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
-import math
+import math, os
 import numpy as np
 import pandas as pd
 
@@ -10,7 +10,7 @@ class Trader():
         if operation == 'custom':
             self.__instrument = self.__select_instrument()
         else:
-            self.__instrument = 'USD_JPY'
+            self.__instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
 
         self._client  = OandaPyClient(instrument=self.__instrument)
         self.__ana    = Analyzer()
@@ -41,6 +41,9 @@ class Trader():
     #
     # public
     #
+    def get_instrument(self):
+        return self.__instrument
+
     def auto_verify_trading_rule(self, accurize=False):
         ''' tradeルールを自動検証 '''
         print(self.__demo_swing_trade()['success'])
@@ -72,7 +75,7 @@ class Trader():
             axis=1, keys=stoploss_buffer_list,
             names=['SL_buffer']
         )
-        result.to_csv('./sl_verify_{inst}.csv'.format(inst=self.__instrument))
+        result.to_csv('./sl_verify_{inst}.csv'.format(inst=self.get_instrument()))
 
     def draw_chart(self):
         ''' チャートや指標をpngに描画 '''
@@ -300,7 +303,7 @@ class Trader():
         for index, row in long_pos.iterrows():
             M10_candles = self._client.request_latest_candles(
                 target_datetime=row.time,
-                instrument=self.__instrument,
+                instrument=self.get_instrument(),
                 granularity='M10',
                 # TODO: granularityがDの時しか正常動作しない
                 period_m=1440
@@ -317,7 +320,7 @@ class Trader():
         for index, row in short_pos.iterrows():
             M10_candles = self._client.request_latest_candles(
                 target_datetime=row.time,
-                instrument=self.__instrument,
+                instrument=self.get_instrument(),
                 granularity='M10',
                 period_m=1440
             )
@@ -354,6 +357,9 @@ class Trader():
 
 
 class RealTrader(Trader):
+    def __init__(self):
+        super(RealTrader, self).__init__()
+
     #
     # Public
     #
@@ -368,11 +374,10 @@ class RealTrader(Trader):
         sma = self.__indicators['20SMA']
         index = FXBase.get_candles().tail(1).index
         close_price = FXBase.get_candles().tail(1).close
-
-        self.__position['sequence'] = index
+        self.__position = self.__load_position()
 
         # position_buf = self.__position.copy()
-        if position_buf['type'] == 'none':
+        if self.__position['type'] == 'none':
             if math.isnan(sma[index]): return
 
             trend = self.__check_trend(index, close_price)
@@ -387,7 +392,7 @@ class RealTrader(Trader):
 
     def __load_position(self):
         pos = { 'type': 'none' }
-        open_trades = self._client.request_open_trades(instrument='EUR_USD')
+        open_trades = self._client.request_open_trades(instrument=self.get_instrument())
         if open_trades == []: return pos
 
         # Open position の情報抽出
