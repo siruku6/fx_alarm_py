@@ -112,13 +112,16 @@ class FigureDrawer():
 
         ## X軸の見た目を整える
         candles        = FXBase.get_candles()
-        xticks_number  = int(len(candles) / num_break_xticks_into)
-        xticks_index   = range(0, len(candles), xticks_number)
-        xticks_display = [candles.time.values[i][11:16] for i in xticks_index] # 時間を切り出すため、先頭12文字目から取る
         self.__axis1.yaxis.tick_right()
         self.__axis1.yaxis.grid(color='lightgray', linestyle='dashed', linewidth=0.5)
         plt.sca(self.__axis1)
-        plt.xticks(xticks_index, xticks_display)
+
+        xticks_number  = int(len(candles) / num_break_xticks_into)
+        if xticks_number > 0:
+            xticks_index   = range(0, len(candles), xticks_number)
+            # 文字列から時間のみを切り出すため、先頭12文字目から取る
+            xticks_display = [candles.time.values[i][11:16] for i in xticks_index]
+            plt.xticks(xticks_index, xticks_display)
         plt.legend(loc='best')
         plt.savefig('figure.png')
         return { 'success': '[Drawer] 描画済みイメージをpng化' }

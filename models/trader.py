@@ -16,6 +16,7 @@ class Trader():
         self.__ana    = Analyzer()
         self.__drawer = FigureDrawer()
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time']
+        self.__granularity = 'M5'
         # TODO: STOPLOSS_BUFFER_pips は要検討
         self.__STOPLOSS_BUFFER_pips = 0.05
 
@@ -47,7 +48,8 @@ class Trader():
     def auto_verify_trading_rule(self, accurize=False):
         ''' tradeルールを自動検証 '''
         print(self.__demo_swing_trade()['success'])
-        if accurize: print(self.__accurize_entry_prices()['success'])
+        if accurize and (self.__granularity[0] is not 'M'):
+            print(self.__accurize_entry_prices()['success'])
 
     def verify_varios_stoploss(self, accurize=False):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
@@ -132,11 +134,11 @@ class Trader():
             exit()
 
         print('取得スパンは？(ex: M5): ', end='')
-        granularity = str(input())
+        self.__granularity = str(input())
 
         result = self._client.load_long_chart(
             days=days,
-            granularity=granularity
+            granularity=self.__granularity
         )
         if 'error' in result:
             print(result['error'])
@@ -302,11 +304,10 @@ class Trader():
         long_pos  = long_hist[long_hist['type']=='long']
         for index, row in long_pos.iterrows():
             M10_candles = self._client.request_latest_candles(
-                target_datetime=row.time,
+                target_datetime=row.time[:19],
                 instrument=self.get_instrument(),
                 granularity='M10',
-                # TODO: granularityがDの時しか正常動作しない
-                period_m=1440
+                base_granurarity=self.__granularity
             )
             for i, M10_row in M10_candles.iterrows():
                 if row.price < M10_row.high:
@@ -319,10 +320,10 @@ class Trader():
         short_pos  = short_hist[short_hist['type']=='short']
         for index, row in short_pos.iterrows():
             M10_candles = self._client.request_latest_candles(
-                target_datetime=row.time,
+                target_datetime=row.time[:19],
                 instrument=self.get_instrument(),
                 granularity='M10',
-                period_m=1440
+                base_granurarity=self.__granularity
             )
             for i, M10_row in M10_candles.iterrows():
                 if row.price > M10_row.low:

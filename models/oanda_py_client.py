@@ -69,16 +69,16 @@ class OandaPyClient():
         start_time    = self.__calc_start_time(days=days)
         candles_count = self.__calc_candles_wanted(days=days, granularity=granularity)
         # pd.set_option('display.max_rows', candles_count) # 表示可能な最大行数を設定
-        request = self.__request_oanda_instruments(
+        response = self.__request_oanda_instruments(
             start=start_time,
             candles_count=candles_count,
             instrument=instrument or self.__instrument,
             granularity=granularity
         )
-        if request.response['candles'] == []:
+        if response['candles'] == []:
             return { 'error': '[Watcher] request結果、データがありませんでした' }
         else:
-            candles = self.__transform_to_candle_chart(request.response)
+            candles = self.__transform_to_candle_chart(response)
             FXBase.set_candles(
                 candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
             )
@@ -96,12 +96,12 @@ class OandaPyClient():
             remaining_days -= requestable_max_days
             if remaining_days < 0: remaining_days = 0
             end_datetime = now - datetime.timedelta(days=remaining_days)
-            request = self.__request_oanda_instruments(
+            response = self.__request_oanda_instruments(
                 start=self.__format_dt_into_OandapyV20(start_datetime),
                 end=self.__format_dt_into_OandapyV20(end_datetime),
                 instrument=instrument or self.__instrument, granularity=granularity
             )
-            tmp_candles = self.__transform_to_candle_chart(request.response)
+            tmp_candles = self.__transform_to_candle_chart(response)
             candles = FXBase.union_candles_distinct(candles, tmp_candles)
             print('残り: {remaining_days}日分'.format(remaining_days=remaining_days))
             time.sleep(1)
@@ -113,17 +113,24 @@ class OandaPyClient():
             return { 'error': '[Watcher] 処理中断' }
 
     def request_latest_candles(self, target_datetime,
-        granularity='M10', instrument=None, period_m=1440
+        granularity='M10', base_granurarity='D', instrument=None
     ):
-        start_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
-        end_datetime   = start_datetime + datetime.timedelta(minutes=period_m)
-        request = self.__request_oanda_instruments(
+        end_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
+        time_unit = base_granurarity[0]
+        if time_unit is 'M':
+            start_datetime = end_datetime - datetime.timedelta(minutes=int(base_granurarity[1:]))
+        elif time_unit is 'H':
+            start_datetime = end_datetime - datetime.timedelta(hours=int(base_granurarity[1:]))
+        elif time_unit is 'D':
+            start_datetime = end_datetime - datetime.timedelta(days=1)
+
+        response = self.__request_oanda_instruments(
             start=self.__format_dt_into_OandapyV20(start_datetime),
             end=  self.__format_dt_into_OandapyV20(end_datetime),
             instrument=instrument or self.__instrument,
             granularity=granularity
         )
-        candles = self.__transform_to_candle_chart(request.response)
+        candles = self.__transform_to_candle_chart(response)
         return candles
 
     def request_open_trades(self, instrument=None):
@@ -262,11 +269,13 @@ class OandaPyClient():
             instrument=instrument or self.__instrument,
             params=time_params
         )
-        self.__api_client.request(request_obj)
-        return request_obj
+        response = self.__api_client.request(request_obj)
+        return response
 
     def __transform_to_candle_chart(self, response):
         ''' APIレスポンスをチャートデータに整形 '''
+        if response['candles'] == []: return pd.DataFrame(columns=[])
+
         candle = pd.DataFrame.from_dict([ row['mid'] for row in response['candles'] ])
         candle = candle.astype({
             'c': 'float64',
@@ -282,12 +291,10 @@ class OandaPyClient():
         return candle
 
     def __calc_requestable_max_days(self, granularity='M5'):
-        # 1日当たりのローソク足本数を計算
         candles_per_a_day = self.__calc_candles_wanted(days=1, granularity=granularity)
 
         # http://developer.oanda.com/rest-live-v20/instrument-ep/
-        # 1 requestにつき5000本まで許容される
-        max_days = int(5000 / candles_per_a_day)
+        max_days = int(5000 / candles_per_a_day) # 1 requestにつき5000本まで
         return max_days
 
     def __format_dt_into_OandapyV20(self, dt):
