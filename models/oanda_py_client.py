@@ -237,6 +237,7 @@ class OandaPyClient():
         time_span = int(granularity[1:])
         if time_unit == 'H':
             return int(days * 24 / time_span)
+
         if time_unit == 'M':
             return int(days * 24 * 60 / time_span)
 
@@ -281,17 +282,8 @@ class OandaPyClient():
         return candle
 
     def __calc_requestable_max_days(self, granularity='M5'):
-        time_unit = granularity[0]
-
         # 1日当たりのローソク足本数を計算
-        if time_unit == 'D':
-            candles_per_a_day = 1
-        elif time_unit == 'H':
-            time_span = int(granularity[1:])
-            candles_per_a_day = 1 * 24 / time_span
-        elif time_unit == 'M':
-            time_span = int(granularity[1:])
-            candles_per_a_day = 1 * 24 * 60 / time_span
+        candles_per_a_day = self.__calc_candles_wanted(days=1, granularity=granularity)
 
         # http://developer.oanda.com/rest-live-v20/instrument-ep/
         # 1 requestにつき5000本まで許容される
