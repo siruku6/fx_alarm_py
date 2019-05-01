@@ -305,7 +305,6 @@ class Trader():
         for index, row in long_pos.iterrows():
             M10_candles = self._client.request_latest_candles(
                 target_datetime=row.time[:19],
-                instrument=self.get_instrument(),
                 granularity='M10',
                 base_granurarity=self.__granularity
             )
@@ -321,7 +320,6 @@ class Trader():
         for index, row in short_pos.iterrows():
             M10_candles = self._client.request_latest_candles(
                 target_datetime=row.time[:19],
-                instrument=self.get_instrument(),
                 granularity='M10',
                 base_granurarity=self.__granularity
             )
@@ -377,7 +375,6 @@ class RealTrader(Trader):
         close_price = FXBase.get_candles().tail(1).close
         self.__position = self.__load_position()
 
-        # position_buf = self.__position.copy()
         if self.__position['type'] == 'none':
             if math.isnan(sma[index]): return
 
@@ -393,7 +390,7 @@ class RealTrader(Trader):
 
     def __load_position(self):
         pos = { 'type': 'none' }
-        open_trades = self._client.request_open_trades(instrument=self.get_instrument())
+        open_trades = self._client.request_open_trades()
         if open_trades == []: return pos
 
         # Open position の情報抽出

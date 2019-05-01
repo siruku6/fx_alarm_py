@@ -9,7 +9,7 @@ class Main():
         self.client = OandaPyClient()
 
     def periodic_processes(self):
-        result = self.client.reload_chart(days=2, instrument='USD_JPY')
+        result = self.client.reload_chart(days=2)
         if 'success' in result:
             print(result['success'])
             print(FXBase.get_candles().tail())
