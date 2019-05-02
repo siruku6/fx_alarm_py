@@ -1,6 +1,8 @@
-import os
+import logging, os
 import datetime, time
 import pandas as pd
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 # For trading
 from   oandapyV20 import API
@@ -60,8 +62,6 @@ class OandaPyClient():
     #
     def reload_chart(self, days=1, granularity='M5'):
         ''' チャート情報を更新 '''
-        # if self.__is_uptime() == False:
-        #     return { 'error': '[Watcher] 休日のためAPIへのrequestをcancelしました' }
         start_time    = self.__calc_start_time(days=days)
         candles_count = self.__calc_candles_wanted(days=days, granularity=granularity)
         # pd.set_option('display.max_rows', candles_count) # 表示可能な最大行数を設定
@@ -146,9 +146,11 @@ class OandaPyClient():
         )
         response = self.__api_client.request(request_obj)
         print('[Client] 市場が開いているか確認完了')
+        tradeable = response['prices'][0]['tradeable']
+        logger.info('## [Client] tradeable: {}'.format(tradeable))
         return {
             'instrument': self.__instrument,
-            'tradeable': response['prices'][0]['tradeable']
+            'tradeable': tradeable
         }
 
     def request_current_price(self):
@@ -197,6 +199,7 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
         response = self.__api_client.request(request_obj)
+        logger.info('## [Client] market-order: {}'.format(response))
         return response
 
     def request_closing_position(self):
@@ -209,6 +212,7 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_tradeID # , data=data
         )
         response = self.__api_client.request(request_obj)
+        logger.info('## [Client] close-position: {}'.format(response))
         return response
 
     def request_trailing_stoploss(self, SL_price=None):
@@ -226,6 +230,7 @@ class OandaPyClient():
             data=data
         )
         response = self.__api_client.request(request_obj)
+        logger.info('## [Client] trail: {}'.format(response))
         return response
 
     def request_trades_history(self):
@@ -247,18 +252,19 @@ class OandaPyClient():
     #
     # Private
     #
-    def __is_uptime(self):
-        ''' 市場が動いている（営業中）か否か(bool型)を返す '''
-        now_delta       = datetime.datetime.now()
-        six_hours_delta = datetime.timedelta(hours=6) # 大体このくらいずらすと、ちょうど動いてる（気がする）
-        weekday_num     = (now_delta - six_hours_delta).weekday()
 
-        # weekday_num
-        # 0:Mon, 1:Tue, 2:Wed, 3:Thu, 4:Fri, 5:Sat, 6:Sun
-        if weekday_num < 5: # 平日なら
-            return True
-        else:
-            return False
+    # def __is_uptime(self):
+    #     ''' 市場が動いている（営業中）か否か(bool型)を返す '''
+    #     now_delta       = datetime.datetime.now()
+    #     six_hours_delta = datetime.timedelta(hours=6) # 大体このくらいずらすと、ちょうど動いてる（気がする）
+    #     weekday_num     = (now_delta - six_hours_delta).weekday()
+    #
+    #     # weekday_num
+    #     # 0:Mon, 1:Tue, 2:Wed, 3:Thu, 4:Fri, 5:Sat, 6:Sun
+    #     if weekday_num < 5: # 平日なら
+    #         return True
+    #     else:
+    #         return False
 
     # TODO: このメソッドいらないかも
     def __calc_start_time(self, days, end_datetime=datetime.datetime.now()):
