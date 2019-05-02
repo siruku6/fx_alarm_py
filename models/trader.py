@@ -155,7 +155,9 @@ class Trader():
         if position_type == 'long':
             if candles.low[i-1] - self._STOPLOSS_BUFFER_pips > stoploss_price:
                 stoploss_price = candles.low[i-1] - self._STOPLOSS_BUFFER_pips
-                self._trail_stoploss(index=i, new_SL=stoploss_price)
+                self._trail_stoploss(
+                    index=i, new_SL=stoploss_price, time=candles.time[i]
+                )
             if stoploss_price > candles.low[i]:
                 self._settle_position(
                     index=i, price=stoploss_price, time=candles.time[i]
@@ -167,7 +169,9 @@ class Trader():
         elif position_type == 'short':
             if candles.high[i-1] + self._STOPLOSS_BUFFER_pips < stoploss_price:
                 stoploss_price = candles.high[i-1] + self._STOPLOSS_BUFFER_pips
-                self._trail_stoploss(index=i, new_SL=stoploss_price)
+                self._trail_stoploss(
+                    index=i, new_SL=stoploss_price, time=candles.time[i]
+                )
             if stoploss_price < candles.high[i]:
                 self._settle_position(
                     index=i, price=stoploss_price, time=candles.time[i]
@@ -194,8 +198,8 @@ class Trader():
         # Custom request
         print('何日分のデータを取得する？(半角数字): ', end='')
         days = int(input())
-        if days > 300:
-            print('[ALERT] 現在は300日までに制限しています')
+        if days > 365:
+            print('[ALERT] 現在は365日までに制限しています')
             exit()
 
         print('取得スパンは？(ex: M5): ', end='')
@@ -216,10 +220,12 @@ class Trader():
         # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする
         self.__initialize_position_variables()
 
-        for index, close_price in enumerate(FXBase.get_candles().close):
+        close_candles = FXBase.get_candles().close
+        candle_length = len(close_candles)
+        for index, close_price in enumerate(close_candles):
+            print('[Trader] progress... {i}/{total}'.format(i=index, total=candle_length))
             self._position['sequence'] = index
-            position_buf = self._position.copy()
-            if position_buf['type'] == 'none':
+            if self._position['type'] == 'none':
                 if math.isnan(sma[index]): continue
 
                 trend = self._check_trend(index, close_price)
@@ -232,10 +238,6 @@ class Trader():
             else:
                 self._judge_settle_position(index, close_price)
 
-            # # loop開始時と比較してpositionに変化があったら、状況をprintする
-            # if not position_buf == self._position:
-            #     print('# recent position {pos}'.format(pos=self._position))
-
         self.__hist_positions['long']  = self.__hist_positions['long'].reset_index(drop=True)
         self.__hist_positions['short'] = self.__hist_positions['short'].reset_index(drop=True)
         return { 'success': '[Trader] 売買判定終了' }
@@ -246,6 +248,7 @@ class Trader():
         '''
         candles = FXBase.get_candles()
         if direction == 'long':
+            # OPTIMIZE: entry_priceが甘い。 candles.close[index] でもいいかも
             entry_price = candles.high[index-1]
             stoploss    = candles.low[index-1] - self._STOPLOSS_BUFFER_pips
         elif direction == 'short':
@@ -256,14 +259,20 @@ class Trader():
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
             'type': direction, 'time': candles.time[index]
         }
-        self.__hist_positions[direction].loc[index] = self._position
+        # self.__hist_positions[direction].loc[index] = self._position
+        self.__hist_positions[direction] = pd.concat([
+            self.__hist_positions[direction],
+            pd.DataFrame(self._position, index=[index])
+        ])
 
-    def _trail_stoploss(self, index, new_SL):
+    def _trail_stoploss(self, index, new_SL, time):
         pos_type = self._position['type']
         self._position['stoploss']      = new_SL
         position_after_trailing         = self._position.copy()
         position_after_trailing['type'] = 'trail'
-        position_after_trailing['time'] = FXBase.get_candles().time[index]
+        position_after_trailing['time'] = time
+        # INFO: こっちの方がコード量は減るけど、速度が遅い
+        # self.__hist_positions[pos_type].loc[index] = position_after_trailing
         self.__hist_positions[pos_type] = pd.concat([
             self.__hist_positions[pos_type],
             pd.DataFrame(position_after_trailing, index=[index])
@@ -382,7 +391,7 @@ class RealTrader(Trader):
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
         print('[RealTrader] create pos {}'.format(direction))
 
-    def _trail_stoploss(self, index, new_SL):
+    def _trail_stoploss(self, index, new_SL, time):
         print('[RealTrader] trail pos')
 
     def _settle_position(self, index, price, time):
