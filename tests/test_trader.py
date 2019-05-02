@@ -9,7 +9,7 @@ class TestTrader(unittest.TestCase):
         print('\n[Trader] setup')
         # TODO: TEST用のデータを用意しないとテストもできない
         self.__trader = trader.Trader()
-        self.__real_trader = trader.RealTrader()
+        self.__real_trader = trader.RealTrader(operation='verification')
 
     def test__accurize_entry_prices(self):
         pass

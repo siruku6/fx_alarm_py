@@ -18,7 +18,7 @@ class Trader():
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time']
         self.__granularity = 'M5'
         # TODO: STOPLOSS_BUFFER_pips は要検討
-        self.__STOPLOSS_BUFFER_pips = 0.05
+        self._STOPLOSS_BUFFER_pips = 0.05
 
         if operation == 'custom':
             self.__request_custom_candles()
@@ -29,7 +29,7 @@ class Trader():
             return
 
         print(result['success'])
-        self.__indicators = self.__ana.get_indicators()
+        self._indicators = self.__ana.get_indicators()
         self.__initialize_position_variables()
 
     def __initialize_position_variables(self):
@@ -60,7 +60,7 @@ class Trader():
         )
         for sl in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(sl))
-            self.__STOPLOSS_BUFFER_pips = sl
+            self._STOPLOSS_BUFFER_pips = sl
             self.auto_verify_trading_rule(accurize=True)
 
             self.__calc_profit()
@@ -82,11 +82,11 @@ class Trader():
     def draw_chart(self):
         ''' チャートや指標をpngに描画 '''
         drwr = self.__drawer
-        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['20SMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
-        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['10EMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='cyan')
-        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['band_+2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='blue')
-        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['band_-2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='blue')
-        drwr.draw_df_on_plt(df=self.__indicators.loc[:, ['SAR']],      plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
+        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['20SMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
+        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['10EMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='cyan')
+        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_+2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='blue')
+        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_-2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='blue')
+        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['SAR']],      plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
         # drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
         # drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
         # drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['over'])
@@ -111,6 +111,71 @@ class Trader():
         self.__hist_positions['long'].to_csv('./long_history.csv')
         self.__hist_positions['short'].to_csv('./short_history.csv')
         print('[Trader] ポジション履歴をcsv出力完了')
+
+    #
+    # Shared with subclass
+    #
+    def _check_trend(self, index, c_price):
+        '''
+        ルールに基づいてトレンドの有無を判定
+        '''
+        sma    = self._indicators['20SMA'][index]
+        ema    = self._indicators['10EMA'][index]
+        parabo = self._indicators['SAR'][index]
+        if sma    < ema     and \
+           ema    < c_price and \
+           parabo < c_price:
+            trend = 'bull'
+        elif sma    > ema     and \
+             ema    > c_price and \
+             parabo > c_price:
+            trend = 'bear'
+        else:
+            trend = None
+        return trend
+
+    def _find_thrust(self, i, trend):
+        '''
+        thrust発生の有無と方向を判定して返却する
+        '''
+        candles = FXBase.get_candles()[['high', 'low']]
+        if trend == 'bull' and candles.high[i] > candles.high[i-1]:
+            direction = 'long'
+        elif trend == 'bear' and candles.low[i] < candles.low[i-1]:
+            direction = 'short'
+        else:
+            direction = None
+        return direction
+
+    def _judge_settle_position(self, i, c_price):
+        candles        = FXBase.get_candles()
+        parabolic      = self._indicators['SAR']
+        position_type  = self.__position['type']
+        stoploss_price = self.__position['stoploss']
+        if position_type == 'long':
+            if candles.low[i-1] - self._STOPLOSS_BUFFER_pips > stoploss_price:
+                stoploss_price = candles.low[i-1] - self._STOPLOSS_BUFFER_pips
+                self._trail_stoploss(index=i, new_SL=stoploss_price)
+            if stoploss_price > candles.low[i]:
+                self._settle_position(
+                    index=i, price=stoploss_price, time=candles.time[i]
+                )
+            elif parabolic[i] > c_price:
+                self._settle_position(
+                    index=i, price=c_price, time=candles.time[i]
+                )
+        elif position_type == 'short':
+            if candles.high[i-1] + self._STOPLOSS_BUFFER_pips < stoploss_price:
+                stoploss_price = candles.high[i-1] + self._STOPLOSS_BUFFER_pips
+                self._trail_stoploss(index=i, new_SL=stoploss_price)
+            if stoploss_price < candles.high[i]:
+                self._settle_position(
+                    index=i, price=stoploss_price, time=candles.time[i]
+                )
+            elif parabolic[i] < c_price:
+                self._settle_position(
+                    index=i, price=c_price, time=candles.time[i]
+                )
 
     #
     # private
@@ -147,7 +212,7 @@ class Trader():
 
     def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''
-        sma = self.__indicators['20SMA']
+        sma = self._indicators['20SMA']
         # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする
         self.__initialize_position_variables()
 
@@ -157,15 +222,15 @@ class Trader():
             if position_buf['type'] == 'none':
                 if math.isnan(sma[index]): continue
 
-                trend = self.__check_trend(index, close_price)
+                trend = self._check_trend(index, close_price)
                 if trend is None: continue
 
-                direction = self.__find_thrust(index, trend)
+                direction = self._find_thrust(index, trend)
                 if direction is None: continue
 
-                self.__create_position(index, direction)
+                self._create_position(index, direction)
             else:
-                self.__judge_settle_position(index, close_price)
+                self._judge_settle_position(index, close_price)
 
             # # loop開始時と比較してpositionに変化があったら、状況をprintする
             # if not position_buf == self.__position:
@@ -175,49 +240,17 @@ class Trader():
         self.__hist_positions['short'] = self.__hist_positions['short'].reset_index(drop=True)
         return { 'success': '[Trader] 売買判定終了' }
 
-    def __check_trend(self, index, c_price):
-        '''
-        ルールに基づいてトレンドの有無を判定
-        '''
-        sma    = self.__indicators['20SMA'][index]
-        ema    = self.__indicators['10EMA'][index]
-        parabo = self.__indicators['SAR'][index]
-        if sma    < ema     and \
-           ema    < c_price and \
-           parabo < c_price:
-            trend = 'bull'
-        elif sma    > ema     and \
-             ema    > c_price and \
-             parabo > c_price:
-            trend = 'bear'
-        else:
-            trend = None
-        return trend
-
-    def __find_thrust(self, i, trend):
-        '''
-        thrust発生の有無と方向を判定して返却する
-        '''
-        candles = FXBase.get_candles()[['high', 'low']]
-        if trend == 'bull' and candles.high[i] > candles.high[i-1]:
-            direction = 'long'
-        elif trend == 'bear' and candles.low[i] < candles.low[i-1]:
-            direction = 'short'
-        else:
-            direction = None
-        return direction
-
-    def __create_position(self, index, direction):
+    def _create_position(self, index, direction):
         '''
         ルールに基づいてポジションをとる
         '''
         candles = FXBase.get_candles()
         if direction == 'long':
             entry_price = candles.high[index-1]
-            stoploss    = candles.low[index-1] - self.__STOPLOSS_BUFFER_pips
+            stoploss    = candles.low[index-1] - self._STOPLOSS_BUFFER_pips
         elif direction == 'short':
             entry_price = candles.low[index-1]
-            stoploss    = candles.high[index-1] + self.__STOPLOSS_BUFFER_pips
+            stoploss    = candles.high[index-1] + self._STOPLOSS_BUFFER_pips
 
         self.__position = {
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
@@ -225,51 +258,18 @@ class Trader():
         }
         self.__hist_positions[direction].loc[index] = self.__position
 
-    def __trail_stoploss(self, index, new_SL, position_type):
-        self.__position['stoploss'] = new_SL
-        position_after_trailing = self.__position.copy()
+    def _trail_stoploss(self, index, new_SL):
+        pos_type = self.__position['type']
+        self.__position['stoploss']     = new_SL
+        position_after_trailing         = self.__position.copy()
         position_after_trailing['type'] = 'trail'
         position_after_trailing['time'] = FXBase.get_candles().time[index]
-        self.__hist_positions[position_type] =  pd.concat([
-            self.__hist_positions[position_type],
+        self.__hist_positions[pos_type] = pd.concat([
+            self.__hist_positions[pos_type],
             pd.DataFrame(position_after_trailing, index=[index])
         ])
 
-    def __judge_settle_position(self, i, c_price):
-        candles        = FXBase.get_candles()
-        parabolic      = self.__indicators['SAR']
-        position_type  = self.__position['type']
-        stoploss_price = self.__position['stoploss']
-        if position_type == 'long':
-            if candles.low[i-1] - self.__STOPLOSS_BUFFER_pips > stoploss_price:
-                stoploss_price = candles.low[i-1] - self.__STOPLOSS_BUFFER_pips
-                self.__trail_stoploss(index=i, new_SL=stoploss_price, position_type=position_type)
-            if stoploss_price > candles.low[i]:
-                self.__settle_position(
-                    index=i, price=stoploss_price,
-                    position_type=position_type, time=candles.time[i]
-                )
-            elif parabolic[i] > c_price:
-                self.__settle_position(
-                    index=i, price=c_price,
-                    position_type=position_type, time=candles.time[i]
-                )
-        elif position_type == 'short':
-            if candles.high[i-1] + self.__STOPLOSS_BUFFER_pips < stoploss_price:
-                stoploss_price = candles.high[i-1] + self.__STOPLOSS_BUFFER_pips
-                self.__trail_stoploss(index=i, new_SL=stoploss_price, position_type=position_type)
-            if stoploss_price < candles.high[i]:
-                self.__settle_position(
-                    index=i, price=stoploss_price,
-                    position_type=position_type, time=candles.time[i]
-                )
-            elif parabolic[i] < c_price:
-                self.__settle_position(
-                    index=i, price=c_price,
-                    position_type=position_type, time=candles.time[i]
-                )
-
-    def __settle_position(self, index, price, position_type, time):
+    def _settle_position(self, index, price, time):
         '''
         ポジション解消の履歴を残す
 
@@ -279,8 +279,6 @@ class Trader():
             ポジションを解消するタイミングを表す
         price : float
             ポジション解消時の価格
-        position_type : string
-            -
         time : string
             ポジションを解消する日（時）
 
@@ -288,9 +286,10 @@ class Trader():
         -------
         None
         '''
+        pos_type = self.__position['type']
         self.__position = { 'type': 'none' }
-        self.__hist_positions[position_type] =  pd.concat([
-            self.__hist_positions[position_type],
+        self.__hist_positions[pos_type] =  pd.concat([
+            self.__hist_positions[pos_type],
             pd.DataFrame([[index, price, 0.0, 'close', time]], columns=self.__columns)
         ])
 
@@ -356,37 +355,76 @@ class Trader():
 
 
 class RealTrader(Trader):
-    def __init__(self):
-        super(RealTrader, self).__init__()
+    def __init__(self, operation='verification'):
+        super(RealTrader, self).__init__(operation=operation)
 
     #
     # Public
     #
     def apply_trading_rule(self):
-        print(self.__load_position())
+        print(self.__play_swing_trade())
+
+    #
+    # Override shared methods
+    #
+    def _create_position(self, index, direction):
+        '''
+        ルールに基づいてポジションをとる(Oanda通信有)
+        '''
+        candles = FXBase.get_candles()
+        if direction is 'long':
+            sign = ''
+            stoploss = candles.low[index-1] - self._STOPLOSS_BUFFER_pips
+        elif direction is 'short':
+            sign = '-'
+            stoploss = candles.high[index-1] + self._STOPLOSS_BUFFER_pips
+
+        self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
+        print('[RealTrader] create pos {}'.format(direction))
+
+    def _trail_stoploss(self, index, new_SL):
+        print('[RealTrader] trail pos')
+
+    def _settle_position(self, index, price, time):
+        '''
+        ポジション解消の履歴を残す
+
+        Parameters
+        ----------
+        index : int
+            ポジションを解消するタイミングを表す
+        price : float
+            ポジション解消時の価格
+        time : string
+            ポジションを解消する日（時）
+
+        Returns
+        -------
+        None
+        '''
+        print('[RealTrader] close pos')
 
     #
     # Private
     #
     def __play_swing_trade(self):
         ''' 現在のレートにおいて、スイングトレードルールでトレード '''
-        sma = self.__indicators['20SMA']
-        index = FXBase.get_candles().tail(1).index
-        close_price = FXBase.get_candles().tail(1).close
+        close_price = FXBase.get_candles().close.values[-1]
         self.__position = self.__load_position()
 
         if self.__position['type'] == 'none':
-            if math.isnan(sma[index]): return
-
-            trend = self.__check_trend(index, close_price)
+            index = len(self._indicators) - 1 # INFO: 最終行
+            trend = self._check_trend(index=index, c_price=close_price)
             if trend is None: return
 
-            direction = self.__find_thrust(index, trend)
+            direction = self._find_thrust(index, trend)
             if direction is None: return
 
-            self.__create_position(index, direction)
+            self._create_position(index, direction)
         else:
-            self.__judge_settle_position(index, close_price)
+            self._judge_settle_position(index, close_price)
+
+        return '[RealTrader] finish'
 
     def __load_position(self):
         pos = { 'type': 'none' }
