@@ -123,7 +123,7 @@ class OandaPyClient():
                 end=  self.__format_dt_into_OandapyV20(end_datetime),
                 granularity=granularity
             )
-        # HACK: 現在値を取得する際、誤差で将の来時間と扱われてエラーになることがある
+        # HACK: 現在値を取得する際、誤差で将来の時間と扱われてエラーになることがある
         except V20Error as e:
             print(e['errorMessage'])
             # INFO: 保険として、1分前のデータの再取得を試みる
@@ -161,8 +161,8 @@ class OandaPyClient():
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''
         request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
-        self.__api_client.request(request_obj)
-        open_trades = request_obj.response['trades']
+        response = self.__api_client.request(request_obj)
+        open_trades = response['trades']
 
         extracted_trades = [trade for trade in open_trades if
             'clientExtensions' not in trade.keys() and
@@ -191,8 +191,8 @@ class OandaPyClient():
         request_obj = orders.OrderCreate(
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
-        self.__api_client.request(request_obj)
-        return request_obj.response
+        response = self.__api_client.request(request_obj)
+        return response
 
     def request_closing_position(self):
         ''' ポジションをclose '''
@@ -203,24 +203,25 @@ class OandaPyClient():
         request_obj = trades.TradeClose(
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_tradeID # , data=data
         )
-        self.__api_client.request(request_obj)
-        return request_obj.response
+        response = self.__api_client.request(request_obj)
+        return response
 
-    def request_trailing_stoploss(self, stoploss_price=None):
+    def request_trailing_stoploss(self, SL_price=None):
         ''' ポジションのstoplossを強気方向に修正 '''
         if self.__tradeIDs == []: return { 'error': '[Client] trailすべきポジションが見つかりませんでした。' }
-        if stoploss_price is None: return { 'error': '[Client] StopLoss価格がなく、trailできませんでした。' }
+        if SL_price is None: return { 'error': '[Client] StopLoss価格がなく、trailできませんでした。' }
 
         data = {
-            'stopLoss': { 'timeInForce': 'GTC', 'price': str(stoploss_price) }
+            # 'takeProfit': { 'timeInForce': 'GTC', 'price': '1.3'  },
+            'stopLoss': { 'timeInForce': 'GTC', 'price': str(SL_price)[:7] }
         }
         request_obj = trades.TradeCRCDO(
             accountID=os.environ['OANDA_ACCOUNT_ID'],
             tradeID=self.__tradeIDs[0],
             data=data
         )
-        self.__api_client.request(request_obj)
-        return request_obj.response
+        response = self.__api_client.request(request_obj)
+        return response
 
     def request_trades_history(self):
         ''' OANDAのトレード履歴を取得 '''
@@ -229,10 +230,10 @@ class OandaPyClient():
             'state': 'ALL' # 全過去分を取得
         }
         request_obj = trades.TradesList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
-        self.__api_client.request(request_obj)
+        response = self.__api_client.request(request_obj)
 
         past_trades = [
-            trade for trade in request_obj.response['trades'] if
+            trade for trade in response['trades'] if
                 'clientExtensions' not in trade.keys() and
                 trade['state'] != 'OPEN'
         ]
