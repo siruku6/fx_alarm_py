@@ -23,7 +23,13 @@ class Trader():
         if operation is 'custom':
             self.__request_custom_candles()
         elif operation is 'live':
+            result = self._client.request_is_tradeable()
+            if result['tradeable'] == False:
+                print('[Trader] 市場が開いていないため、処理を終了します')
+                exit()
+
             self._client.load_long_chart(days=1, granularity=self.__granularity)
+            self._client.request_current_price()
 
         result = self.__ana.calc_indicators()
         if 'error' in result:
@@ -214,7 +220,7 @@ class Trader():
         if 'error' in result:
             print(result['error'])
             exit()
-        FXBase.set_candles(result['candles'])
+        # FXBase.set_candles(result['candles'])
 
     def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''

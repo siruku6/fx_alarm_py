@@ -31,7 +31,9 @@ FXの為替レートを自動取得し、
     export MAIL_FROM=送信元となるGmailメルアド
 
     # Option
-    export UNITS=注文毎の購入通貨数 # default: UNITS=1
+    export OANDA_ENVIRONMENT=OANDA側の環境 # default: OANDA_ENVIRONMENT=practice
+    export INSTRUMENT=取引する通貨ペア     # default: INSTRUMENT=USD_JPY
+    export UNITS=注文毎の購入通貨数        # default: UNITS=1
     ```
 
 - Enable your GmailAPI or SendGrid  

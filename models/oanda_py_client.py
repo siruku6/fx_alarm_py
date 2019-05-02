@@ -43,12 +43,13 @@ class FXBase():
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class OandaPyClient():
-    def __init__(self, instrument=None, environment='practice'):
+    def __init__(self, instrument=None, environment=None):
         ''' 固定パラメータの設定 '''
         print('initing ...')
         self.__api_client = API(
             access_token=os.environ['OANDA_ACCESS_TOKEN'],
-            environment=environment # or 'live' is valid
+            # 'practice' or 'live' is valid
+            environment=environment or os.environ.get('OANDA_ENVIRONMENT') or 'practice'
         )
         self.__instrument = instrument or 'USD_JPY'
         self.__units = os.environ.get('UNITS') or '1'
@@ -102,8 +103,8 @@ class OandaPyClient():
             time.sleep(1)
 
         if remaining_days is 0:
-            return { 'success': '[Watcher] APIリクエスト成功',
-                     'candles': candles }
+            FXBase.set_candles(candles)
+            return { 'success': '[Watcher] APIリクエスト成功' }
         else:
             return { 'error': '[Watcher] 処理中断' }
 
@@ -138,12 +139,13 @@ class OandaPyClient():
         candles = self.__transform_to_candle_chart(response)
         return candles
 
-    def request_is_tradable(self):
+    def request_is_tradeable(self):
         params = { 'instruments': self.__instrument } # 'USD_JPY,EUR_USD,EUR_JPY'
         request_obj = pricing.PricingInfo(
             accountID=os.environ['OANDA_ACCOUNT_ID'], params=params
         )
         response = self.__api_client.request(request_obj)
+        print('[Client] 市場が開いているか確認完了')
         return {
             'instrument': self.__instrument,
             'tradeable': response['prices'][0]['tradeable']
@@ -151,12 +153,15 @@ class OandaPyClient():
 
     def request_current_price(self):
         now = datetime.datetime.now() - datetime.timedelta(hours=9)
-        result = self.request_latest_candles(
+        candles = self.request_latest_candles(
             target_datetime=str(now)[:19],
             granularity='M1',
             base_granurarity='M1',
         )
-        return result
+        FXBase.set_candles(
+            candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
+        )
+        print('[Client] 現在値取得{}'.format(candles))
 
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''
