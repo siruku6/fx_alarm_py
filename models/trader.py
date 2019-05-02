@@ -379,7 +379,9 @@ class RealTrader(Trader):
     # Public
     #
     def apply_trading_rule(self):
-        print(self.__play_swing_trade())
+        result = self.__play_swing_trade()
+        print(result)
+        return result
 
     #
     # Override shared methods

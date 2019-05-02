@@ -3,6 +3,17 @@ from models.trader import Trader
 from models.oanda_py_client import FXBase
 from models.oanda_py_client import OandaPyClient
 
+# For AWS Lambda
+def lambda_handler(event, context):
+    # Real trade
+    tr = trader.RealTrader(operation='live')
+    result = tr.apply_trading_rule()
+    return {
+        'statusCode': 200,
+        'body': json.dumps(result)
+    }
+
+# For local console
 class Main():
     def __init__(self):
         # self.gmailer   = mailer.GmailAPI()
@@ -28,7 +39,6 @@ class Main():
                 # self.gmailer.send()
         else:
             print(result['error'])
-
 
 if __name__ == '__main__':
     main = Main()
