@@ -91,10 +91,6 @@ class OandaPyClient():
             if remaining_days < 0: remaining_days = 0
             end_datetime = now - datetime.timedelta(days=remaining_days)
 
-
-            import pdb; pdb.set_trace()
-
-
             response = self.__request_oanda_instruments(
                 start=self.__format_dt_into_OandapyV20(start_datetime),
                 end=self.__format_dt_into_OandapyV20(end_datetime),
@@ -183,7 +179,7 @@ class OandaPyClient():
           'order': {
             'stopLossOnFill': {
               'timeInForce': 'GTC',
-              'price': str(stoploss_price)
+              'price': str(stoploss_price)[:7] # TODO: 桁数が少ない通貨ペアも考慮する
             },
             'instrument': self.__instrument,
             'units': '{sign}{units}'.format(sign=posi_nega_sign, units=self.__units),
