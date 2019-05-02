@@ -7,7 +7,7 @@ import pandas as pd
 
 class Trader():
     def __init__(self, operation='verification'):
-        if operation == 'custom':
+        if operation is 'custom':
             self.__instrument = self.__select_instrument()
         else:
             self.__instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
@@ -20,8 +20,10 @@ class Trader():
         # TODO: STOPLOSS_BUFFER_pips は要検討
         self._STOPLOSS_BUFFER_pips = 0.05
 
-        if operation == 'custom':
+        if operation is 'custom':
             self.__request_custom_candles()
+        elif operation is 'live':
+            self._client.load_long_chart(days=1, granularity=self.__granularity)
 
         result = self.__ana.calc_indicators()
         if 'error' in result:
@@ -362,7 +364,6 @@ class Trader():
                    + self.__hist_positions['short'][['profit']].sum()
         print('[合計損益] {profit}pips'.format( profit=round(sum_profit['profit'] * 100, 3) ))
 
-
 class RealTrader(Trader):
     def __init__(self, operation='verification'):
         super(RealTrader, self).__init__(operation=operation)
@@ -392,6 +393,23 @@ class RealTrader(Trader):
         print('[RealTrader] create pos {}'.format(direction))
 
     def _trail_stoploss(self, index, new_SL, time):
+        '''
+        ポジションのstoploss-priceを強気方向へ修正する
+        Parameters
+        ----------
+        index : int
+            不要
+        new_SL : float
+            新しいstoploss-price
+        time : string
+            不要
+
+        Returns
+        -------
+        None
+        '''
+        result = self._client.request_trailing_stoploss(SL_price=new_SL)
+        print(result)
         print('[RealTrader] trail pos')
 
     def _settle_position(self, index, price, time):
@@ -401,11 +419,9 @@ class RealTrader(Trader):
         Parameters
         ----------
         index : int
-            ポジションを解消するタイミングを表す
         price : float
-            ポジション解消時の価格
         time : string
-            ポジションを解消する日（時）
+            全て不要
 
         Returns
         -------
