@@ -8,6 +8,7 @@ import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.instruments as inst
+from   oandapyV20.exceptions import V20Error
 
 class FXBase():
     __candles = None
@@ -39,14 +40,6 @@ class FXBase():
     def write_candles_on_csv(cls, filename='./candles.csv'):
         cls.__candles.to_csv(filename)
 
-    # @classmethod
-    # def get_latest_candle(cls):
-    #     return cls.__latest_candle
-    #
-    # @classmethod
-    # def set_latest_candle(cls, df_candle):
-    #     cls.__latest_candle = df_candle
-
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class OandaPyClient():
@@ -66,7 +59,8 @@ class OandaPyClient():
     #
     def reload_chart(self, days=1, granularity='M5'):
         ''' チャート情報を更新 '''
-        # if self.__is_uptime() == False: return { 'error': '[Watcher] 休日のためAPIへのrequestをcancelしました' }
+        # if self.__is_uptime() == False:
+        #     return { 'error': '[Watcher] 休日のためAPIへのrequestをcancelしました' }
         start_time    = self.__calc_start_time(days=days)
         candles_count = self.__calc_candles_wanted(days=days, granularity=granularity)
         # pd.set_option('display.max_rows', candles_count) # 表示可能な最大行数を設定
@@ -117,9 +111,7 @@ class OandaPyClient():
         else:
             return { 'error': '[Watcher] 処理中断' }
 
-    def request_latest_candles(self, target_datetime,
-        granularity='M10', base_granurarity='D'
-    ):
+    def request_latest_candles(self, target_datetime, granularity='M10', base_granurarity='D'):
         end_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
         time_unit = base_granurarity[0]
         if time_unit is 'M':
@@ -129,21 +121,46 @@ class OandaPyClient():
         elif time_unit is 'D':
             start_datetime = end_datetime - datetime.timedelta(days=1)
 
-        response = self.__request_oanda_instruments(
-            start=self.__format_dt_into_OandapyV20(start_datetime),
-            end=  self.__format_dt_into_OandapyV20(end_datetime),
-            granularity=granularity
-        )
+        try:
+            response = self.__request_oanda_instruments(
+                start=self.__format_dt_into_OandapyV20(start_datetime),
+                end=  self.__format_dt_into_OandapyV20(end_datetime),
+                granularity=granularity
+            )
+        # HACK: 現在値を取得する際、誤差で将の来時間と扱われてエラーになることがある
+        except V20Error as e:
+            print(e['errorMessage'])
+            # INFO: 保険として、1分前のデータの再取得を試みる
+            start_datetime -= datetime.timedelta(minutes=1)
+            end_datetime   -= datetime.timedelta(minutes=1)
+            response = self.__request_oanda_instruments(
+                start=self.__format_dt_into_OandapyV20(start_datetime),
+                end=  self.__format_dt_into_OandapyV20(end_datetime),
+                granularity=granularity
+            )
+
         candles = self.__transform_to_candle_chart(response)
         return candles
 
-    def request_current_price(self):
+    def request_is_tradable(self):
         params = { 'instruments': self.__instrument } # 'USD_JPY,EUR_USD,EUR_JPY'
         request_obj = pricing.PricingInfo(
             accountID=os.environ['OANDA_ACCOUNT_ID'], params=params
         )
         response = self.__api_client.request(request_obj)
-        return response
+        return {
+            'instrument': self.__instrument,
+            'tradeable': response['prices'][0]['tradeable']
+        }
+
+    def request_current_price(self):
+        now = datetime.datetime.now() - datetime.timedelta(hours=9)
+        result = self.request_latest_candles(
+            target_datetime=str(now)[:19],
+            granularity='M1',
+            base_granurarity='M1',
+        )
+        return result
 
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''
@@ -277,7 +294,6 @@ class OandaPyClient():
                 'granularity': granularity
             }
 
-        # TODO: システム時刻のずれにより、未来の価格を取得しようとしてErrorになり得る
         request_obj = inst.InstrumentsCandles(
             instrument=self.__instrument,
             params=time_params
