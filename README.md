@@ -23,17 +23,25 @@ FXの為替レートを自動取得し、
     ```
     $ vim ~/.bash_profile
 
-    # Necessary
+    #  - - - Necessary - - -
+    # Client
     export OANDA_ACCESS_TOKEN=YOUR TOKEN
     export OANDA_ACCOUNT_ID=YOUR Account ID
+
+    # Other
     export SENDGRID_APIKEY=sendgridのapikey
     export MAIL_TO=通知メール宛先
     export MAIL_FROM=送信元となるGmailメルアド
 
-    # Option
-    export OANDA_ENVIRONMENT=OANDA側の環境 # default: OANDA_ENVIRONMENT=practice
-    export INSTRUMENT=取引する通貨ペア     # default: INSTRUMENT=USD_JPY
-    export UNITS=注文毎の購入通貨数        # default: UNITS=1
+    #  - - - Option - - -
+    # Client
+    export OANDA_ENVIRONMENT=OANDA側の環境    # default: practice
+    export UNITS=注文毎の購入通貨数           # default: 1
+
+    # Trader
+    export GRANULARITY=取引時に利用する足     # default: M5
+    export INSTRUMENT=取引する通貨ペア        # default: USD_JPY
+    export STOPLOSS_BUFFER=stoplossまでの間隔 # default: 0.05
     ```
 
 - Enable your GmailAPI or SendGrid  

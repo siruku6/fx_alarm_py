@@ -16,9 +16,10 @@ class Trader():
         self.__ana    = Analyzer()
         self.__drawer = FigureDrawer()
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time']
-        self.__granularity = 'M5'
+        self.__granularity = os.environ.get('GRANULARITY') or 'M5'
         # TODO: STOPLOSS_BUFFER_pips は要検討
-        self._STOPLOSS_BUFFER_pips = 0.05
+        sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
+        self._STOPLOSS_BUFFER_pips = sl_buffer or 0.05
 
         if operation is 'custom':
             self.__request_custom_candles()
