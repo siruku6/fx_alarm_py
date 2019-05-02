@@ -33,7 +33,7 @@ class Trader():
         self.__initialize_position_variables()
 
     def __initialize_position_variables(self):
-        self.__position = { 'type': 'none' }
+        self._position = { 'type': 'none' }
         self.__hist_positions = {
             'long':  pd.DataFrame(columns=self.__columns),
             'short': pd.DataFrame(columns=self.__columns)
@@ -150,8 +150,8 @@ class Trader():
     def _judge_settle_position(self, i, c_price):
         candles        = FXBase.get_candles()
         parabolic      = self._indicators['SAR']
-        position_type  = self.__position['type']
-        stoploss_price = self.__position['stoploss']
+        position_type  = self._position['type']
+        stoploss_price = self._position['stoploss']
         if position_type == 'long':
             if candles.low[i-1] - self._STOPLOSS_BUFFER_pips > stoploss_price:
                 stoploss_price = candles.low[i-1] - self._STOPLOSS_BUFFER_pips
@@ -217,8 +217,8 @@ class Trader():
         self.__initialize_position_variables()
 
         for index, close_price in enumerate(FXBase.get_candles().close):
-            self.__position['sequence'] = index
-            position_buf = self.__position.copy()
+            self._position['sequence'] = index
+            position_buf = self._position.copy()
             if position_buf['type'] == 'none':
                 if math.isnan(sma[index]): continue
 
@@ -233,8 +233,8 @@ class Trader():
                 self._judge_settle_position(index, close_price)
 
             # # loop開始時と比較してpositionに変化があったら、状況をprintする
-            # if not position_buf == self.__position:
-            #     print('# recent position {pos}'.format(pos=self.__position))
+            # if not position_buf == self._position:
+            #     print('# recent position {pos}'.format(pos=self._position))
 
         self.__hist_positions['long']  = self.__hist_positions['long'].reset_index(drop=True)
         self.__hist_positions['short'] = self.__hist_positions['short'].reset_index(drop=True)
@@ -252,16 +252,16 @@ class Trader():
             entry_price = candles.low[index-1]
             stoploss    = candles.high[index-1] + self._STOPLOSS_BUFFER_pips
 
-        self.__position = {
+        self._position = {
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
             'type': direction, 'time': candles.time[index]
         }
-        self.__hist_positions[direction].loc[index] = self.__position
+        self.__hist_positions[direction].loc[index] = self._position
 
     def _trail_stoploss(self, index, new_SL):
-        pos_type = self.__position['type']
-        self.__position['stoploss']     = new_SL
-        position_after_trailing         = self.__position.copy()
+        pos_type = self._position['type']
+        self._position['stoploss']      = new_SL
+        position_after_trailing         = self._position.copy()
         position_after_trailing['type'] = 'trail'
         position_after_trailing['time'] = FXBase.get_candles().time[index]
         self.__hist_positions[pos_type] = pd.concat([
@@ -286,8 +286,8 @@ class Trader():
         -------
         None
         '''
-        pos_type = self.__position['type']
-        self.__position = { 'type': 'none' }
+        pos_type = self._position['type']
+        self._position = { 'type': 'none' }
         self.__hist_positions[pos_type] =  pd.concat([
             self.__hist_positions[pos_type],
             pd.DataFrame([[index, price, 0.0, 'close', time]], columns=self.__columns)
@@ -387,7 +387,7 @@ class RealTrader(Trader):
 
     def _settle_position(self, index, price, time):
         '''
-        ポジション解消の履歴を残す
+        ポジションをcloseする
 
         Parameters
         ----------
@@ -402,6 +402,8 @@ class RealTrader(Trader):
         -------
         None
         '''
+        from pprint import pprint
+        pprint(self._client.request_closing_position())
         print('[RealTrader] close pos')
 
     #
@@ -409,11 +411,11 @@ class RealTrader(Trader):
     #
     def __play_swing_trade(self):
         ''' 現在のレートにおいて、スイングトレードルールでトレード '''
+        index = len(self._indicators) - 1 # INFO: 最終行
         close_price = FXBase.get_candles().close.values[-1]
-        self.__position = self.__load_position()
 
-        if self.__position['type'] == 'none':
-            index = len(self._indicators) - 1 # INFO: 最終行
+        self._position = self.__load_position()
+        if self._position['type'] == 'none':
             trend = self._check_trend(index=index, c_price=close_price)
             if trend is None: return
 
@@ -422,6 +424,7 @@ class RealTrader(Trader):
 
             self._create_position(index, direction)
         else:
+            print('[Trader] judge settling')
             self._judge_settle_position(index, close_price)
 
         return '[RealTrader] finish'
