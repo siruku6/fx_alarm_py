@@ -2,12 +2,13 @@
 # General
 schedule
 numpy
-scipy
 matplotlib
+requests
+scipy
 
 # For sending mail
-# google-api-python-client
-# oauth2client
+google-api-python-client
+oauth2client
 sendgrid
 
 # OandaAPIとの通信や、投資データ処理に必要

@@ -15,6 +15,62 @@ menu=$(cat << EOS
 EOS
 )
 
+# - - - Functions - - -
+wait_display () {
+  echo press Enter ...
+  read Wait
+}
+
+search_menu () {
+  echo -n '検索対象ディレクトリを入力してね：'
+  read dir
+  echo -n '検索したい文字列は？：'
+  read str
+  find ./${dir} -type f -print | xargs grep -n ${str}
+}
+
+make_zip_for_lambda () {
+  echo -e 'Input 1(copy only source) or 10(prepare source & modules):'
+  read select
+  DirName='fx_trading_on_lambda'
+  # Clean up directory
+  if [ -e "../${DireName}/*" ]; then
+    yes | rm -r "../${DirName}/models"
+    yes | rm "../${DirName}/main.py"
+  fi
+
+  # Install modules
+  cp main.py ../${DirName}/
+  cp -r models ../${DirName}/
+  if test $select = 10; then
+    pip install -t ../${DirName} -r requirements.txt
+  fi
+
+  # Create Archive
+  echo -e 'Make zip now? y(yes) n(no):'
+  read select
+  if test $select = 'y'; then
+    cd ../${DirName}
+    zip fx_archive -r ./*
+    cd -
+  fi
+}
+
+shutdown_menu () {
+  echo -e 'Input 1(DO SHUTDOWN) or 9(cancel):'
+  read select
+  case $select in
+    1)
+      sudo shutdown -h now;;
+    9)
+      ;;
+    *)
+      echo 'シャットダウンをキャンセルしました'
+      ;;
+  esac
+}
+
+# - - - Main - - -
 clear
 while true; do
   echo -e -n "$menu"
@@ -24,57 +80,28 @@ while true; do
     1)
       echo 'main.pyファイル実行'
       python main.py
-      echo press Enter ...
-	  read Wait
+      wait_display
       ;;
     2)
       echo 'test_cord.pyファイル実行'
       python test_cord.py
-      echo press Enter ...
-	  read Wait
+      wait_display
       ;;
     5)
-      echo -n '検索対象ディレクトリを入力してね：'
-      read dir
-      echo -n '検索したい文字列は？：'
-      read str
-      find ./${dir} -type f -print | xargs grep -n ${str}
-      echo press Enter ...
-      read Wait
+      search_menu
+      wait_display
       ;;
-	6)
-	  echo 'unittest実行準備中...'
-	  python -m unittest
-	  echo press Enter ...
-	  read Wait
-	  ;;
-	11)
-	  DirName='fx_trading_on_lambda'
-      # Clean up directory
-      if [ -e "../${DireName}/*" ]; then
-        yes | rm -r "../${DirName}/*"
-	  fi
-
-      # Create Archive
-	  cp main.py ../${DirName}/
-	  cp -r models ../${DirName}/
-	  # pip install -t ../${DirName} -r requirements.txt
-	  # zip ../${DirName}/fx_archive -r ../${DirName}/*
-	  echo press Enter ...
-	  read Wait
-	  ;;
+    6)
+      echo 'unittest実行準備中...'
+      python -m unittest
+      wait_display
+      ;;
+    11)
+      make_zip_for_lambda
+      wait_display
+      ;;
     99)
-      echo -e 'Input 1(DO SHUTDOWN) or 9(cancel):'
-      read select
-      case $select in
-        1)
-          sudo shutdown -h now;;
-        9)
-          ;;
-        *)
-          echo 'シャットダウンをキャンセルしました'
-          ;;
-      esac
+      shutdown_menu
       ;;
     *)
       exit ;;
