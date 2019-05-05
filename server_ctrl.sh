@@ -53,6 +53,9 @@ make_zip_for_lambda () {
   read select
   if test $select = 'y'; then
     cd ../${DirName}
+    if [ -e "./*.zip" ]
+      rm ./*.zip
+    fi
     zip fx_archive -r ./*
     cd -
   fi
