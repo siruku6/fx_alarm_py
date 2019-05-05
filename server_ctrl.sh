@@ -44,6 +44,8 @@ make_zip_for_lambda () {
   cp -r models ../${DirName}/
   if test $select = 10; then
     pip install -t ../${DirName} -r requirements.txt
+    # https://medium.com/@korniichuk/lambda-with-pandas-fd81aa2ff25e
+    rm -r ../${DirName}/*.dist-info ../${DirName}/__pycache__
   fi
 
   # Create Archive
