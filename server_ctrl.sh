@@ -9,6 +9,7 @@ menu=$(cat << EOS
 {5} :find (find ./[dir] -type f -print | xargs grep [str])
 {6} :unittest全実行
 {11}:Lambdaアップ用zip作成
+{80}:date, hwclock を合わせる
 {99}:LINUX shutdown
 {*} :exit
 数字を選択：
@@ -53,12 +54,19 @@ make_zip_for_lambda () {
   read select
   if test $select = 'y'; then
     cd ../${DirName}
-    if [ -e "./*.zip" ]
+    if [ -e "./*.zip" ]; then
       rm ./*.zip
     fi
     zip fx_archive -r ./*
     cd -
   fi
+}
+
+adjust_clock () {
+  sudo ntpdate -v ntp.nict.jp
+  sudo hwclock --systoh
+  sudo timedatectl
+
 }
 
 shutdown_menu () {
@@ -103,6 +111,10 @@ while true; do
       ;;
     11)
       make_zip_for_lambda
+      wait_display
+      ;;
+    80)
+      adjust_clock
       wait_display
       ;;
     99)
