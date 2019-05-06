@@ -33,7 +33,8 @@ class Trader():
                 exit()
 
             self._client.load_long_chart(days=1, granularity=self.__granularity)
-            self._client.request_current_price()
+            # OPTIMIZE: これがあるせいで意外とトレードが発生しない
+            # self._client.request_current_price()
 
         result = self.__ana.calc_indicators()
         if 'error' in result:
