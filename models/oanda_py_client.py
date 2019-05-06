@@ -45,6 +45,17 @@ class FXBase():
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class OandaPyClient():
+    @classmethod
+    def select_instrument(cls):
+        print('通貨ペアは？')
+        instruments = ['USD_JPY', 'EUR_USD', 'GBP_JPY']
+        prompt_message = ''
+        for i, inst in enumerate(instruments):
+            prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst)
+        print(prompt_message + '(半角数字): ', end='')
+        inst_id = int(input())
+        return instruments[inst_id]
+
     def __init__(self, instrument=None, environment=None):
         ''' 固定パラメータの設定 '''
         print('initing ...')
@@ -252,19 +263,6 @@ class OandaPyClient():
     #
     # Private
     #
-
-    # def __is_uptime(self):
-    #     ''' 市場が動いている（営業中）か否か(bool型)を返す '''
-    #     now_delta       = datetime.datetime.now()
-    #     six_hours_delta = datetime.timedelta(hours=6) # 大体このくらいずらすと、ちょうど動いてる（気がする）
-    #     weekday_num     = (now_delta - six_hours_delta).weekday()
-    #
-    #     # weekday_num
-    #     # 0:Mon, 1:Tue, 2:Wed, 3:Thu, 4:Fri, 5:Sat, 6:Sun
-    #     if weekday_num < 5: # 平日なら
-    #         return True
-    #     else:
-    #         return False
 
     # TODO: このメソッドいらないかも
     def __calc_start_time(self, days, end_datetime=datetime.datetime.now()):

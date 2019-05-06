@@ -8,7 +8,7 @@ import pandas as pd
 class Trader():
     def __init__(self, operation='verification'):
         if operation is 'custom':
-            self.__instrument = self.__select_instrument()
+            self.__instrument = OandaPyClient.select_instrument()
         else:
             self.__instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
 
@@ -27,6 +27,9 @@ class Trader():
             result = self._client.request_is_tradeable()
             if result['tradeable'] == False:
                 print('[Trader] 市場が開いていないため、処理を終了します')
+                # TODO: exit以外の方法で終了させる
+                # self.value = { status: 204 }
+                # return
                 exit()
 
             self._client.load_long_chart(days=1, granularity=self.__granularity)
@@ -193,15 +196,6 @@ class Trader():
     #
     # private
     #
-    def __select_instrument(self):
-        print('通貨ペアは？')
-        instruments = ['USD_JPY', 'EUR_USD', 'GBP_JPY']
-        prompt_message = ''
-        for i, inst in enumerate(instruments):
-            prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst)
-        print(prompt_message + '(半角数字): ', end='')
-        inst_id = int(input())
-        return instruments[inst_id]
 
     def __request_custom_candles(self):
         # Custom request
