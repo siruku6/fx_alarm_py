@@ -8,10 +8,10 @@ from models.oanda_py_client import FXBase
 def lambda_handler(event, context):
     # Real trade
     tr = RealTrader(operation='live')
-    result = tr.apply_trading_rule()
+    tr.apply_trading_rule()
     return {
         'statusCode': 200,
-        'body': json.dumps(result)
+        'body': json.dumps('関数は正常に実行されました')
     }
 
 # if __name__ == '__main__':

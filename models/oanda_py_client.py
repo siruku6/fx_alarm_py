@@ -186,6 +186,7 @@ class OandaPyClient():
             'clientExtensions' not in trade.keys() and
             trade['instrument'] == self.__instrument
         ]
+        print('[Client] open_trades: {}'.format(extracted_trades))
         self.__tradeIDs = [trade['id'] for trade in extracted_trades]
         return extracted_trades
 

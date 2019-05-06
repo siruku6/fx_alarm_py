@@ -60,7 +60,6 @@ class Analyzer():
         close      = FXBase.get_candles().close
         sma        = pd.Series.rolling(close, window=window_size).mean() #.dropna().reset_index(drop = True)
         self.__SMA = pd.DataFrame(sma).rename(columns={ 'close': '20SMA' })
-        print('[Analyzer] SMA is prepared')
 
     def __calc_EMA(self, window_size=10):
         ''' 指数平滑移動平均線を生成 '''
@@ -68,7 +67,6 @@ class Analyzer():
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
         ema        = FXBase.get_candles().close.ewm(span=window_size).mean()
         self.__EMA = pd.DataFrame(ema).rename(columns={ 'close': '10EMA' })
-        print('[Analyzer] EMA is prepared')
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Bollinger Bands                    #
@@ -80,7 +78,6 @@ class Analyzer():
         standard_deviation = pd.Series.rolling(close, window=window_size).std()
         self.__DOUBLE_SIGMA_BAND       = pd.DataFrame(mean + standard_deviation * 2).rename(columns={ 'close': 'band_+2σ' })
         self.__MINUS_DOUBLE_SIGMA_BAND = pd.DataFrame(mean - standard_deviation * 2).rename(columns={ 'close': 'band_-2σ' })
-        print('[Analyzer] Bollinger-Bands is prepared')
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
@@ -234,4 +231,3 @@ class Analyzer():
             else:
                 self.__SAR.append(parabolicSAR)
         self.__SAR = pd.DataFrame(data=self.__SAR, columns=['SAR'])
-        print('[Analyzer] Parabolic is prepared')

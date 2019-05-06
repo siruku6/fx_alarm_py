@@ -144,6 +144,7 @@ class Trader():
             trend = 'bear'
         else:
             trend = None
+        print('[Trader] trend: {}'.format(trend))
         return trend
 
     def _find_thrust(self, i, trend):
@@ -157,6 +158,7 @@ class Trader():
             direction = 'short'
         else:
             direction = None
+        print('[Trader] thrust: {}'.format(direction))
         return direction
 
     def _judge_settle_position(self, i, c_price):
@@ -373,9 +375,7 @@ class RealTrader(Trader):
     # Public
     #
     def apply_trading_rule(self):
-        result = self.__play_swing_trade()
-        print(result)
-        return result
+        self.__play_swing_trade()
 
     #
     # Override shared methods
@@ -455,7 +455,8 @@ class RealTrader(Trader):
             print('[Trader] judge settling')
             self._judge_settle_position(index, close_price)
 
-        return '[RealTrader] finish'
+        print('[RealTrader] finish')
+        return None
 
     def __load_position(self):
         pos = { 'type': 'none' }
