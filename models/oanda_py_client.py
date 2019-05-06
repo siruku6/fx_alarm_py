@@ -183,7 +183,7 @@ class OandaPyClient():
         open_trades = response['trades']
 
         extracted_trades = [trade for trade in open_trades if
-            'clientExtensions' not in trade.keys() and
+            # 'clientExtensions' not in trade.keys() and
             trade['instrument'] == self.__instrument
         ]
         print('[Client] open_trades: {}'.format(extracted_trades))
@@ -256,7 +256,7 @@ class OandaPyClient():
 
         past_trades = [
             trade for trade in response['trades'] if
-                'clientExtensions' not in trade.keys() and
+                # 'clientExtensions' not in trade.keys() and
                 trade['state'] != 'OPEN'
         ]
         return self.__pack_pastTrades_in_df(past_trades=past_trades)
