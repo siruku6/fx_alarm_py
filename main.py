@@ -1,23 +1,29 @@
 # from models import interval, mailer
 import json
-from models.trader import Trader, RealTrader
-from models.oanda_py_client import FXBase
-# from models.oanda_py_client import OandaPyClient
+from models.oanda_py_client import FXBase #, OandaPyClient
+from models.trader import RealTrader
 
 # For AWS Lambda
 def lambda_handler(event, context):
-    # Real trade
     tr = RealTrader(operation='live')
+    if tr.tradeable == False:
+        msg = 'lambda function is correctly finished, but now the market is closed.'
+        return {
+            'statusCode': 204,
+            'body': json.dumps(msg)
+        }
+
     tr.apply_trading_rule()
+    msg = 'lambda function is correctly finished.'
     return {
         'statusCode': 200,
-        'body': json.dumps('関数は正常に実行されました')
+        'body': json.dumps(msg)
     }
 
-# if __name__ == '__main__':
-#     lambda_handler(None, None)
+# For local console
+if __name__ == '__main__':
+    lambda_handler(None, None)
 
-# # For local console
 # class Main():
 #     def __init__(self):
 #         # self.gmailer   = mailer.GmailAPI()

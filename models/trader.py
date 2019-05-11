@@ -1,9 +1,9 @@
-from models.oanda_py_client import FXBase, OandaPyClient
-from models.analyzer import Analyzer
-from models.drawer import FigureDrawer
 import math, os
 import numpy as np
 import pandas as pd
+from models.oanda_py_client import FXBase, OandaPyClient
+from models.analyzer import Analyzer
+from models.drawer import FigureDrawer
 
 class Trader():
     def __init__(self, operation='verification'):
@@ -14,10 +14,9 @@ class Trader():
 
         self._client  = OandaPyClient(instrument=self.__instrument)
         self.__ana    = Analyzer()
-        self.__drawer = FigureDrawer()
+        if operation is not 'live': self.__drawer = FigureDrawer()
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time']
         self.__granularity = os.environ.get('GRANULARITY') or 'M5'
-        # TODO: STOPLOSS_BUFFER_pips は要検討
         sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
         self._STOPLOSS_BUFFER_pips = sl_buffer or 0.05
 
@@ -25,12 +24,10 @@ class Trader():
             self.__request_custom_candles()
         elif operation is 'live':
             result = self._client.request_is_tradeable()
-            if result['tradeable'] == False:
+            self.tradeable = result['tradeable']
+            if self.tradeable == False:
                 print('[Trader] 市場が開いていないため、処理を終了します')
-                # TODO: exit以外の方法で終了させる
-                # self.value = { status: 204 }
-                # return
-                exit()
+                return
 
             self._client.load_long_chart(days=1, granularity=self.__granularity)
             # OPTIMIZE: これがあるせいで意外とトレードが発生しない
