@@ -54,7 +54,9 @@ make_zip_for_lambda () {
   read select
   if test $select = 'y'; then
     cd ../${DirName}
-    if [ -e "./*.zip" ]; then
+	# INFO: *.zip に合致するファイルがあれば削除
+    result=`find . -maxdepth 1 -name "*.zip" 2>/dev/null`
+    if [ -n "$result" ]; then
       rm ./*.zip
     fi
     zip fx_archive -r ./*
