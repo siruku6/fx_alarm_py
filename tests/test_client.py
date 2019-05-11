@@ -65,6 +65,12 @@ class TestClient(unittest.TestCase):
         self.assertEqual(result_end,   expected_end,   '[request_latest_candles] 最終行のtime')
         self.assertEqual(result_size,  expected_size,  '[request_latest_candles] 戻り値のサイズ')
 
+    def test_request_open_trades(self):
+        self.assertIsNone(self.__watcher_instance._OandaPyClient__lastTransactionID)
+
+        result = self.__watcher_instance.request_open_trades()
+        self.assertIsInstance(int(self.__watcher_instance._OandaPyClient__lastTransactionID), int)
+
     def test_request_market_ordering(self):
         result = self.__watcher_instance.request_market_ordering(stoploss_price=None)
         self.assertTrue('error' in result)
@@ -77,29 +83,30 @@ class TestClient(unittest.TestCase):
         result = self.__watcher_instance.request_closing_position()
         self.assertTrue('error' in result)
 
-    def test_request_trades_history(self):
-        # INFO: Mock解説
-        # https://akiyoko.hatenablog.jp/entry/2015/01/04/114642
-        # https://thinkami.hatenablog.com/entry/2016/12/24/002922
-        # mock = MagicMock()
-        # mock.request_open_trades.return_value = dummy_open_trades()
+    # def test_request_trades_history(self):
+    #     # INFO: Mock解説
+    #     # https://akiyoko.hatenablog.jp/entry/2015/01/04/114642
+    #     # https://thinkami.hatenablog.com/entry/2016/12/24/002922
+    #     # mock = MagicMock()
+    #     # mock.request_open_trades.return_value = dummy_open_trades()
+    #
+    #     with patch('oandapyV20.API.request', return_value=dummy_trades_list):
+    #         trades_list = self.__watcher_instance.request_trades_history()
+    #
+    #     expected_columns = [
+    #         'openTime', 'closeTime', 'position_type',
+    #         'open', 'close', 'units',
+    #         'gain', 'realizedPL'
+    #     ]
+    #     self.assertEqual(len(trades_list), 4, '生成されるレコード数は4')
+    #     for index, trade in trades_list.iterrows():
+    #         self.assertNotEqual(trade['state'], 'OPEN', 'OPENではない履歴だけを抽出')
+    #         self.assertTrue((trade.index.values == expected_columns).all(), '列名が正しい')
 
-        dummy_return = MagicMock(response=dummy_trades_list)
-
-        # HACK: side_effect はイテラブルを1つずつしか返さないので、返却値を配列として渡す
-        with patch('oandapyV20.endpoints.trades.TradesList', return_value=dummy_return):
-            with patch('oandapyV20.API.request', return_value=None):
-                trades_list = self.__watcher_instance.request_trades_history()
-
-        expected_columns = [
-            'openTime', 'closeTime', 'position_type',
-            'open', 'close', 'units',
-            'gain', 'realizedPL'
-        ]
-        self.assertEqual(len(trades_list), 2, '生成されるレコード数は3')
-        # self.assertNotEqual(trade['state'], 'OPEN')
-        for index, trade in trades_list.iterrows():
-            self.assertTrue((trade.index.values == expected_columns).all(), '列名が正しい')
+    def test_request_transactions(self):
+        result = self.__watcher_instance.request_transactions()
+        # import pdb; pdb.set_trace()
+        # TODO: testcord がない
 
     #  - - - - - - - - - - -
     #    Private methods

@@ -10,6 +10,7 @@ import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.instruments as inst
+import oandapyV20.endpoints.transactions as transactions
 from   oandapyV20.exceptions import V20Error
 
 class FXBase():
@@ -67,6 +68,7 @@ class OandaPyClient():
         self.__instrument = instrument or 'USD_JPY'
         self.__units = os.environ.get('UNITS') or '1'
         self.__tradeIDs = []
+        self.__lastTransactionID = None
 
     #
     # Public
@@ -180,6 +182,7 @@ class OandaPyClient():
         ''' OANDA上でopenなポジションの情報を取得 '''
         request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
         response = self.__api_client.request(request_obj)
+        self.__lastTransactionID = response['lastTransactionID']
         open_trades = response['trades']
 
         extracted_trades = [trade for trade in open_trades if
@@ -251,7 +254,10 @@ class OandaPyClient():
             'instrument': self.__instrument,
             'state': 'ALL' # 全過去分を取得
         }
-        request_obj = trades.TradesList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
+        request_obj = trades.TradesList(
+            accountID=os.environ['OANDA_ACCOUNT_ID'],
+            params=params
+        )
         response = self.__api_client.request(request_obj)
 
         past_trades = [
@@ -260,6 +266,21 @@ class OandaPyClient():
                 trade['state'] != 'OPEN'
         ]
         return self.__pack_pastTrades_in_df(past_trades=past_trades)
+
+    def request_transactions(self):
+        params = {
+            'to': int(self.__lastTransactionID),
+            'from': 1200,
+            'type': ['ORDER'],
+            # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
+        }
+        requset_obj = transactions.TransactionIDRange(
+            accountID=os.environ['OANDA_ACCOUNT_ID'],
+            params=params
+        )
+        response = self.__api_client.request(requset_obj)
+        filtered_df = self.__filter_and_make_df(response['transactions'])
+        return filtered_df
 
     #
     # Private
@@ -363,3 +384,29 @@ class OandaPyClient():
             gain_df = gain_df.append( tmp_series, ignore_index=True )
 
         return gain_df
+
+    def __filter_and_make_df(self, response_transactions):
+        ''' 必要なrecordのみ残してdataframeに変換する '''
+        filtered_transactions = [
+            row for row in response_transactions if (
+                row['type']!='ORDER_CANCEL' and
+                row['type']!='MARKET_ORDER' # and
+                # row['type']!='MARKET_ORDER_REJECT'
+            )
+        ]
+
+        df = pd.DataFrame.from_dict(filtered_transactions).fillna({ 'pl': 0 })
+        df = df[[
+            'batchID',
+            'id',
+            'type',
+            'price',
+            'units',
+            'pl',
+            'time',
+            'reason',
+            'instrument'
+        ]]
+        df['pl']   = df['pl'].astype({'pl': 'float'}).astype({'pl': 'int'})
+        df['time'] = [row['time'][:19] for row in filtered_transactions]
+        return df
