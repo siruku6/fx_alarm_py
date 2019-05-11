@@ -14,7 +14,7 @@ class Trader():
 
         self._client  = OandaPyClient(instrument=self.__instrument)
         self.__ana    = Analyzer()
-        if operation is not 'live': self.__drawer = FigureDrawer()
+        self.__drawer = FigureDrawer()
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time']
         self.__granularity = os.environ.get('GRANULARITY') or 'M5'
         sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
@@ -27,6 +27,7 @@ class Trader():
             self.tradeable = result['tradeable']
             if self.tradeable == False:
                 print('[Trader] 市場が開いていないため、処理を終了します')
+                self.__drawer.close_all()
                 return
 
             self._client.load_long_chart(days=1, granularity=self.__granularity)

@@ -21,6 +21,10 @@ class FigureDrawer():
             plt.subplots(nrows=1, ncols=1, figsize=(10,5), dpi=200)
         self.__axis1.set_title('FX candles')
 
+    def close_all(self):
+        # https://stackoverflow.com/questions/21884271/warning-about-too-many-open-figures
+        plt.close('all')
+
     def draw_df_on_plt(self, df, plot_type=PLOT_TYPE['simple-line'], color='black'):
         ''' DataFrameを受け取って、各columnを描画 '''
         # エラー防止処理
