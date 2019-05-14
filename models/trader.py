@@ -390,9 +390,7 @@ class RealTrader(Trader):
         elif direction is 'short':
             sign = '-'
             stoploss = candles.high[index-1] + self._STOPLOSS_BUFFER_pips
-
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
-        print('[RealTrader] create pos {}'.format(direction))
 
     def _trail_stoploss(self, index, new_SL, time):
         '''
@@ -412,7 +410,6 @@ class RealTrader(Trader):
         '''
         result = self._client.request_trailing_stoploss(SL_price=new_SL)
         print(result)
-        print('[RealTrader] trail pos')
 
     def _settle_position(self, index, price, time):
         '''
@@ -431,7 +428,6 @@ class RealTrader(Trader):
         '''
         from pprint import pprint
         pprint(self._client.request_closing_position())
-        print('[RealTrader] close pos')
 
     #
     # Private
@@ -451,10 +447,8 @@ class RealTrader(Trader):
 
             self._create_position(index, direction)
         else:
-            print('[Trader] judge settling')
             self._judge_settle_position(index, close_price)
 
-        print('[RealTrader] finish')
         return None
 
     def __load_position(self):

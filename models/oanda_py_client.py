@@ -42,7 +42,7 @@ class FXBase():
     @classmethod
     def replace_latest_price(cls, type, new_price):
         column_num = cls.__candles.columns.get_loc(type)
-        cls.__candles.iloc[-1, column_num] = new_price
+        cls.__candles.iat[-1, column_num] = new_price
 
     @classmethod
     def write_candles_on_csv(cls, filename='./candles.csv'):
@@ -172,7 +172,9 @@ class OandaPyClient():
         }
 
     def request_current_price(self):
-        ''' 最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き '''
+        '''
+        最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き
+        '''
         now = datetime.datetime.now() - datetime.timedelta(hours=9)
         latest_candle = self.request_latest_candles(
             target_datetime=str(now)[:19],
