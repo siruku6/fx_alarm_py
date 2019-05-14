@@ -40,8 +40,14 @@ class FXBase():
         cls.__candles = candles
 
     @classmethod
+    def replace_latest_price(cls, type, new_price):
+        column_num = cls.__candles.columns.get_loc(type)
+        cls.__candles.iloc[-1, column_num] = new_price
+
+    @classmethod
     def write_candles_on_csv(cls, filename='./candles.csv'):
         cls.__candles.to_csv(filename)
+
 
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
@@ -59,7 +65,6 @@ class OandaPyClient():
 
     def __init__(self, instrument=None, environment=None):
         ''' 固定パラメータの設定 '''
-        print('initing ...')
         self.__api_client = API(
             access_token=os.environ['OANDA_ACCESS_TOKEN'],
             # 'practice' or 'live' is valid
@@ -158,7 +163,7 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], params=params
         )
         response = self.__api_client.request(request_obj)
-        print('[Client] 市場が開いているか確認完了')
+        # print('[Client] 市場が開いているか確認完了')
         tradeable = response['prices'][0]['tradeable']
         logger.info('## [Client] tradeable: {}'.format(tradeable))
         return {
@@ -167,16 +172,20 @@ class OandaPyClient():
         }
 
     def request_current_price(self):
+        ''' 最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き '''
         now = datetime.datetime.now() - datetime.timedelta(hours=9)
-        candles = self.request_latest_candles(
+        latest_candle = self.request_latest_candles(
             target_datetime=str(now)[:19],
             granularity='M1',
             base_granurarity='M1',
-        )
-        FXBase.set_candles(
-            candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
-        )
-        print('[Client] 現在値取得{}'.format(candles))
+        ).iloc[-1]
+
+        candles = FXBase.get_candles()
+        if candles.iloc[-1].high < latest_candle.high:
+            FXBase.replace_latest_price('high', latest_candle.high)
+        elif candles.iloc[-1].low > latest_candle.low:
+            FXBase.replace_latest_price('low', latest_candle.low)
+        print('[Client] 現在値取得\n{}'.format(latest_candle))
 
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''

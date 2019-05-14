@@ -22,6 +22,7 @@ class Trader():
 
         if operation is 'custom':
             self.__request_custom_candles()
+            self._client.request_current_price()
         elif operation is 'live':
             result = self._client.request_is_tradeable()
             self.tradeable = result['tradeable']
@@ -45,6 +46,7 @@ class Trader():
 
     def __initialize_position_variables(self):
         self._position = { 'type': 'none' }
+        # TODO: 現在 dataframeだが、辞書型配列に修正する
         self.__hist_positions = {
             'long':  pd.DataFrame(columns=self.__columns),
             'short': pd.DataFrame(columns=self.__columns)
@@ -275,8 +277,6 @@ class Trader():
         position_after_trailing         = self._position.copy()
         position_after_trailing['type'] = 'trail'
         position_after_trailing['time'] = time
-        # INFO: こっちの方がコード量は減るけど、速度が遅い
-        # self.__hist_positions[pos_type].loc[index] = position_after_trailing
         self.__hist_positions[pos_type] = pd.concat([
             self.__hist_positions[pos_type],
             pd.DataFrame(position_after_trailing, index=[index])
