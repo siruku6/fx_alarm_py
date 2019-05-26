@@ -15,7 +15,7 @@ class Trader():
         self._client  = OandaPyClient(instrument=self.__instrument)
         self.__ana    = Analyzer()
         self.__drawer = FigureDrawer()
-        self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time']
+        self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
         self.__granularity = os.environ.get('GRANULARITY') or 'M5'
         sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
         self._STOPLOSS_BUFFER_pips = sl_buffer or 0.05
@@ -47,10 +47,11 @@ class Trader():
     def __initialize_position_variables(self):
         self._position = { 'type': 'none' }
         # TODO: 現在 dataframeだが、辞書型配列に修正する
-        self.__hist_positions = {
+        self.__hist_positions_bk = {
             'long':  pd.DataFrame(columns=self.__columns),
             'short': pd.DataFrame(columns=self.__columns)
         }
+        self.__hist_positions = { 'long': [], 'short': [] }
 
     #
     # public
@@ -61,8 +62,9 @@ class Trader():
     def auto_verify_trading_rule(self, accurize=False):
         ''' tradeルールを自動検証 '''
         print(self.__demo_swing_trade()['success'])
-        if accurize and (self.__granularity[0] is not 'M'):
-            print(self.__accurize_entry_prices()['success'])
+        # TODO: _hist_pos
+        # if accurize and (self.__granularity[0] is not 'M'):
+        #     print(self.__accurize_entry_prices()['success'])
 
     def verify_varios_stoploss(self, accurize=False):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
@@ -78,8 +80,8 @@ class Trader():
 
             self.__calc_profit()
             _df = pd.concat(
-                [ self.__hist_positions['long'],
-                  self.__hist_positions['short'] ],
+                [ pd.DataFrame(self.__hist_positions['long'],  columns=self.__columns),
+                  pd.DataFrame(self.__hist_positions['short'], columns=self.__columns) ],
                 axis=1, keys=['long', 'short'],
                 names=['type', '-']
             )
@@ -105,7 +107,10 @@ class Trader():
         # drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['over'])
         # drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['beneath'])
         drwr.draw_candles()
-        df_pos = self.__hist_positions
+        df_pos = {
+            'long':  pd.DataFrame(self.__hist_positions['long'],  columns=self.__columns),
+            'short': pd.DataFrame(self.__hist_positions['short'], columns=self.__columns)
+        }
         drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='long'],    plot_type=drwr.PLOT_TYPE['long'])
         drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='close'],   plot_type=drwr.PLOT_TYPE['exit'])
         drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
@@ -121,8 +126,14 @@ class Trader():
     def report_trading_result(self):
         ''' ポジション履歴をcsv出力 '''
         self.__calc_profit()
-        self.__hist_positions['long'].to_csv('./long_history.csv')
-        self.__hist_positions['short'].to_csv('./short_history.csv')
+        self.__hist_positions_bk['long'].to_csv('./long_history_bk.csv')
+        self.__hist_positions_bk['short'].to_csv('./short_history_bk.csv')
+
+        df_long = pd.DataFrame.from_dict(self.__hist_positions['long'])
+        df_short = pd.DataFrame.from_dict(self.__hist_positions['short'])
+        df_long.to_csv('./long_history.csv')
+        df_short.to_csv('./short_history.csv')
+
         print('[Trader] ポジション履歴をcsv出力完了')
 
     #
@@ -244,8 +255,8 @@ class Trader():
             else:
                 self._judge_settle_position(index, close_price)
 
-        self.__hist_positions['long']  = self.__hist_positions['long'].reset_index(drop=True)
-        self.__hist_positions['short'] = self.__hist_positions['short'].reset_index(drop=True)
+        self.__hist_positions_bk['long']  = self.__hist_positions_bk['long'].reset_index(drop=True)
+        self.__hist_positions_bk['short'] = self.__hist_positions_bk['short'].reset_index(drop=True)
         return { 'success': '[Trader] 売買判定終了' }
 
     def _create_position(self, index, direction):
@@ -265,20 +276,21 @@ class Trader():
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
             'type': direction, 'time': candles.time[index]
         }
-        # self.__hist_positions[direction].loc[index] = self._position
-        self.__hist_positions[direction] = pd.concat([
-            self.__hist_positions[direction],
+        self.__hist_positions[direction].append(self._position.copy())
+        self.__hist_positions_bk[direction] = pd.concat([
+            self.__hist_positions_bk[direction],
             pd.DataFrame(self._position, index=[index])
         ])
 
     def _trail_stoploss(self, index, new_SL, time):
-        pos_type = self._position['type']
+        direction = self._position['type']
         self._position['stoploss']      = new_SL
         position_after_trailing         = self._position.copy()
         position_after_trailing['type'] = 'trail'
         position_after_trailing['time'] = time
-        self.__hist_positions[pos_type] = pd.concat([
-            self.__hist_positions[pos_type],
+        self.__hist_positions[direction].append(position_after_trailing)
+        self.__hist_positions_bk[direction] = pd.concat([
+            self.__hist_positions_bk[direction],
             pd.DataFrame(position_after_trailing, index=[index])
         ])
 
@@ -299,20 +311,25 @@ class Trader():
         -------
         None
         '''
-        pos_type = self._position['type']
+        direction = self._position['type']
         self._position = { 'type': 'none' }
-        self.__hist_positions[pos_type] =  pd.concat([
-            self.__hist_positions[pos_type],
-            pd.DataFrame([[index, price, 0.0, 'close', time]], columns=self.__columns)
+        self.__hist_positions[direction].append({
+            'sequence': index, 'price': price,
+            'stoploss': 0.0, 'type': 'close', 'time': time
+        })
+        self.__hist_positions_bk[direction] =  pd.concat([
+            self.__hist_positions_bk[direction],
+            pd.DataFrame([[index, price, 0.0, 'close', time, None]], columns=self.__columns)
         ])
 
+    # TODO: _hist_pos
     def __accurize_entry_prices(self):
         '''
         ポジション履歴のエントリーpriceを、実際にエントリー可能な価格に修正する
         '''
         # TODO: 総リクエスト数と所要時間、rpsをこまめに表示した方がよさそう
         # long価格の修正
-        long_hist = self.__hist_positions['long']
+        long_hist = self.__hist_positions_bk['long']
         long_pos  = long_hist[long_hist['type']=='long']
         for index, row in long_pos.iterrows():
             M10_candles = self._client.request_latest_candles(
@@ -322,12 +339,12 @@ class Trader():
             )
             for i, M10_row in M10_candles.iterrows():
                 if row.price < M10_row.high:
-                    self.__hist_positions['long'].loc[index, 'price'] = M10_row.high
-                    self.__hist_positions['long'].loc[index, 'time'] = M10_row.time
+                    self.__hist_positions_bk['long'].loc[index, 'price'] = M10_row.high
+                    self.__hist_positions_bk['long'].loc[index, 'time'] = M10_row.time
                     break
 
         # short価格の修正
-        short_hist = self.__hist_positions['short']
+        short_hist = self.__hist_positions_bk['short']
         short_pos  = short_hist[short_hist['type']=='short']
         for index, row in short_pos.iterrows():
             M10_candles = self._client.request_latest_candles(
@@ -337,8 +354,8 @@ class Trader():
             )
             for i, M10_row in M10_candles.iterrows():
                 if row.price > M10_row.low:
-                    self.__hist_positions['short'].loc[index, 'price'] = M10_row.low
-                    self.__hist_positions['short'].loc[index, 'time'] = M10_row.time
+                    self.__hist_positions_bk['short'].loc[index, 'price'] = M10_row.low
+                    self.__hist_positions_bk['short'].loc[index, 'time'] = M10_row.time
                     break
         return { 'success': '[Trader] entry価格を、現実的に取引可能な値に修正' }
 
@@ -347,24 +364,45 @@ class Trader():
         ポジション履歴から総損益を算出する
         '''
         # longエントリーの損益を計算
-        self.__hist_positions['long']['profit'] = pd.Series([], index=[])
+        # self.__hist_positions_bk['long']['profit'] = pd.Series([], index=[])
 
-        long_hist = self.__hist_positions['long']
+        long_hist = self.__hist_positions_bk['long']
         for i, row in long_hist[long_hist.type=='close'].iterrows():
             profit = row.price - long_hist.price[i-1]
-            self.__hist_positions['long'].loc[i, ['profit']] = profit
+            self.__hist_positions_bk['long'].loc[i, ['profit']] = profit
 
         # shortエントリーの損益を計算
-        self.__hist_positions['short']['profit'] = pd.Series([], index=[])
+        # self.__hist_positions_bk['short']['profit'] = pd.Series([], index=[])
 
-        short_hist = self.__hist_positions['short']
+        short_hist = self.__hist_positions_bk['short']
         for i, row in short_hist[short_hist.type=='close'].iterrows():
             profit = short_hist.price[i-1] - row.price
-            self.__hist_positions['short'].loc[i, ['profit']] = profit
+            self.__hist_positions_bk['short'].loc[i, ['profit']] = profit
 
-        sum_profit = self.__hist_positions['long'][['profit']].sum() \
-                   + self.__hist_positions['short'][['profit']].sum()
+        sum_profit = self.__hist_positions_bk['long'][['profit']].sum() \
+                   + self.__hist_positions_bk['short'][['profit']].sum()
         print('[合計損益] {profit}pips'.format( profit=round(sum_profit['profit'] * 100, 3) ))
+
+        # TODO: 作成中の箇所
+        # longエントリーの損益を計算
+        long_hist = self.__hist_positions['long']
+        for i, row in enumerate(long_hist):
+            if row['type'] == 'close':
+                row['profit'] = row['price'] - long_hist[i-1]['price']
+
+        # shortエントリーの損益を計算
+        short_hist = self.__hist_positions['short']
+        for i, row in enumerate(short_hist):
+            if row['type'] == 'close':
+                row['profit'] = short_hist[i-1]['price'] - row['price']
+
+        hist_array = long_hist + short_hist
+        profit_array =  [
+            row['profit'] for row in hist_array if row['type'] == 'close'
+        ]
+        print('[合計損益(new)] {profit}pips'.format(
+            profit=round(sum(profit_array) * 100, 3)
+        ))
 
 class RealTrader(Trader):
     def __init__(self, operation='verification'):
