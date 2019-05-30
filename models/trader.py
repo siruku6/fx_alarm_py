@@ -46,11 +46,6 @@ class Trader():
 
     def __initialize_position_variables(self):
         self._position = { 'type': 'none' }
-        # TODO: 現在 dataframeだが、辞書型配列に修正する
-        self.__hist_positions_bk = {
-            'long':  pd.DataFrame(columns=self.__columns),
-            'short': pd.DataFrame(columns=self.__columns)
-        }
         self.__hist_positions = { 'long': [], 'short': [] }
 
     #
@@ -62,9 +57,8 @@ class Trader():
     def auto_verify_trading_rule(self, accurize=False):
         ''' tradeルールを自動検証 '''
         print(self.__demo_swing_trade()['success'])
-        # TODO: _hist_pos
-        # if accurize and (self.__granularity[0] is not 'M'):
-        #     print(self.__accurize_entry_prices()['success'])
+        if accurize and (self.__granularity[0] is not 'M'):
+            print(self.__accurize_entry_prices()['success'])
 
     def verify_varios_stoploss(self, accurize=False):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
@@ -126,8 +120,6 @@ class Trader():
     def report_trading_result(self):
         ''' ポジション履歴をcsv出力 '''
         self.__calc_profit()
-        self.__hist_positions_bk['long'].to_csv('./long_history_bk.csv')
-        self.__hist_positions_bk['short'].to_csv('./short_history_bk.csv')
 
         df_long = pd.DataFrame.from_dict(self.__hist_positions['long'])
         df_short = pd.DataFrame.from_dict(self.__hist_positions['short'])
@@ -255,8 +247,6 @@ class Trader():
             else:
                 self._judge_settle_position(index, close_price)
 
-        self.__hist_positions_bk['long']  = self.__hist_positions_bk['long'].reset_index(drop=True)
-        self.__hist_positions_bk['short'] = self.__hist_positions_bk['short'].reset_index(drop=True)
         return { 'success': '[Trader] 売買判定終了' }
 
     def _create_position(self, index, direction):
@@ -277,10 +267,6 @@ class Trader():
             'type': direction, 'time': candles.time[index]
         }
         self.__hist_positions[direction].append(self._position.copy())
-        self.__hist_positions_bk[direction] = pd.concat([
-            self.__hist_positions_bk[direction],
-            pd.DataFrame(self._position, index=[index])
-        ])
 
     def _trail_stoploss(self, index, new_SL, time):
         direction = self._position['type']
@@ -289,10 +275,6 @@ class Trader():
         position_after_trailing['type'] = 'trail'
         position_after_trailing['time'] = time
         self.__hist_positions[direction].append(position_after_trailing)
-        self.__hist_positions_bk[direction] = pd.concat([
-            self.__hist_positions_bk[direction],
-            pd.DataFrame(position_after_trailing, index=[index])
-        ])
 
     def _settle_position(self, index, price, time):
         '''
@@ -317,73 +299,60 @@ class Trader():
             'sequence': index, 'price': price,
             'stoploss': 0.0, 'type': 'close', 'time': time
         })
-        self.__hist_positions_bk[direction] =  pd.concat([
-            self.__hist_positions_bk[direction],
-            pd.DataFrame([[index, price, 0.0, 'close', time, None]], columns=self.__columns)
-        ])
 
-    # TODO: _hist_pos
     def __accurize_entry_prices(self):
         '''
         ポジション履歴のエントリーpriceを、実際にエントリー可能な価格に修正する
         '''
         # TODO: 総リクエスト数と所要時間、rpsをこまめに表示した方がよさそう
         # long価格の修正
-        long_hist = self.__hist_positions_bk['long']
-        long_pos  = long_hist[long_hist['type']=='long']
-        for index, row in long_pos.iterrows():
-            M10_candles = self._client.request_latest_candles(
-                target_datetime=row.time[:19],
-                granularity='M10',
-                base_granurarity=self.__granularity
-            )
-            for i, M10_row in M10_candles.iterrows():
-                if row.price < M10_row.high:
-                    self.__hist_positions_bk['long'].loc[index, 'price'] = M10_row.high
-                    self.__hist_positions_bk['long'].loc[index, 'time'] = M10_row.time
-                    break
+        for i, row in enumerate(self.__hist_positions['long']):
+            if row['type'] == 'long':
+                M10_candles = self._client.request_specified_candles(
+                    start_datetime=row['time'][:19],
+                    granularity='M10',
+                    base_granurarity=self.__granularity
+                )
+                for j, M10_row in M10_candles.iterrows():
+                    if row['price'] < M10_row.high:
+                        old_price = row['price']
+                        row['price'] = M10_row.high
+                        row['time'] = M10_row.time
+                        self.__chain_accurization(
+                            i, type='long', old_price=old_price, accurater_price=M10_row.high
+                        )
+                        break
 
         # short価格の修正
-        short_hist = self.__hist_positions_bk['short']
-        short_pos  = short_hist[short_hist['type']=='short']
-        for index, row in short_pos.iterrows():
-            M10_candles = self._client.request_latest_candles(
-                target_datetime=row.time[:19],
-                granularity='M10',
-                base_granurarity=self.__granularity
-            )
-            for i, M10_row in M10_candles.iterrows():
-                if row.price > M10_row.low:
-                    self.__hist_positions_bk['short'].loc[index, 'price'] = M10_row.low
-                    self.__hist_positions_bk['short'].loc[index, 'time'] = M10_row.time
-                    break
+        for i, row in enumerate(self.__hist_positions['short']):
+            if row['type'] == 'short':
+                M10_candles = self._client.request_specified_candles(
+                    start_datetime=row['time'][:19],
+                    granularity='M10',
+                    base_granurarity=self.__granularity
+                )
+                for j, M10_row in M10_candles.iterrows():
+                    if row['price'] > M10_row.low:
+                        old_price = row['price']
+                        row['price'] = M10_row.low
+                        row['time'] = M10_row.time
+                        self.__chain_accurization(
+                            i, type='short', old_price=old_price, accurater_price=M10_row.low
+                        )
+                        break
+
         return { 'success': '[Trader] entry価格を、現実的に取引可能な値に修正' }
+
+    def __chain_accurization(self, index, type, old_price, accurater_price):
+        index += 1
+        while (self.__hist_positions[type][index]['price'] == old_price):
+            self.__hist_positions[type][index]['price'] = accurater_price
+            index += 1
 
     def __calc_profit(self):
         '''
         ポジション履歴から総損益を算出する
         '''
-        # longエントリーの損益を計算
-        # self.__hist_positions_bk['long']['profit'] = pd.Series([], index=[])
-
-        long_hist = self.__hist_positions_bk['long']
-        for i, row in long_hist[long_hist.type=='close'].iterrows():
-            profit = row.price - long_hist.price[i-1]
-            self.__hist_positions_bk['long'].loc[i, ['profit']] = profit
-
-        # shortエントリーの損益を計算
-        # self.__hist_positions_bk['short']['profit'] = pd.Series([], index=[])
-
-        short_hist = self.__hist_positions_bk['short']
-        for i, row in short_hist[short_hist.type=='close'].iterrows():
-            profit = short_hist.price[i-1] - row.price
-            self.__hist_positions_bk['short'].loc[i, ['profit']] = profit
-
-        sum_profit = self.__hist_positions_bk['long'][['profit']].sum() \
-                   + self.__hist_positions_bk['short'][['profit']].sum()
-        print('[合計損益] {profit}pips'.format( profit=round(sum_profit['profit'] * 100, 3) ))
-
-        # TODO: 作成中の箇所
         # longエントリーの損益を計算
         long_hist = self.__hist_positions['long']
         for i, row in enumerate(long_hist):
@@ -400,7 +369,7 @@ class Trader():
         profit_array =  [
             row['profit'] for row in hist_array if row['type'] == 'close'
         ]
-        print('[合計損益(new)] {profit}pips'.format(
+        print('[合計損益] {profit}pips'.format(
             profit=round(sum(profit_array) * 100, 3)
         ))
 
