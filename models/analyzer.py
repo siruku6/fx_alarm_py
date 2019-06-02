@@ -16,6 +16,8 @@ class Analyzer():
         self.__EMA = None
         self.__DOUBLE_SIGMA_BAND       = None
         self.__MINUS_DOUBLE_SIGMA_BAND = None
+        self.__TRIPLE_SIGMA_BAND       = None
+        self.__MINUS_TRIPLE_SIGMA_BAND = None
         self.__SAR = []
 
         # Trendline
@@ -47,6 +49,7 @@ class Analyzer():
         indicators = pd.concat(
             [self.__SMA, self.__EMA,
              self.__DOUBLE_SIGMA_BAND, self.__MINUS_DOUBLE_SIGMA_BAND,
+             self.__TRIPLE_SIGMA_BAND, self.__MINUS_TRIPLE_SIGMA_BAND,
              self.__SAR],
             axis=1
         )
@@ -78,6 +81,8 @@ class Analyzer():
         standard_deviation = pd.Series.rolling(close, window=window_size).std()
         self.__DOUBLE_SIGMA_BAND       = pd.DataFrame(mean + standard_deviation * 2).rename(columns={ 'close': 'band_+2σ' })
         self.__MINUS_DOUBLE_SIGMA_BAND = pd.DataFrame(mean - standard_deviation * 2).rename(columns={ 'close': 'band_-2σ' })
+        self.__TRIPLE_SIGMA_BAND       = pd.DataFrame(mean + standard_deviation * 3).rename(columns={ 'close': 'band_+3σ' })
+        self.__MINUS_TRIPLE_SIGMA_BAND = pd.DataFrame(mean - standard_deviation * 3).rename(columns={ 'close': 'band_-3σ' })
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #

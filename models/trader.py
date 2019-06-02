@@ -96,8 +96,10 @@ class Trader():
         drwr = self.__drawer
         drwr.draw_df_on_plt(df=self._indicators.loc[:, ['20SMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
         drwr.draw_df_on_plt(df=self._indicators.loc[:, ['10EMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='cyan')
-        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_+2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='blue')
-        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_-2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='blue')
+        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_+2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue')
+        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_-2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue')
+        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_+3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan')
+        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_-3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan')
         drwr.draw_df_on_plt(df=self._indicators.loc[:, ['SAR']],      plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
         # drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
         # drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
