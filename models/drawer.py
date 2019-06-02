@@ -11,7 +11,7 @@ from models.oanda_py_client import FXBase
 class FigureDrawer():
 
     PLOT_TYPE = {
-        'dot': 0, 'long':  1, 'short': 2, 'exit': 3, 'break': 4,
+        'dot': 0, 'long':  1, 'short': 2, 'trail': 3, 'exit': 4, 'break': 5,
         'simple-line': 11, 'dashed-line': 12
     }
     POS_TYPE  = { 'neutral': 0, 'over': 1, 'beneath': 2 }
@@ -61,12 +61,20 @@ class FigureDrawer():
             edgecolors = 'blue'
             label = 'short'
             mark  = 'v'
+        elif plot_type == FigureDrawer.PLOT_TYPE['trail']:
+            color = 'orange'
+            edgecolors = None
+            label = 'trail'
+            mark  = '_'
         elif plot_type == FigureDrawer.PLOT_TYPE['exit']:
             color = 'red'
             edgecolors = None
             label = 'exit'
             mark  = 'x'
-        self.__axis1.scatter(x=df.sequence, y=df.price,
+
+        if plot_type == FigureDrawer.PLOT_TYPE['trail']: y = df.stoploss
+        else: y = df.price
+        self.__axis1.scatter(x=df.sequence, y=y,
             marker=mark, edgecolors=edgecolors, label=label,
             color=color, s=trade_marker_size
         )

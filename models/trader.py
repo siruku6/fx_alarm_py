@@ -111,8 +111,10 @@ class Trader():
             'short': pd.DataFrame(self.__hist_positions['short'], columns=self.__columns)
         }
         drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='long'],    plot_type=drwr.PLOT_TYPE['long'])
+        drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='trail'],   plot_type=drwr.PLOT_TYPE['trail'])
         drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='close'],   plot_type=drwr.PLOT_TYPE['exit'])
         drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
+        drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='trail'], plot_type=drwr.PLOT_TYPE['trail'])
         drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='close'], plot_type=drwr.PLOT_TYPE['exit'])
         result = drwr.create_png()
         if 'success' in result: print(result['success'])
