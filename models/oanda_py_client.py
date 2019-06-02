@@ -53,12 +53,19 @@ class FXBase():
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class OandaPyClient():
     @classmethod
-    def select_instrument(cls):
+    def select_instrument(cls, inst_id=None):
+        # TODO: 正しいspreadを後で確認して設定する
+        instruments = [
+            { 'name': 'USD_JPY', 'spread': 0.004 },
+            { 'name': 'EUR_USD', 'spread': 0.00014 },
+            { 'name': 'GBP_JPY', 'spread': 0.014 }
+        ]
+        if inst_id is not None: return instruments[inst_id]
+
         print('通貨ペアは？')
-        instruments = ['USD_JPY', 'EUR_USD', 'GBP_JPY']
         prompt_message = ''
         for i, inst in enumerate(instruments):
-            prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst)
+            prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst['name'])
         print(prompt_message + '(半角数字): ', end='')
         inst_id = int(input())
         return instruments[inst_id]

@@ -7,10 +7,13 @@ from models.drawer import FigureDrawer
 
 class Trader():
     def __init__(self, operation='verification'):
-        if operation is 'custom':
-            self.__instrument = OandaPyClient.select_instrument()
+        if operation is 'custom' or operation is 'verification':
+            inst = OandaPyClient.select_instrument()
+            self.__instrument = inst['name']
+            self.__static_spread = inst['spread']
         else:
             self.__instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
+            self.__static_spread = 0.0
 
         self._client  = OandaPyClient(instrument=self.__instrument)
         self.__ana    = Analyzer()
@@ -190,13 +193,13 @@ class Trader():
                 self._trail_stoploss(
                     index=i, new_SL=stoploss_price, time=candles.time[i]
                 )
-            if stoploss_price < candles.high[i]:
+            if stoploss_price < candles.high[i] + self.__static_spread:
                 self._settle_position(
                     index=i, price=stoploss_price, time=candles.time[i]
                 )
-            elif parabolic[i] < c_price:
+            elif parabolic[i] < c_price + self.__static_spread:
                 self._settle_position(
-                    index=i, price=c_price, time=candles.time[i]
+                    index=i, price=c_price + self.__static_spread, time=candles.time[i]
                 )
 
     #
@@ -251,12 +254,12 @@ class Trader():
 
     def _create_position(self, index, direction):
         '''
-        ルールに基づいてポジションをとる
+        ルールに基づいてポジションをとる(検証用)
         '''
         candles = FXBase.get_candles()
         if direction == 'long':
             # OPTIMIZE: entry_priceが甘い。 candles.close[index] でもいいかも
-            entry_price = candles.high[index-1]
+            entry_price = candles.high[index-1] + self.__static_spread
             stoploss    = candles.low[index-1] - self._STOPLOSS_BUFFER_pips
         elif direction == 'short':
             entry_price = candles.low[index-1]
