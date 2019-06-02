@@ -379,6 +379,7 @@ class Trader():
         print('[合計損益] {profit}pips'.format(
             profit=round(sum(profit_array) * 100, 3)
         ))
+        return profit_array
 
 class RealTrader(Trader):
     def __init__(self, operation='verification'):
