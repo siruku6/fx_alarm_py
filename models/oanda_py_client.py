@@ -143,23 +143,22 @@ class OandaPyClient():
         elif time_unit is 'D':
             start_datetime = end_datetime - datetime.timedelta(days=1)
 
-        try:
-            response = self.__request_oanda_instruments(
-                start=self.__format_dt_into_OandapyV20(start_datetime),
-                end=  self.__format_dt_into_OandapyV20(end_datetime),
-                granularity=granularity
-            )
-        # HACK: 現在値を取得する際、誤差で将来の時間と扱われてエラーになることがある
-        except V20Error as e:
-            print(e['errorMessage'])
-            # INFO: 保険として、1分前のデータの再取得を試みる
-            start_datetime -= datetime.timedelta(minutes=1)
-            end_datetime   -= datetime.timedelta(minutes=1)
-            response = self.__request_oanda_instruments(
-                start=self.__format_dt_into_OandapyV20(start_datetime),
-                end=  self.__format_dt_into_OandapyV20(end_datetime),
-                granularity=granularity
-            )
+        # try:
+        response = self.__request_oanda_instruments(
+            start=self.__format_dt_into_OandapyV20(start_datetime),
+            end=  self.__format_dt_into_OandapyV20(end_datetime),
+            granularity=granularity
+        )
+        # except V20Error as e:
+        #     print("V20Error: ", e)
+        #     # INFO: 保険として、1分前のデータの再取得を試みる
+        #     start_datetime -= datetime.timedelta(minutes=1)
+        #     end_datetime   -= datetime.timedelta(minutes=1)
+        #     response = self.__request_oanda_instruments(
+        #         start=self.__format_dt_into_OandapyV20(start_datetime),
+        #         end=  self.__format_dt_into_OandapyV20(end_datetime),
+        #         granularity=granularity
+        #     )
 
         candles = self.__transform_to_candle_chart(response)
         return candles
@@ -175,15 +174,23 @@ class OandaPyClient():
             end_time = start_time + datetime.timedelta(days=1)
         if end_time > datetime.datetime.now(): end_time = datetime.datetime.now()
 
-        try:
-            response = self.__request_oanda_instruments(
-                start=self.__format_dt_into_OandapyV20(start_time),
-                end=  self.__format_dt_into_OandapyV20(end_time),
-                granularity=granularity
-            )
-        except V20Error as e:
-            print(e['errorMessage'])
+        response = self.__request_oanda_instruments(
+            start=self.__format_dt_into_OandapyV20(start_time),
+            end=  self.__format_dt_into_OandapyV20(end_time),
+            granularity=granularity
+        )
+        candles = self.__transform_to_candle_chart(response)
+        return candles
 
+    def request_specified_period_candles(self, start_str, end_str, granularity):
+        start_time = datetime.datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
+        end_time = datetime.datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
+
+        response = self.__request_oanda_instruments(
+            start=self.__format_dt_into_OandapyV20(start_time),
+            end=  self.__format_dt_into_OandapyV20(end_time),
+            granularity=granularity
+        )
         candles = self.__transform_to_candle_chart(response)
         return candles
 
@@ -291,8 +298,9 @@ class OandaPyClient():
 
     def request_transactions(self):
         params = {
+            # len(from ... to) <= 1000
             'to': int(self.__lastTransactionID),
-            'from': 1200,
+            'from': int(self.__lastTransactionID) - 999,
             'type': ['ORDER'],
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
@@ -348,7 +356,13 @@ class OandaPyClient():
             instrument=self.__instrument,
             params=time_params
         )
-        response = self.__api_client.request(request_obj)
+        # HACK: 現在値を取得する際、誤差で将来の時間と扱われてエラーになることがある
+        try:
+            response = self.__api_client.request(request_obj)
+        except V20Error as e:
+            logger.error('[__request_oanda_instruments] V20Error: ', e)
+            return { 'candles': [] }
+
         return response
 
     def __transform_to_candle_chart(self, response):
