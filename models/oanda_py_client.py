@@ -289,25 +289,6 @@ class OandaPyClient():
         logger.info('## [Client] trail: {}'.format(response))
         return response
 
-    def request_trades_history(self):
-        ''' OANDAのトレード履歴を取得 '''
-        params ={
-            'instrument': self.__instrument,
-            'state': 'ALL' # 全過去分を取得
-        }
-        request_obj = trades.TradesList(
-            accountID=os.environ['OANDA_ACCOUNT_ID'],
-            params=params
-        )
-        response = self.__api_client.request(request_obj)
-
-        past_trades = [
-            trade for trade in response['trades'] if
-                # 'clientExtensions' not in trade.keys() and
-                trade['state'] != 'OPEN'
-        ]
-        return self.__pack_pastTrades_in_df(past_trades=past_trades)
-
     def request_transactions(self):
         params = {
             'to': int(self.__lastTransactionID),
@@ -397,34 +378,6 @@ class OandaPyClient():
 
     def __format_dt_into_OandapyV20(self, dt):
         return dt.strftime('%Y-%m-%dT%H:%M:00.000000Z')
-
-    def __pack_pastTrades_in_df(self, past_trades=None):
-        gain_df = pd.DataFrame(columns=[
-            'openTime', 'closeTime', 'position_type',
-            'open', 'close', 'units',
-            'gain', 'realizedPL'
-        ])
-
-        for trade in past_trades:
-            # INFO: preparing　values
-            if trade['initialUnits'][0] == '-':
-                minus = -1
-                position_type = 'short'
-            else:
-                minus = 1
-                position_type = 'long'
-            open_price = float(trade['price'])
-            close_price = float(trade['averageClosePrice'])
-
-            # INFO: set values in dataframe
-            tmp_series = pd.Series([
-                trade['openTime'][0:16], trade['closeTime'][0:16], position_type,
-                open_price, close_price, trade['initialUnits'],
-                round(close_price - open_price, 5) * minus, trade['realizedPL']
-            ],index=gain_df.columns)
-            gain_df = gain_df.append( tmp_series, ignore_index=True )
-
-        return gain_df
 
     def __filter_and_make_df(self, response_transactions):
         ''' 必要なrecordのみ残してdataframeに変換する '''

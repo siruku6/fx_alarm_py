@@ -83,6 +83,7 @@ class TestClient(unittest.TestCase):
         result = self.__watcher_instance.request_closing_position()
         self.assertTrue('error' in result)
 
+    # TODO: もうテスト対象メソッドはない。必要な情報を抜き出したら削除する
     # def test_request_trades_history(self):
     #     # INFO: Mock解説
     #     # https://akiyoko.hatenablog.jp/entry/2015/01/04/114642
