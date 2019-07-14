@@ -30,6 +30,7 @@ class Librarian():
         # preapre history_df: trade-history
         history_df = self._client.request_transactions()
         history_df['time'] = [self.__convert_to_M10_dt(time) for time in history_df.time]
+        entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
 
         # prepare candles: time-series currency price
         start_str, end_str = self.__calc_requestable_period(
@@ -42,17 +43,28 @@ class Librarian():
             granularity=granularity
         )
         candles['time'] = [time[:19] for time in candles.time]
+        candles['time'] = [datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S') for time in candles.time]
 
         # merge
-        candles['time'] = [datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S') for time in candles.time]
-        result = pd.merge(candles, history_df, on='time', how='outer', right_index=True)
+        result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
+        result = pd.merge(result,  close_df, on='time', how='outer', right_index=True)
+        result = pd.merge(result,  trail_df, on='time', how='outer', right_index=True)
+        result = result.drop_duplicates(['time'])
         result.to_csv('./tmp/oanda_trade_hist.csv', index=False)
-        import pdb; pdb.set_trace()
         return result
 
     #
     # Private
     #
+    def __divide_history_by_type(self, df):
+        entry_df = df.dropna(subset=['tradeOpened'])[['price', 'time', 'units']]
+        entry_df = entry_df.rename(columns={'price': 'entry_price'})
+        close_df = df.dropna(subset=['tradesClosed'])[['price', 'time', 'pl']]
+        close_df = close_df.rename(columns={'price': 'close_price'})
+        trail_df = df[df.type == 'STOP_LOSS_ORDER'][['price', 'time']]
+        trail_df = trail_df.rename(columns={'price': 'stoploss'})
+        return entry_df, close_df, trail_df
+
     def __convert_to_M10_dt(self, oanda_time):
         m1_pos = 15
         m10_str = oanda_time[:m1_pos] + '0' + oanda_time[m1_pos + 1:]

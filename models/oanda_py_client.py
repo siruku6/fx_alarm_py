@@ -407,6 +407,8 @@ class OandaPyClient():
         df = df[[
             'batchID',
             'id',
+            'tradeOpened',
+            'tradesClosed',
             'type',
             'price',
             'units',
