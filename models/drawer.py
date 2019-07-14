@@ -135,7 +135,7 @@ class FigureDrawer():
             xticks_display = [candles.time.values[i][11:16] for i in xticks_index]
             plt.xticks(xticks_index, xticks_display)
         plt.legend(loc='best')
-        plt.savefig('figure.png')
+        plt.savefig('tmp/figure.png')
         return { 'success': '[Drawer] 描画済みイメージをpng化' }
 
     def get_sample_df(self):
