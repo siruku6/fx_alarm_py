@@ -1,5 +1,5 @@
 import datetime
-# import numpy as np
+import numpy as np
 import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.drawer import FigureDrawer
@@ -43,17 +43,18 @@ class Librarian():
             granularity=granularity
         )
         candles['time'] = [time[:19] for time in candles.time]
-        # candles['time'] = [datetime.datetime.strptime(time, '%Y-%m-%d %H:%M:%S') for time in candles.time]
         candles['sequence'] = candles.index
 
+        print('[Libra] candlesセット完了')
         # merge
         result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
         result = pd.merge(result,  close_df, on='time', how='outer', right_index=True)
         result = pd.merge(result,  trail_df, on='time', how='outer', right_index=True)
         result = result.drop_duplicates(['time'])
-        result.to_csv('./tmp/oanda_trade_hist.csv', index=False)
+        print('[Libra] データmerge完了')
 
-        # result['time'] = [time.strftime('%Y-%m-%d %H:%M:%S') for time in result.time]
+        # INFO: Visualization
+        result.to_csv('./tmp/oanda_trade_hist.csv', index=False)
         self.__draw_history(result)
         self.__drawer.close_all()
 
@@ -75,7 +76,6 @@ class Librarian():
         m1_pos = 15
         m10_str = oanda_time[:m1_pos] + '0' + oanda_time[m1_pos + 1:]
         m10_str = self.__truncate_sec(m10_str).replace('T', ' ')
-        # m10_datetime = datetime.datetime.strptime(m10_str[:19], '%Y-%m-%dT%H:%M:%S')
         return m10_str
 
     def __truncate_sec(self, oanda_time_str):
@@ -103,13 +103,22 @@ class Librarian():
         return minutes
 
     def __draw_history(self, df):
-        drwr = self.__drawer
+        # INFO: データ準備
+        df['units'] = df.units.fillna('0').astype(int)
         FXBase.set_candles(df)
+        entry_df = df[['sequence', 'entry_price', 'units']].rename(columns={'entry_price': 'price'})
+        long_df, short_df = entry_df.copy(), entry_df.copy()
+        long_df['price'][long_df.units <= 0] = np.nan
+        short_df['price'][short_df.units >= 0] = np.nan
+        close_df = df[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
+
+        # INFO: 描画
+        drwr = self.__drawer
         drwr.draw_candles()
-        # drwr.draw_positionDf_on_plt(df=df[['entry_price']],    plot_type=drwr.PLOT_TYPE['long'])
-        drwr.draw_positionDf_on_plt(df=df[['sequence', 'stoploss']], plot_type=drwr.PLOT_TYPE['trail'])
-        # drwr.draw_positionDf_on_plt(df=df['long'][df_pos['long'].type=='close'],   plot_type=drwr.PLOT_TYPE['exit'])
-        # drwr.draw_positionDf_on_plt(df=df['short'][df_pos['short'].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
+        drwr.draw_positionDf_on_plt(df=long_df[['sequence', 'price']],  plot_type=drwr.PLOT_TYPE['long'])
+        drwr.draw_positionDf_on_plt(df=short_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['short'])
+        drwr.draw_positionDf_on_plt(df=df[['sequence', 'stoploss']],    plot_type=drwr.PLOT_TYPE['trail'])
+        drwr.draw_positionDf_on_plt(df=close_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['exit'])
         result = drwr.create_png()
         print(result['success'])
 
