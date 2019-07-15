@@ -313,7 +313,11 @@ class Trader():
         '''
         # TODO: 総リクエスト数と所要時間、rpsをこまめに表示した方がよさそう
         # long価格の修正
+        len_of_long_hist = len(self.__hist_positions['long']) - 1
         for i, row in enumerate(self.__hist_positions['long']):
+            if i == len_of_long_hist: break
+
+            print('[Trader] long-accurize: {i}/{total}'.format(i=i, total=len_of_long_hist))
             if row['type'] == 'long':
                 M10_candles = self._client.request_specified_candles(
                     start_datetime=row['time'][:19],
@@ -331,7 +335,11 @@ class Trader():
                         break
 
         # short価格の修正
+        len_of_short_hist = len(self.__hist_positions['short']) - 1
         for i, row in enumerate(self.__hist_positions['short']):
+            if i == len_of_short_hist: break
+
+            print('[Trader] short-accurize: {i}/{total}'.format(i=i, total=len_of_short_hist))
             if row['type'] == 'short':
                 M10_candles = self._client.request_specified_candles(
                     start_datetime=row['time'][:19],
