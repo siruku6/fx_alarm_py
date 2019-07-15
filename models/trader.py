@@ -89,7 +89,7 @@ class Trader():
             axis=1, keys=stoploss_buffer_list,
             names=['SL_buffer']
         )
-        result.to_csv('./sl_verify_{inst}.csv'.format(inst=self.get_instrument()))
+        result.to_csv('./tmp/sl_verify_{inst}.csv'.format(inst=self.get_instrument()))
 
     def draw_chart(self):
         ''' チャートや指標をpngに描画 '''
@@ -130,8 +130,8 @@ class Trader():
 
         df_long = pd.DataFrame.from_dict(self.__hist_positions['long'])
         df_short = pd.DataFrame.from_dict(self.__hist_positions['short'])
-        df_long.to_csv('./long_history.csv')
-        df_short.to_csv('./short_history.csv')
+        df_long.to_csv('./tmp/long_history.csv')
+        df_short.to_csv('./tmp/short_history.csv')
 
         print('[Trader] ポジション履歴をcsv出力完了')
 

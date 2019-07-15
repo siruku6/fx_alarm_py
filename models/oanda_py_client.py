@@ -45,7 +45,7 @@ class FXBase():
         cls.__candles.iat[-1, column_num] = new_price
 
     @classmethod
-    def write_candles_on_csv(cls, filename='./candles.csv'):
+    def write_candles_on_csv(cls, filename='./tmp/candles.csv'):
         cls.__candles.to_csv(filename)
 
 
