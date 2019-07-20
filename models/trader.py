@@ -117,7 +117,7 @@ class Trader():
 
             start = df_len - MAX_ROWS * (i + 1)
             if start < 0: start = 0
-            end   = df_len - MAX_ROWS * i
+            end = df_len - MAX_ROWS * i
             sr_time = drwr.draw_candles(start, end)['time']
 
             drwr.draw_positionDf_on_plt(df=dfs_long_hist[i][dfs_long_hist[i].type=='long'],    plot_type=drwr.PLOT_TYPE['long'])
@@ -151,6 +151,14 @@ class Trader():
     #
     # Shared with subclass
     #
+
+    def _over_2_sigma(self, index, price):
+        if self._indicators['band_+2σ'][index] < price or \
+           self._indicators['band_-2σ'][index] > price:
+           return True
+
+        return False
+
     def _check_trend(self, index, c_price):
         '''
         ルールに基づいてトレンドの有無を判定
@@ -256,6 +264,9 @@ class Trader():
             self._position['sequence'] = index
             if self._position['type'] == 'none':
                 if math.isnan(sma[index]): continue
+
+                if os.environ.get('CUSTOM_RULE') == 'on' and \
+                   self._over_2_sigma(index, FXBase.get_candles().open[index]): continue
 
                 trend = self._check_trend(index, close_price)
                 if trend is None: continue
