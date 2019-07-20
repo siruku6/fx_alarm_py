@@ -17,6 +17,9 @@ class FigureDrawer():
     POS_TYPE  = { 'neutral': 0, 'over': 1, 'beneath': 2 }
 
     def __init__(self):
+        self.open_new_figure()
+
+    def open_new_figure(self):
         self.__figure, (self.__axis1) = \
             plt.subplots(nrows=1, ncols=1, figsize=(10,5), dpi=200)
 
@@ -104,41 +107,41 @@ class FigureDrawer():
             label=label, s=size
         )
 
-    def draw_candles(self):
+    def draw_candles(self, start=0, end=None):
         ''' 取得済みチャートを描画 '''
+        target_candles = FXBase.get_candles()[start:end]
         mpl_finance.candlestick2_ohlc(
             self.__axis1,
-            opens  = FXBase.get_candles().open.values,
-            highs  = FXBase.get_candles().high.values,
-            lows   = FXBase.get_candles().low.values,
-            closes = FXBase.get_candles().close.values,
+            opens  = target_candles.open.values,
+            highs  = target_candles.high.values,
+            lows   = target_candles.low.values,
+            closes = target_candles.close.values,
             width=0.6, colorup='#77d879', colordown='#db3f3f'
         )
-        return { 'success': 'チャートを描画' }
+        return { 'success': 'チャートを描画', 'time': target_candles.time }
 
-    def create_png(self, instrument, granularity, num=0):
+    def create_png(self, instrument, granularity, sr_time, num=0):
         ''' 描画済みイメージをpngファイルに書き出す '''
-        # 現画像サイズだとジャストな数:16
-        num_break_xticks_into = 16
+        # OPTIMIZE: x軸目盛の分割数...今はこれでいいが、最適化する
+        num_break_xticks_into = 12
 
         ## X軸の見た目を整える
-        candles = FXBase.get_candles()
         self.__axis1.set_title('{inst}-{granularity} candles (len={len})'.format(
-            inst=instrument, granularity=granularity, len=len(candles)
+            inst=instrument, granularity=granularity, len=len(FXBase.get_candles())
         ))
         self.__axis1.yaxis.tick_right()
         self.__axis1.yaxis.grid(color='lightgray', linestyle='dashed', linewidth=0.5)
         plt.sca(self.__axis1)
 
-        xticks_number  = int(len(candles) / num_break_xticks_into)
+        xticks_number  = int(len(sr_time) / num_break_xticks_into)
         if xticks_number > 0:
-            xticks_index   = range(0, len(candles), xticks_number)
+            xticks_index   = range(0, len(sr_time), xticks_number)
             # 文字列から時間のみを切り出すため、先頭12文字目から取る
-            xticks_display = [candles.time.values[i][11:16] for i in xticks_index]
+            xticks_display = [sr_time.values[i][11:16] for i in xticks_index]
             plt.xticks(xticks_index, xticks_display)
         plt.legend(loc='best')
         plt.savefig('tmp/figure_{num}.png'.format(num=num))
-        return { 'success': '[Drawer] 描画済みイメージをpng化' }
+        return { 'success': '[Drawer] 描画済みイメージをpng化 {}'.format(num+1) }
 
     def get_sample_df(self):
         ''' サンプルdf生成 '''

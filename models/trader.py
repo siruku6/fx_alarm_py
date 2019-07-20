@@ -93,33 +93,49 @@ class Trader():
 
     def draw_chart(self):
         ''' チャートや指標をpngに描画 '''
+        MAX_ROWS = 200
         drwr = self.__drawer
-        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['20SMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
-        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['10EMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='cyan')
-        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_+2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue')
-        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_-2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue')
-        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_+3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan')
-        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['band_-3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan')
-        drwr.draw_df_on_plt(df=self._indicators.loc[:, ['SAR']],      plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
-        # drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
-        # drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
-        # drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['over'])
-        # drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['beneath'])
-        drwr.draw_candles()
         df_pos = {
             'long':  pd.DataFrame(self.__hist_positions['long'],  columns=self.__columns),
             'short': pd.DataFrame(self.__hist_positions['short'], columns=self.__columns)
         }
-        drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='long'],    plot_type=drwr.PLOT_TYPE['long'])
-        drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='trail'],   plot_type=drwr.PLOT_TYPE['trail'])
-        drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='close'],   plot_type=drwr.PLOT_TYPE['exit'])
-        drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
-        drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='trail'], plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
-        drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='close'], plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
-        result = drwr.create_png(instrument=self.__instrument, granularity=self.__granularity)
-        drwr.close_all()
 
-        if 'success' in result: print(result['success'])
+        df_len = len(self._indicators)
+        dfs_indicator  = self.__split_df_by_200rows(self._indicators)
+        dfs_long_hist  = self.__split_df_by_200sequences(df_pos['long'],  df_len)
+        dfs_short_hist = self.__split_df_by_200sequences(df_pos['short'], df_len)
+
+        dfs_length = len(dfs_indicator)
+        for i in range(0, dfs_length):
+            import pdb; pdb.set_trace()
+            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['20SMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
+            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['10EMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='cyan')
+            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_+2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue')
+            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_-2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue')
+            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_+3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan')
+            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_-3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan')
+            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['SAR']],      plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
+            # drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
+            # drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
+            # drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['over'])
+            # drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['beneath'])
+
+            start = df_len - MAX_ROWS * (i + 1)
+            if start < 0: start = 0
+            end   = df_len - MAX_ROWS * i
+            sr_time = drwr.draw_candles(start, end)['time']
+
+            drwr.draw_positionDf_on_plt(df=dfs_long_hist[i][dfs_long_hist[i].type=='long'],    plot_type=drwr.PLOT_TYPE['long'])
+            drwr.draw_positionDf_on_plt(df=dfs_long_hist[i][dfs_long_hist[i].type=='trail'],   plot_type=drwr.PLOT_TYPE['trail'])
+            drwr.draw_positionDf_on_plt(df=dfs_long_hist[i][dfs_long_hist[i].type=='close'],   plot_type=drwr.PLOT_TYPE['exit'])
+            drwr.draw_positionDf_on_plt(df=dfs_short_hist[i][dfs_short_hist[i].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
+            drwr.draw_positionDf_on_plt(df=dfs_short_hist[i][dfs_short_hist[i].type=='trail'], plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
+            drwr.draw_positionDf_on_plt(df=dfs_short_hist[i][dfs_short_hist[i].type=='close'], plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
+            result = drwr.create_png(instrument=self.__instrument, granularity=self.__granularity, sr_time=sr_time, num=i)
+            drwr.close_all()
+            if  dfs_length != i+1: drwr.open_new_figure()
+            if 'success' in result: print(result['success'], '/{}'.format(dfs_length))
+
         return {
             'success': '[Trader] チャート分析、png生成完了',
             # メール送信フラグ: 今は必要ない
@@ -365,6 +381,35 @@ class Trader():
         while (self.__hist_positions[type][index]['price'] == old_price):
             self.__hist_positions[type][index]['price'] = accurater_price
             index += 1
+
+    def __split_df_by_200rows(self, df):
+        dfs = []
+        MAX_LEN = 200
+        df_len = len(df)
+        loop = 0
+
+        while (MAX_LEN * loop < df_len):
+            end = df_len - MAX_LEN * loop
+            loop += 1
+            start = df_len - MAX_LEN * loop
+            start = start if start > 0 else 0
+            dfs.append(df[start:end].reset_index(drop=True))
+        return dfs
+
+    def __split_df_by_200sequences(self, df, df_len):
+        dfs = []
+        MAX_LEN = 200
+        loop = 0
+
+        while (MAX_LEN * loop < df_len):
+            end = df_len - MAX_LEN * loop
+            loop += 1
+            start = df_len - MAX_LEN * loop
+            start = start if start > 0 else 0
+            df_target = df[(start <= df.sequence) & (df.sequence < end)]
+            df_target['sequence'] = df_target.sequence - start
+            dfs.append(df_target)
+        return dfs
 
     def __calc_profit(self):
         '''
