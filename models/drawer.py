@@ -19,7 +19,6 @@ class FigureDrawer():
     def __init__(self):
         self.__figure, (self.__axis1) = \
             plt.subplots(nrows=1, ncols=1, figsize=(10,5), dpi=200)
-        self.__axis1.set_title('FX candles')
 
     def close_all(self):
         # https://stackoverflow.com/questions/21884271/warning-about-too-many-open-figures
@@ -117,13 +116,16 @@ class FigureDrawer():
         )
         return { 'success': 'チャートを描画' }
 
-    def create_png(self):
+    def create_png(self, num=0, instrument, granularity):
         ''' 描画済みイメージをpngファイルに書き出す '''
         # 現画像サイズだとジャストな数:16
         num_break_xticks_into = 16
 
         ## X軸の見た目を整える
-        candles        = FXBase.get_candles()
+        candles = FXBase.get_candles()
+        self.__axis1.set_title('{inst}-{granulariy} candles (len={len})'.format(
+            inst=instrument, granulariy=granularity, len=len(candles)
+        ))
         self.__axis1.yaxis.tick_right()
         self.__axis1.yaxis.grid(color='lightgray', linestyle='dashed', linewidth=0.5)
         plt.sca(self.__axis1)
@@ -135,7 +137,7 @@ class FigureDrawer():
             xticks_display = [candles.time.values[i][11:16] for i in xticks_index]
             plt.xticks(xticks_index, xticks_display)
         plt.legend(loc='best')
-        plt.savefig('tmp/figure.png')
+        plt.savefig('tmp/figure_{num}.png'.format(num=num))
         return { 'success': '[Drawer] 描画済みイメージをpng化' }
 
     def get_sample_df(self):

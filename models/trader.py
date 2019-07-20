@@ -117,6 +117,8 @@ class Trader():
         drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='trail'], plot_type=drwr.PLOT_TYPE['trail'])
         drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='close'], plot_type=drwr.PLOT_TYPE['exit'])
         result = drwr.create_png()
+        drwr.close_all()
+
         if 'success' in result: print(result['success'])
         return {
             'success': '[Trader] チャート分析、png生成完了',
