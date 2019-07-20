@@ -47,7 +47,7 @@ class FigureDrawer():
         print('[Drawer] ', df.columns[0], 'を描画')
         return { 'success': 'dfを描画' }
 
-    def draw_positionDf_on_plt(self, df, plot_type=PLOT_TYPE['long']):
+    def draw_positionDf_on_plt(self, df, plot_type=PLOT_TYPE['long'], nolabel=None):
         ''' __hist_positionsから抽出したdfを受け取って描画 '''
         trade_marker_size = 40
         if plot_type == FigureDrawer.PLOT_TYPE['long']:
@@ -74,7 +74,7 @@ class FigureDrawer():
         if plot_type == FigureDrawer.PLOT_TYPE['trail']: y = df.stoploss
         else: y = df.price
         self.__axis1.scatter(x=df.sequence, y=y,
-            marker=mark, edgecolors=edgecolors, label=label,
+            marker=mark, edgecolors=edgecolors, label=nolabel or label,
             color=color, s=trade_marker_size
         )
 
@@ -116,15 +116,15 @@ class FigureDrawer():
         )
         return { 'success': 'チャートを描画' }
 
-    def create_png(self, num=0, instrument, granularity):
+    def create_png(self, instrument, granularity, num=0):
         ''' 描画済みイメージをpngファイルに書き出す '''
         # 現画像サイズだとジャストな数:16
         num_break_xticks_into = 16
 
         ## X軸の見た目を整える
         candles = FXBase.get_candles()
-        self.__axis1.set_title('{inst}-{granulariy} candles (len={len})'.format(
-            inst=instrument, granulariy=granularity, len=len(candles)
+        self.__axis1.set_title('{inst}-{granularity} candles (len={len})'.format(
+            inst=instrument, granularity=granularity, len=len(candles)
         ))
         self.__axis1.yaxis.tick_right()
         self.__axis1.yaxis.grid(color='lightgray', linestyle='dashed', linewidth=0.5)

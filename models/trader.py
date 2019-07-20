@@ -114,9 +114,9 @@ class Trader():
         drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='trail'],   plot_type=drwr.PLOT_TYPE['trail'])
         drwr.draw_positionDf_on_plt(df=df_pos['long'][df_pos['long'].type=='close'],   plot_type=drwr.PLOT_TYPE['exit'])
         drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
-        drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='trail'], plot_type=drwr.PLOT_TYPE['trail'])
-        drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='close'], plot_type=drwr.PLOT_TYPE['exit'])
-        result = drwr.create_png()
+        drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='trail'], plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
+        drwr.draw_positionDf_on_plt(df=df_pos['short'][df_pos['short'].type=='close'], plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
+        result = drwr.create_png(instrument=self.__instrument, granularity=self.__granularity)
         drwr.close_all()
 
         if 'success' in result: print(result['success'])
