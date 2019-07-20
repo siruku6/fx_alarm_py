@@ -107,7 +107,6 @@ class Trader():
 
         dfs_length = len(dfs_indicator)
         for i in range(0, dfs_length):
-            import pdb; pdb.set_trace()
             drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['20SMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
             drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['10EMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='cyan')
             drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_+2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue')
@@ -115,10 +114,6 @@ class Trader():
             drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_+3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan')
             drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_-3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan')
             drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['SAR']],      plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
-            # drwr.draw_df_on_plt(df=self.desc_trends, plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
-            # drwr.draw_df_on_plt(df=self.asc_trends,  plot_type=drwr.PLOT_TYPE['dashed-line'], color='navy')
-            # drwr.draw_indexes_on_plt(index_array=self.jump_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['over'])
-            # drwr.draw_indexes_on_plt(index_array=self.fall_trendbreaks,   plot_type=drwr.PLOT_TYPE['break'], pos=drwr.POS_TYPE['beneath'])
 
             start = df_len - MAX_ROWS * (i + 1)
             if start < 0: start = 0
@@ -406,7 +401,7 @@ class Trader():
             loop += 1
             start = df_len - MAX_LEN * loop
             start = start if start > 0 else 0
-            df_target = df[(start <= df.sequence) & (df.sequence < end)]
+            df_target = df[(start <= df.sequence) & (df.sequence < end)].copy()
             df_target['sequence'] = df_target.sequence - start
             dfs.append(df_target)
         return dfs

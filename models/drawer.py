@@ -81,31 +81,32 @@ class FigureDrawer():
             color=color, s=trade_marker_size
         )
 
-    def draw_indexes_on_plt(self, index_array, plot_type=PLOT_TYPE['long'], pos=POS_TYPE['neutral']):
-        ''' index_arrayを受け取って、各値(int)を描画 '''
-        if plot_type == FigureDrawer.PLOT_TYPE['break']:
-            size = 10
-            mark = 'o'
-            if pos:
-                color = 'red'
-                label = 'GC'
-            else:
-                color = 'blue'
-                label = 'DC'
-
-        if pos == FigureDrawer.POS_TYPE['over']:
-            gap = 1.0005
-        elif pos == FigureDrawer.POS_TYPE['beneath']:
-            gap = 0.9995
-        else :
-            gap = 1.0
-
-        self.__axis1.scatter(
-            x=index_array,
-            y=FXBase.get_candles().close[index_array] * gap,
-            marker=mark, color=color, edgecolors=edgecolors,
-            label=label, s=size
-        )
+    # INFO: 今は使われていない
+    # def draw_indexes_on_plt(self, index_array, plot_type=PLOT_TYPE['long'], pos=POS_TYPE['neutral']):
+    #     ''' index_arrayを受け取って、各値(int)を描画 '''
+    #     if plot_type == FigureDrawer.PLOT_TYPE['break']:
+    #         size = 10
+    #         mark = 'o'
+    #         if pos:
+    #             color = 'red'
+    #             label = 'GC'
+    #         else:
+    #             color = 'blue'
+    #             label = 'DC'
+    #
+    #     if pos == FigureDrawer.POS_TYPE['over']:
+    #         gap = 1.0005
+    #     elif pos == FigureDrawer.POS_TYPE['beneath']:
+    #         gap = 0.9995
+    #     else :
+    #         gap = 1.0
+    #
+    #     self.__axis1.scatter(
+    #         x=index_array,
+    #         y=FXBase.get_candles().close[index_array] * gap,
+    #         marker=mark, color=color, edgecolors=edgecolors,
+    #         label=label, s=size
+    #     )
 
     def draw_candles(self, start=0, end=None):
         ''' 取得済みチャートを描画 '''
@@ -136,9 +137,9 @@ class FigureDrawer():
         xticks_number  = int(len(sr_time) / num_break_xticks_into)
         if xticks_number > 0:
             xticks_index   = range(0, len(sr_time), xticks_number)
-            # 文字列から時間のみを切り出すため、先頭12文字目から取る
-            xticks_display = [sr_time.values[i][11:16] for i in xticks_index]
-            plt.xticks(xticks_index, xticks_display)
+            # INFO: 日付から表示するため、先頭12文字目から取る
+            xticks_display = [sr_time.values[i][5:16] for i in xticks_index]
+            plt.xticks(xticks_index, xticks_display, rotation=30, fontsize='small')
         plt.legend(loc='best')
         plt.savefig('tmp/figure_{num}.png'.format(num=num))
         return { 'success': '[Drawer] 描画済みイメージをpng化 {}'.format(num+1) }
