@@ -200,9 +200,7 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], params=params
         )
         response = self.__api_client.request(request_obj)
-        # print('[Client] 市場が開いているか確認完了')
         tradeable = response['prices'][0]['tradeable']
-        logger.info('## [Client] tradeable: {}'.format(tradeable))
         return {
             'instrument': self.__instrument,
             'tradeable': tradeable
@@ -224,7 +222,7 @@ class OandaPyClient():
             FXBase.replace_latest_price('high', latest_candle.high)
         elif candles.iloc[-1].low > latest_candle.low:
             FXBase.replace_latest_price('low', latest_candle.low)
-        print('[Client] 現在値取得\n{}'.format(latest_candle))
+        print('[Client] 現在値\n{}'.format(latest_candle))
 
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''
@@ -262,7 +260,7 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('## [Client] market-order: {}'.format(response))
+        logger.info('[Client] market-order: {}'.format(response))
         return response
 
     def request_closing_position(self):
@@ -275,7 +273,7 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_tradeID # , data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('## [Client] close-position: {}'.format(response))
+        logger.info('[Client] close-position: {}'.format(response))
         return response
 
     def request_trailing_stoploss(self, SL_price=None):
@@ -293,7 +291,7 @@ class OandaPyClient():
             data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('## [Client] trail: {}'.format(response))
+        logger.info('[Client] trail: {}'.format(response))
         return response
 
     def request_transactions(self):

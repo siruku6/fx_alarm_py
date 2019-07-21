@@ -1,9 +1,12 @@
-import math, os, datetime
+import datetime, logging, math, os
 import numpy as np
 import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 class Trader():
     def __init__(self, operation='verification'):
@@ -30,7 +33,7 @@ class Trader():
             result = self._client.request_is_tradeable()
             self.tradeable = result['tradeable']
             if self.tradeable == False:
-                print('[Trader] 市場が開いていないため、処理を終了します')
+                self._log_skip_reason('1. market is not open')
                 self.__drawer.close_all()
                 return
 
@@ -40,10 +43,11 @@ class Trader():
 
         result = self.__ana.calc_indicators()
         if 'error' in result:
-            print(result['error'])
+            self._log_skip_reason(result['error'])
             return
+        elif operation is not 'live':
+            print(result['success'])
 
-        print(result['success'])
         self._indicators = self.__ana.get_indicators()
         self.__initialize_position_variables()
 
@@ -155,6 +159,7 @@ class Trader():
     def _over_2_sigma(self, index, price):
         if self._indicators['band_+2σ'][index] < price or \
            self._indicators['band_-2σ'][index] > price:
+           self._log_skip_reason('c. price is over 2sigma')
            return True
 
         return False
@@ -176,7 +181,7 @@ class Trader():
             trend = 'bear'
         else:
             trend = None
-        print('[Trader] trend: {}'.format(trend))
+            self._log_skip_reason('2. There isn`t the trend')
         return trend
 
     def _find_thrust(self, i, trend):
@@ -190,7 +195,7 @@ class Trader():
             direction = 'short'
         else:
             direction = None
-        print('[Trader] thrust: {}'.format(direction))
+            self._log_skip_reason('3. There isn`t thrust')
         return direction
 
     def _judge_settle_position(self, i, c_price):
@@ -330,6 +335,10 @@ class Trader():
             'sequence': index, 'price': price,
             'stoploss': 0.0, 'type': 'close', 'time': time
         })
+
+    def _log_skip_reason(self, reason):
+        print('[Trader] skip: {}\n'.format(reason))
+        logger.info('[Trader] -------- end --------')
 
     def __accurize_entry_prices(self):
         '''
@@ -510,6 +519,7 @@ class RealTrader(Trader):
     #
     def __play_swing_trade(self):
         ''' 現在のレートにおいて、スイングトレードルールでトレード '''
+        logger.info('[Trader] -------- start --------')
         index = len(self._indicators) - 1 # INFO: 最終行
         close_price = FXBase.get_candles().close.values[-1]
 
