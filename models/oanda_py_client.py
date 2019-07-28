@@ -133,13 +133,13 @@ class OandaPyClient():
         else:
             return { 'error': '[Watcher] 処理中断' }
 
-    def request_latest_candles(self, target_datetime, granularity='M10', base_granurarity='D'):
+    def request_latest_candles(self, target_datetime, granularity='M10', period_of_time='D'):
         end_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
-        time_unit = base_granurarity[0]
+        time_unit = period_of_time[0]
         if time_unit is 'M':
-            start_datetime = end_datetime - datetime.timedelta(minutes=int(base_granurarity[1:]))
+            start_datetime = end_datetime - datetime.timedelta(minutes=int(period_of_time[1:]))
         elif time_unit is 'H':
-            start_datetime = end_datetime - datetime.timedelta(hours=int(base_granurarity[1:]))
+            start_datetime = end_datetime - datetime.timedelta(hours=int(period_of_time[1:]))
         elif time_unit is 'D':
             start_datetime = end_datetime - datetime.timedelta(days=1)
 
@@ -214,7 +214,7 @@ class OandaPyClient():
         latest_candle = self.request_latest_candles(
             target_datetime=str(now)[:19],
             granularity='M1',
-            base_granurarity='M1',
+            period_of_time='M1',
         ).iloc[-1]
 
         candles = FXBase.get_candles()
@@ -222,7 +222,10 @@ class OandaPyClient():
             FXBase.replace_latest_price('high', latest_candle.high)
         elif candles.iloc[-1].low > latest_candle.low:
             FXBase.replace_latest_price('low', latest_candle.low)
-        print('[Client] 現在値\n{}'.format(latest_candle))
+        print('[Client] 直前値')
+        print(FXBase.get_candles().iloc[-1])
+        print('[Client] 現在値')
+        print(latest_candle)
 
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''

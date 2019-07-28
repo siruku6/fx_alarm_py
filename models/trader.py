@@ -5,8 +5,8 @@ from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+# logger = logging.getLogger()
+# logger.setLevel(logging.INFO)
 
 class Trader():
     def __init__(self, operation='verification'):
@@ -18,10 +18,11 @@ class Trader():
             self.__instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
             self.__static_spread = 0.0
 
-        self._client  = OandaPyClient(instrument=self.__instrument)
-        self.__ana    = Analyzer()
-        self.__drawer = FigureDrawer()
-        self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
+        self._operation = operation
+        self._client    = OandaPyClient(instrument=self.__instrument)
+        self.__ana      = Analyzer()
+        self.__drawer   = FigureDrawer()
+        self.__columns  = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
         self.__granularity = os.environ.get('GRANULARITY') or 'M5'
         sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
         self._STOPLOSS_BUFFER_pips = sl_buffer or 0.05
@@ -156,11 +157,12 @@ class Trader():
     # Shared with subclass
     #
 
-    def _over_2_sigma(self, index, price):
-        if self._indicators['band_+2σ'][index] < price or \
-           self._indicators['band_-2σ'][index] > price:
-           self._log_skip_reason('c. price is over 2sigma')
-           return True
+    def _over_2_sigma(self, index, o_price):
+        if self._indicators['band_+2σ'][index] < o_price or \
+           self._indicators['band_-2σ'][index] > o_price:
+            if self._operation is 'live':
+                self._log_skip_reason('c. o_price is over 2sigma')
+            return True
 
         return False
 
@@ -181,7 +183,9 @@ class Trader():
             trend = 'bear'
         else:
             trend = None
-            self._log_skip_reason('2. There isn`t the trend')
+            if self._operation is 'live':
+                print('[Trader] 20SMA: {}, 10EMA: {}, close: {}'.format(sma, ema, c_price))
+                self._log_skip_reason('2. There isn`t the trend')
         return trend
 
     def _find_thrust(self, i, trend):
@@ -195,7 +199,11 @@ class Trader():
             direction = 'short'
         else:
             direction = None
-            self._log_skip_reason('3. There isn`t thrust')
+            if self._operation is 'live':
+                print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
+                    trend, candles.high[i-1], candles.high[i], candles.low[i-1], candles.low[i]
+                ))
+                self._log_skip_reason('3. There isn`t thrust')
         return direction
 
     def _judge_settle_position(self, i, c_price):
@@ -271,7 +279,7 @@ class Trader():
                 if math.isnan(sma[index]): continue
 
                 if os.environ.get('CUSTOM_RULE') == 'on' and \
-                   self._over_2_sigma(index, FXBase.get_candles().open[index]): continue
+                   self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]): continue
 
                 trend = self._check_trend(index, close_price)
                 if trend is None: continue
@@ -337,8 +345,8 @@ class Trader():
         })
 
     def _log_skip_reason(self, reason):
-        print('[Trader] skip: {}\n'.format(reason))
-        logger.info('[Trader] -------- end --------')
+        print('[Trader] skip: {}'.format(reason))
+        print('[Trader] -------- end --------')
 
     def __accurize_entry_prices(self):
         '''
@@ -519,12 +527,15 @@ class RealTrader(Trader):
     #
     def __play_swing_trade(self):
         ''' 現在のレートにおいて、スイングトレードルールでトレード '''
-        logger.info('[Trader] -------- start --------')
+        print('[Trader] -------- start --------')
         index = len(self._indicators) - 1 # INFO: 最終行
         close_price = FXBase.get_candles().close.values[-1]
 
         self._position = self.__load_position()
         if self._position['type'] == 'none':
+            if os.environ.get('CUSTOM_RULE') == 'on' and \
+               self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]): return
+
             trend = self._check_trend(index=index, c_price=close_price)
             if trend is None: return
 

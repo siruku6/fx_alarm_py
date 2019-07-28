@@ -35,7 +35,7 @@ class TestClient(unittest.TestCase):
         result = self.__watcher_instance.request_latest_candles(
             target_datetime='2018-07-12 21:00:00',
             granularity='M10',
-            base_granurarity='D'
+            period_of_time='D'
         )
         result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S+00:00')
         result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S+00:00')
@@ -52,7 +52,7 @@ class TestClient(unittest.TestCase):
         result = self.__watcher_instance.request_latest_candles(
             target_datetime='2017-06-29 21:00:00',
             granularity='M30',
-            base_granurarity='H4'
+            period_of_time='H4'
         )
         result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S+00:00')
         result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S+00:00')
