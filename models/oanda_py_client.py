@@ -13,6 +13,8 @@ import oandapyV20.endpoints.instruments as inst
 import oandapyV20.endpoints.transactions as transactions
 from   oandapyV20.exceptions import V20Error
 
+# pd.set_option('display.max_rows', candles_count) # 表示可能な最大行数を設定
+
 class FXBase():
     __candles = None
     __latest_candle = None
@@ -85,18 +87,16 @@ class OandaPyClient():
     #
     # Public
     #
-    def reload_chart(self, days=1, granularity='M5'):
+    def load_specified_length_candles(self, granularity='M5'):
         ''' チャート情報を更新 '''
-        start_time    = self.__calc_start_time(days=days)
-        candles_count = self.__calc_candles_wanted(days=days, granularity=granularity)
-        # pd.set_option('display.max_rows', candles_count) # 表示可能な最大行数を設定
+        end_datetime = datetime.datetime.now() - datetime.timedelta(hours=9)
+        length = 60
         response = self.__request_oanda_instruments(
-            start=start_time,
-            candles_count=candles_count,
+            start=None,
+            end=self.__format_dt_into_OandapyV20(end_datetime),
+            candles_count=length,
             granularity=granularity
         )
-        if response['candles'] == []:
-            return { 'error': '[Watcher] request結果、データがありませんでした' }
 
         candles = self.__transform_to_candle_chart(response)
         FXBase.set_candles(
@@ -110,7 +110,7 @@ class OandaPyClient():
         candles = None
         requestable_max_days = self.__calc_requestable_max_days(granularity=granularity)
 
-        now  = datetime.datetime.now() - datetime.timedelta(hours=9) # UTC化
+        now = datetime.datetime.now() - datetime.timedelta(hours=9) # UTC化
         while remaining_days > 0:
             start_datetime = now - datetime.timedelta(days=remaining_days)
             remaining_days -= requestable_max_days
@@ -316,13 +316,6 @@ class OandaPyClient():
     #
     # Private
     #
-
-    # TODO: このメソッドいらないかも
-    def __calc_start_time(self, days, end_datetime=datetime.datetime.now()):
-        end_datetime -= datetime.timedelta(hours=9) # UTC化
-        start_time    = end_datetime - datetime.timedelta(days=days)
-        start_time    = self.__format_dt_into_OandapyV20(start_time)
-        return start_time
 
     def __calc_candles_wanted(self, days=1, granularity='M5'):
         time_unit = granularity[0]

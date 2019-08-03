@@ -38,7 +38,7 @@ class Trader():
                 self.__drawer.close_all()
                 return
 
-            self._client.load_long_chart(days=1, granularity=self.__granularity)
+            self._client.load_specified_length_candles(granularity=self.__granularity)
             # OPTIMIZE: これがあるせいで意外とトレードが発生しない
             self._client.request_current_price()
 
