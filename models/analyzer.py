@@ -1,7 +1,8 @@
 import math
 import pandas as pd
-from scipy.stats          import linregress
+from scipy.stats import linregress
 from models.oanda_py_client import FXBase
+
 
 class Analyzer():
     # For Trendline
@@ -9,20 +10,20 @@ class Analyzer():
 
     # For Parabolic
     INITIAL_AF = 0.02
-    MAX_AF     = 0.2
+    MAX_AF = 0.2
 
     def __init__(self):
         self.__SMA = None
         self.__EMA = None
-        self.__DOUBLE_SIGMA_BAND       = None
+        self.__DOUBLE_SIGMA_BAND = None
         self.__MINUS_DOUBLE_SIGMA_BAND = None
-        self.__TRIPLE_SIGMA_BAND       = None
+        self.__TRIPLE_SIGMA_BAND = None
         self.__MINUS_TRIPLE_SIGMA_BAND = None
         self.__SAR = []
 
         # Trendline
-        self.desc_trends      = None
-        self.asc_trends       = None
+        self.desc_trends = None
+        self.asc_trends = None
         self.jump_trendbreaks = None
         self.fall_trendbreaks = None
 
@@ -31,7 +32,7 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def calc_indicators(self):
         if FXBase.get_candles() is None:
-            return { 'error': '[ERROR] Analyzer: 分析対象データがありません' }
+            return {'error': '[ERROR] Analyzer: 分析対象データがありません'}
         self.__calc_SMA()
         self.__calc_EMA()
         self.__calc_bollinger_bands()
@@ -43,7 +44,7 @@ class Analyzer():
         #     return { 'success': '[Analyzer] indicators算出完了' }
         # else:
         #     return { 'error': '[Analyzer] indicators算出失敗' }
-        return { 'success': '[Analyzer] indicators算出完了' }
+        return {'success': '[Analyzer] indicators算出完了'}
 
     def get_indicators(self):
         indicators = pd.concat(
@@ -60,16 +61,17 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def __calc_SMA(self, window_size=20):
         ''' 単純移動平均線を生成 '''
-        close      = FXBase.get_candles().close
-        sma        = pd.Series.rolling(close, window=window_size).mean() #.dropna().reset_index(drop = True)
-        self.__SMA = pd.DataFrame(sma).rename(columns={ 'close': '20SMA' })
+        close = FXBase.get_candles().close
+        # mean()後の .dropna().reset_index(drop = True) を消去中
+        sma = pd.Series.rolling(close, window=window_size).mean()
+        self.__SMA = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
 
     def __calc_EMA(self, window_size=10):
         ''' 指数平滑移動平均線を生成 '''
         # TODO: scipyを使うと早くなる
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
-        ema        = FXBase.get_candles().close.ewm(span=window_size).mean()
-        self.__EMA = pd.DataFrame(ema).rename(columns={ 'close': '10EMA' })
+        ema = FXBase.get_candles().close.ewm(span=window_size).mean()
+        self.__EMA = pd.DataFrame(ema).rename(columns={'close': '10EMA'})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Bollinger Bands                    #
@@ -77,12 +79,24 @@ class Analyzer():
     def __calc_bollinger_bands(self, window_size=20):
         '''ボリンジャーバンドを生成'''
         close = FXBase.get_candles().close
-        mean               = pd.Series.rolling(close, window=window_size).mean()
+        mean = pd.Series.rolling(close, window=window_size).mean()
         standard_deviation = pd.Series.rolling(close, window=window_size).std()
-        self.__DOUBLE_SIGMA_BAND       = pd.DataFrame(mean + standard_deviation * 2).rename(columns={ 'close': 'band_+2σ' })
-        self.__MINUS_DOUBLE_SIGMA_BAND = pd.DataFrame(mean - standard_deviation * 2).rename(columns={ 'close': 'band_-2σ' })
-        self.__TRIPLE_SIGMA_BAND       = pd.DataFrame(mean + standard_deviation * 3).rename(columns={ 'close': 'band_+3σ' })
-        self.__MINUS_TRIPLE_SIGMA_BAND = pd.DataFrame(mean - standard_deviation * 3).rename(columns={ 'close': 'band_-3σ' })
+        self.__DOUBLE_SIGMA_BAND = \
+            pd.DataFrame(mean + standard_deviation * 2).rename(
+                columns={'close': 'band_+2σ'}
+            )
+        self.__MINUS_DOUBLE_SIGMA_BAND = \
+            pd.DataFrame(mean - standard_deviation * 2).rename(
+                columns={'close': 'band_-2σ'}
+            )
+        self.__TRIPLE_SIGMA_BAND = \
+            pd.DataFrame(mean + standard_deviation * 3).rename(
+                columns={'close': 'band_+3σ'}
+            )
+        self.__MINUS_TRIPLE_SIGMA_BAND = \
+            pd.DataFrame(mean - standard_deviation * 3).rename(
+                columns={'close': 'band_-3σ'}
+            )
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
@@ -110,14 +124,15 @@ class Analyzer():
     # iterate dataframe
     # https://stackoverflow.com/questions/7837722/what-is-the-most-efficient-way-to-loop-through-dataframes-with-pandas
     def __calc_trendlines(self, span=20, min_interval=3):
-        if FXBase.get_candles() is None: return { 'error': '[Analyzer] データが存在しません' }
+        if FXBase.get_candles() is None:
+            return {'error': '[Analyzer] データが存在しません'}
         FXBase.set_timeID()
-        trendlines = { 'high': [], 'low': [] }
+        trendlines = {'high': [], 'low': []}
 
         # [下降・上昇]の２回ループ
         for bool_high in [True, False]:
             high_or_low = 'high' if bool_high else 'low'
-            sign        = 1      if bool_high else -1
+            sign = 1 if bool_high else -1
 
             # for i in array[start:end-1:step]:
             for i in FXBase.get_candles().index[::int(span/2)]:
@@ -128,8 +143,8 @@ class Analyzer():
                 # if abs(extremals.index[0] - extremals.index[1]) < min_interval:
                 #     continue
                 regression = linregress(
-                    x = extremals['time_id'],
-                    y = extremals[high_or_low],
+                    x=extremals['time_id'],
+                    y=extremals[high_or_low],
                 )
                 # print(regression[0]*sign < 0.0, '傾き: ', regression[0], ', 切片: ', regression[1], )
                 if regression[0]*sign < 0.0: # 傾き
@@ -138,23 +153,23 @@ class Analyzer():
                     trendlines[high_or_low].append(trendline)
 
         self.desc_trends = pd.concat(trendlines['high'], axis=1)
-        self.asc_trends  = pd.concat(trendlines['low'],  axis=1)
-        return { 'success': '[Analyzer] トレンドラインを生成しました' }
+        self.asc_trends = pd.concat(trendlines['low'], axis=1)
+        return {'success': '[Analyzer] トレンドラインを生成しました'}
 
     def __get_breakpoints(self):
         ''' トレンドブレイク箇所を配列で返す：今は下降トレンドのブレイクのみ '''
         close_candles = FXBase.get_candles().copy().close
-        trendbreaks   = { 'jump': [], 'fall': [] }
+        trendbreaks = {'jump': [], 'fall': []}
 
         for bool_jump in [True, False]:
             if bool_jump:
                 jump_or_fall = 'jump'
-                trendlines   = self.desc_trends
+                trendlines = self.desc_trends
             else:
                 jump_or_fall = 'fall'
-                trendlines   = self.asc_trends
+                trendlines = self.asc_trends
 
-            for col_name, trend_line in trendlines.iteritems():
+            for _col_name, trend_line in trendlines.iteritems():
                 # x=i,i+1 が両方ともトレンドラインを突破したら breakpoint とする
                 for i in range(0, len(close_candles)):
                     # i, i+1 がトレンドラインに存在しない場合にスキップ
@@ -163,12 +178,12 @@ class Analyzer():
                     if math.isnan(trend_line[i]) or math.isnan(trend_line[i+1]):
                         continue
                     if bool_jump:
-                        if trend_line[i]   < close_candles[i] and \
+                        if trend_line[i] < close_candles[i] and \
                            trend_line[i+1] < close_candles[i+1]:
                             trendbreaks[jump_or_fall].append(i+1)
                             break
                     else:
-                        if trend_line[i]   > close_candles[i] and \
+                        if trend_line[i] > close_candles[i] and \
                            trend_line[i+1] > close_candles[i+1]:
                             trendbreaks[jump_or_fall].append(i+1)
                             break
@@ -191,14 +206,14 @@ class Analyzer():
 
     def __calc_parabolic(self):
         # 初期状態は上昇トレンドと仮定して計算
-        bull                = True
+        bull = True
         acceleration_factor = Analyzer.INITIAL_AF
-        extreme_price       = FXBase.get_candles().high[0]
-        self.__SAR          = [FXBase.get_candles().low[0]]
+        extreme_price = FXBase.get_candles().high[0]
+        self.__SAR = [FXBase.get_candles().low[0]]
 
         for i, row in FXBase.get_candles().iterrows():
             current_high = FXBase.get_candles().high[i]
-            current_low  = FXBase.get_candles().low[i]
+            current_low = FXBase.get_candles().low[i]
 
             # レートがparabolicに触れたときの処理
             if self.__parabolic_is_touched(
@@ -206,7 +221,7 @@ class Analyzer():
                 current_parabo=self.__SAR[-1],
                 current_h=current_high, current_l=current_low
             ):
-                parabolicSAR        = extreme_price
+                parabolicSAR = extreme_price
                 acceleration_factor = Analyzer.INITIAL_AF
                 if bull:
                     bull = False
@@ -217,14 +232,14 @@ class Analyzer():
             else:
                 if bull:
                     if extreme_price < current_high:
-                        extreme_price       = current_high
+                        extreme_price = current_high
                         acceleration_factor = min(
                             acceleration_factor + Analyzer.INITIAL_AF,
                             Analyzer.MAX_AF
                         )
                 else:
                     if extreme_price > current_low:
-                        extreme_price       = current_low
+                        extreme_price = current_low
                         acceleration_factor = min(
                             acceleration_factor + Analyzer.INITIAL_AF,
                             Analyzer.MAX_AF
