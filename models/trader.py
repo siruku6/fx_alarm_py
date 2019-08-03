@@ -356,7 +356,8 @@ class Trader():
         # long価格の修正
         len_of_long_hist = len(self.__hist_positions['long']) - 1
         for i, row in enumerate(self.__hist_positions['long']):
-            if i == len_of_long_hist: break
+            if i == len_of_long_hist:
+                break
 
             print('[Trader] long-accurize: {i}/{total}'.format(i=i, total=len_of_long_hist))
             if row['type'] == 'long':
@@ -371,14 +372,15 @@ class Trader():
                         row['price'] = M10_row.high
                         row['time'] = M10_row.time
                         self.__chain_accurization(
-                            i, type='long', old_price=old_price, accurater_price=M10_row.high
+                            i, 'long', old_price, accurater_price=M10_row.high
                         )
                         break
 
         # short価格の修正
         len_of_short_hist = len(self.__hist_positions['short']) - 1
         for i, row in enumerate(self.__hist_positions['short']):
-            if i == len_of_short_hist: break
+            if i == len_of_short_hist:
+                break
 
             print('[Trader] short-accurize: {i}/{total}'.format(i=i, total=len_of_short_hist))
             if row['type'] == 'short':
@@ -393,7 +395,7 @@ class Trader():
                         row['price'] = M10_row.low
                         row['time'] = M10_row.time
                         self.__chain_accurization(
-                            i, type='short', old_price=old_price, accurater_price=M10_row.low
+                            i, 'short', old_price, accurater_price=M10_row.low
                         )
                         break
 
@@ -401,7 +403,11 @@ class Trader():
 
     def __chain_accurization(self, index, type, old_price, accurater_price):
         index += 1
-        while (self.__hist_positions[type][index]['price'] == old_price):
+        length = len(self.__hist_positions[type])
+        while (index < length):
+            if self.__hist_positions[type][index]['price'] != old_price:
+                break
+
             self.__hist_positions[type][index]['price'] = accurater_price
             index += 1
 
@@ -451,13 +457,14 @@ class Trader():
                 row['profit'] = short_hist[i-1]['price'] - row['price']
 
         hist_array = long_hist + short_hist
-        profit_array =  [
+        profit_array = [
             row['profit'] for row in hist_array if row['type'] == 'close'
         ]
         print('[合計損益] {profit}pips'.format(
             profit=round(sum(profit_array) * 100, 3)
         ))
         return profit_array
+
 
 class RealTrader(Trader):
     def __init__(self, operation='verification'):
