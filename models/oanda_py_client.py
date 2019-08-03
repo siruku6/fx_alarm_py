@@ -30,10 +30,10 @@ class FXBase():
         # pandas_df == None という比較はできない
         if old_candles is None:
             return new_candles
-        else:
-            return pd.concat([old_candles, new_candles]) \
-                     .drop_duplicates(subset='time') \
-                     .reset_index(drop=True)
+
+        return pd.concat([old_candles, new_candles]) \
+                    .drop_duplicates(subset='time') \
+                    .reset_index(drop=True)
 
     @classmethod
     def set_candles(cls, candles):
@@ -97,12 +97,12 @@ class OandaPyClient():
         )
         if response['candles'] == []:
             return { 'error': '[Watcher] request結果、データがありませんでした' }
-        else:
-            candles = self.__transform_to_candle_chart(response)
-            FXBase.set_candles(
-                candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
-            )
-            return { 'success': '[Watcher] Oandaからのレート取得に成功' }
+
+        candles = self.__transform_to_candle_chart(response)
+        FXBase.set_candles(
+            candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
+        )
+        return { 'success': '[Watcher] Oandaからのレート取得に成功' }
 
     def load_long_chart(self, days=1, granularity='M5'):
         ''' 長期間のチャート取得のために複数回APIリクエスト '''
@@ -130,8 +130,8 @@ class OandaPyClient():
         if remaining_days is 0:
             FXBase.set_candles(candles)
             return { 'success': '[Watcher] APIリクエスト成功' }
-        else:
-            return { 'error': '[Watcher] 処理中断' }
+
+        return { 'error': '[Watcher] 処理中断' }
 
     def request_latest_candles(self, target_datetime, granularity='M10', period_of_time='D'):
         end_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')

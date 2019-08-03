@@ -1,4 +1,4 @@
-import datetime, logging, math, os
+import logging, math, os
 import numpy as np
 import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
@@ -10,7 +10,7 @@ from models.drawer import FigureDrawer
 
 class Trader():
     def __init__(self, operation='verification'):
-        if operation is 'custom' or operation is 'verification':
+        if operation == 'custom' or operation == 'verification':
             inst = OandaPyClient.select_instrument()
             self.__instrument = inst['name']
             self.__static_spread = inst['spread']
@@ -27,13 +27,13 @@ class Trader():
         sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
         self._STOPLOSS_BUFFER_pips = sl_buffer or 0.05
 
-        if operation is 'custom':
+        if operation == 'custom':
             self.__request_custom_candles()
             self._client.request_current_price()
-        elif operation is 'live':
+        elif operation == 'live':
             result = self._client.request_is_tradeable()
             self.tradeable = result['tradeable']
-            if self.tradeable == False:
+            if not self.tradeable:
                 self._log_skip_reason('1. market is not open')
                 self.__drawer.close_all()
                 return
@@ -46,15 +46,15 @@ class Trader():
         if 'error' in result:
             self._log_skip_reason(result['error'])
             return
-        elif operation is not 'live':
+        elif operation != 'live':
             print(result['success'])
 
         self._indicators = self.__ana.get_indicators()
         self.__initialize_position_variables()
 
     def __initialize_position_variables(self):
-        self._position = { 'type': 'none' }
-        self.__hist_positions = { 'long': [], 'short': [] }
+        self._position = {'type': 'none'}
+        self.__hist_positions = {'long': [], 'short': []}
 
     #
     # public
@@ -65,7 +65,7 @@ class Trader():
     def auto_verify_trading_rule(self, accurize=False):
         ''' tradeルールを自動検証 '''
         print(self.__demo_swing_trade()['success'])
-        if accurize and (self.__granularity[0] is not 'M'):
+        if accurize and (self.__granularity[0] != 'M'):
             print(self.__accurize_entry_prices()['success'])
 
     def verify_varios_stoploss(self, accurize=False):
@@ -162,7 +162,7 @@ class Trader():
     def _over_2_sigma(self, index, o_price):
         if self._indicators['band_+2σ'][index] < o_price or \
            self._indicators['band_-2σ'][index] > o_price:
-            if self._operation is 'live':
+            if self._operation == 'live':
                 self._log_skip_reason('c. o_price is over 2sigma')
             return True
 
@@ -172,20 +172,16 @@ class Trader():
         '''
         ルールに基づいてトレンドの有無を判定
         '''
-        sma    = self._indicators['20SMA'][index]
-        ema    = self._indicators['10EMA'][index]
+        sma = self._indicators['20SMA'][index]
+        ema = self._indicators['10EMA'][index]
         parabo = self._indicators['SAR'][index]
-        if sma    < ema     and \
-           ema    < c_price and \
-           parabo < c_price:
+        if sma < ema < c_price and parabo < c_price:
             trend = 'bull'
-        elif sma    > ema     and \
-             ema    > c_price and \
-             parabo > c_price:
+        elif sma > ema > c_price and parabo > c_price:
             trend = 'bear'
         else:
             trend = None
-            if self._operation is 'live':
+            if self._operation == 'live':
                 print('[Trader] 20SMA: {}, 10EMA: {}, close: {}'.format(sma, ema, c_price))
                 self._log_skip_reason('2. There isn`t the trend')
         return trend
@@ -201,7 +197,7 @@ class Trader():
             direction = 'short'
         else:
             direction = None
-            if self._operation is 'live':
+            if self._operation == 'live':
                 print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
                     trend, candles.high[i-1], candles.high[i], candles.low[i-1], candles.low[i]
                 ))
@@ -217,7 +213,7 @@ class Trader():
             if candles.low[i-1] - self._STOPLOSS_BUFFER_pips > stoploss_price:
                 stoploss_price = candles.low[i-1] - self._STOPLOSS_BUFFER_pips
                 self._trail_stoploss(
-                    index=i, new_SL=stoploss_price, time=candles.time[i]
+                    new_SL=stoploss_price, time=candles.time[i]
                 )
             if stoploss_price > candles.low[i]:
                 self._settle_position(
@@ -231,7 +227,7 @@ class Trader():
             if candles.high[i-1] + self._STOPLOSS_BUFFER_pips < stoploss_price:
                 stoploss_price = candles.high[i-1] + self._STOPLOSS_BUFFER_pips
                 self._trail_stoploss(
-                    index=i, new_SL=stoploss_price, time=candles.time[i]
+                    new_SL=stoploss_price, time=candles.time[i]
                 )
             if stoploss_price < candles.high[i] + self.__static_spread:
                 self._settle_position(
@@ -293,7 +289,7 @@ class Trader():
             else:
                 self._judge_settle_position(index, close_price)
 
-        return { 'success': '[Trader] 売買判定終了' }
+        return {'success': '[Trader] 売買判定終了'}
 
     def _create_position(self, index, direction):
         '''
@@ -314,7 +310,7 @@ class Trader():
         }
         self.__hist_positions[direction].append(self._position.copy())
 
-    def _trail_stoploss(self, index, new_SL, time):
+    def _trail_stoploss(self, new_SL, time):
         direction = self._position['type']
         self._position['stoploss']      = new_SL
         position_after_trailing         = self._position.copy()
@@ -340,7 +336,7 @@ class Trader():
         None
         '''
         direction = self._position['type']
-        self._position = { 'type': 'none' }
+        self._position = {'type': 'none'}
         self.__hist_positions[direction].append({
             'sequence': index, 'price': price,
             'stoploss': 0.0, 'type': 'close', 'time': time
@@ -368,7 +364,7 @@ class Trader():
                     granularity='M10',
                     base_granurarity=self.__granularity
                 )
-                for j, M10_row in M10_candles.iterrows():
+                for _j, M10_row in M10_candles.iterrows():
                     if row['price'] < M10_row.high:
                         old_price = row['price']
                         row['price'] = M10_row.high
@@ -401,7 +397,7 @@ class Trader():
                         )
                         break
 
-        return { 'success': '[Trader] entry価格を、現実的に取引可能な値に修正' }
+        return {'success': '[Trader] entry価格を、現実的に取引可能な値に修正'}
 
     def __chain_accurization(self, index, type, old_price, accurater_price):
         index += 1
@@ -486,21 +482,19 @@ class RealTrader(Trader):
         ルールに基づいてポジションをとる(Oanda通信有)
         '''
         candles = FXBase.get_candles()
-        if direction is 'long':
+        if direction == 'long':
             sign = ''
             stoploss = candles.low[index-1] - self._STOPLOSS_BUFFER_pips
-        elif direction is 'short':
+        elif direction == 'short':
             sign = '-'
             stoploss = candles.high[index-1] + self._STOPLOSS_BUFFER_pips
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
 
-    def _trail_stoploss(self, index, new_SL, time):
+    def _trail_stoploss(self, new_SL, time):
         '''
         ポジションのstoploss-priceを強気方向へ修正する
         Parameters
         ----------
-        index : int
-            不要
         new_SL : float
             新しいstoploss-price
         time : string
@@ -537,34 +531,33 @@ class RealTrader(Trader):
     def __play_swing_trade(self):
         ''' 現在のレートにおいて、スイングトレードルールでトレード '''
         print('[Trader] -------- start --------')
-        index = len(self._indicators) - 1 # INFO: 最終行
+        last_index = len(self._indicators) - 1
         close_price = FXBase.get_candles().close.values[-1]
 
         self._position = self.__load_position()
         if self._position['type'] == 'none':
             if os.environ.get('CUSTOM_RULE') == 'on' and \
-               self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]): return
+               self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]): return
 
-            trend = self._check_trend(index=index, c_price=close_price)
+            trend = self._check_trend(index=last_index, c_price=close_price)
             if trend is None: return
 
-            direction = self._find_thrust(index, trend)
+            direction = self._find_thrust(last_index, trend)
             if direction is None: return
 
-            self._create_position(index, direction)
+            self._create_position(last_index, direction)
         else:
-            self._judge_settle_position(index, close_price)
+            self._judge_settle_position(last_index, close_price)
 
         return None
 
     def __load_position(self):
-        pos = { 'type': 'none' }
+        pos = {'type': 'none'}
         open_trades = self._client.request_open_trades()
         if open_trades == []: return pos
 
         # Open position の情報抽出
         target = open_trades[0]
-        id = target['id']
         pos['price'] = float(target['price'])
         if target['currentUnits'][0] == '-':
             pos['type'] = 'short'

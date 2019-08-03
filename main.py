@@ -1,12 +1,11 @@
 # from models import interval, mailer
 import json
-from models.oanda_py_client import FXBase #, OandaPyClient
 from models.trader import RealTrader
 
 # For AWS Lambda
 def lambda_handler(event, context):
     tr = RealTrader(operation='live')
-    if tr.tradeable == False:
+    if not tr.tradeable:
         msg = 'lambda function is correctly finished, but now the market is closed.'
         return {
             'statusCode': 204,
