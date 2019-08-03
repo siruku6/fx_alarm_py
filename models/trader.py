@@ -82,8 +82,10 @@ class Trader():
 
             self.__calc_profit()
             _df = pd.concat(
-                [ pd.DataFrame(self.__hist_positions['long'],  columns=self.__columns),
-                  pd.DataFrame(self.__hist_positions['short'], columns=self.__columns) ],
+                [
+                    pd.DataFrame(self.__hist_positions['long'],  columns=self.__columns),
+                    pd.DataFrame(self.__hist_positions['short'], columns=self.__columns)
+                ],
                 axis=1, keys=['long', 'short'],
                 names=['type', '-']
             )
@@ -115,9 +117,9 @@ class Trader():
             drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['20SMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
             drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['10EMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='cyan')
             drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_+2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue')
-            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_-2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue')
+            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_-2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
             drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_+3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan')
-            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_-3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan')
+            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_-3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan', nolabel='_nolegend_')
             drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['SAR']],      plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
 
             start = df_len - MAX_ROWS * (i + 1)
