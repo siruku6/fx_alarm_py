@@ -1,19 +1,22 @@
-import logging, os
-import datetime, time
+import datetime
+import time
+import logging
+import os
 import pandas as pd
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 
 # For trading
 from   oandapyV20 import API
 import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.trades as trades
-import oandapyV20.endpoints.instruments as inst
+import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
 from   oandapyV20.exceptions import V20Error
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 # pd.set_option('display.max_rows', candles_count) # 表示可能な最大行数を設定
+
 
 class FXBase():
     __candles = None
@@ -29,13 +32,12 @@ class FXBase():
 
     @classmethod
     def union_candles_distinct(cls, old_candles, new_candles):
-        # pandas_df == None という比較はできない
         if old_candles is None:
             return new_candles
 
         return pd.concat([old_candles, new_candles]) \
-                    .drop_duplicates(subset='time') \
-                    .reset_index(drop=True)
+                 .drop_duplicates(subset='time') \
+                 .reset_index(drop=True)
 
     @classmethod
     def set_candles(cls, candles):
@@ -58,9 +60,9 @@ class OandaPyClient():
     def select_instrument(cls, inst_id=None):
         # TODO: 正しいspreadを後で確認して設定する
         instruments = [
-            { 'name': 'USD_JPY', 'spread': 0.004 },
-            { 'name': 'EUR_USD', 'spread': 0.00014 },
-            { 'name': 'GBP_JPY', 'spread': 0.014 }
+            {'name': 'USD_JPY', 'spread': 0.004},
+            {'name': 'EUR_USD', 'spread': 0.00014},
+            {'name': 'GBP_JPY', 'spread': 0.014}
         ]
         if inst_id is not None: return instruments[inst_id]
 
@@ -102,7 +104,7 @@ class OandaPyClient():
         FXBase.set_candles(
             candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
         )
-        return { 'success': '[Watcher] Oandaからのレート取得に成功' }
+        return {'success': '[Watcher] Oandaからのレート取得に成功'}
 
     def load_long_chart(self, days=1, granularity='M5'):
         ''' 長期間のチャート取得のために複数回APIリクエスト '''
@@ -110,7 +112,7 @@ class OandaPyClient():
         candles = None
         requestable_max_days = self.__calc_requestable_max_days(granularity=granularity)
 
-        now = datetime.datetime.now() - datetime.timedelta(hours=9) # UTC化
+        now = datetime.datetime.now() - datetime.timedelta(hours=9)
         while remaining_days > 0:
             start_datetime = now - datetime.timedelta(days=remaining_days)
             remaining_days -= requestable_max_days
@@ -127,7 +129,7 @@ class OandaPyClient():
             print('残り: {remaining_days}日分'.format(remaining_days=remaining_days))
             time.sleep(1)
 
-        if remaining_days is 0:
+        if remaining_days == 0:
             FXBase.set_candles(candles)
             return { 'success': '[Watcher] APIリクエスト成功' }
 
@@ -346,7 +348,7 @@ class OandaPyClient():
                 'granularity': granularity
             }
 
-        request_obj = inst.InstrumentsCandles(
+        request_obj = module_inst.InstrumentsCandles(
             instrument=self.__instrument,
             params=time_params
         )
@@ -391,13 +393,13 @@ class OandaPyClient():
         ''' 必要なrecordのみ残してdataframeに変換する '''
         filtered_transactions = [
             row for row in response_transactions if (
-                row['type']!='ORDER_CANCEL' and
-                row['type']!='MARKET_ORDER' # and
+                row['type'] != 'ORDER_CANCEL' and
+                row['type'] != 'MARKET_ORDER' # and
                 # row['type']!='MARKET_ORDER_REJECT'
             )
         ]
 
-        df = pd.DataFrame.from_dict(filtered_transactions).fillna({ 'pl': 0 })
+        df = pd.DataFrame.from_dict(filtered_transactions).fillna({'pl': 0})
         df = df[[
             'batchID',
             'id',

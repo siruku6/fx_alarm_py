@@ -1,4 +1,6 @@
-import logging, math, os
+import math
+import os
+# import logging
 import numpy as np
 import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
@@ -7,6 +9,7 @@ from models.drawer import FigureDrawer
 
 # logger = logging.getLogger()
 # logger.setLevel(logging.INFO)
+
 
 class Trader():
     def __init__(self, operation='verification'):
@@ -19,10 +22,10 @@ class Trader():
             self.__static_spread = 0.0
 
         self._operation = operation
-        self._client    = OandaPyClient(instrument=self.__instrument)
-        self.__ana      = Analyzer()
-        self.__drawer   = FigureDrawer()
-        self.__columns  = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
+        self._client = OandaPyClient(instrument=self.__instrument)
+        self.__ana = Analyzer()
+        self.__drawer = FigureDrawer()
+        self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
         self.__granularity = os.environ.get('GRANULARITY') or 'M5'
         sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
         self._STOPLOSS_BUFFER_pips = sl_buffer or 0.05
@@ -83,7 +86,7 @@ class Trader():
             self.__calc_profit()
             _df = pd.concat(
                 [
-                    pd.DataFrame(self.__hist_positions['long'],  columns=self.__columns),
+                    pd.DataFrame(self.__hist_positions['long'], columns=self.__columns),
                     pd.DataFrame(self.__hist_positions['short'], columns=self.__columns)
                 ],
                 axis=1, keys=['long', 'short'],
@@ -103,13 +106,13 @@ class Trader():
         MAX_ROWS = 200
         drwr = self.__drawer
         df_pos = {
-            'long':  pd.DataFrame(self.__hist_positions['long'],  columns=self.__columns),
+            'long': pd.DataFrame(self.__hist_positions['long'], columns=self.__columns),
             'short': pd.DataFrame(self.__hist_positions['short'], columns=self.__columns)
         }
 
         df_len = len(self._indicators)
-        dfs_indicator  = self.__split_df_by_200rows(self._indicators)
-        dfs_long_hist  = self.__split_df_by_200sequences(df_pos['long'],  df_len)
+        dfs_indicator = self.__split_df_by_200rows(self._indicators)
+        dfs_long_hist = self.__split_df_by_200sequences(df_pos['long'], df_len)
         dfs_short_hist = self.__split_df_by_200sequences(df_pos['short'], df_len)
 
         dfs_length = len(dfs_indicator)
@@ -135,7 +138,7 @@ class Trader():
             drwr.draw_positionDf_on_plt(df=dfs_short_hist[i][dfs_short_hist[i].type=='close'], plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
             result = drwr.create_png(instrument=self.__instrument, granularity=self.__granularity, sr_time=sr_time, num=i)
             drwr.close_all()
-            if  dfs_length != i+1: drwr.open_new_figure()
+            if dfs_length != i + 1: drwr.open_new_figure()
             if 'success' in result: print(result['success'], '/{}'.format(dfs_length))
 
         return {
@@ -191,15 +194,15 @@ class Trader():
         thrust発生の有無と方向を判定して返却する
         '''
         candles = FXBase.get_candles()[['high', 'low']]
-        if trend == 'bull' and candles.high[i] > candles.high[i-1]:
+        if trend == 'bull' and candles.high[i] > candles.high[i - 1]:
             direction = 'long'
-        elif trend == 'bear' and candles.low[i] < candles.low[i-1]:
+        elif trend == 'bear' and candles.low[i] < candles.low[i - 1]:
             direction = 'short'
         else:
             direction = None
             if self._operation == 'live':
                 print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
-                    trend, candles.high[i-1], candles.high[i], candles.low[i-1], candles.low[i]
+                    trend, candles.high[i - 1], candles.high[i], candles.low[i - 1], candles.low[i]
                 ))
                 self._log_skip_reason('3. There isn`t thrust')
         return direction
@@ -210,8 +213,8 @@ class Trader():
         position_type  = self._position['type']
         stoploss_price = self._position['stoploss']
         if position_type == 'long':
-            if candles.low[i-1] - self._STOPLOSS_BUFFER_pips > stoploss_price:
-                stoploss_price = candles.low[i-1] - self._STOPLOSS_BUFFER_pips
+            if candles.low[i - 1] - self._STOPLOSS_BUFFER_pips > stoploss_price:
+                stoploss_price = candles.low[i - 1] - self._STOPLOSS_BUFFER_pips
                 self._trail_stoploss(
                     new_SL=stoploss_price, time=candles.time[i]
                 )
@@ -224,8 +227,8 @@ class Trader():
                     index=i, price=c_price, time=candles.time[i]
                 )
         elif position_type == 'short':
-            if candles.high[i-1] + self._STOPLOSS_BUFFER_pips < stoploss_price:
-                stoploss_price = candles.high[i-1] + self._STOPLOSS_BUFFER_pips
+            if candles.high[i - 1] + self._STOPLOSS_BUFFER_pips < stoploss_price:
+                stoploss_price = candles.high[i - 1] + self._STOPLOSS_BUFFER_pips
                 self._trail_stoploss(
                     new_SL=stoploss_price, time=candles.time[i]
                 )
@@ -298,11 +301,11 @@ class Trader():
         candles = FXBase.get_candles()
         if direction == 'long':
             # OPTIMIZE: entry_priceが甘い。 candles.close[index] でもいいかも
-            entry_price = candles.high[index-1] + self.__static_spread
-            stoploss    = candles.low[index-1] - self._STOPLOSS_BUFFER_pips
+            entry_price = candles.high[index - 1] + self.__static_spread
+            stoploss    = candles.low[index - 1] - self._STOPLOSS_BUFFER_pips
         elif direction == 'short':
-            entry_price = candles.low[index-1]
-            stoploss    = candles.high[index-1] + self._STOPLOSS_BUFFER_pips
+            entry_price = candles.low[index - 1]
+            stoploss    = candles.high[index - 1] + self._STOPLOSS_BUFFER_pips
 
         self._position = {
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
@@ -446,13 +449,13 @@ class Trader():
         long_hist = self.__hist_positions['long']
         for i, row in enumerate(long_hist):
             if row['type'] == 'close':
-                row['profit'] = row['price'] - long_hist[i-1]['price']
+                row['profit'] = row['price'] - long_hist[i - 1]['price']
 
         # shortエントリーの損益を計算
         short_hist = self.__hist_positions['short']
         for i, row in enumerate(short_hist):
             if row['type'] == 'close':
-                row['profit'] = short_hist[i-1]['price'] - row['price']
+                row['profit'] = short_hist[i - 1]['price'] - row['price']
 
         hist_array = long_hist + short_hist
         profit_array = [
@@ -484,10 +487,10 @@ class RealTrader(Trader):
         candles = FXBase.get_candles()
         if direction == 'long':
             sign = ''
-            stoploss = candles.low[index-1] - self._STOPLOSS_BUFFER_pips
+            stoploss = candles.low[index - 1] - self._STOPLOSS_BUFFER_pips
         elif direction == 'short':
             sign = '-'
-            stoploss = candles.high[index-1] + self._STOPLOSS_BUFFER_pips
+            stoploss = candles.high[index - 1] + self._STOPLOSS_BUFFER_pips
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
 
     def _trail_stoploss(self, new_SL, time):
