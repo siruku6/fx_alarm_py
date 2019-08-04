@@ -13,7 +13,7 @@ from models.drawer import FigureDrawer
 
 class Trader():
     def __init__(self, operation='verification'):
-        if operation == 'custom' or operation == 'verification':
+        if operation in ['custom', 'verification']:
             inst = OandaPyClient.select_instrument()
             self.__instrument = inst['name']
             self.__static_spread = inst['spread']
@@ -193,22 +193,24 @@ class Trader():
         '''
         thrust発生の有無と方向を判定して返却する
         '''
-        candles = FXBase.get_candles()[['high', 'low']]
-        if trend == 'bull' and candles.high[i] > candles.high[i - 1]:
+        candles = FXBase.get_candles()
+        candles_h = candles.high
+        candles_l = candles.low
+        if trend == 'bull' and candles_h[i] > candles_h[i - 1]:
             direction = 'long'
-        elif trend == 'bear' and candles.low[i] < candles.low[i - 1]:
+        elif trend == 'bear' and candles_l[i] < candles_l[i - 1]:
             direction = 'short'
         else:
             direction = None
             if self._operation == 'live':
                 print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
-                    trend, candles.high[i - 1], candles.high[i], candles.low[i - 1], candles.low[i]
+                    trend, candles_h[i - 1], candles_h[i], candles_l[i - 1], candles_l[i]
                 ))
                 self._log_skip_reason('3. There isn`t thrust')
         return direction
 
     def _judge_settle_position(self, i, c_price):
-        candles        = FXBase.get_candles()
+        candles = FXBase.get_candles()
         parabolic      = self._indicators['SAR']
         position_type  = self._position['type']
         stoploss_price = self._position['stoploss']

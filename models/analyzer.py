@@ -212,8 +212,8 @@ class Analyzer():
         self.__SAR = [FXBase.get_candles().low[0]]
 
         for i, row in FXBase.get_candles().iterrows():
-            current_high = FXBase.get_candles().high[i]
-            current_low = FXBase.get_candles().low[i]
+            current_high = row.high
+            current_low = row.low
 
             # レートがparabolicに触れたときの処理
             if self.__parabolic_is_touched(
