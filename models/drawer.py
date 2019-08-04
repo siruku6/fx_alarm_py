@@ -3,55 +3,62 @@
 
 import pandas as pd
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import mpl_finance
 from models.oanda_py_client import FXBase
+
+matplotlib.use('Agg')
 
 
 class FigureDrawer():
 
     PLOT_TYPE = {
-        'dot': 0, 'long':  1, 'short': 2, 'trail': 3, 'exit': 4, 'break': 5,
+        'dot': 0, 'long': 1, 'short': 2, 'trail': 3, 'exit': 4, 'break': 5,
         'simple-line': 11, 'dashed-line': 12
     }
     POS_TYPE = {'neutral': 0, 'over': 1, 'beneath': 2}
 
     def __init__(self):
-        self.open_new_figure()
+        self.init_figure()
 
-    def open_new_figure(self):
-        self.__figure, (self.__axis1) = \
-            plt.subplots(nrows=1, ncols=1, figsize=(8, 4), dpi=144)
+    def init_figure(self):
+        ''' 生成画像の初期設定 '''
+        self.__figure, (self.__axis1, self.__axis2) = \
+            plt.subplots(
+                nrows=2, ncols=1, gridspec_kw={'height_ratios': [3, 1]},
+                figsize=(8, 4), dpi=144
+            )
         # INFO: https://zaburo-ch.github.io/post/20141217_0/
-        self.__figure.subplots_adjust(left=0.03, right=0.92, bottom=0.135, top=0.92)
+        self.__figure.subplots_adjust(left=0.03, right=0.92, bottom=0.03, top=0.92, hspace=0.35)
 
     def close_all(self):
         # https://stackoverflow.com/questions/21884271/warning-about-too-many-open-figures
         plt.close('all')
 
-    def draw_df_on_plt(self, df, plot_type=PLOT_TYPE['simple-line'], color='black', nolabel=None):
+    def draw_df_on_plt(self, d_frame, plot_type, color='black', nolabel=None, plt_id=1):
         ''' DataFrameを受け取って、各columnを描画 '''
         # エラー防止処理
-        if df is None:
+        if d_frame is None:
             return {'error': '[Drawer] データがありません'}
-        if type(df) is not pd.core.frame.DataFrame:
+        if type(d_frame) is not pd.core.frame.DataFrame:
             return {'error': '[Drawer] DataFrame型以外が渡されました'}
+
+        plt_axis = self.__axis1 if plt_id == 1 else self.__axis2
 
         # 描画
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
         if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
-            for key, column in df.iteritems():
-                self.__axis1.plot(df.index, column.values, label=nolabel or key, c=color, linewidth=0.6)
+            for key, column in d_frame.iteritems():
+                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linewidth=0.6)
         elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
-            for key, column in df.iteritems():
-                self.__axis1.plot(df.index, column.values, label=nolabel or key, c=color, linestyle='dashed', linewidth=0.6)
+            for key, column in d_frame.iteritems():
+                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linestyle='dashed', linewidth=0.6)
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
-            for key, column in df.iteritems():
-                self.__axis1.scatter(x=df.index, y=column.values, label=nolabel or key, c=color, marker='d', s=2)
+            for key, column in d_frame.iteritems():
+                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=2)
 
-        print('[Drawer] ', df.columns[0], 'を描画')
-        return {'success': 'dfを描画'}
+        print('[Drawer] ', d_frame.columns[0], 'を描画')
+        return {'success': 'd_frameを描画'}
 
     def draw_positionDf_on_plt(self, df, plot_type=PLOT_TYPE['long'], nolabel=None):
         ''' __hist_positionsから抽出したdfを受け取って描画 '''
@@ -135,9 +142,11 @@ class FigureDrawer():
             inst=instrument, granularity=granularity, len=len(FXBase.get_candles())
         ))
         self.__axis1.yaxis.tick_right()
+        self.__axis2.yaxis.tick_right()
         self.__axis1.yaxis.grid(color='lightgray', linestyle='dashed', linewidth=0.5)
-        plt.sca(self.__axis1)
 
+        # INFO: axis1
+        plt.sca(self.__axis1)
         xticks_number = int(len(sr_time) / num_break_xticks_into)
         if xticks_number > 0:
             xticks_index = range(0, len(sr_time), xticks_number)
@@ -145,15 +154,12 @@ class FigureDrawer():
             xticks_display = [sr_time.values[i][5:16] for i in xticks_index]
             plt.xticks(xticks_index, xticks_display, rotation=30, fontsize='small')
         plt.legend(loc='best', fontsize=8)
+
+        # INFO: axis2
+        plt.sca(self.__axis2)
+        plt.hlines([20, 80], 0, len(sr_time), color='lightgray', linestyle='dashed', linewidth=0.5)
+        plt.tick_params(labelbottom=False)
+        plt.legend(loc='upper left', fontsize=8)
+
         plt.savefig('tmp/figure_{num}.png'.format(num=num))
         return {'success': '[Drawer] 描画済みイメージをpng化 {}'.format(num + 1)}
-
-    def get_sample_df(self):
-        ''' サンプルdf生成 '''
-        import random
-        import numpy as np
-        xs = range(1, 284)
-        y = [x * random.randint(436, 875) for x in xs]
-        y2 = np.sin(xs) * 50000
-        df = pd.DataFrame({'y': y, 'sin': y2}, index=xs)
-        return df

@@ -20,6 +20,8 @@ class Analyzer():
         self.__TRIPLE_SIGMA_BAND = None
         self.__MINUS_TRIPLE_SIGMA_BAND = None
         self.__SAR = []
+        self.__stod = None
+        self.__stosd = None
 
         # Trendline
         self.desc_trends = None
@@ -37,6 +39,8 @@ class Analyzer():
         self.__calc_EMA()
         self.__calc_bollinger_bands()
         self.__calc_parabolic()
+        self.__stod = self.__calc_STOD(window_size=5)
+        self.__stosd = self.__calc_STOSD(window_size=5)
         # result = self.__calc_trendlines()
         # if 'success' in result:
         #     print(result['success'])
@@ -48,10 +52,13 @@ class Analyzer():
 
     def get_indicators(self):
         indicators = pd.concat(
-            [self.__SMA, self.__EMA,
-             self.__DOUBLE_SIGMA_BAND, self.__MINUS_DOUBLE_SIGMA_BAND,
-             self.__TRIPLE_SIGMA_BAND, self.__MINUS_TRIPLE_SIGMA_BAND,
-             self.__SAR],
+            [
+                self.__SMA, self.__EMA,
+                self.__DOUBLE_SIGMA_BAND, self.__MINUS_DOUBLE_SIGMA_BAND,
+                self.__TRIPLE_SIGMA_BAND, self.__MINUS_TRIPLE_SIGMA_BAND,
+                self.__SAR,
+                self.__stod, self.__stosd
+            ],
             axis=1
         )
         return indicators
@@ -108,7 +115,7 @@ class Analyzer():
             local_extremum 又は extremal: 局所的極値のこと。
             極大値と極小値両方を指す（数学用語） '''
         sign = 'high' if bool_high else 'low'
-        extremals = FXBase.get_candles()[start:end+1]
+        extremals = FXBase.get_candles()[start:end + 1]
         while len(extremals) > Analyzer.MAX_EXTREMAL_CNT:
             regression = linregress(x=extremals['time_id'], y=extremals[sign],)
             if bool_high:
@@ -135,7 +142,7 @@ class Analyzer():
             sign = 1 if bool_high else -1
 
             # for i in array[start:end-1:step]:
-            for i in FXBase.get_candles().index[::int(span/2)]:
+            for i in FXBase.get_candles().index[::int(span / 2)]:
                 extremals = self.__get_local_extremum(i, i + span, bool_high=bool_high)
                 if len(extremals) < 2:
                     continue
@@ -147,8 +154,8 @@ class Analyzer():
                     y=extremals[high_or_low],
                 )
                 # print(regression[0]*sign < 0.0, '傾き: ', regression[0], ', 切片: ', regression[1], )
-                if regression[0]*sign < 0.0: # 傾き
-                    trendline = regression[0] * FXBase.get_candles().time_id[i:i+span*2] + regression[1]
+                if regression[0] * sign < 0.0: # 傾き
+                    trendline = regression[0] * FXBase.get_candles().time_id[i:i + span * 2] + regression[1]
                     trendline.name = 'x_%s' % str(i)
                     trendlines[high_or_low].append(trendline)
 
@@ -173,19 +180,19 @@ class Analyzer():
                 # x=i,i+1 が両方ともトレンドラインを突破したら breakpoint とする
                 for i in range(0, len(close_candles)):
                     # i, i+1 がトレンドラインに存在しない場合にスキップ
-                    if not(i in trend_line.index) or not(i+1 in trend_line.index):
+                    if not(i in trend_line.index) or not(i + 1 in trend_line.index):
                         continue
-                    if math.isnan(trend_line[i]) or math.isnan(trend_line[i+1]):
+                    if math.isnan(trend_line[i]) or math.isnan(trend_line[i + 1]):
                         continue
                     if bool_jump:
                         if trend_line[i] < close_candles[i] and \
-                           trend_line[i+1] < close_candles[i+1]:
-                            trendbreaks[jump_or_fall].append(i+1)
+                           trend_line[i + 1] < close_candles[i + 1]:
+                            trendbreaks[jump_or_fall].append(i + 1)
                             break
                     else:
                         if trend_line[i] > close_candles[i] and \
-                           trend_line[i+1] > close_candles[i+1]:
-                            trendbreaks[jump_or_fall].append(i+1)
+                           trend_line[i + 1] > close_candles[i + 1]:
+                            trendbreaks[jump_or_fall].append(i + 1)
                             break
 
         self.jump_trendbreaks = trendbreaks['jump']
@@ -251,3 +258,30 @@ class Analyzer():
             else:
                 self.__SAR.append(parabolicSAR)
         self.__SAR = pd.DataFrame(data=self.__SAR, columns=['SAR'])
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #                    Stochastic                       #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # http://www.algo-fx-blog.com/stochastics-python/
+    def __calc_STOK(self, window_size=5):
+        ''' ストキャスの%Kを計算 '''
+        candles = FXBase.get_candles()
+        stoK = ((candles.close - candles.low.rolling(window=window_size, center=False).min()) / (
+            candles.high.rolling(window=window_size, center=False).max() - \
+            candles.low.rolling(window=window_size, center=False).min()
+        )) * 100
+        return stoK
+
+    def __calc_STOD(self, window_size):
+        ''' ストキャスの%Dを計算（%Kの3日SMA） '''
+        stoK = self.__calc_STOK(window_size)
+        stoD = stoK.rolling(window=3, center=False).mean()
+        stoD.name = 'stoD:3'
+        return stoD
+
+    def __calc_STOSD(self, window_size):
+        ''' ストキャスの%SDを計算（%Dの3日SMA） '''
+        stoD = self.__calc_STOD(window_size)
+        stoSD = stoD.rolling(window=3, center=False).mean()
+        stoSD.name = 'stoSD:3'
+        return stoSD

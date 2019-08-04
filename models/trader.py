@@ -117,13 +117,15 @@ class Trader():
 
         dfs_length = len(dfs_indicator)
         for i in range(0, dfs_length):
-            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['20SMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
-            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['10EMA']],    plot_type=drwr.PLOT_TYPE['simple-line'], color='cyan')
-            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_+2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue')
-            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_-2σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
-            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_+3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan')
-            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['band_-3σ']], plot_type=drwr.PLOT_TYPE['simple-line'], color='lightcyan', nolabel='_nolegend_')
-            drwr.draw_df_on_plt(df=dfs_indicator[i].loc[:, ['SAR']],      plot_type=drwr.PLOT_TYPE['dot'],         color='purple')
+            drwr.draw_df_on_plt(dfs_indicator[i].loc[:, ['20SMA']],    drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
+            drwr.draw_df_on_plt(dfs_indicator[i].loc[:, ['10EMA']],    drwr.PLOT_TYPE['simple-line'], color='cyan')
+            drwr.draw_df_on_plt(dfs_indicator[i].loc[:, ['band_+2σ']], drwr.PLOT_TYPE['simple-line'], color='royalblue')
+            drwr.draw_df_on_plt(dfs_indicator[i].loc[:, ['band_-2σ']], drwr.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
+            drwr.draw_df_on_plt(dfs_indicator[i].loc[:, ['band_+3σ']], drwr.PLOT_TYPE['simple-line'], color='lightcyan')
+            drwr.draw_df_on_plt(dfs_indicator[i].loc[:, ['band_-3σ']], drwr.PLOT_TYPE['simple-line'], color='lightcyan', nolabel='_nolegend_')
+            drwr.draw_df_on_plt(dfs_indicator[i].loc[:, ['SAR']],      drwr.PLOT_TYPE['dot'],         color='purple')
+            drwr.draw_df_on_plt(dfs_indicator[i].loc[:, ['stoD:3']],   drwr.PLOT_TYPE['simple-line'], color='turquoise', plt_id=2)
+            drwr.draw_df_on_plt(dfs_indicator[i].loc[:, ['stoSD:3']],  drwr.PLOT_TYPE['simple-line'], color='orangered', plt_id=2)
 
             start = df_len - MAX_ROWS * (i + 1)
             if start < 0: start = 0
@@ -138,7 +140,7 @@ class Trader():
             drwr.draw_positionDf_on_plt(df=dfs_short_hist[i][dfs_short_hist[i].type=='close'], plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
             result = drwr.create_png(instrument=self.__instrument, granularity=self.__granularity, sr_time=sr_time, num=i)
             drwr.close_all()
-            if dfs_length != i + 1: drwr.open_new_figure()
+            if dfs_length != i + 1: drwr.init_figure()
             if 'success' in result: print(result['success'], '/{}'.format(dfs_length))
 
         return {
