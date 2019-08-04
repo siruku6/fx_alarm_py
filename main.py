@@ -1,6 +1,7 @@
-# from models import interval, mailer
+# from models import mailer
 import json
 from models.trader import RealTrader
+
 
 # For AWS Lambda
 def lambda_handler(event, context):
@@ -18,6 +19,7 @@ def lambda_handler(event, context):
         'statusCode': 200,
         'body': json.dumps(msg)
     }
+
 
 # For local console
 if __name__ == '__main__':
@@ -52,7 +54,3 @@ if __name__ == '__main__':
 # if __name__ == '__main__':
 #     main = Main()
 #     main.periodic_processes()
-#
-#     # 2回目以降の定期処理
-#     interval.periodically_exec(method=main.periodic_processes, span_minutes=5)
-#     interval.wait_until_killed(report_span_sec=20)
