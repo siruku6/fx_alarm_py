@@ -425,7 +425,7 @@ class Trader():
     def __chain_accurization(self, index, type, old_price, accurater_price):
         index += 1
         length = len(self.__hist_positions[type])
-        while (index < length):
+        while index < length:
             if self.__hist_positions[type][index]['price'] != old_price:
                 break
 
@@ -438,7 +438,7 @@ class Trader():
         df_len = len(df)
         loop = 0
 
-        while (MAX_LEN * loop < df_len):
+        while MAX_LEN * loop < df_len:
             end = df_len - MAX_LEN * loop
             loop += 1
             start = df_len - MAX_LEN * loop
@@ -451,7 +451,7 @@ class Trader():
         MAX_LEN = 200
         loop = 0
 
-        while (MAX_LEN * loop < df_len):
+        while MAX_LEN * loop < df_len:
             end = df_len - MAX_LEN * loop
             loop += 1
             start = df_len - MAX_LEN * loop
