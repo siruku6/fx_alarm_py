@@ -166,10 +166,25 @@ class Trader():
         if self._indicators['band_+2σ'][index] < o_price or \
            self._indicators['band_-2σ'][index] > o_price:
             if self._operation == 'live':
-                self._log_skip_reason('c. o_price is over 2sigma')
+                self._log_skip_reason(
+                    'c. {}: o_price is over 2sigma'.format(FXBase.get_candles().time[index])
+                )
             return True
 
         return False
+
+    def _expand_MA_gap(self, index):
+        sma = self._indicators['20SMA']
+        ema = self._indicators['10EMA']
+        previous_gap = abs(sma[index - 1] - ema[index - 1])
+        current_gap = abs(sma[index] - ema[index])
+        ma_gap_is_expanding = previous_gap < current_gap
+
+        if not ma_gap_is_expanding and self._operation == 'live':
+            self._log_skip_reason(
+                'c. {}: MA_gap is shrinking'.format(FXBase.get_candles().time[index])
+            )
+        return ma_gap_is_expanding
 
     def _check_trend(self, index, c_price):
         '''
@@ -281,8 +296,9 @@ class Trader():
             if self._position['type'] == 'none':
                 if math.isnan(sma[index]): continue
 
-                if os.environ.get('CUSTOM_RULE') == 'on' and \
-                   self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]): continue
+                if os.environ.get('CUSTOM_RULE') == 'on':
+                    if self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]): continue
+                    if not self._expand_MA_gap(index): continue
 
                 trend = self._check_trend(index, close_price)
                 if trend is None: continue
@@ -541,8 +557,9 @@ class RealTrader(Trader):
 
         self._position = self.__load_position()
         if self._position['type'] == 'none':
-            if os.environ.get('CUSTOM_RULE') == 'on' and \
-               self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]): return
+            if os.environ.get('CUSTOM_RULE') == 'on':
+                if self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]): return
+                if not self._expand_MA_gap(last_index): return
 
             trend = self._check_trend(index=last_index, c_price=close_price)
             if trend is None: return
