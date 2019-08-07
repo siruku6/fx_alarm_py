@@ -23,11 +23,10 @@ class FigureDrawer():
 
     def init_figure(self):
         ''' 生成画像の初期設定 '''
-        self.__figure, (self.__axis1, self.__axis2) = \
-            plt.subplots(
-                nrows=2, ncols=1, gridspec_kw={'height_ratios': [3, 1]},
-                figsize=(8, 4), dpi=144
-            )
+        self.__figure, (self.__axis1, self.__axis2) = plt.subplots(
+            nrows=2, ncols=1, gridspec_kw={'height_ratios': [3, 1]},
+            figsize=(8, 4), dpi=144
+        )
         # INFO: https://zaburo-ch.github.io/post/20141217_0/
         self.__figure.subplots_adjust(left=0.03, right=0.92, bottom=0.03, top=0.92, hspace=0.35)
 
@@ -84,8 +83,10 @@ class FigureDrawer():
             label = 'exit'
             mark = 'x'
 
-        if plot_type == FigureDrawer.PLOT_TYPE['trail']: y = df.stoploss
-        else: y = df.price
+        if plot_type == FigureDrawer.PLOT_TYPE['trail']:
+            y = df.stoploss
+        else:
+            y = df.price
         self.__axis1.scatter(
             x=df.sequence, y=y,
             marker=mark, edgecolors=edgecolors, label=nolabel or label,
@@ -143,7 +144,6 @@ class FigureDrawer():
         ))
         self.__axis1.yaxis.tick_right()
         self.__axis2.yaxis.tick_right()
-        self.__axis1.yaxis.grid(color='lightgray', linestyle='dashed', linewidth=0.5)
 
         # INFO: axis1
         plt.sca(self.__axis1)
@@ -153,12 +153,16 @@ class FigureDrawer():
             # INFO: 日付から表示するため、先頭12文字目から取る
             xticks_display = [sr_time.values[i][5:16] for i in xticks_index]
             plt.xticks(xticks_index, xticks_display, rotation=30, fontsize='small')
-        plt.legend(loc='best', fontsize=8)
+            plt.legend(loc='best', fontsize=8)
+            plt.grid(which='major', linestyle='dashed')
 
         # INFO: axis2
         plt.sca(self.__axis2)
         plt.hlines([20, 80], 0, len(sr_time), color='lightgray', linestyle='dashed', linewidth=0.5)
-        plt.tick_params(labelbottom=False)
+        if xticks_number > 0:
+            plt.xticks(xticks_index, [])
+            # plt.tick_params(labelbottom=False)
+        plt.grid(linestyle='dashed')
         plt.legend(loc='upper left', fontsize=8)
 
         plt.savefig('tmp/figure_{num}.png'.format(num=num))
