@@ -2,14 +2,18 @@ import datetime
 import numpy as np
 import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
+from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
+
 
 class Librarian():
     def __init__(self):
         inst = OandaPyClient.select_instrument()
         self.__instrument = inst['name']
-        self.__client  = OandaPyClient(instrument=self.__instrument)
+        self.__client = OandaPyClient(instrument=self.__instrument)
+        self.__ana = Analyzer()
         self.__drawer = FigureDrawer()
+        self._indicators = None
 
     def merge_history_and_instruments(self, granularity='M10'):
         '''
@@ -35,7 +39,7 @@ class Librarian():
         # prepare candles: time-series currency price
         start_str, end_str = self.__calc_requestable_period(
             history_df['time'][0],
-            history_df['time'][len(history_df)-1]
+            history_df['time'][len(history_df) - 1]
         )
         candles = self.__client.request_specified_period_candles(
             start_str=start_str,
@@ -44,18 +48,27 @@ class Librarian():
         )
         candles['time'] = [time[:19] for time in candles.time]
         candles['sequence'] = candles.index
-
         print('[Libra] candlesセット完了')
+
         # merge
         result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
         result = pd.merge(result,  close_df, on='time', how='outer', right_index=True)
         result = pd.merge(result,  trail_df, on='time', how='outer', right_index=True)
         result = result.drop_duplicates(['time'])
+        result['units'] = result.units.fillna('0').astype(int)
+        FXBase.set_candles(result)
         print('[Libra] データmerge完了')
+
+        # prepare indicators
+        calc_result = self.__ana.calc_indicators()
+        if 'error' in calc_result:
+            print(calc_result['error'])
+            return
+        self._indicators = self.__ana.get_indicators()
 
         # INFO: Visualization
         result.to_csv('./tmp/oanda_trade_hist.csv', index=False)
-        self.__draw_history(result)
+        self.__draw_history()
         self.__drawer.close_all()
 
         return result
@@ -102,26 +115,30 @@ class Librarian():
         minutes += diff_timedelta.days * 24 * 60
         return minutes
 
-    def __draw_history(self, df):
+    def __draw_history(self):
         # INFO: データ準備
-        df['units'] = df.units.fillna('0').astype(int)
-        FXBase.set_candles(df)
-        entry_df = df[['sequence', 'entry_price', 'units']].rename(columns={'entry_price': 'price'})
+        d_frame = FXBase.get_candles()
+        entry_df = d_frame[['sequence', 'entry_price', 'units']].rename(columns={'entry_price': 'price'})
         long_df, short_df = entry_df.copy(), entry_df.copy()
         long_df['price'][long_df.units <= 0] = np.nan
         short_df['price'][short_df.units >= 0] = np.nan
-        close_df = df[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
+        close_df = d_frame[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
 
         # INFO: 描画
         drwr = self.__drawer
         drwr.draw_candles()
+
+        drwr.draw_df_on_plt(self._indicators.loc[:, ['20SMA']],    drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
+        drwr.draw_df_on_plt(self._indicators.loc[:, ['10EMA']],    drwr.PLOT_TYPE['simple-line'], color='cyan')
+        drwr.draw_df_on_plt(self._indicators.loc[:, ['band_+2σ']], drwr.PLOT_TYPE['simple-line'], color='royalblue')
+        drwr.draw_df_on_plt(self._indicators.loc[:, ['band_-2σ']], drwr.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
+        drwr.draw_df_on_plt(self._indicators.loc[:, ['band_+3σ']], drwr.PLOT_TYPE['simple-line'], color='lightcyan')
+        drwr.draw_df_on_plt(self._indicators.loc[:, ['band_-3σ']], drwr.PLOT_TYPE['simple-line'], color='lightcyan', nolabel='_nolegend_')
+        drwr.draw_df_on_plt(self._indicators.loc[:, ['SAR']],      drwr.PLOT_TYPE['dot'],         color='purple')
+
         drwr.draw_positionDf_on_plt(df=long_df[['sequence', 'price']],  plot_type=drwr.PLOT_TYPE['long'])
         drwr.draw_positionDf_on_plt(df=short_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['short'])
-        drwr.draw_positionDf_on_plt(df=df[['sequence', 'stoploss']],    plot_type=drwr.PLOT_TYPE['trail'])
+        drwr.draw_positionDf_on_plt(df=d_frame[['sequence', 'stoploss']],    plot_type=drwr.PLOT_TYPE['trail'])
         drwr.draw_positionDf_on_plt(df=close_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['exit'])
-        result = drwr.create_png()
+        result = drwr.create_png(instrument=self.__instrument, granularity='real-trade', sr_time=d_frame.time, num=0)
         print(result['success'])
-
-# def sample(val=None):
-#     print(val)
-#     print(np.arange(1, 10))
