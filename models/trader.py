@@ -414,14 +414,14 @@ class Trader():
 
         return {'success': '[Trader] entry価格を、現実的に取引可能な値に修正'}
 
-    def __chain_accurization(self, index, type, old_price, accurater_price):
+    def __chain_accurization(self, index, entry_type, old_price, accurater_price):
         index += 1
-        length = len(self.__hist_positions[type])
+        length = len(self.__hist_positions[entry_type])
         while index < length:
-            if self.__hist_positions[type][index]['price'] != old_price:
+            if self.__hist_positions[entry_type][index]['price'] != old_price:
                 break
 
-            self.__hist_positions[type][index]['price'] = accurater_price
+            self.__hist_positions[entry_type][index]['price'] = accurater_price
             index += 1
 
     def __split_df_by_200rows(self, df):
