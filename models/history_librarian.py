@@ -33,7 +33,10 @@ class Librarian():
 
         # preapre history_df: trade-history
         history_df = self.__client.request_transactions()
-        history_df['time'] = [self.__convert_to_M10(time) for time in history_df.time]
+        if granularity == 'M10':
+            history_df['time'] = [self.__convert_to_M10(time) for time in history_df.time]
+        elif granularity == 'H4':
+            history_df['time'] = [self.__convert_to_H4(time) for time in history_df.time]
         entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
 
         # prepare candles: time-series currency price
@@ -50,6 +53,8 @@ class Librarian():
         candles['sequence'] = candles.index
         print('[Libra] candlesセット完了')
 
+        # import pdb; pdb.set_trace()
+
         # merge
         result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
         result = pd.merge(result,  close_df, on='time', how='outer', right_index=True)
@@ -58,13 +63,6 @@ class Librarian():
         result['units'] = result.units.fillna('0').astype(int)
         FXBase.set_candles(result)
         print('[Libra] データmerge完了')
-
-        # prepare indicators
-        calc_result = self.__ana.calc_indicators()
-        if 'error' in calc_result:
-            print(calc_result['error'])
-            return
-        self._indicators = self.__ana.get_indicators()
 
         # INFO: Visualization
         result.to_csv('./tmp/oanda_trade_hist.csv', index=False)
@@ -79,8 +77,10 @@ class Librarian():
     def __divide_history_by_type(self, df):
         entry_df = df.dropna(subset=['tradeOpened'])[['price', 'time', 'units']]
         entry_df = entry_df.rename(columns={'price': 'entry_price'})
+
         close_df = df.dropna(subset=['tradesClosed'])[['price', 'time', 'pl']]
         close_df = close_df.rename(columns={'price': 'close_price'})
+
         trail_df = df[df.type == 'STOP_LOSS_ORDER'][['price', 'time']]
         trail_df = trail_df.rename(columns={'price': 'stoploss'})
         return entry_df, close_df, trail_df
@@ -91,6 +91,16 @@ class Librarian():
         m10_str = self.__truncate_sec(m10_str).replace('T', ' ')
         return m10_str
 
+    def __convert_to_H4(self, oanda_time):
+        # INFO: 12文字目までで hour まで取得できる
+        time = datetime.datetime.strptime(oanda_time.replace('T', ' ')[:13], '%Y-%m-%d %H')
+
+        # INFO: OandaのH4は [1,5,9,13,17,21] を取り得るので、それをはみ出した時間を切り捨て
+        minus = ((time.hour + 3) % 4)
+        time -= datetime.timedelta(hours=minus)
+        h4_str = time.strftime('%Y-%m-%d %H:%M:%S')
+        return h4_str
+
     def __truncate_sec(self, oanda_time_str):
         sec_start = 17
         truncated_str = oanda_time_str[:sec_start] + '00'
@@ -98,11 +108,13 @@ class Librarian():
 
     def __calc_requestable_period(self, start_str, end_str):
         start_dt = datetime.datetime.strptime(start_str[:19], '%Y-%m-%d %H:%M:%S')
-        end_dt   = datetime.datetime.strptime(end_str[:19],   '%Y-%m-%d %H:%M:%S')
+        end_dt = datetime.datetime.strptime(end_str[:19], '%Y-%m-%d %H:%M:%S')
         new_start_dt = start_dt - datetime.timedelta(minutes=30)
         new_end_dt = end_dt + datetime.timedelta(minutes=30)
         diff_min = self.__calc_minutes_diff(new_start_dt, new_end_dt)
-        if diff_min > 50000: # 50000 / M10 = 5000(= max candles count)
+
+        # 50000 / M10 = 5000(= max candles count)
+        if diff_min > 50000:
             new_start_dt = new_end_dt - datetime.timedelta(minutes=49000)
 
         new_start_str = new_start_dt.strftime('%Y-%m-%d %H:%M:%S')
@@ -116,22 +128,33 @@ class Librarian():
         return minutes
 
     def __draw_history(self):
+        DRAWABLE_ROWS = 200
+
         # INFO: データ準備
-        d_frame = FXBase.get_candles()
+        d_frame = FXBase.get_candles().copy()[-DRAWABLE_ROWS:None].reset_index(drop=True)
+        d_frame['sequence'] = d_frame.index
         entry_df = d_frame[['sequence', 'entry_price', 'units']].rename(columns={'entry_price': 'price'})
-        long_df, short_df = entry_df.copy(), entry_df.copy()
-        long_df['price'][long_df.units <= 0] = np.nan
-        short_df['price'][short_df.units >= 0] = np.nan
         close_df = d_frame[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
+
+        long_df, short_df = entry_df.copy(), entry_df.copy()
+        long_df.loc[long_df.units <= 0, 'price'] = np.nan
+        short_df.loc[short_df.units >= 0, 'price'] = np.nan
+
+        # prepare indicators
+        calc_result = self.__ana.calc_indicators()
+        if 'error' in calc_result:
+            print(calc_result['error'])
+            return
+        self._indicators = self.__ana.get_indicators()
 
         # INFO: 描画
         drwr = self.__drawer
-        drwr.draw_candles()
-        drwr.draw_indicators(d_frame=self._indicators)
+        drwr.draw_candles(-DRAWABLE_ROWS, None)
+        drwr.draw_indicators(d_frame=self._indicators[-DRAWABLE_ROWS:None].reset_index(drop=True))
 
-        drwr.draw_positionDf_on_plt(df=long_df[['sequence', 'price']],  plot_type=drwr.PLOT_TYPE['long'])
-        drwr.draw_positionDf_on_plt(df=short_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['short'])
-        drwr.draw_positionDf_on_plt(df=d_frame[['sequence', 'stoploss']],    plot_type=drwr.PLOT_TYPE['trail'])
-        drwr.draw_positionDf_on_plt(df=close_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['exit'])
+        drwr.draw_positionDf_on_plt(df=long_df[['sequence', 'price']],    plot_type=drwr.PLOT_TYPE['long'])
+        drwr.draw_positionDf_on_plt(df=short_df[['sequence', 'price']],   plot_type=drwr.PLOT_TYPE['short'])
+        drwr.draw_positionDf_on_plt(df=d_frame[['sequence', 'stoploss']], plot_type=drwr.PLOT_TYPE['trail'])
+        drwr.draw_positionDf_on_plt(df=close_df[['sequence', 'price']],   plot_type=drwr.PLOT_TYPE['exit'])
         result = drwr.create_png(instrument=self.__instrument, granularity='real-trade', sr_time=d_frame.time, num=0)
         print(result['success'])

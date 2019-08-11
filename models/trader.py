@@ -449,6 +449,7 @@ class Trader():
             start = df_len - MAX_LEN * loop
             start = start if start > 0 else 0
             df_target = df[(start <= df.sequence) & (df.sequence < end)].copy()
+            # 描画は sequence に基づいて行われるので、ずらしておく
             df_target['sequence'] = df_target.sequence - start
             dfs.append(df_target)
         return dfs
