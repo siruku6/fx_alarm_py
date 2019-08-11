@@ -127,14 +127,7 @@ class Librarian():
         # INFO: 描画
         drwr = self.__drawer
         drwr.draw_candles()
-
-        drwr.draw_df_on_plt(self._indicators.loc[:, ['20SMA']],    drwr.PLOT_TYPE['simple-line'], color='lightskyblue')
-        drwr.draw_df_on_plt(self._indicators.loc[:, ['10EMA']],    drwr.PLOT_TYPE['simple-line'], color='cyan')
-        drwr.draw_df_on_plt(self._indicators.loc[:, ['band_+2σ']], drwr.PLOT_TYPE['simple-line'], color='royalblue')
-        drwr.draw_df_on_plt(self._indicators.loc[:, ['band_-2σ']], drwr.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
-        drwr.draw_df_on_plt(self._indicators.loc[:, ['band_+3σ']], drwr.PLOT_TYPE['simple-line'], color='lightcyan')
-        drwr.draw_df_on_plt(self._indicators.loc[:, ['band_-3σ']], drwr.PLOT_TYPE['simple-line'], color='lightcyan', nolabel='_nolegend_')
-        drwr.draw_df_on_plt(self._indicators.loc[:, ['SAR']],      drwr.PLOT_TYPE['dot'],         color='purple')
+        drwr.draw_indicators(d_frame=self._indicators)
 
         drwr.draw_positionDf_on_plt(df=long_df[['sequence', 'price']],  plot_type=drwr.PLOT_TYPE['long'])
         drwr.draw_positionDf_on_plt(df=short_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['short'])

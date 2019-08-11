@@ -34,6 +34,19 @@ class FigureDrawer():
         # https://stackoverflow.com/questions/21884271/warning-about-too-many-open-figures
         plt.close('all')
 
+    # OPTIMIZE: Analyzerクラスと密結合なメソッドになってしまった
+    def draw_indicators(self, d_frame):
+        ''' DateFrameからindicatorを描画 '''
+        self.draw_df_on_plt(d_frame.loc[:, ['20SMA']],    FigureDrawer.PLOT_TYPE['simple-line'], color='lightskyblue')
+        self.draw_df_on_plt(d_frame.loc[:, ['10EMA']],    FigureDrawer.PLOT_TYPE['simple-line'], color='cyan')
+        self.draw_df_on_plt(d_frame.loc[:, ['band_+2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue')
+        self.draw_df_on_plt(d_frame.loc[:, ['band_-2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
+        self.draw_df_on_plt(d_frame.loc[:, ['band_+3σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightcyan')
+        self.draw_df_on_plt(d_frame.loc[:, ['band_-3σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightcyan', nolabel='_nolegend_')
+        self.draw_df_on_plt(d_frame.loc[:, ['SAR']],      FigureDrawer.PLOT_TYPE['dot'],         color='purple')
+        self.draw_df_on_plt(d_frame.loc[:, ['stoD:3']],   FigureDrawer.PLOT_TYPE['simple-line'], color='turquoise', plt_id=2)
+        self.draw_df_on_plt(d_frame.loc[:, ['stoSD:3']],  FigureDrawer.PLOT_TYPE['simple-line'], color='orangered', plt_id=2)
+
     def draw_df_on_plt(self, d_frame, plot_type, color='black', nolabel=None, plt_id=1):
         ''' DataFrameを受け取って、各columnを描画 '''
         # エラー防止処理
