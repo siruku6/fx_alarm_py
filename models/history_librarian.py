@@ -53,8 +53,6 @@ class Librarian():
         candles['sequence'] = candles.index
         print('[Libra] candlesセット完了')
 
-        # import pdb; pdb.set_trace()
-
         # merge
         result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
         result = pd.merge(result,  close_df, on='time', how='outer', right_index=True)
@@ -141,10 +139,7 @@ class Librarian():
         short_df.loc[short_df.units >= 0, 'price'] = np.nan
 
         # prepare indicators
-        calc_result = self.__ana.calc_indicators()
-        if 'error' in calc_result:
-            print(calc_result['error'])
-            return
+        self.__ana.calc_indicators()
         self._indicators = self.__ana.get_indicators()
 
         # INFO: 描画
