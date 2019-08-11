@@ -167,12 +167,17 @@ class Trader():
 
         return False
 
-    def _expand_MA_gap(self, index):
+    def _expand_MA_gap(self, index, trend):
         sma = self._indicators['20SMA']
         ema = self._indicators['10EMA']
-        previous_gap = abs(sma[index - 1] - ema[index - 1])
-        current_gap = abs(sma[index] - ema[index])
-        ma_gap_is_expanding = previous_gap < current_gap
+
+        previous_gap = ema[index - 1] - sma[index - 1]
+        current_gap = ema[index] - sma[index]
+
+        if trend == 'bull':
+            ma_gap_is_expanding = previous_gap < current_gap
+        elif trend == 'bear':
+            ma_gap_is_expanding = previous_gap > current_gap
 
         if not ma_gap_is_expanding and self._operation == 'live':
             self._log_skip_reason(
@@ -197,6 +202,22 @@ class Trader():
                 print('[Trader] 20SMA: {}, 10EMA: {}, close: {}'.format(sma, ema, c_price))
                 self._log_skip_reason('2. There isn`t the trend')
         return trend
+
+    def _stochastic_allow_trade(self, index, trend):
+        ''' stocがtrendと一致した動きをしていれば true を返す '''
+        stoD = self._indicators['stoD:3'][index]
+        stoSD = self._indicators['stoSD:3'][index]
+        result = False
+
+        if trend == 'bull' and (stoD > stoSD or stoD > 80):
+            result = True
+        elif trend == 'bear' and (stoD < stoSD or stoD < 20):
+            result = True
+
+        if result is False and self._operation == 'live':
+            print('[Trader] stoD: {}, stoSD: {}'.format(stoD, stoSD))
+            self._log_skip_reason('c. stochastic denies trade')
+        return result
 
     def _find_thrust(self, i, trend):
         '''
@@ -290,12 +311,16 @@ class Trader():
             if self._position['type'] == 'none':
                 if math.isnan(sma[index]): continue
 
-                if os.environ.get('CUSTOM_RULE') == 'on':
-                    if self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]): continue
-                    if not self._expand_MA_gap(index): continue
-
                 trend = self._check_trend(index, close_price)
                 if trend is None: continue
+
+                if os.environ.get('CUSTOM_RULE') == 'on':
+                    # 大失敗を防いでくれる
+                    if self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]): continue
+                    # 大幅に改善する
+                    if not self._expand_MA_gap(index, trend): continue
+                    # 若干効果あり
+                    if not self._stochastic_allow_trade(index, trend): continue
 
                 direction = self._find_thrust(index, trend)
                 if direction is None: continue
@@ -552,12 +577,13 @@ class RealTrader(Trader):
 
         self._position = self.__load_position()
         if self._position['type'] == 'none':
-            if os.environ.get('CUSTOM_RULE') == 'on':
-                if self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]): return
-                if not self._expand_MA_gap(last_index): return
-
             trend = self._check_trend(index=last_index, c_price=close_price)
             if trend is None: return
+
+            if os.environ.get('CUSTOM_RULE') == 'on':
+                if self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]): return
+                if not self._expand_MA_gap(last_index, trend): return
+                if not self._stochastic_allow_trade(last_index, trend): return
 
             direction = self._find_thrust(last_index, trend)
             if direction is None: return
