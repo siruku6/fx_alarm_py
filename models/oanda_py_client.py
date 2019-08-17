@@ -89,6 +89,8 @@ class OandaPyClient():
     #
     # Public
     #
+
+    # INFO: request-candles
     def load_specified_length_candles(self, granularity='M5'):
         ''' チャート情報を更新 '''
         end_datetime = datetime.datetime.now() - datetime.timedelta(hours=9)
@@ -112,12 +114,12 @@ class OandaPyClient():
         candles = None
         requestable_max_days = self.__calc_requestable_max_days(granularity=granularity)
 
-        now = datetime.datetime.now() - datetime.timedelta(hours=9)
+        last_datetime = datetime.datetime.now() - datetime.timedelta(hours=9)
         while remaining_days > 0:
-            start_datetime = now - datetime.timedelta(days=remaining_days)
+            start_datetime = last_datetime - datetime.timedelta(days=remaining_days)
             remaining_days -= requestable_max_days
             if remaining_days < 0: remaining_days = 0
-            end_datetime = now - datetime.timedelta(days=remaining_days)
+            end_datetime = last_datetime - datetime.timedelta(days=remaining_days)
 
             response = self.__request_oanda_instruments(
                 start=self.__format_dt_into_OandapyV20(start_datetime),
@@ -131,9 +133,9 @@ class OandaPyClient():
 
         if remaining_days == 0:
             FXBase.set_candles(candles)
-            return { 'success': '[Watcher] APIリクエスト成功' }
+            return {'success': '[Watcher] APIリクエスト成功'}
 
-        return { 'error': '[Watcher] 処理中断' }
+        return {'error': '[Watcher] 処理中断'}
 
     def request_latest_candles(self, target_datetime, granularity='M10', period_of_time='D'):
         end_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
@@ -196,6 +198,7 @@ class OandaPyClient():
         candles = self.__transform_to_candle_chart(response)
         return candles
 
+    # INFO: request-something (excluding candles)
     def request_is_tradeable(self):
         params = { 'instruments': self.__instrument } # 'USD_JPY,EUR_USD,EUR_JPY'
         request_obj = pricing.PricingInfo(
@@ -236,9 +239,10 @@ class OandaPyClient():
         self.__lastTransactionID = response['lastTransactionID']
         open_trades = response['trades']
 
-        extracted_trades = [trade for trade in open_trades if
-            # 'clientExtensions' not in trade.keys() and
-            trade['instrument'] == self.__instrument
+        extracted_trades = [
+            trade for trade in open_trades if
+                # 'clientExtensions' not in trade.keys() and
+                trade['instrument'] == self.__instrument
         ]
         print('[Client] open_trades: {}'.format(extracted_trades))
         self.__tradeIDs = [trade['id'] for trade in extracted_trades]
@@ -249,16 +253,16 @@ class OandaPyClient():
         if stoploss_price is None: return { 'error': '[Client] StopLoss注文なしでの成り行き注文を禁止します。' }
 
         data = {
-          'order': {
-            'stopLossOnFill': {
-              'timeInForce': 'GTC',
-              'price': str(stoploss_price)[:7] # TODO: 桁数が少ない通貨ペアも考慮する
-            },
-            'instrument': self.__instrument,
-            'units': '{sign}{units}'.format(sign=posi_nega_sign, units=self.__units),
-            'type': 'MARKET',
-            'positionFill': 'DEFAULT'
-          }
+            'order': {
+                'stopLossOnFill': {
+                    'timeInForce': 'GTC',
+                    'price': str(stoploss_price)[:7] # TODO: 桁数が少ない通貨ペアも考慮する
+                },
+                'instrument': self.__instrument,
+                'units': '{sign}{units}'.format(sign=posi_nega_sign, units=self.__units),
+                'type': 'MARKET',
+                'positionFill': 'DEFAULT'
+            }
         }
 
         request_obj = orders.OrderCreate(
@@ -283,8 +287,8 @@ class OandaPyClient():
 
     def request_trailing_stoploss(self, SL_price=None):
         ''' ポジションのstoplossを強気方向に修正 '''
-        if self.__tradeIDs == []: return { 'error': '[Client] trailすべきポジションが見つかりませんでした。' }
-        if SL_price is None: return { 'error': '[Client] StopLoss価格がなく、trailできませんでした。' }
+        if self.__tradeIDs == []: return {'error': '[Client] trailすべきポジションが見つかりませんでした。'}
+        if SL_price is None: return {'error': '[Client] StopLoss価格がなく、trailできませんでした。'}
 
         data = {
             # 'takeProfit': { 'timeInForce': 'GTC', 'price': '1.3'  },
@@ -344,7 +348,7 @@ class OandaPyClient():
         else:
             time_params = {
                 # 'alignmentTimezone': 'Asia/Tokyo',
-                'from': start, 'to':  end,
+                'from': start, 'to': end,
                 'granularity': granularity
             }
 
@@ -357,7 +361,7 @@ class OandaPyClient():
             response = self.__api_client.request(request_obj)
         except V20Error as e:
             logger.error('[__request_oanda_instruments] V20Error: ', e)
-            return { 'candles': [] }
+            return {'candles': []}
 
         return response
 
@@ -365,7 +369,7 @@ class OandaPyClient():
         ''' APIレスポンスをチャートデータに整形 '''
         if response['candles'] == []: return pd.DataFrame(columns=[])
 
-        candle = pd.DataFrame.from_dict([ row['mid'] for row in response['candles'] ])
+        candle = pd.DataFrame.from_dict([row['mid'] for row in response['candles']])
         candle = candle.astype({
             'c': 'float64',
             'l': 'float64',
@@ -373,7 +377,7 @@ class OandaPyClient():
             'o': 'float64'
         })
         candle.columns = ['close', 'high', 'low', 'open']
-        candle['time'] = [ row['time'] for row in response['candles'] ]
+        candle['time'] = [row['time'] for row in response['candles']]
         # 冗長な日時データを短縮
         # https://note.nkmk.me/python-pandas-datetime-timestamp/
         candle['time'] = pd.to_datetime(candle['time']).astype(str) # '2018-06-03 21:00:00'
