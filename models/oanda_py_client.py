@@ -200,7 +200,7 @@ class OandaPyClient():
 
     # INFO: request-something (excluding candles)
     def request_is_tradeable(self):
-        params = { 'instruments': self.__instrument } # 'USD_JPY,EUR_USD,EUR_JPY'
+        params = {'instruments': self.__instrument} # 'USD_JPY,EUR_USD,EUR_JPY'
         request_obj = pricing.PricingInfo(
             accountID=os.environ['OANDA_ACCOUNT_ID'], params=params
         )
@@ -250,7 +250,7 @@ class OandaPyClient():
 
     def request_market_ordering(self, posi_nega_sign='', stoploss_price=None):
         ''' 成行注文を実施 '''
-        if stoploss_price is None: return { 'error': '[Client] StopLoss注文なしでの成り行き注文を禁止します。' }
+        if stoploss_price is None: return {'error': '[Client] StopLoss注文なしでの成り行き注文を禁止します。'}
 
         data = {
             'order': {
@@ -274,10 +274,10 @@ class OandaPyClient():
 
     def request_closing_position(self):
         ''' ポジションをclose '''
-        if self.__tradeIDs == []: return { 'error': '[Client] closeすべきポジションが見つかりませんでした。' }
+        if self.__tradeIDs == []: return {'error': '[Client] closeすべきポジションが見つかりませんでした。'}
 
         target_tradeID = self.__tradeIDs[0]
-        # data = { 'units': self.__units }
+        # data = {'units': self.__units}
         request_obj = trades.TradeClose(
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_tradeID # , data=data
         )
@@ -291,8 +291,8 @@ class OandaPyClient():
         if SL_price is None: return {'error': '[Client] StopLoss価格がなく、trailできませんでした。'}
 
         data = {
-            # 'takeProfit': { 'timeInForce': 'GTC', 'price': '1.3'  },
-            'stopLoss': { 'timeInForce': 'GTC', 'price': str(SL_price)[:7] }
+            # 'takeProfit': {'timeInForce': 'GTC', 'price': '1.3'},
+            'stopLoss': {'timeInForce': 'GTC', 'price': str(SL_price)[:7]}
         }
         request_obj = trades.TradeCRCDO(
             accountID=os.environ['OANDA_ACCOUNT_ID'],

@@ -121,7 +121,7 @@ class Librarian():
 
     def __calc_minutes_diff(self, start_dt, end_dt):
         diff_timedelta = end_dt - start_dt
-        minutes, sec = divmod(diff_timedelta.seconds, 60)
+        minutes, _sec = divmod(diff_timedelta.seconds, 60)
         minutes += diff_timedelta.days * 24 * 60
         return minutes
 
