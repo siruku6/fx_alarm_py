@@ -5,17 +5,17 @@ import os
 import pandas as pd
 
 # For trading
-from   oandapyV20 import API
+from oandapyV20 import API
+from oandapyV20.exceptions import V20Error
 import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
-from   oandapyV20.exceptions import V20Error
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
-# pd.set_option('display.max_rows', candles_count) # 表示可能な最大行数を設定
+# pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
 
 
 class FXBase():
@@ -188,7 +188,7 @@ class OandaPyClient():
 
     # INFO: request-something (excluding candles)
     def request_is_tradeable(self):
-        params = {'instruments': self.__instrument} # 'USD_JPY,EUR_USD,EUR_JPY'
+        params = {'instruments': self.__instrument}  # 'USD_JPY,EUR_USD,EUR_JPY'
         request_obj = pricing.PricingInfo(
             accountID=os.environ['OANDA_ACCOUNT_ID'], params=params
         )
@@ -244,7 +244,7 @@ class OandaPyClient():
             'order': {
                 'stopLossOnFill': {
                     'timeInForce': 'GTC',
-                    'price': str(stoploss_price)[:7] # TODO: 桁数が少ない通貨ペアも考慮する
+                    'price': str(stoploss_price)[:7]  # TODO: 桁数が少ない通貨ペアも考慮する
                 },
                 'instrument': self.__instrument,
                 'units': '{sign}{units}'.format(sign=posi_nega_sign, units=self.__units),
@@ -267,7 +267,7 @@ class OandaPyClient():
         target_tradeID = self.__tradeIDs[0]
         # data = {'units': self.__units}
         request_obj = trades.TradeClose(
-            accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_tradeID # , data=data
+            accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_tradeID  # , data=data
         )
         response = self.__api_client.request(request_obj)
         logger.info('[Client] close-position: {}'.format(response))
@@ -378,7 +378,7 @@ class OandaPyClient():
         candles_per_a_day = self.__calc_candles_wanted(days=1, granularity=granularity)
 
         # http://developer.oanda.com/rest-live-v20/instrument-ep/
-        max_days = int(5000 / candles_per_a_day) # 1 requestにつき5000本まで
+        max_days = int(5000 / candles_per_a_day)  # 1 requestにつき5000本まで
         return max_days
 
     def __format_dt_into_OandapyV20(self, dt):
@@ -389,7 +389,7 @@ class OandaPyClient():
         filtered_transactions = [
             row for row in response_transactions if (
                 row['type'] != 'ORDER_CANCEL' and
-                row['type'] != 'MARKET_ORDER' # and
+                row['type'] != 'MARKET_ORDER'  # and
                 # row['type']!='MARKET_ORDER_REJECT'
             )
         ]

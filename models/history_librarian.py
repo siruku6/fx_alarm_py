@@ -38,12 +38,10 @@ class Librarian():
             history_df['time'] = [self.__convert_to_H4(time) for time in history_df.time]
         entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
 
-        # prepare candles: time-series currency price
-        today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
-        start_dt = datetime.datetime.strptime(history_df['time'][0][:19], '%Y-%m-%d %H:%M:%S')
-        days_wanted = (today_dt - start_dt).days + 1
-        self.__client.load_long_chart(days=days_wanted, granularity=granularity)
-        candles = FXBase.get_candles()
+        candles = self.__prepare_candles(
+            starttime_str=history_df['time'][0][:19],
+            granularity=granularity
+        )
         print('[Libra] candlesセット完了')
 
         # merge
@@ -65,17 +63,6 @@ class Librarian():
     #
     # Private
     #
-    def __divide_history_by_type(self, df):
-        entry_df = df.dropna(subset=['tradeOpened'])[['price', 'time', 'units']]
-        entry_df = entry_df.rename(columns={'price': 'entry_price'})
-
-        close_df = df.dropna(subset=['tradesClosed'])[['price', 'time', 'pl']]
-        close_df = close_df.rename(columns={'price': 'close_price'})
-
-        trail_df = df[df.type == 'STOP_LOSS_ORDER'][['price', 'time']]
-        trail_df = trail_df.rename(columns={'price': 'stoploss'})
-        return entry_df, close_df, trail_df
-
     def __convert_to_M10(self, oanda_time):
         m1_pos = 15
         m10_str = oanda_time[:m1_pos] + '0' + oanda_time[m1_pos + 1:]
@@ -97,11 +84,23 @@ class Librarian():
         truncated_str = oanda_time_str[:sec_start] + '00'
         return truncated_str
 
-    def __calc_minutes_diff(self, start_dt, end_dt):
-        diff_timedelta = end_dt - start_dt
-        minutes, _sec = divmod(diff_timedelta.seconds, 60)
-        minutes += diff_timedelta.days * 24 * 60
-        return minutes
+    def __prepare_candles(self, starttime_str, granularity):
+        today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
+        start_dt = datetime.datetime.strptime(starttime_str, '%Y-%m-%d %H:%M:%S')
+        days_wanted = (today_dt - start_dt).days + 1
+        self.__client.load_long_chart(days=days_wanted, granularity=granularity)
+        return FXBase.get_candles()
+
+    def __divide_history_by_type(self, d_frame):
+        entry_df = d_frame.dropna(subset=['tradeOpened'])[['price', 'time', 'units']]
+        entry_df = entry_df.rename(columns={'price': 'entry_price'})
+
+        close_df = d_frame.dropna(subset=['tradesClosed'])[['price', 'time', 'pl']]
+        close_df = close_df.rename(columns={'price': 'close_price'})
+
+        trail_df = d_frame[d_frame.type == 'STOP_LOSS_ORDER'][['price', 'time']]
+        trail_df = trail_df.rename(columns={'price': 'stoploss'})
+        return entry_df, close_df, trail_df
 
     def __draw_history(self):
         DRAWABLE_ROWS = 200
