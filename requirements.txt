@@ -19,5 +19,5 @@ oandapyV20
 ###### Requirements with Version Specifiers ######
 # ERROR: botocore 1.12.50 has requirement urllib3<1.25,>=1.20; python_version >= "3.4", but you'll have urllib3 1.25.3 which is incompatible.
 # https://github.com/aws/aws-cli/issues/3149
-urllib3==1.24.1
+urllib3==1.24.2
 pandas>=0.24.2

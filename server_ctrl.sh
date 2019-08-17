@@ -44,6 +44,7 @@ make_zip_for_lambda () {
   cp main.py ../${DirName}/
   cp -r models ../${DirName}/
   if test $select = 10; then
+    yes | rm -r ../${DirName}/*
     pip install -t ../${DirName} -r requirements.txt
     # https://medium.com/@korniichuk/lambda-with-pandas-fd81aa2ff25e
     rm -r ../${DirName}/*.dist-info ../${DirName}/__pycache__
