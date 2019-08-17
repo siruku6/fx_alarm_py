@@ -13,7 +13,7 @@ from models.drawer import FigureDrawer
 
 class Trader():
     def __init__(self, operation='verification'):
-        if operation in ['custom', 'verification']:
+        if operation in ['verification']:
             inst = OandaPyClient.select_instrument()
             self.__instrument = inst['name']
             self.__static_spread = inst['spread']
@@ -30,7 +30,7 @@ class Trader():
         sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
         self._STOPLOSS_BUFFER_pips = sl_buffer or 0.05
 
-        if operation == 'custom':
+        if operation == 'verification':
             self.__request_custom_candles()
             self._client.request_current_price()
         elif operation == 'live':
@@ -78,9 +78,9 @@ class Trader():
         stoploss_buffer_list = np.append(
             np.round(np.arange(0.01, 0.10, 0.02), decimals=2), [0.50]
         )
-        for sl in stoploss_buffer_list:
-            print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(sl))
-            self._STOPLOSS_BUFFER_pips = sl
+        for stoploss_buf in stoploss_buffer_list:
+            print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
+            self._STOPLOSS_BUFFER_pips = stoploss_buf
             self.auto_verify_trading_rule(accurize=True)
 
             self.__calc_profit()
