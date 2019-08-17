@@ -140,11 +140,11 @@ class OandaPyClient():
     def request_latest_candles(self, target_datetime, granularity='M10', period_of_time='D'):
         end_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
         time_unit = period_of_time[0]
-        if time_unit is 'M':
+        if time_unit == 'M':
             start_datetime = end_datetime - datetime.timedelta(minutes=int(period_of_time[1:]))
-        elif time_unit is 'H':
+        elif time_unit == 'H':
             start_datetime = end_datetime - datetime.timedelta(hours=int(period_of_time[1:]))
-        elif time_unit is 'D':
+        elif time_unit == 'D':
             start_datetime = end_datetime - datetime.timedelta(days=1)
 
         # try:
@@ -170,11 +170,11 @@ class OandaPyClient():
     def request_specified_candles(self, start_datetime, granularity='M10', base_granurarity='D'):
         start_time = datetime.datetime.strptime(start_datetime, '%Y-%m-%d %H:%M:%S')
         time_unit = base_granurarity[0]
-        if time_unit is 'M':
+        if time_unit == 'M':
             end_time = start_time + datetime.timedelta(minutes=int(base_granurarity[1:]))
-        elif time_unit is 'H':
+        elif time_unit == 'H':
             end_time = start_time + datetime.timedelta(hours=int(base_granurarity[1:]))
-        elif time_unit is 'D':
+        elif time_unit == 'D':
             end_time = start_time + datetime.timedelta(days=1)
         if end_time > datetime.datetime.now(): end_time = datetime.datetime.now()
 
