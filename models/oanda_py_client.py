@@ -150,7 +150,7 @@ class OandaPyClient():
         # try:
         response = self.__request_oanda_instruments(
             start=self.__format_dt_into_OandapyV20(start_datetime),
-            end=  self.__format_dt_into_OandapyV20(end_datetime),
+            end=self.__format_dt_into_OandapyV20(end_datetime),
             granularity=granularity
         )
         # except V20Error as e:
@@ -180,7 +180,7 @@ class OandaPyClient():
 
         response = self.__request_oanda_instruments(
             start=self.__format_dt_into_OandapyV20(start_time),
-            end=  self.__format_dt_into_OandapyV20(end_time),
+            end=self.__format_dt_into_OandapyV20(end_time),
             granularity=granularity
         )
         candles = self.__transform_to_candle_chart(response)
@@ -323,8 +323,9 @@ class OandaPyClient():
         if time_unit == 'M':
             return int(days * 24 * 60 / time_span)
 
-    def __request_oanda_instruments(self, start, end=None,
-        candles_count=None, granularity='M5'):
+    def __request_oanda_instruments(
+        self, start, end=None, candles_count=None, granularity='M5'
+    ):
         ''' OandaAPIと直接通信し、為替データを取得 '''
         if candles_count is not None:
             time_params = {
@@ -394,10 +395,11 @@ class OandaPyClient():
             )
         ]
 
-        df = pd.DataFrame.from_dict(filtered_transactions).fillna({'pl': 0})
-        df = df[[
-            'batchID',
+        d_frame = pd.DataFrame.from_dict(filtered_transactions).fillna({'pl': 0})
+        d_frame = d_frame[[
             'id',
+            'batchID',
+            'tradeID',
             'tradeOpened',
             'tradesClosed',
             'type',
@@ -408,6 +410,6 @@ class OandaPyClient():
             'reason',
             'instrument'
         ]]
-        df['pl']   = df['pl'].astype({'pl': 'float'}).astype({'pl': 'int'})
-        df['time'] = [row['time'][:19] for row in filtered_transactions]
-        return df
+        d_frame['pl'] = d_frame['pl'].astype({'pl': 'float'}).astype({'pl': 'int'})
+        d_frame['time'] = [row['time'][:19] for row in filtered_transactions]
+        return d_frame
