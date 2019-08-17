@@ -46,7 +46,7 @@ class SendGridAPI:
         with open('figure.png', 'rb') as f:
             encoded = base64.b64encode(f.read()).decode()
         attachment = sg_helper.Attachment()
-        attachment.content  = encoded
+        attachment.content = encoded
         attachment.type = 'image/png'
         attachment.filename = 'figure.png'
         attachment.disposition = 'attachment'

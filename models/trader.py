@@ -1,11 +1,11 @@
 import math
 import os
 # import logging
-import numpy as np
 import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
+from models.mathematics import range_2nd_decimal
 
 # logger = logging.getLogger()
 # logger.setLevel(logging.INFO)
@@ -74,10 +74,9 @@ class Trader():
     def verify_varios_stoploss(self, accurize=False):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
         verification_dataframes_array = []
+        stoploss_buffer_list = range_2nd_decimal(0.01, 0.10, 0.02)
+        stoploss_buffer_list.append(0.50)
 
-        stoploss_buffer_list = np.append(
-            np.round(np.arange(0.01, 0.10, 0.02), decimals=2), [0.50]
-        )
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
             self._STOPLOSS_BUFFER_pips = stoploss_buf

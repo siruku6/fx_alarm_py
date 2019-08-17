@@ -1,15 +1,11 @@
 ###### Requirements without Version Specifiers ######
 # General
-numpy
+# numpy # 今は使ってない
 matplotlib
 requests
-
-# trendline生成時には必要
-# scipy
+# scipy # trendline生成時には必要
 
 # For sending mail
-# google-api-python-client
-# oauth2client
 sendgrid
 
 # OandaAPIとの通信や、投資データ処理に必要

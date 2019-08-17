@@ -1,5 +1,4 @@
 import datetime
-import numpy as np
 import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
@@ -114,9 +113,9 @@ class Librarian():
         close_df = d_frame[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
 
         long_df, short_df = entry_df.copy(), entry_df.copy()
-        # OPTIMIZE: numpyを使わなくて済むなら使わない
-        long_df.loc[long_df.units <= 0, 'price'] = np.nan
-        short_df.loc[short_df.units >= 0, 'price'] = np.nan
+        # INFO: 本当は None ではなく Nan にすれば表示されないが、 None でも表示されない
+        long_df.loc[long_df.units <= 0, 'price'] = None
+        short_df.loc[short_df.units >= 0, 'price'] = None
 
         # prepare indicators
         self.__ana.calc_indicators()
