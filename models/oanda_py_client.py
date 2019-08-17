@@ -186,18 +186,6 @@ class OandaPyClient():
         candles = self.__transform_to_candle_chart(response)
         return candles
 
-    def request_specified_period_candles(self, start_str, end_str, granularity):
-        start_time = datetime.datetime.strptime(start_str, '%Y-%m-%d %H:%M:%S')
-        end_time = datetime.datetime.strptime(end_str, '%Y-%m-%d %H:%M:%S')
-
-        response = self.__request_oanda_instruments(
-            start=self.__format_dt_into_OandapyV20(start_time),
-            end=  self.__format_dt_into_OandapyV20(end_time),
-            granularity=granularity
-        )
-        candles = self.__transform_to_candle_chart(response)
-        return candles
-
     # INFO: request-something (excluding candles)
     def request_is_tradeable(self):
         params = {'instruments': self.__instrument} # 'USD_JPY,EUR_USD,EUR_JPY'
@@ -380,7 +368,10 @@ class OandaPyClient():
         candle['time'] = [row['time'] for row in response['candles']]
         # 冗長な日時データを短縮
         # https://note.nkmk.me/python-pandas-datetime-timestamp/
-        candle['time'] = pd.to_datetime(candle['time']).astype(str) # '2018-06-03 21:00:00'
+        candle['time'] = pd.to_datetime(candle['time']).astype(str)
+        # INFO: time ... '2018-06-03 21:00:00'
+        candle['time'] = [time[:19] for time in candle.time]
+
         return candle
 
     def __calc_requestable_max_days(self, granularity='M5'):

@@ -40,17 +40,11 @@ class Librarian():
         entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
 
         # prepare candles: time-series currency price
-        start_str, end_str = self.__calc_requestable_period(
-            history_df['time'][0],
-            history_df['time'][len(history_df) - 1]
-        )
-        candles = self.__client.request_specified_period_candles(
-            start_str=start_str,
-            end_str=end_str,
-            granularity=granularity
-        )
-        candles['time'] = [time[:19] for time in candles.time]
-        candles['sequence'] = candles.index
+        today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
+        start_dt = datetime.datetime.strptime(history_df['time'][0][:19], '%Y-%m-%d %H:%M:%S')
+        days_wanted = (today_dt - start_dt).days + 1
+        self.__client.load_long_chart(days=days_wanted, granularity=granularity)
+        candles = FXBase.get_candles()
         print('[Libra] candlesセット完了')
 
         # merge
@@ -104,21 +98,6 @@ class Librarian():
         truncated_str = oanda_time_str[:sec_start] + '00'
         return truncated_str
 
-    def __calc_requestable_period(self, start_str, end_str):
-        start_dt = datetime.datetime.strptime(start_str[:19], '%Y-%m-%d %H:%M:%S')
-        end_dt = datetime.datetime.strptime(end_str[:19], '%Y-%m-%d %H:%M:%S')
-        new_start_dt = start_dt - datetime.timedelta(minutes=30)
-        new_end_dt = end_dt + datetime.timedelta(minutes=30)
-        diff_min = self.__calc_minutes_diff(new_start_dt, new_end_dt)
-
-        # 50000 / M10 = 5000(= max candles count)
-        if diff_min > 50000:
-            new_start_dt = new_end_dt - datetime.timedelta(minutes=49000)
-
-        new_start_str = new_start_dt.strftime('%Y-%m-%d %H:%M:%S')
-        new_end_str = new_end_dt.strftime('%Y-%m-%d %H:%M:%S')
-        return new_start_str, new_end_str
-
     def __calc_minutes_diff(self, start_dt, end_dt):
         diff_timedelta = end_dt - start_dt
         minutes, _sec = divmod(diff_timedelta.seconds, 60)
@@ -135,6 +114,7 @@ class Librarian():
         close_df = d_frame[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
 
         long_df, short_df = entry_df.copy(), entry_df.copy()
+        # OPTIMIZE: numpyを使わなくて済むなら使わない
         long_df.loc[long_df.units <= 0, 'price'] = np.nan
         short_df.loc[short_df.units >= 0, 'price'] = np.nan
 
