@@ -38,8 +38,15 @@ class Librarian():
             history_df['time'] = [self.__convert_to_H4(time) for time in history_df.time]
         entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
 
+        # INFO: instrumentによってはhistory_dfが空
+        if history_df.empty:
+            dt_a_month_ago = datetime.datetime.now() - datetime.timedelta(days=30)
+            start_str = dt_a_month_ago.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            start_str = history_df['time'][0][:19]
+
         candles = self.__prepare_candles(
-            starttime_str=history_df['time'][0][:19],
+            starttime_str=start_str,
             granularity=granularity
         )
         print('[Libra] candlesセット完了')

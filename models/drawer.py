@@ -146,7 +146,7 @@ class FigureDrawer():
         )
         return {'success': 'チャートを描画', 'time': target_candles.time}
 
-    def create_png(self, instrument, granularity, sr_time, num=0):
+    def create_png(self, instrument, granularity, sr_time, num=0, filename=None):
         ''' 描画済みイメージをpngファイルに書き出す '''
         # OPTIMIZE: x軸目盛の分割数...今はこれでいいが、最適化する
         num_break_xticks_into = 12
@@ -178,5 +178,6 @@ class FigureDrawer():
         plt.grid(linestyle='dashed', linewidth=0.5)
         plt.legend(loc='upper left', fontsize=8)
 
-        plt.savefig('tmp/figure_{num}.png'.format(num=num))
+        png_filename = filename or 'figure'
+        plt.savefig('tmp/{filename}_{num}.png'.format(filename=png_filename, num=num))
         return {'success': '[Drawer] 描画済みイメージをpng化 {}'.format(num + 1)}

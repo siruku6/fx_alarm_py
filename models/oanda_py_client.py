@@ -224,6 +224,8 @@ class OandaPyClient():
         ''' OANDA上でopenなポジションの情報を取得 '''
         request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
         response = self.__api_client.request(request_obj)
+
+        # TODO: last_transactionID は 対象 instrument のlast transaction の ID が望ましい
         self.__lastTransactionID = response['lastTransactionID']
         open_trades = response['trades']
 
@@ -257,7 +259,7 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('[Client] market-order: {}'.format(response))
+        logger.info('[Client] market-order: {result}'.format(result=response))
         return response
 
     def request_closing_position(self):
@@ -270,7 +272,7 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_tradeID  # , data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('[Client] close-position: {}'.format(response))
+        logger.info('[Client] close-position: {result}'.format(result=response))
         return response
 
     def request_trailing_stoploss(self, SL_price=None):
@@ -288,7 +290,7 @@ class OandaPyClient():
             data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('[Client] trail: {}'.format(response))
+        logger.info('[Client] trail: {result}'.format(result=response))
         return response
 
     def request_transactions(self):
@@ -387,6 +389,7 @@ class OandaPyClient():
 
     def __filter_and_make_df(self, response_transactions):
         ''' 必要なrecordのみ残してdataframeに変換する '''
+        # INFO: filtering by transaction-type
         filtered_transactions = [
             row for row in response_transactions if (
                 row['type'] != 'ORDER_CANCEL' and
@@ -395,8 +398,9 @@ class OandaPyClient():
             )
         ]
 
-        d_frame = pd.DataFrame.from_dict(filtered_transactions).fillna({'pl': 0})
-        d_frame = d_frame[[
+        hist_df = pd.DataFrame.from_dict(filtered_transactions).fillna({'pl': 0})
+        # INFO: filtering by column
+        hist_df = hist_df[[
             'id',
             'batchID',
             'tradeID',
@@ -410,6 +414,27 @@ class OandaPyClient():
             'reason',
             'instrument'
         ]]
-        d_frame['pl'] = d_frame['pl'].astype({'pl': 'float'}).astype({'pl': 'int'})
-        d_frame['time'] = [row['time'][:19] for row in filtered_transactions]
-        return d_frame
+        hist_df['pl'] = hist_df['pl'].astype({'pl': 'float'}).astype({'pl': 'int'})
+        hist_df['time'] = [row['time'][:19] for row in filtered_transactions]
+
+        # INFO: filtering by instrument
+        hist_df = self.__fill_instrument_for_history(hist_df.copy())
+        hist_df = hist_df[
+            (hist_df.instrument == self.__instrument)
+            | (hist_df.filled_inst == self.__instrument)
+        ]
+        return hist_df
+
+    # TODO: 可能なら dataframe 化する前にfilterした方が早い...
+    def __fill_instrument_for_history(self, hist_df):
+        inst_array = []
+        for _index, row in hist_df.iterrows():
+            parent_trade_row = hist_df[hist_df.id == row.tradeID]
+            if not parent_trade_row.empty:
+                inst = parent_trade_row.iloc[0, :].instrument
+            else:
+                inst = None
+            inst_array.append(inst)
+
+        hist_df['filled_inst'] = inst_array
+        return hist_df
