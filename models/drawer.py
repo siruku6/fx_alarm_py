@@ -72,7 +72,7 @@ class FigureDrawer():
         print('[Drawer] ', d_frame.columns[0], 'を描画')
         return {'success': 'd_frameを描画'}
 
-    def draw_positionDf_on_plt(self, df, plot_type=PLOT_TYPE['long'], nolabel=None):
+    def draw_positions_df(self, positions_df, plot_type=PLOT_TYPE['long'], nolabel=None):
         ''' __hist_positionsから抽出したdfを受け取って描画 '''
         trade_marker_size = 15
         if plot_type == FigureDrawer.PLOT_TYPE['long']:
@@ -97,11 +97,11 @@ class FigureDrawer():
             mark = 'x'
 
         if plot_type == FigureDrawer.PLOT_TYPE['trail']:
-            y = df.stoploss
+            prices = positions_df.stoploss
         else:
-            y = df.price
+            prices = positions_df.price
         self.__axis1.scatter(
-            x=df.sequence, y=y,
+            x=positions_df.sequence, y=prices,
             marker=mark, edgecolors=edgecolors, label=nolabel or label,
             color=color, s=trade_marker_size, linewidths=0.7
         )
@@ -167,7 +167,7 @@ class FigureDrawer():
             xticks_display = [sr_time.values[i][5:16] for i in xticks_index]
             plt.xticks(xticks_index, xticks_display, rotation=30, fontsize='small')
             plt.legend(loc='best', fontsize=8)
-            plt.grid(which='major', linestyle='dashed')
+            plt.grid(which='major', linestyle='dashed', linewidth=0.5)
 
         # INFO: axis2
         plt.sca(self.__axis2)
@@ -175,7 +175,7 @@ class FigureDrawer():
         if xticks_number > 0:
             plt.xticks(xticks_index, [])
             # plt.tick_params(labelbottom=False)
-        plt.grid(linestyle='dashed')
+        plt.grid(linestyle='dashed', linewidth=0.5)
         plt.legend(loc='upper left', fontsize=8)
 
         plt.savefig('tmp/figure_{num}.png'.format(num=num))

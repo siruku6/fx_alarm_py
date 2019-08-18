@@ -123,12 +123,12 @@ class Trader():
             end = df_len - MAX_ROWS * i
             sr_time = drwr.draw_candles(start, end)['time']
 
-            drwr.draw_positionDf_on_plt(df=dfs_long_hist[i][dfs_long_hist[i].type=='long'],    plot_type=drwr.PLOT_TYPE['long'])
-            drwr.draw_positionDf_on_plt(df=dfs_long_hist[i][dfs_long_hist[i].type=='trail'],   plot_type=drwr.PLOT_TYPE['trail'])
-            drwr.draw_positionDf_on_plt(df=dfs_long_hist[i][dfs_long_hist[i].type=='close'],   plot_type=drwr.PLOT_TYPE['exit'])
-            drwr.draw_positionDf_on_plt(df=dfs_short_hist[i][dfs_short_hist[i].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
-            drwr.draw_positionDf_on_plt(df=dfs_short_hist[i][dfs_short_hist[i].type=='trail'], plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
-            drwr.draw_positionDf_on_plt(df=dfs_short_hist[i][dfs_short_hist[i].type=='close'], plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
+            drwr.draw_positions_df(positions_df=dfs_long_hist[i][dfs_long_hist[i].type=='long'],    plot_type=drwr.PLOT_TYPE['long'])
+            drwr.draw_positions_df(positions_df=dfs_long_hist[i][dfs_long_hist[i].type=='trail'],   plot_type=drwr.PLOT_TYPE['trail'])
+            drwr.draw_positions_df(positions_df=dfs_long_hist[i][dfs_long_hist[i].type=='close'],   plot_type=drwr.PLOT_TYPE['exit'])
+            drwr.draw_positions_df(positions_df=dfs_short_hist[i][dfs_short_hist[i].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
+            drwr.draw_positions_df(positions_df=dfs_short_hist[i][dfs_short_hist[i].type=='trail'], plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
+            drwr.draw_positions_df(positions_df=dfs_short_hist[i][dfs_short_hist[i].type=='close'], plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
             result = drwr.create_png(instrument=self.__instrument, granularity=self.__granularity, sr_time=sr_time, num=i)
             drwr.close_all()
             if df_segments_count != i + 1: drwr.init_figure()

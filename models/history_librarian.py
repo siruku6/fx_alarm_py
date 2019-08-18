@@ -46,8 +46,8 @@ class Librarian():
 
         # merge
         result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
-        result = pd.merge(result,  close_df, on='time', how='outer', right_index=True)
-        result = pd.merge(result,  trail_df, on='time', how='outer', right_index=True)
+        result = pd.merge(result, close_df, on='time', how='outer', right_index=True)
+        result = pd.merge(result, trail_df, on='time', how='outer', right_index=True)
         result = result.drop_duplicates(['time'])
         result['units'] = result.units.fillna('0').astype(int)
         FXBase.set_candles(result)
@@ -106,7 +106,7 @@ class Librarian():
         DRAWABLE_ROWS = 200
 
         # INFO: データ準備
-        d_frame = FXBase.get_candles().copy()[-DRAWABLE_ROWS:None].reset_index(drop=True)
+        d_frame = FXBase.get_candles()[-DRAWABLE_ROWS:None].copy().reset_index(drop=True)
         d_frame['sequence'] = d_frame.index
         entry_df = d_frame[['sequence', 'entry_price', 'units']].rename(columns={'entry_price': 'price'})
         close_df = d_frame[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
@@ -122,12 +122,20 @@ class Librarian():
 
         # INFO: 描画
         drwr = self.__drawer
-        drwr.draw_candles(-DRAWABLE_ROWS, None)
+        drwr.draw_candles(-DRAWABLE_ROWS, None)  # 200本より古い足は消している
         drwr.draw_indicators(d_frame=self._indicators[-DRAWABLE_ROWS:None].reset_index(drop=True))
 
-        drwr.draw_positionDf_on_plt(df=long_df[['sequence', 'price']],    plot_type=drwr.PLOT_TYPE['long'])
-        drwr.draw_positionDf_on_plt(df=short_df[['sequence', 'price']],   plot_type=drwr.PLOT_TYPE['short'])
-        drwr.draw_positionDf_on_plt(df=d_frame[['sequence', 'stoploss']], plot_type=drwr.PLOT_TYPE['trail'])
-        drwr.draw_positionDf_on_plt(df=close_df[['sequence', 'price']],   plot_type=drwr.PLOT_TYPE['exit'])
+        drwr.draw_positions_df(
+            positions_df=long_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['long']
+        )
+        drwr.draw_positions_df(
+            positions_df=short_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['short']
+        )
+        drwr.draw_positions_df(
+            positions_df=d_frame[['sequence', 'stoploss']], plot_type=drwr.PLOT_TYPE['trail']
+        )
+        drwr.draw_positions_df(
+            positions_df=close_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['exit']
+        )
         result = drwr.create_png(instrument=self.__instrument, granularity='real-trade', sr_time=d_frame.time, num=0)
         print(result['success'])
