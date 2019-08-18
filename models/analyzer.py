@@ -150,7 +150,7 @@ class Analyzer():
     #         local_extremum 又は extremal: 局所的極値のこと。
     #         極大値と極小値両方を指す（数学用語） '''
     #     sign = 'high' if bool_high else 'low'
-    #     extremals = FXBase.get_candles()[start:end + 1]
+    #     extremals = FXBase.get_candles(start, end + 1)
     #     while len(extremals) > Analyzer.MAX_EXTREMAL_CNT:
     #         regression = linregress(x=extremals['time_id'], y=extremals[sign],)
     #         if bool_high:
@@ -267,7 +267,7 @@ class Analyzer():
         ''' ストキャスの%Kを計算 '''
         candles = FXBase.get_candles()
         stoK = ((candles.close - candles.low.rolling(window=window_size, center=False).min()) / (
-            candles.high.rolling(window=window_size, center=False).max() - \
+            candles.high.rolling(window=window_size, center=False).max() -
             candles.low.rolling(window=window_size, center=False).min()
         )) * 100
         return stoK

@@ -23,8 +23,8 @@ class FXBase():
     __latest_candle = None
 
     @classmethod
-    def get_candles(cls):
-        return cls.__candles
+    def get_candles(cls, start=0, end=None):
+        return cls.__candles[start:end]
 
     @classmethod
     def set_timeID(cls):
@@ -44,8 +44,8 @@ class FXBase():
         cls.__candles = candles
 
     @classmethod
-    def replace_latest_price(cls, type, new_price):
-        column_num = cls.__candles.columns.get_loc(type)
+    def replace_latest_price(cls, price_type, new_price):
+        column_num = cls.__candles.columns.get_loc(price_type)
         cls.__candles.iat[-1, column_num] = new_price
 
     @classmethod

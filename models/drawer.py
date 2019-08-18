@@ -74,7 +74,7 @@ class FigureDrawer():
 
     def draw_positions_df(self, positions_df, plot_type=PLOT_TYPE['long'], nolabel=None):
         ''' __hist_positionsから抽出したdfを受け取って描画 '''
-        trade_marker_size = 15
+        trade_marker_size = 20
         if plot_type == FigureDrawer.PLOT_TYPE['long']:
             color = 'white'
             edgecolors = 'red'
@@ -135,7 +135,7 @@ class FigureDrawer():
 
     def draw_candles(self, start=0, end=None):
         ''' 取得済みチャートを描画 '''
-        target_candles = FXBase.get_candles()[start:end]
+        target_candles = FXBase.get_candles(start=start, end=end)
         mpl_finance.candlestick2_ohlc(
             self.__axis1,
             opens=target_candles.open.values,

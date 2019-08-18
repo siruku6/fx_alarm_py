@@ -106,7 +106,8 @@ class Librarian():
         DRAWABLE_ROWS = 200
 
         # INFO: データ準備
-        d_frame = FXBase.get_candles()[-DRAWABLE_ROWS:None].copy().reset_index(drop=True)
+        d_frame = FXBase.get_candles(start=-DRAWABLE_ROWS, end=None) \
+                        .copy().reset_index(drop=True)
         d_frame['sequence'] = d_frame.index
         entry_df = d_frame[['sequence', 'entry_price', 'units']].rename(columns={'entry_price': 'price'})
         close_df = d_frame[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
