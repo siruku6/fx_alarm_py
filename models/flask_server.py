@@ -44,3 +44,7 @@ if __name__ == 'flask_server':
 if __name__ == '__main__':
     port = os.getenv('port', 5000)
     app.run(host='0.0.0.0', port=port, debug=True)
+
+# development-env
+# $ python models/flask_server.py
+#   -> ip-address:5000
