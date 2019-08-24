@@ -65,13 +65,13 @@ class Trader():
     def get_instrument(self):
         return self.__instrument
 
-    def auto_verify_trading_rule(self, accurize=False):
+    def auto_verify_trading_rule(self, accurize=True):
         ''' tradeルールを自動検証 '''
         print(self.__demo_swing_trade()['success'])
         if accurize and (self.__granularity[0] != 'M'):
             print(self.__accurize_entry_prices()['success'])
 
-    def verify_varios_stoploss(self, accurize=False):
+    def verify_varios_stoploss(self, accurize=True):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
         verification_dataframes_array = []
         stoploss_buffer_list = range_2nd_decimal(0.01, 0.10, 0.02)
@@ -80,7 +80,7 @@ class Trader():
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
             self._STOPLOSS_BUFFER_pips = stoploss_buf
-            self.auto_verify_trading_rule(accurize=True)
+            self.auto_verify_trading_rule(accurize=accurize)
 
             self.__calc_profit()
             _df = pd.concat(
@@ -483,25 +483,57 @@ class Trader():
         ポジション履歴から総損益を算出する
         '''
         # longエントリーの損益を計算
-        long_hist = self.__hist_positions['long']
-        for i, row in enumerate(long_hist):
+        long_entry_array = self.__hist_positions['long']
+        # INFO: pandas dataframe化して計算するよりも速度が圧倒的に早い 
+        for i, row in enumerate(long_entry_array):
             if row['type'] == 'close':
-                row['profit'] = row['price'] - long_hist[i - 1]['price']
+                row['profit'] = row['price'] - long_entry_array[i - 1]['price']
+
+        # pandasを使う例
+        # long_entry_df = pd.DataFrame(self.__hist_positions['long'], columns=self.__columns)
+        # long_entry_df['profit'].where(
+        #     long_entry_df['type'] !=  'close',
+        #     long_entry_df.price - long_entry_df.price.shift(1),
+        #     inplace=True
+        # )
 
         # shortエントリーの損益を計算
-        short_hist = self.__hist_positions['short']
-        for i, row in enumerate(short_hist):
+        short_entry_array = self.__hist_positions['short']
+        for i, row in enumerate(short_entry_array):
             if row['type'] == 'close':
-                row['profit'] = short_hist[i - 1]['price'] - row['price']
+                row['profit'] = short_entry_array[i - 1]['price'] - row['price']
 
-        hist_array = long_hist + short_hist
-        profit_array = [
-            row['profit'] for row in hist_array if row['type'] == 'close'
+        result = self.__calc_trades_statistical_data(long_entry_array, short_entry_array)
+
+        print('[Entry回数] {trades_cnt}回'.format(trades_cnt=result['trades_count']))
+        print('[総損益] {profit}pips'.format(profit=round(result['profit_sum'] * 100, 3)))
+        print('[総利益] {profit}pips'.format(profit=round(result['gross_profit'] * 100, 3)))
+        print('[総損失] {loss}pips'.format(loss=round(result['gross_loss'] * 100, 3)))
+
+    def __calc_trades_statistical_data(self, long_entry_array, short_entry_array):
+        long_count = len([row['type'] for row in long_entry_array if row['type'] == 'long'])
+        short_count = len([row['type'] for row in short_entry_array if row['type'] == 'short'])
+
+        long_profit_array = [
+            row['profit'] for row in long_entry_array if row['type'] == 'close'
         ]
-        print('[合計損益] {profit}pips'.format(
-            profit=round(sum(profit_array) * 100, 3)
-        ))
-        return profit_array
+        short_profit_array = [
+            row['profit'] for row in short_entry_array if row['type'] == 'close'
+        ]
+
+        profit_array = [profit for profit in long_profit_array if profit > 0] \
+                     + [profit for profit in short_profit_array if profit > 0]
+        loss_array = [profit for profit in long_profit_array if profit < 0] \
+                   + [profit for profit in short_profit_array if profit < 0]
+
+        return {
+            'trades_count': long_count + short_count,
+            'long_count': long_count,
+            'short_count': short_count,
+            'gross_profit': sum(profit_array),
+            'gross_loss': sum(loss_array),
+            'profit_sum': sum(long_profit_array + short_profit_array)
+        }
 
 
 class RealTrader(Trader):
