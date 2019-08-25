@@ -165,6 +165,18 @@ class Trader():
     # Shared with subclass
     #
 
+    def _SMA_run_along_trend(self, index, trend):
+        sma = self._indicators['20SMA']
+        if trend == 'bull' and sma[index - 1] < sma[index]:
+            return True
+        elif trend == 'bear' and sma[index - 1] > sma[index]:
+            return True
+
+        if self._operation == 'live':
+            print('[Trader] Trend: {}, 20SMA: {} -> {}'.format(trend, sma[index - 1], sma[index]))
+            self._log_skip_reason('c. 20SMA not run along trend')
+        return False
+
     def _over_2_sigma(self, index, o_price):
         if self._indicators['band_+2σ'][index] < o_price or \
            self._indicators['band_-2σ'][index] > o_price:
@@ -325,6 +337,9 @@ class Trader():
                     continue
 
                 if os.environ.get('CUSTOM_RULE') == 'on':
+                    # INFO: 勝率増、drawdown減なるも、総損益も減
+                    # if not self._SMA_run_along_trend(index, trend):
+                    #     continue
                     # 大失敗を防いでくれる
                     if self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]):
                         continue
