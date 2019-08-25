@@ -123,13 +123,21 @@ class Trader():
             end = df_len - MAX_ROWS * i
             sr_time = drwr.draw_candles(start, end)['time']
 
-            drwr.draw_positions_df(positions_df=dfs_long_hist[i][dfs_long_hist[i].type=='long'],    plot_type=drwr.PLOT_TYPE['long'])
-            drwr.draw_positions_df(positions_df=dfs_long_hist[i][dfs_long_hist[i].type=='trail'],   plot_type=drwr.PLOT_TYPE['trail'])
-            drwr.draw_positions_df(positions_df=dfs_long_hist[i][dfs_long_hist[i].type=='close'],   plot_type=drwr.PLOT_TYPE['exit'])
-            drwr.draw_positions_df(positions_df=dfs_short_hist[i][dfs_short_hist[i].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
-            drwr.draw_positions_df(positions_df=dfs_short_hist[i][dfs_short_hist[i].type=='trail'], plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
-            drwr.draw_positions_df(positions_df=dfs_short_hist[i][dfs_short_hist[i].type=='close'], plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
+            long_entry_df = dfs_long_hist[i][dfs_long_hist[i].type == 'long']
+            long_trail_df = dfs_long_hist[i][dfs_long_hist[i].type == 'trail']
+            long_close_df = dfs_long_hist[i][dfs_long_hist[i].type == 'close']
+            short_entry_df = dfs_short_hist[i][dfs_short_hist[i].type == 'short']
+            short_trail_df = dfs_short_hist[i][dfs_short_hist[i].type == 'trail']
+            short_close_df = dfs_short_hist[i][dfs_short_hist[i].type == 'close']
+
+            drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
+            drwr.draw_positions_df(positions_df=long_trail_df, plot_type=drwr.PLOT_TYPE['trail'])
+            drwr.draw_positions_df(positions_df=long_close_df, plot_type=drwr.PLOT_TYPE['exit'])
+            drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
+            drwr.draw_positions_df(positions_df=short_trail_df, plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
+            drwr.draw_positions_df(positions_df=short_close_df, plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
             result = drwr.create_png(instrument=self.get_instrument(), granularity=self.__granularity, sr_time=sr_time, num=i)
+
             drwr.close_all()
             if df_segments_count != i + 1:
                 drwr.init_figure()
@@ -433,7 +441,7 @@ class Trader():
                     granularity='M10',
                     base_granurarity=self.__granularity
                 )
-                for j, M10_row in M10_candles.iterrows():
+                for _j, M10_row in M10_candles.iterrows():
                     if row['price'] > M10_row.low:
                         old_price = row['price']
                         row['price'] = M10_row.low
