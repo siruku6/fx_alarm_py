@@ -448,10 +448,10 @@ class Trader():
             self.__hist_positions[entry_type][index]['price'] = accurater_price
             index += 1
 
-    def __split_df_by_200rows(self, df):
+    def __split_df_by_200rows(self, d_frame):
         dfs = []
         MAX_LEN = 200
-        df_len = len(df)
+        df_len = len(d_frame)
         loop = 0
 
         while MAX_LEN * loop < df_len:
@@ -459,10 +459,10 @@ class Trader():
             loop += 1
             start = df_len - MAX_LEN * loop
             start = start if start > 0 else 0
-            dfs.append(df[start:end].reset_index(drop=True))
+            dfs.append(d_frame[start:end].reset_index(drop=True))
         return dfs
 
-    def __split_df_by_200sequences(self, df, df_len):
+    def __split_df_by_200sequences(self, d_frame, df_len):
         dfs = []
         MAX_LEN = 200
         loop = 0
@@ -472,7 +472,7 @@ class Trader():
             loop += 1
             start = df_len - MAX_LEN * loop
             start = start if start > 0 else 0
-            df_target = df[(start <= df.sequence) & (df.sequence < end)].copy()
+            df_target = d_frame[(start <= d_frame.sequence) & (d_frame.sequence < end)].copy()
             # 描画は sequence に基づいて行われるので、ずらしておく
             df_target['sequence'] = df_target.sequence - start
             dfs.append(df_target)
@@ -484,7 +484,7 @@ class Trader():
         '''
         # longエントリーの損益を計算
         long_entry_array = self.__hist_positions['long']
-        # INFO: pandas dataframe化して計算するよりも速度が圧倒的に早い 
+        # INFO: pandas-dataframe化して計算するよりも速度が圧倒的に早い
         for i, row in enumerate(long_entry_array):
             if row['type'] == 'close':
                 row['profit'] = row['price'] - long_entry_array[i - 1]['price']
@@ -514,17 +514,17 @@ class Trader():
         long_count = len([row['type'] for row in long_entry_array if row['type'] == 'long'])
         short_count = len([row['type'] for row in short_entry_array if row['type'] == 'short'])
 
-        long_profit_array = [
-            row['profit'] for row in long_entry_array if row['type'] == 'close'
-        ]
-        short_profit_array = [
-            row['profit'] for row in short_entry_array if row['type'] == 'close'
-        ]
+        long_profit_array = \
+            [row['profit'] for row in long_entry_array if row['type'] == 'close']
+        short_profit_array = \
+            [row['profit'] for row in short_entry_array if row['type'] == 'close']
 
-        profit_array = [profit for profit in long_profit_array if profit > 0] \
-                     + [profit for profit in short_profit_array if profit > 0]
-        loss_array = [profit for profit in long_profit_array if profit < 0] \
-                   + [profit for profit in short_profit_array if profit < 0]
+        profit_array \
+            = [profit for profit in long_profit_array if profit > 0] \
+            + [profit for profit in short_profit_array if profit > 0]
+        loss_array \
+            = [profit for profit in long_profit_array if profit < 0] \
+            + [profit for profit in short_profit_array if profit < 0]
 
         return {
             'trades_count': long_count + short_count,
