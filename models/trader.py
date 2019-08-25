@@ -82,7 +82,7 @@ class Trader():
             self._STOPLOSS_BUFFER_pips = stoploss_buf
             self.auto_verify_trading_rule(accurize=accurize)
 
-            self.__calc_profit()
+            self.__calc_statistics()
             _df = pd.concat(
                 [
                     pd.DataFrame(self.__hist_positions['long'], columns=self.__columns),
@@ -142,7 +142,7 @@ class Trader():
 
     def report_trading_result(self):
         ''' ポジション履歴をcsv出力 '''
-        self.__calc_profit()
+        self.__calc_statistics()
 
         df_long = pd.DataFrame.from_dict(self.__hist_positions['long'])
         df_short = pd.DataFrame.from_dict(self.__hist_positions['short'])
@@ -478,39 +478,42 @@ class Trader():
             dfs.append(df_target)
         return dfs
 
-    def __calc_profit(self):
-        '''
-        ポジション履歴から総損益を算出する
-        '''
-        # longエントリーの損益を計算
+    def __calc_statistics(self):
+        ''' トレード履歴の統計情報計算処理を呼び出す '''
         long_entry_array = self.__hist_positions['long']
-        # INFO: pandas-dataframe化して計算するよりも速度が圧倒的に早い
-        for i, row in enumerate(long_entry_array):
-            if row['type'] == 'close':
-                row['profit'] = row['price'] - long_entry_array[i - 1]['price']
-
-        # pandasを使う例
-        # long_entry_df = pd.DataFrame(self.__hist_positions['long'], columns=self.__columns)
-        # long_entry_df['profit'].where(
-        #     long_entry_df['type'] !=  'close',
-        #     long_entry_df.price - long_entry_df.price.shift(1),
-        #     inplace=True
-        # )
-
-        # shortエントリーの損益を計算
+        long_entry_array = self.__calc_profit(long_entry_array, sign=1)
         short_entry_array = self.__hist_positions['short']
-        for i, row in enumerate(short_entry_array):
-            if row['type'] == 'close':
-                row['profit'] = short_entry_array[i - 1]['price'] - row['price']
+        short_entry_array = self.__calc_profit(short_entry_array, sign=-1)
 
-        result = self.__calc_trades_statistical_data(long_entry_array, short_entry_array)
+        result = self.__calc_detaild_statistics(long_entry_array, short_entry_array)
 
         print('[Entry回数] {trades_cnt}回'.format(trades_cnt=result['trades_count']))
+        print('[勝率] {win_rate}%'.format(win_rate=result['win_rate']))
+        print('[利確] {win_count}回'.format(win_count=result['win_count']))
+        print('[損切] {lose_count}回'.format(lose_count=result['lose_count']))
         print('[総損益] {profit}pips'.format(profit=round(result['profit_sum'] * 100, 3)))
         print('[総利益] {profit}pips'.format(profit=round(result['gross_profit'] * 100, 3)))
         print('[総損失] {loss}pips'.format(loss=round(result['gross_loss'] * 100, 3)))
+        print('[最大利益] {max_profit}pips'.format(max_profit=round(result['max_profit'] * 100, 3)))
+        print('[最大損失] {max_loss}pips'.format(max_loss=round(result['max_loss'] * 100, 3)))
+        print('[最大Drawdown] {drawdown}pips'.format(drawdown=round(result['drawdown'] * 100, 3)))
 
-    def __calc_trades_statistical_data(self, long_entry_array, short_entry_array):
+    def __calc_profit(self, entry_array, sign=1):
+        ''' トレード履歴の利益を計算 '''
+        gross = 0
+        gross_max = 0
+        # INFO: pandas-dataframe化して計算するよりも速度が圧倒的に早い
+        for i, row in enumerate(entry_array):
+            if row['type'] == 'close':
+                row['profit'] = sign * (row['price'] - entry_array[i - 1]['price'])
+                gross += row['profit']
+                gross_max = max(gross_max, gross)
+            row['gross'] = gross
+            row['drawdown'] = gross - gross_max
+        return entry_array
+
+    def __calc_detaild_statistics(self, long_entry_array, short_entry_array):
+        ''' トレード履歴の詳細な分析を行う '''
         long_count = len([row['type'] for row in long_entry_array if row['type'] == 'long'])
         short_count = len([row['type'] for row in short_entry_array if row['type'] == 'short'])
 
@@ -526,17 +529,26 @@ class Trader():
             = [profit for profit in long_profit_array if profit < 0] \
             + [profit for profit in short_profit_array if profit < 0]
 
+        drawdown = min([row['drawdown'] for row in (long_entry_array + short_entry_array)])
+
         return {
             'trades_count': long_count + short_count,
+            'win_rate': len(profit_array) / (long_count + short_count) * 100,
+            'win_count': len(profit_array),
+            'lose_count': len(loss_array),
             'long_count': long_count,
             'short_count': short_count,
+            'profit_sum': sum(long_profit_array + short_profit_array),
             'gross_profit': sum(profit_array),
             'gross_loss': sum(loss_array),
-            'profit_sum': sum(long_profit_array + short_profit_array)
+            'max_profit': max(profit_array),
+            'max_loss': min(loss_array),
+            'drawdown': drawdown
         }
 
 
 class RealTrader(Trader):
+    ''' トレードルールに基づいてOandaへの発注を行うclass '''
     def __init__(self, operation='verification'):
         super(RealTrader, self).__init__(operation=operation)
 
