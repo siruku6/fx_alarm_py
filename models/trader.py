@@ -536,6 +536,30 @@ class Trader():
         print('[Profit Factor] (総利益 / 総損失) {pf}'.format(pf=result['profit_factor']))
         print('[Recovery Factor] (総損益 / 最大Drawdown) {pf}'.format(pf=result['recovery_factor']))
 
+        columns = [
+            'CandlesCnt','EntryCnt','Spread','WinRate','WinCnt','LoseCnt',
+            'Gross','GrossProfit','GrossLoss','MaxProfit','MaxLoss',
+            'MaxDrawdown','Profit Factor','Recovery Factor'
+        ]
+        result_row = [
+            len(candles) - 20,       # 'CandlesCnt'
+            result['trades_count'],  # 'EntryCnt'
+            self.__static_spread,    # 'Spread'
+            result['win_rate'],      # 'WinRate'
+            result['win_count'],     # 'WinCnt'
+            result['lose_count'],    # 'LoseCnt'
+            round(result['profit_sum'] * 100, 3),    # 'Gross'
+            round(result['gross_profit'] * 100, 3),  # 'GrossProfit'
+            round(result['gross_loss'] * 100, 3),    # 'GrossLoss'
+            round(result['max_profit'] * 100, 3),    # 'MaxProfit'
+            round(result['max_loss'] * 100, 3),      # 'MaxLoss'
+            round(result['drawdown'] * 100, 3),      # 'MaxDrawdown'
+            result['profit_factor'],                 # 'Profit Factor'
+            result['recovery_factor']                # 'Recovery Factor'
+        ]
+        result_df = pd.DataFrame([result_row], columns=columns)
+        result_df.to_csv('tmp/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
+
     def __calc_profit(self, entry_array, sign=1):
         ''' トレード履歴の利益を計算 '''
         gross = 0
