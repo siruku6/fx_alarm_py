@@ -667,6 +667,8 @@ class RealTrader(Trader):
                 return
 
             if os.environ.get('CUSTOM_RULE') == 'on':
+                if not self._SMA_run_along_trend(last_index, trend):
+                    return
                 if self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]):
                     return
                 if not self._expand_MA_gap(last_index, trend):
