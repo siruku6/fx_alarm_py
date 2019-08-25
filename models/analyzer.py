@@ -13,15 +13,17 @@ class Analyzer():
     MAX_AF = 0.2
 
     def __init__(self):
-        self.__SMA = None
-        self.__EMA = None
-        self.__DOUBLE_SIGMA_BAND = None
-        self.__MINUS_DOUBLE_SIGMA_BAND = None
-        self.__TRIPLE_SIGMA_BAND = None
-        self.__MINUS_TRIPLE_SIGMA_BAND = None
-        self.__SAR = []
-        self.__stod = None
-        self.__stosd = None
+        self.__indicators = {
+            'SMA': None,
+            'EMA': None,
+            'SIGMA*2_BAND': None,
+            'SIGMA*-2_BAND': None,
+            'SIGMA*3_BAND': None,
+            'SIGMA*-3_BAND': None,
+            'SAR': None,
+            'stoD': None,
+            'stoSD': None
+        }
 
         # Trendline
         self.desc_trends = None
@@ -39,8 +41,8 @@ class Analyzer():
         self.__calc_EMA()
         self.__calc_bollinger_bands()
         self.__calc_parabolic()
-        self.__stod = self.__calc_STOD(window_size=5)
-        self.__stosd = self.__calc_STOSD(window_size=5)
+        self.__indicators['stoD'] = self.__calc_STOD(window_size=5)
+        self.__indicators['stoSD'] = self.__calc_STOSD(window_size=5)
         # result = self.__calc_trendlines()
         # if 'success' in result:
         #     print(result['success'])
@@ -53,11 +55,15 @@ class Analyzer():
     def get_indicators(self):
         indicators = pd.concat(
             [
-                self.__SMA, self.__EMA,
-                self.__DOUBLE_SIGMA_BAND, self.__MINUS_DOUBLE_SIGMA_BAND,
-                self.__TRIPLE_SIGMA_BAND, self.__MINUS_TRIPLE_SIGMA_BAND,
-                self.__SAR,
-                self.__stod, self.__stosd
+                self.__indicators['SMA'],
+                self.__indicators['EMA'],
+                self.__indicators['SIGMA*2_BAND'],
+                self.__indicators['SIGMA*-2_BAND'],
+                self.__indicators['SIGMA*3_BAND'],
+                self.__indicators['SIGMA*-3_BAND'],
+                self.__indicators['SAR'],
+                self.__indicators['stoD'],
+                self.__indicators['stoSD']
             ],
             axis=1
         )
@@ -71,14 +77,14 @@ class Analyzer():
         close = FXBase.get_candles().close
         # mean()後の .dropna().reset_index(drop = True) を消去中
         sma = pd.Series.rolling(close, window=window_size).mean()
-        self.__SMA = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
+        self.__indicators['SMA'] = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
 
     def __calc_EMA(self, window_size=10):
         ''' 指数平滑移動平均線を生成 '''
         # TODO: scipyを使うと早くなる
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
         ema = FXBase.get_candles().close.ewm(span=window_size).mean()
-        self.__EMA = pd.DataFrame(ema).rename(columns={'close': '10EMA'})
+        self.__indicators['EMA'] = pd.DataFrame(ema).rename(columns={'close': '10EMA'})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Bollinger Bands                    #
@@ -88,22 +94,19 @@ class Analyzer():
         close = FXBase.get_candles().close
         mean = pd.Series.rolling(close, window=window_size).mean()
         standard_deviation = pd.Series.rolling(close, window=window_size).std()
-        self.__DOUBLE_SIGMA_BAND = \
-            pd.DataFrame(mean + standard_deviation * 2).rename(
-                columns={'close': 'band_+2σ'}
-            )
-        self.__MINUS_DOUBLE_SIGMA_BAND = \
-            pd.DataFrame(mean - standard_deviation * 2).rename(
-                columns={'close': 'band_-2σ'}
-            )
-        self.__TRIPLE_SIGMA_BAND = \
-            pd.DataFrame(mean + standard_deviation * 3).rename(
-                columns={'close': 'band_+3σ'}
-            )
-        self.__MINUS_TRIPLE_SIGMA_BAND = \
-            pd.DataFrame(mean - standard_deviation * 3).rename(
-                columns={'close': 'band_-3σ'}
-            )
+
+        self.__indicators['SIGMA*2_BAND'] = \
+            pd.DataFrame(mean + standard_deviation * 2) \
+              .rename(columns={'close': 'band_+2σ'})
+        self.__indicators['SIGMA*-2_BAND'] = \
+            pd.DataFrame(mean - standard_deviation * 2) \
+              .rename(columns={'close': 'band_-2σ'})
+        self.__indicators['SIGMA*3_BAND'] = \
+            pd.DataFrame(mean + standard_deviation * 3) \
+              .rename(columns={'close': 'band_+3σ'})
+        self.__indicators['SIGMA*-3_BAND'] = \
+            pd.DataFrame(mean - standard_deviation * 3) \
+              .rename(columns={'close': 'band_-3σ'})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
@@ -216,19 +219,20 @@ class Analyzer():
         bull = True
         acceleration_factor = Analyzer.INITIAL_AF
         extreme_price = FXBase.get_candles().high[0]
-        self.__SAR = [FXBase.get_candles().low[0]]
+        temp_sar_array = [FXBase.get_candles().low[0]]
 
         for i, row in FXBase.get_candles().iterrows():
             current_high = row.high
             current_low = row.low
+            last_sar = temp_sar_array[-1]
 
             # レートがparabolicに触れたときの処理
             if self.__parabolic_is_touched(
                 bull=bull,
-                current_parabo=self.__SAR[-1],
+                current_parabo=last_sar,
                 current_h=current_high, current_l=current_low
             ):
-                parabolicSAR = extreme_price
+                temp_sar = extreme_price
                 acceleration_factor = Analyzer.INITIAL_AF
                 if bull:
                     bull = False
@@ -237,27 +241,25 @@ class Analyzer():
                     bull = True
                     extreme_price = current_high
             else:
-                if bull:
-                    if extreme_price < current_high:
-                        extreme_price = current_high
-                        acceleration_factor = min(
-                            acceleration_factor + Analyzer.INITIAL_AF,
-                            Analyzer.MAX_AF
-                        )
-                else:
-                    if extreme_price > current_low:
-                        extreme_price = current_low
-                        acceleration_factor = min(
-                            acceleration_factor + Analyzer.INITIAL_AF,
-                            Analyzer.MAX_AF
-                        )
-                parabolicSAR = self.__SAR[-1] + acceleration_factor * (extreme_price - self.__SAR[-1])
+                if bull and extreme_price < current_high:
+                    extreme_price = current_high
+                    acceleration_factor = min(
+                        acceleration_factor + Analyzer.INITIAL_AF,
+                        Analyzer.MAX_AF
+                    )
+                elif not bull and extreme_price > current_low:
+                    extreme_price = current_low
+                    acceleration_factor = min(
+                        acceleration_factor + Analyzer.INITIAL_AF,
+                        Analyzer.MAX_AF
+                    )
+                temp_sar = last_sar + acceleration_factor * (extreme_price - last_sar)
 
             if i == 0:
-                self.__SAR[-1] = parabolicSAR
+                temp_sar_array[-1] = temp_sar
             else:
-                self.__SAR.append(parabolicSAR)
-        self.__SAR = pd.DataFrame(data=self.__SAR, columns=['SAR'])
+                temp_sar_array.append(temp_sar)
+        self.__indicators['SAR'] = pd.DataFrame(data=temp_sar_array, columns=['SAR'])
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                    Stochastic                       #
