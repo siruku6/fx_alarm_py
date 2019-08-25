@@ -56,6 +56,7 @@ class Analyzer():
         indicators = pd.concat(
             [
                 self.__indicators['SMA'],
+                self.__indicators['50SMA'],
                 self.__indicators['EMA'],
                 self.__indicators['SIGMA*2_BAND'],
                 self.__indicators['SIGMA*-2_BAND'],
@@ -78,6 +79,8 @@ class Analyzer():
         # mean()後の .dropna().reset_index(drop = True) を消去中
         sma = pd.Series.rolling(close, window=window_size).mean()
         self.__indicators['SMA'] = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
+        sma50 = pd.Series.rolling(close, window=50).mean()
+        self.__indicators['50SMA'] = pd.DataFrame(sma50).rename(columns={'close': '50SMA'})       
 
     def __calc_EMA(self, window_size=10):
         ''' 指数平滑移動平均線を生成 '''

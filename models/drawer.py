@@ -1,6 +1,3 @@
-# pyplot 指定可能な colors list
-# https://pythondatascience.plavox.info/matplotlib/%E8%89%B2%E3%81%AE%E5%90%8D%E5%89%8D
-
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
@@ -37,8 +34,9 @@ class FigureDrawer():
     # OPTIMIZE: Analyzerクラスと密結合なメソッドになってしまった
     def draw_indicators(self, d_frame):
         ''' DateFrameからindicatorを描画 '''
-        self.draw_df_on_plt(d_frame.loc[:, ['20SMA']],    FigureDrawer.PLOT_TYPE['simple-line'], color='lightskyblue')
-        self.draw_df_on_plt(d_frame.loc[:, ['10EMA']],    FigureDrawer.PLOT_TYPE['simple-line'], color='cyan')
+        # self.draw_df_on_plt(d_frame.loc[:, ['50SMA']], FigureDrawer.PLOT_TYPE['dashed-line'], color='lime')
+        self.draw_df_on_plt(d_frame.loc[:, ['20SMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightskyblue')
+        self.draw_df_on_plt(d_frame.loc[:, ['10EMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='cyan')
         self.draw_df_on_plt(d_frame.loc[:, ['band_+2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue')
         self.draw_df_on_plt(d_frame.loc[:, ['band_-2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
         self.draw_df_on_plt(d_frame.loc[:, ['band_+3σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightcyan')
