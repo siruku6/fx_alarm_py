@@ -516,8 +516,14 @@ class Trader():
         short_entry_array = self.__calc_profit(short_entry_array, sign=-1)
 
         result = self.__calc_detaild_statistics(long_entry_array, short_entry_array)
+        candles = FXBase.get_candles()
 
+        print('[期間] {start} ～ {end}'.format(
+            start=candles.time[20], end=candles.time.tail(1).values[0])
+        )
+        print('[ローソク足数] {candles_cnt}本'.format(candles_cnt=len(candles) - 20))
         print('[Entry回数] {trades_cnt}回'.format(trades_cnt=result['trades_count']))
+        print('[Spread] {spread}pips'.format(spread=self.__static_spread))
         print('[勝率] {win_rate}%'.format(win_rate=result['win_rate']))
         print('[利確] {win_count}回'.format(win_count=result['win_count']))
         print('[損切] {lose_count}回'.format(lose_count=result['lose_count']))
