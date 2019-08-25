@@ -337,9 +337,9 @@ class Trader():
                     continue
 
                 if os.environ.get('CUSTOM_RULE') == 'on':
-                    # INFO: 勝率増、drawdown減なるも、総損益も減
-                    # if not self._SMA_run_along_trend(index, trend):
-                    #     continue
+                    # INFO: 総損益減だが、勝率増、drawdown減、PF・RFが改善
+                    if not self._SMA_run_along_trend(index, trend):
+                        continue
                     # 大失敗を防いでくれる
                     if self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]):
                         continue
@@ -527,6 +527,8 @@ class Trader():
         print('[最大利益] {max_profit}pips'.format(max_profit=round(result['max_profit'] * 100, 3)))
         print('[最大損失] {max_loss}pips'.format(max_loss=round(result['max_loss'] * 100, 3)))
         print('[最大Drawdown] {drawdown}pips'.format(drawdown=round(result['drawdown'] * 100, 3)))
+        print('[Profit Factor] (総利益 / 総損失) {pf}'.format(pf=result['profit_factor']))
+        print('[Recovery Factor] (総損益 / 最大Drawdown) {pf}'.format(pf=result['recovery_factor']))
 
     def __calc_profit(self, entry_array, sign=1):
         ''' トレード履歴の利益を計算 '''
@@ -559,21 +561,25 @@ class Trader():
             = [profit for profit in long_profit_array if profit < 0] \
             + [profit for profit in short_profit_array if profit < 0]
 
-        drawdown = min([row['drawdown'] for row in (long_entry_array + short_entry_array)])
+        max_drawdown = min([row['drawdown'] for row in (long_entry_array + short_entry_array)])
+        gross_profit = sum(profit_array)
+        gross_loss = sum(loss_array)
 
         return {
             'trades_count': long_count + short_count,
-            'win_rate': len(profit_array) / (long_count + short_count) * 100,
+            'win_rate': round(len(profit_array) / (long_count + short_count) * 100, 2),
             'win_count': len(profit_array),
             'lose_count': len(loss_array),
             'long_count': long_count,
             'short_count': short_count,
             'profit_sum': sum(long_profit_array + short_profit_array),
-            'gross_profit': sum(profit_array),
-            'gross_loss': sum(loss_array),
+            'gross_profit': gross_profit,
+            'gross_loss': gross_loss,
             'max_profit': max(profit_array),
             'max_loss': min(loss_array),
-            'drawdown': drawdown
+            'drawdown': max_drawdown,
+            'profit_factor': round(-gross_profit / gross_loss, 2),
+            'recovery_factor': round((gross_profit + gross_loss) / -max_drawdown, 2)
         }
 
 
