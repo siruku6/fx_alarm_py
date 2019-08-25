@@ -22,7 +22,7 @@ class Trader():
             self.__static_spread = 0.0
 
         self._operation = operation
-        self._client = OandaPyClient(instrument=self.__instrument)
+        self._client = OandaPyClient(instrument=self.get_instrument())
         self.__ana = Analyzer()
         self.__drawer = FigureDrawer()
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
@@ -129,10 +129,12 @@ class Trader():
             drwr.draw_positions_df(positions_df=dfs_short_hist[i][dfs_short_hist[i].type=='short'], plot_type=drwr.PLOT_TYPE['short'])
             drwr.draw_positions_df(positions_df=dfs_short_hist[i][dfs_short_hist[i].type=='trail'], plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
             drwr.draw_positions_df(positions_df=dfs_short_hist[i][dfs_short_hist[i].type=='close'], plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
-            result = drwr.create_png(instrument=self.__instrument, granularity=self.__granularity, sr_time=sr_time, num=i)
+            result = drwr.create_png(instrument=self.get_instrument(), granularity=self.__granularity, sr_time=sr_time, num=i)
             drwr.close_all()
-            if df_segments_count != i + 1: drwr.init_figure()
-            if 'success' in result: print(result['success'], '/{}'.format(df_segments_count))
+            if df_segments_count != i + 1:
+                drwr.init_figure()
+            if 'success' in result:
+                print(result['success'], '/{}'.format(df_segments_count))
 
         return {
             'success': '[Trader] チャート分析、png生成完了',
@@ -308,21 +310,26 @@ class Trader():
             print('[Trader] progress... {i}/{total}'.format(i=index, total=candle_length))
             self._position['sequence'] = index
             if self._position['type'] == 'none':
-                if math.isnan(sma[index]): continue
-
+                if math.isnan(sma[index]):
+                    continue
                 trend = self._check_trend(index, close_price)
-                if trend is None: continue
+                if trend is None:
+                    continue
 
                 if os.environ.get('CUSTOM_RULE') == 'on':
                     # 大失敗を防いでくれる
-                    if self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]): continue
+                    if self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]):
+                        continue
                     # 大幅に改善する
-                    if not self._expand_MA_gap(index, trend): continue
+                    if not self._expand_MA_gap(index, trend):
+                        continue
                     # 若干効果あり
-                    if not self._stochastic_allow_trade(index, trend): continue
+                    if not self._stochastic_allow_trade(index, trend):
+                        continue
 
                 direction = self._find_thrust(index, trend)
-                if direction is None: continue
+                if direction is None:
+                    continue
 
                 self._create_position(index, direction)
             else:
@@ -621,15 +628,20 @@ class RealTrader(Trader):
         self._position = self.__load_position()
         if self._position['type'] == 'none':
             trend = self._check_trend(index=last_index, c_price=close_price)
-            if trend is None: return
+            if trend is None:
+                return
 
             if os.environ.get('CUSTOM_RULE') == 'on':
-                if self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]): return
-                if not self._expand_MA_gap(last_index, trend): return
-                if not self._stochastic_allow_trade(last_index, trend): return
+                if self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]):
+                    return
+                if not self._expand_MA_gap(last_index, trend):
+                    return
+                if not self._stochastic_allow_trade(last_index, trend):
+                    return
 
             direction = self._find_thrust(last_index, trend)
-            if direction is None: return
+            if direction is None:
+                return
 
             self._create_position(last_index, direction)
         else:
@@ -640,7 +652,8 @@ class RealTrader(Trader):
     def __load_position(self):
         pos = {'type': 'none'}
         open_trades = self._client.request_open_trades()
-        if open_trades == []: return pos
+        if open_trades == []:
+            return pos
 
         # Open position の情報抽出
         target = open_trades[0]
@@ -649,7 +662,8 @@ class RealTrader(Trader):
             pos['type'] = 'short'
         else:
             pos['type'] = 'long'
-        if 'stopLossOrder' not in target: return pos
+        if 'stopLossOrder' not in target:
+            return pos
 
         pos['stoploss'] = float(target['stopLossOrder']['price'])
         return pos
