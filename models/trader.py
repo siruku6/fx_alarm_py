@@ -226,17 +226,17 @@ class Trader():
 
     def _stochastic_allow_trade(self, index, trend):
         ''' stocがtrendと一致した動きをしていれば true を返す '''
-        stoD = self._indicators['stoD:3'][index]
-        stoSD = self._indicators['stoSD:3'][index]
+        stod = self._indicators['stoD:3'][index]
+        stosd = self._indicators['stoSD:3'][index]
         result = False
 
-        if trend == 'bull' and (stoD > stoSD or stoD > 80):
+        if trend == 'bull' and (stod > stosd or stod > 80):
             result = True
-        elif trend == 'bear' and (stoD < stoSD or stoD < 20):
+        elif trend == 'bear' and (stod < stosd or stod < 20):
             result = True
 
         if result is False and self._operation == 'live':
-            print('[Trader] stoD: {}, stoSD: {}'.format(stoD, stoSD))
+            print('[Trader] stoD: {}, stoSD: {}'.format(stod, stosd))
             self._log_skip_reason('c. stochastic denies trade')
         return result
 
@@ -269,7 +269,7 @@ class Trader():
             if candles.low[i - 1] - self._STOPLOSS_BUFFER_pips > stoploss_price:
                 stoploss_price = candles.low[i - 1] - self._STOPLOSS_BUFFER_pips
                 self._trail_stoploss(
-                    new_SL=stoploss_price, time=candles.time[i]
+                    new_stop=stoploss_price, time=candles.time[i]
                 )
             if stoploss_price > candles.low[i]:
                 self._settle_position(
@@ -283,7 +283,7 @@ class Trader():
             if candles.high[i - 1] + self._STOPLOSS_BUFFER_pips < stoploss_price:
                 stoploss_price = candles.high[i - 1] + self._STOPLOSS_BUFFER_pips
                 self._trail_stoploss(
-                    new_SL=stoploss_price, time=candles.time[i]
+                    new_stop=stoploss_price, time=candles.time[i]
                 )
             if stoploss_price < candles.high[i] + self.__static_spread:
                 self._settle_position(
@@ -379,9 +379,9 @@ class Trader():
         }
         self.__hist_positions[direction].append(self._position.copy())
 
-    def _trail_stoploss(self, new_SL, time):
+    def _trail_stoploss(self, new_stop, time):
         direction = self._position['type']
-        self._position['stoploss']      = new_SL
+        self._position['stoploss']      = new_stop
         position_after_trailing         = self._position.copy()
         position_after_trailing['type'] = 'trail'
         position_after_trailing['time'] = time
@@ -604,12 +604,12 @@ class RealTrader(Trader):
             stoploss = candles.high[index - 1] + self._STOPLOSS_BUFFER_pips
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
 
-    def _trail_stoploss(self, new_SL, time):
+    def _trail_stoploss(self, new_stop, time):
         '''
         ポジションのstoploss-priceを強気方向へ修正する
         Parameters
         ----------
-        new_SL : float
+        new_stop : float
             新しいstoploss-price
         time : string
             不要
@@ -618,7 +618,7 @@ class RealTrader(Trader):
         -------
         None
         '''
-        result = self._client.request_trailing_stoploss(SL_price=new_SL)
+        result = self._client.request_trailing_stoploss(SL_price=new_stop)
         print(result)
 
     def _settle_position(self, index, price, time):
