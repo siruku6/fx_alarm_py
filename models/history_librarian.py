@@ -49,7 +49,7 @@ class Librarian():
             starttime_str=start_str,
             granularity=granularity
         )
-        print('[Libra] candlesセット完了')
+        print('[Libra] candles are loaded')
 
         # merge
         result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
@@ -58,7 +58,7 @@ class Librarian():
         result = result.drop_duplicates(['time'])
         result['units'] = result.units.fillna('0').astype(int)
         FXBase.set_candles(result)
-        print('[Libra] データmerge完了')
+        print('[Libra] candles and trade-history is merged')
 
         # INFO: Visualization
         result.to_csv('./tmp/oanda_trade_hist.csv', index=False)
@@ -95,8 +95,8 @@ class Librarian():
         today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
         start_dt = datetime.datetime.strptime(starttime_str, '%Y-%m-%d %H:%M:%S')
         days_wanted = (today_dt - start_dt).days + 1
-        self.__client.load_long_chart(days=days_wanted, granularity=granularity)
-        return FXBase.get_candles()
+        result = self.__client.load_long_chart(days=days_wanted, granularity=granularity)
+        return result['candles']
 
     def __divide_history_by_type(self, d_frame):
         entry_df = d_frame.dropna(subset=['tradeOpened'])[['price', 'time', 'units']]

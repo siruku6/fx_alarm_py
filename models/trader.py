@@ -32,7 +32,6 @@ class Trader():
 
         if operation == 'verification':
             self.__request_custom_candles()
-            self._client.request_current_price()
         elif operation == 'live':
             result = self._client.request_is_tradeable()
             self.tradeable = result['tradeable']
@@ -40,10 +39,10 @@ class Trader():
                 self._log_skip_reason('1. market is not open')
                 self.__drawer.close_all()
                 return
-
             self._client.load_specified_length_candles(granularity=self.__granularity)
-            # OPTIMIZE: これがあるせいで意外とトレードが発生しない
-            self._client.request_current_price()
+
+        # OPTIMIZE: これがあるせいで意外とトレードが発生しない
+        self._client.request_current_price()
 
         result = self.__ana.calc_indicators()
         if 'error' in result:
@@ -313,14 +312,11 @@ class Trader():
         print('取得スパンは？(ex: M5): ', end='')
         self.__granularity = str(input())
 
-        result = self._client.load_long_chart(
-            days=days,
-            granularity=self.__granularity
-        )
+        result = self._client.load_long_chart(days=days, granularity=self.__granularity)
         if 'error' in result:
             print(result['error'])
             exit()
-        # FXBase.set_candles(result['candles'])
+        FXBase.set_candles(result['candles'])
 
     def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''

@@ -134,8 +134,7 @@ class OandaPyClient():
             time.sleep(1)
 
         if remaining_days == 0:
-            FXBase.set_candles(candles)
-            return {'success': '[Watcher] APIリクエスト成功'}
+            return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
 
         return {'error': '[Watcher] 処理中断'}
 
@@ -149,22 +148,24 @@ class OandaPyClient():
         elif time_unit == 'D':
             start_datetime = end_datetime - datetime.timedelta(days=1)
 
-        # try:
-        response = self.__request_oanda_instruments(
-            start=self.__convert_datetime_into_oanda_format(start_datetime),
-            end=self.__convert_datetime_into_oanda_format(end_datetime),
-            granularity=granularity
-        )
-        # except V20Error as error:
-        #     print("V20Error: ", error)
-        #     # INFO: 保険として、1分前のデータの再取得を試みる
-        #     start_datetime -= datetime.timedelta(minutes=1)
-        #     end_datetime   -= datetime.timedelta(minutes=1)
-        #     response = self.__request_oanda_instruments(
-        #         start=self.__convert_datetime_into_oanda_format(start_datetime),
-        #         end=  self.__convert_datetime_into_oanda_format(end_datetime),
-        #         granularity=granularity
-        #     )
+        try:
+            response = self.__request_oanda_instruments(
+                start=self.__convert_datetime_into_oanda_format(start_datetime),
+                end=self.__convert_datetime_into_oanda_format(end_datetime),
+                granularity=granularity
+            )
+        except V20Error as error:
+            print('request_latest_candles..V20Error: {},\nstart: {},\nend: {}'.format(
+                error, start_datetime, end_datetime
+            ))
+            # INFO: 保険として、1分前のデータの再取得を試みる
+            start_datetime -= datetime.timedelta(minutes=1)
+            end_datetime -= datetime.timedelta(minutes=1)
+            response = self.__request_oanda_instruments(
+                start=self.__convert_datetime_into_oanda_format(start_datetime),
+                end=self.__convert_datetime_into_oanda_format(end_datetime),
+                granularity=granularity
+            )
 
         candles = self.__transform_to_candle_chart(response)
         return candles
@@ -354,7 +355,7 @@ class OandaPyClient():
         try:
             response = self.__api_client.request(request_obj)
         except V20Error as error:
-            logger.error('[__request_oanda_instruments] V20Error: ', error)
+            logger.error('[__request_oanda_instruments] V20Error: {}'.format(error))
             return {'candles': []}
 
         return response
