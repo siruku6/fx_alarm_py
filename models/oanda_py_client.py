@@ -24,6 +24,8 @@ class FXBase():
 
     @classmethod
     def get_candles(cls, start=0, end=None):
+        if cls.__candles is None: 
+            return pd.DataFrame(columns=[])
         return cls.__candles[start:end]
 
     @classmethod
