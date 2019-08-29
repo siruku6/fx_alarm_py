@@ -136,7 +136,11 @@ class Trader():
             drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
             drwr.draw_positions_df(positions_df=short_trail_df, plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
             drwr.draw_positions_df(positions_df=short_close_df, plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
-            result = drwr.create_png(instrument=self.get_instrument(), granularity=self.__granularity, sr_time=sr_time, num=i)
+            result = drwr.create_png(
+                instrument=self.get_instrument(),
+                granularity=self.__granularity,
+                sr_time=sr_time, num=i
+            )
 
             drwr.close_all()
             if df_segments_count != i + 1:
@@ -519,8 +523,9 @@ class Trader():
         candles = FXBase.get_candles()
 
         print('[期間] {start} ～ {end}'.format(
-            start=candles.time[20], end=candles.time.tail(1).values[0])
-        )
+            start=candles.time[20],
+            end=candles.time.tail(1).values[0]
+        ))
         print('[ローソク足数] {candles_cnt}本'.format(candles_cnt=len(candles) - 20))
         print('[Entry回数] {trades_cnt}回'.format(trades_cnt=result['trades_count']))
         print('[Spread] {spread}pips'.format(spread=self.__static_spread))

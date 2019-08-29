@@ -387,8 +387,8 @@ class OandaPyClient():
         max_days = int(5000 / candles_per_a_day)  # 1 requestにつき5000本まで
         return max_days
 
-    def __convert_datetime_into_oanda_format(self, datetime):
-        return datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
+    def __convert_datetime_into_oanda_format(self, target_datetime):
+        return target_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
 
     def __filter_and_make_df(self, response_transactions):
         ''' 必要なrecordのみ残してdataframeに変換する '''
