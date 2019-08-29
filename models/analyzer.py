@@ -47,9 +47,6 @@ class Analyzer():
         # if 'success' in result:
         #     print(result['success'])
         #     self.__get_breakpoints()
-        #     return { 'success': '[Analyzer] indicators算出完了' }
-        # else:
-        #     return { 'error': '[Analyzer] indicators算出失敗' }
         return {'success': '[Analyzer] indicators算出完了'}
 
     def get_indicators(self):
@@ -80,7 +77,7 @@ class Analyzer():
         sma = pd.Series.rolling(close, window=window_size).mean()
         self.__indicators['SMA'] = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
         sma50 = pd.Series.rolling(close, window=50).mean()
-        self.__indicators['50SMA'] = pd.DataFrame(sma50).rename(columns={'close': '50SMA'})       
+        self.__indicators['50SMA'] = pd.DataFrame(sma50).rename(columns={'close': '50SMA'})
 
     def __calc_EMA(self, window_size=10):
         ''' 指数平滑移動平均線を生成 '''
@@ -209,12 +206,10 @@ class Analyzer():
     #                   Parabolic SAR                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def __parabolic_is_touched(self, bull, current_parabo, current_h, current_l):
-        if bull:
-            if current_parabo > current_l:
-                return True
-        else:
-            if current_parabo < current_h:
-                return True
+        if bull and (current_parabo > current_l):
+            return True
+        elif not bull and (current_parabo < current_h):
+            return True
         return False
 
     def __calc_parabolic(self):
@@ -224,9 +219,12 @@ class Analyzer():
         extreme_price = FXBase.get_candles().high[0]
         temp_sar_array = [FXBase.get_candles().low[0]]
 
-        for i, row in FXBase.get_candles().iterrows():
-            current_high = row.high
-            current_low = row.low
+        # HACK: dataframeのまま処理するより、to_dictで辞書配列化した方が処理が早い
+        candles_array = FXBase.get_candles().to_dict('records')
+        # for i, row in FXBase.get_candles().iterrows():
+        for i, row in enumerate(candles_array):
+            current_high = row['high']
+            current_low = row['low']
             last_sar = temp_sar_array[-1]
 
             # レートがparabolicに触れたときの処理
