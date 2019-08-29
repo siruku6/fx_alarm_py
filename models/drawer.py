@@ -177,5 +177,5 @@ class FigureDrawer():
         plt.legend(loc='upper left', fontsize=8)
 
         png_filename = filename or 'figure'
-        plt.savefig('tmp/{filename}_{num}.png'.format(filename=png_filename, num=num))
+        plt.savefig('tmp/images/{filename}_{num}.png'.format(filename=png_filename, num=num))
         return {'success': '[Drawer] 描画済みイメージをpng化 {}'.format(num + 1)}

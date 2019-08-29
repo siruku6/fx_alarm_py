@@ -1,8 +1,6 @@
 __pycache__/
-samples/
 test_cord.py
 *.csv
 *.json
 log/*.log
-tmp/*.png
-
+tmp/images/*.png
