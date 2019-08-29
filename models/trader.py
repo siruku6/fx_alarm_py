@@ -654,7 +654,7 @@ class RealTrader(Trader):
         -------
         None
         '''
-        result = self._client.request_trailing_stoploss(SL_price=new_stop)
+        result = self._client.request_trailing_stoploss(stoploss_price=new_stop)
         print(result)
 
     def _settle_position(self, index, price, time):

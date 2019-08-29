@@ -24,7 +24,7 @@ class FXBase():
 
     @classmethod
     def get_candles(cls, start=0, end=None):
-        if cls.__candles is None: 
+        if cls.__candles is None:
             return pd.DataFrame(columns=[])
         return cls.__candles[start:end]
 
@@ -99,7 +99,7 @@ class OandaPyClient():
         length = 60
         response = self.__request_oanda_instruments(
             start=None,
-            end=self.__format_dt_into_OandapyV20(end_datetime),
+            end=self.__convert_datetime_into_oanda_format(end_datetime),
             candles_count=length,
             granularity=granularity
         )
@@ -124,8 +124,8 @@ class OandaPyClient():
             end_datetime = last_datetime - datetime.timedelta(days=remaining_days)
 
             response = self.__request_oanda_instruments(
-                start=self.__format_dt_into_OandapyV20(start_datetime),
-                end=self.__format_dt_into_OandapyV20(end_datetime),
+                start=self.__convert_datetime_into_oanda_format(start_datetime),
+                end=self.__convert_datetime_into_oanda_format(end_datetime),
                 granularity=granularity
             )
             tmp_candles = self.__transform_to_candle_chart(response)
@@ -151,18 +151,18 @@ class OandaPyClient():
 
         # try:
         response = self.__request_oanda_instruments(
-            start=self.__format_dt_into_OandapyV20(start_datetime),
-            end=self.__format_dt_into_OandapyV20(end_datetime),
+            start=self.__convert_datetime_into_oanda_format(start_datetime),
+            end=self.__convert_datetime_into_oanda_format(end_datetime),
             granularity=granularity
         )
-        # except V20Error as e:
-        #     print("V20Error: ", e)
+        # except V20Error as error:
+        #     print("V20Error: ", error)
         #     # INFO: 保険として、1分前のデータの再取得を試みる
         #     start_datetime -= datetime.timedelta(minutes=1)
         #     end_datetime   -= datetime.timedelta(minutes=1)
         #     response = self.__request_oanda_instruments(
-        #         start=self.__format_dt_into_OandapyV20(start_datetime),
-        #         end=  self.__format_dt_into_OandapyV20(end_datetime),
+        #         start=self.__convert_datetime_into_oanda_format(start_datetime),
+        #         end=  self.__convert_datetime_into_oanda_format(end_datetime),
         #         granularity=granularity
         #     )
 
@@ -181,8 +181,8 @@ class OandaPyClient():
         if end_time > datetime.datetime.now(): end_time = datetime.datetime.now()
 
         response = self.__request_oanda_instruments(
-            start=self.__format_dt_into_OandapyV20(start_time),
-            end=self.__format_dt_into_OandapyV20(end_time),
+            start=self.__convert_datetime_into_oanda_format(start_time),
+            end=self.__convert_datetime_into_oanda_format(end_time),
             granularity=granularity
         )
         candles = self.__transform_to_candle_chart(response)
@@ -232,9 +232,10 @@ class OandaPyClient():
         open_trades = response['trades']
 
         extracted_trades = [
-            trade for trade in open_trades if
+            trade for trade in open_trades if (
                 # 'clientExtensions' not in trade.keys() and
                 trade['instrument'] == self.__instrument
+            )
         ]
         print('[Client] open_trades: {}'.format(extracted_trades))
         self.__tradeIDs = [trade['id'] for trade in extracted_trades]
@@ -261,7 +262,7 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('[Client] market-order: {result}'.format(result=response))
+        logger.info('[Client] market-order: %s', response)
         return response
 
     def request_closing_position(self):
@@ -274,17 +275,17 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_tradeID  # , data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('[Client] close-position: {result}'.format(result=response))
+        logger.info('[Client] close-position: %s', response)
         return response
 
-    def request_trailing_stoploss(self, SL_price=None):
+    def request_trailing_stoploss(self, stoploss_price=None):
         ''' ポジションのstoplossを強気方向に修正 '''
         if self.__tradeIDs == []: return {'error': '[Client] trailすべきポジションが見つかりませんでした。'}
-        if SL_price is None: return {'error': '[Client] StopLoss価格がなく、trailできませんでした。'}
+        if stoploss_price is None: return {'error': '[Client] StopLoss価格がなく、trailできませんでした。'}
 
         data = {
             # 'takeProfit': {'timeInForce': 'GTC', 'price': '1.3'},
-            'stopLoss': {'timeInForce': 'GTC', 'price': str(SL_price)[:7]}
+            'stopLoss': {'timeInForce': 'GTC', 'price': str(stoploss_price)[:7]}
         }
         request_obj = trades.TradeCRCDO(
             accountID=os.environ['OANDA_ACCOUNT_ID'],
@@ -292,7 +293,7 @@ class OandaPyClient():
             data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('[Client] trail: {result}'.format(result=response))
+        logger.info('[Client] trail: %s', response)
         return response
 
     def request_transactions(self):
@@ -352,8 +353,8 @@ class OandaPyClient():
         # HACK: 現在値を取得する際、誤差で将来の時間と扱われてエラーになることがある
         try:
             response = self.__api_client.request(request_obj)
-        except V20Error as e:
-            logger.error('[__request_oanda_instruments] V20Error: ', e)
+        except V20Error as error:
+            logger.error('[__request_oanda_instruments] V20Error: ', error)
             return {'candles': []}
 
         return response
@@ -386,8 +387,8 @@ class OandaPyClient():
         max_days = int(5000 / candles_per_a_day)  # 1 requestにつき5000本まで
         return max_days
 
-    def __format_dt_into_OandapyV20(self, dt):
-        return dt.strftime('%Y-%m-%dT%H:%M:00.000000Z')
+    def __convert_datetime_into_oanda_format(self, datetime):
+        return datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
 
     def __filter_and_make_df(self, response_transactions):
         ''' 必要なrecordのみ残してdataframeに変換する '''
