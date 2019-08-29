@@ -522,31 +522,17 @@ class Trader():
         result = self.__calc_detaild_statistics(long_entry_array, short_entry_array)
         candles = FXBase.get_candles()
 
-        print('[期間] {start} ～ {end}'.format(
+        duration = '{start} ~ {end}'.format(
             start=candles.time[20],
             end=candles.time.tail(1).values[0]
-        ))
-        print('[ローソク足数] {candles_cnt}本'.format(candles_cnt=len(candles) - 20))
-        print('[Entry回数] {trades_cnt}回'.format(trades_cnt=result['trades_count']))
-        print('[Spread] {spread}pips'.format(spread=self.__static_spread))
-        print('[勝率] {win_rate}%'.format(win_rate=result['win_rate']))
-        print('[利確] {win_count}回'.format(win_count=result['win_count']))
-        print('[損切] {lose_count}回'.format(lose_count=result['lose_count']))
-        print('[総損益] {profit}pips'.format(profit=round(result['profit_sum'] * 100, 3)))
-        print('[総利益] {profit}pips'.format(profit=round(result['gross_profit'] * 100, 3)))
-        print('[総損失] {loss}pips'.format(loss=round(result['gross_loss'] * 100, 3)))
-        print('[最大利益] {max_profit}pips'.format(max_profit=round(result['max_profit'] * 100, 3)))
-        print('[最大損失] {max_loss}pips'.format(max_loss=round(result['max_loss'] * 100, 3)))
-        print('[最大Drawdown] {drawdown}pips'.format(drawdown=round(result['drawdown'] * 100, 3)))
-        print('[Profit Factor] (総利益 / 総損失) {pf}'.format(pf=result['profit_factor']))
-        print('[Recovery Factor] (総損益 / 最大Drawdown) {pf}'.format(pf=result['recovery_factor']))
-
+        )
         columns = [
-            'CandlesCnt','EntryCnt','Spread','WinRate','WinCnt','LoseCnt',
-            'Gross','GrossProfit','GrossLoss','MaxProfit','MaxLoss',
-            'MaxDrawdown','Profit Factor','Recovery Factor'
+            'Duration', 'CandlesCnt', 'EntryCnt', 'Spread', 'WinRate', 'WinCnt', 'LoseCnt',
+            'Gross', 'GrossProfit', 'GrossLoss', 'MaxProfit', 'MaxLoss',
+            'MaxDrawdown', 'Profit Factor', 'Recovery Factor'
         ]
         result_row = [
+            duration,                # 'Duration'
             len(candles) - 20,       # 'CandlesCnt'
             result['trades_count'],  # 'EntryCnt'
             self.__static_spread,    # 'Spread'
