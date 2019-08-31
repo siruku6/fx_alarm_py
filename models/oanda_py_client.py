@@ -229,26 +229,6 @@ class OandaPyClient():
         candles = self.__transform_to_candle_chart(response)
         return candles
 
-    # TODO: これからいらなくなる予定
-    def request_specified_candles(self, start_datetime, granularity='M10', base_granurarity='D'):
-        start_time = self.__str_to_datetime(start_datetime)
-        time_unit = base_granurarity[0]
-        if time_unit == 'M':
-            end_time = start_time + datetime.timedelta(minutes=int(base_granurarity[1:]))
-        elif time_unit == 'H':
-            end_time = start_time + datetime.timedelta(hours=int(base_granurarity[1:]))
-        elif time_unit == 'D':
-            end_time = start_time + datetime.timedelta(days=1)
-        if end_time > datetime.datetime.now(): end_time = datetime.datetime.now()
-
-        response = self.__request_oanda_instruments(
-            start=self.__convert_datetime_into_oanda_format(start_time),
-            end=self.__convert_datetime_into_oanda_format(end_time),
-            granularity=granularity
-        )
-        candles = self.__transform_to_candle_chart(response)
-        return candles
-
     # INFO: request-something (excluding candles)
     def request_is_tradeable(self):
         params = {'instruments': self.__instrument}  # 'USD_JPY,EUR_USD,EUR_JPY'

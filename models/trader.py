@@ -1,17 +1,16 @@
+import datetime
 import math
 import os
-# import logging
 import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 from models.mathematics import range_2nd_decimal
 
-# logger = logging.getLogger()
-# logger.setLevel(logging.INFO)
-
 
 class Trader():
+    TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
+
     def __init__(self, operation='verification'):
         if operation in ['verification']:
             inst = OandaPyClient.select_instrument()
@@ -29,6 +28,7 @@ class Trader():
         self.__granularity = os.environ.get('GRANULARITY') or 'M5'
         sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
         self._STOPLOSS_BUFFER_pips = sl_buffer or 0.05
+        self._position = None
 
         if operation == 'verification':
             self.__request_custom_candles()
@@ -424,7 +424,10 @@ class Trader():
         '''
         ポジション履歴のエントリーpriceを、実際にエントリー可能な価格に修正する
         '''
-        # TODO: 総リクエスト数と所要時間、rpsをこまめに表示した方がよさそう
+        first_time = self.__str_to_datetime(FXBase.get_candles().iloc[0, :].time[:19])
+        last_time = self.__str_to_datetime(FXBase.get_candles().iloc[-1, :].time[:19])
+        _m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')
+
         # long価格の修正
         len_of_long_hist = len(self.__hist_positions['long']) - 1
         for i, row in enumerate(self.__hist_positions['long']):
@@ -433,18 +436,18 @@ class Trader():
 
             print('[Trader] long-accurize: {i}/{total}'.format(i=i, total=len_of_long_hist))
             if row['type'] == 'long':
-                M10_candles = self._client.request_specified_candles(
-                    start_datetime=row['time'][:19],
-                    granularity='M10',
-                    base_granurarity=self.__granularity
-                )
-                for _j, M10_row in M10_candles.iterrows():
-                    if row['price'] < M10_row.high:
+                start = row['time'][:19]
+                end = self.__add_candle_duration(row['time'][:19])
+                short_candles = _m10_candles.loc[start:end, :]
+
+                # TODO: dataframeでなく辞書をloopさせればもっと早くなる
+                for _j, m10_row in short_candles.iterrows():
+                    if row['price'] < m10_row.high:
                         old_price = row['price']
-                        row['price'] = M10_row.high
-                        row['time'] = M10_row.time
+                        row['price'] = m10_row.high
+                        row['time'] = m10_row.name
                         self.__chain_accurization(
-                            i, 'long', old_price, accurater_price=M10_row.high
+                            i, 'long', old_price, accurater_price=m10_row.high
                         )
                         break
 
@@ -456,22 +459,36 @@ class Trader():
 
             print('[Trader] short-accurize: {i}/{total}'.format(i=i, total=len_of_short_hist))
             if row['type'] == 'short':
-                M10_candles = self._client.request_specified_candles(
-                    start_datetime=row['time'][:19],
-                    granularity='M10',
-                    base_granurarity=self.__granularity
-                )
-                for _j, M10_row in M10_candles.iterrows():
-                    if row['price'] > M10_row.low:
+                start = row['time'][:19]
+                end = self.__add_candle_duration(row['time'][:19])
+                short_candles = _m10_candles.loc[start:end, :]
+
+                for _j, m10_row in short_candles.iterrows():
+                    if row['price'] > m10_row.low:
                         old_price = row['price']
-                        row['price'] = M10_row.low
-                        row['time'] = M10_row.time
+                        row['price'] = m10_row.low
+                        row['time'] = m10_row.name
                         self.__chain_accurization(
-                            i, 'short', old_price, accurater_price=M10_row.low
+                            i, 'short', old_price, accurater_price=m10_row.low
                         )
                         break
 
         return {'success': '[Trader] entry価格を、現実的に取引可能な値に修正'}
+
+    def __add_candle_duration(self, start_string):
+        start_time = self.__str_to_datetime(start_string)
+        granularity = self.__granularity
+        time_unit = granularity[0]
+        if time_unit == 'M':
+            candle_duration = datetime.timedelta(minutes=int(granularity[1:]))
+        elif time_unit == 'H':
+            candle_duration = datetime.timedelta(hours=int(granularity[1:]))
+        elif time_unit == 'D':
+            candle_duration = datetime.timedelta(days=1)
+
+        a_minute = datetime.timedelta(minutes=1)
+        result = (start_time + candle_duration - a_minute).strftime(Trader.TIME_STRING_FMT)
+        return result
 
     def __chain_accurization(self, index, entry_type, old_price, accurater_price):
         index += 1
@@ -482,6 +499,10 @@ class Trader():
 
             self.__hist_positions[entry_type][index]['price'] = accurater_price
             index += 1
+
+    def __str_to_datetime(self, time_string):
+        result_dt = datetime.datetime.strptime(time_string, Trader.TIME_STRING_FMT)
+        return result_dt
 
     def __split_df_by_200rows(self, d_frame):
         dfs = []
