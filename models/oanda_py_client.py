@@ -142,25 +142,35 @@ class OandaPyClient():
         csv_path = '{head}_{inst}_{granularity}.csv'.format(
             head=OandaPyClient.FILEPATH_HEAD, inst=self.__instrument, granularity=granularity
         )
+
         try:
             stocked_candles = pd.read_csv(csv_path, index_col=0)
-            lacked_start_time, lacked_end_time = self.__examine_lacked_duration(
-                exist_first=stocked_candles.index[0], wanted_start_time=start_time,
-                exist_last=stocked_candles.index[-1], wanted_end_time=end_time
-            )
+            exist_first_time = self.__str_to_datetime(stocked_candles.index[0])
+            exist_last_time = self.__str_to_datetime(stocked_candles.index[-1])
         except FileNotFoundError as _error:
             print(_error)
             stocked_candles = pd.DataFrame([])
-            lacked_start_time, lacked_end_time = start_time, end_time
+            # INDO: dataが一切ないことを示すdatetimeを代入
+            exist_first_time = datetime.datetime(2900, 1, 1)
+            exist_last_time = datetime.datetime(1900, 1, 1)
 
-        if lacked_start_time < lacked_end_time:
+        if start_time < exist_first_time:
             candles_supplement = self.load_candles_by_duration(
-                start=lacked_start_time, end=lacked_end_time,
+                start=start_time, end=exist_first_time,
                 granularity=granularity
             )['candles'].set_index(['time'])
-            candles = stocked_candles.combine_first(candles_supplement)
-            candles.to_csv(csv_path)
-        return candles
+            stocked_candles = stocked_candles.combine_first(candles_supplement)
+            stocked_candles.to_csv(csv_path)
+
+        if exist_last_time < end_time:
+            candles_supplement = self.load_candles_by_duration(
+                start=exist_last_time, end=end_time,
+                granularity=granularity
+            )['candles'].set_index(['time'])
+            stocked_candles = stocked_candles.combine_first(candles_supplement)
+            stocked_candles.to_csv(csv_path)
+
+        return stocked_candles
 
     def load_candles_by_duration(self, start, end, granularity='M5'):
         ''' 広範囲期間チャート取得用の複数回リクエスト '''
@@ -188,7 +198,7 @@ class OandaPyClient():
         return {'success': '[Client] APIリクエスト成功', 'candles': candles}
 
     def request_latest_candles(self, target_datetime, granularity='M10', period_of_time='D'):
-        end_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
+        end_datetime = self.__str_to_datetime(target_datetime)
         time_unit = period_of_time[0]
         if time_unit == 'M':
             start_datetime = end_datetime - datetime.timedelta(minutes=int(period_of_time[1:]))
@@ -221,7 +231,7 @@ class OandaPyClient():
 
     # TODO: これからいらなくなる予定
     def request_specified_candles(self, start_datetime, granularity='M10', base_granurarity='D'):
-        start_time = datetime.datetime.strptime(start_datetime, '%Y-%m-%d %H:%M:%S')
+        start_time = self.__str_to_datetime(start_datetime)
         time_unit = base_granurarity[0]
         if time_unit == 'M':
             end_time = start_time + datetime.timedelta(minutes=int(base_granurarity[1:]))
@@ -452,23 +462,9 @@ class OandaPyClient():
 
         return requestable_duration
 
-    def __examine_lacked_duration(
-        self, exist_first, exist_last, wanted_start_time, wanted_end_time
-    ):
-        exist_first_time = datetime.datetime.strptime(exist_first, '%Y-%m-%d %H:%M:%S')
-        exist_last_time = datetime.datetime.strptime(exist_last, '%Y-%m-%d %H:%M:%S')
-
-        if exist_first_time <= wanted_start_time:
-            lacked_start_time = exist_last_time
-        else:
-            lacked_start_time = wanted_start_time
-
-        if wanted_end_time <= exist_last_time:
-            lacked_end_time = exist_first_time
-        else:
-            lacked_end_time = wanted_end_time
-
-        return lacked_start_time, lacked_end_time
+    def __str_to_datetime(self, time_string):
+        result_dt = datetime.datetime.strptime(time_string, '%Y-%m-%d %H:%M:%S')
+        return result_dt
 
     def __convert_datetime_into_oanda_format(self, target_datetime):
         return target_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
