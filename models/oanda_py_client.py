@@ -451,10 +451,10 @@ class OandaPyClient():
     def __calc_requestable_time_duration(self, granularity):
         time_unit = granularity[0]
         if time_unit == 'M':
-            minutes = int(OandaPyClient.REQUESTABLE_COUNT / int(granularity[1:]))
+            minutes = int(OandaPyClient.REQUESTABLE_COUNT * int(granularity[1:])) - 1
             requestable_duration = datetime.timedelta(minutes=minutes)
         elif time_unit == 'H':
-            hours = int(OandaPyClient.REQUESTABLE_COUNT / int(granularity[1:]))
+            hours = int(OandaPyClient.REQUESTABLE_COUNT * int(granularity[1:])) - 1
             requestable_duration = datetime.timedelta(hours=hours)
         elif time_unit == 'D':
             days = OandaPyClient.REQUESTABLE_COUNT
