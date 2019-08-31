@@ -58,6 +58,8 @@ class FXBase():
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class OandaPyClient():
+    REQUESTABLE_COUNT = 5000
+
     @classmethod
     def select_instrument(cls, inst_id=None):
         # TODO: 正しいspreadを後で確認して設定する
@@ -110,7 +112,7 @@ class OandaPyClient():
         )
         return {'success': '[Watcher] Oandaからのレート取得に成功'}
 
-    def load_long_chart(self, days=1, granularity='M5'):
+    def load_long_chart(self, days=0, granularity='M5'):
         ''' 長期間のチャート取得のために複数回APIリクエスト '''
         remaining_days = days
         candles = None
@@ -133,10 +135,32 @@ class OandaPyClient():
             print('残り: {remaining_days}日分'.format(remaining_days=remaining_days))
             time.sleep(1)
 
-        if remaining_days == 0:
-            return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
+        return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
 
-        return {'error': '[Watcher] 処理中断'}
+    def load_candles_by_duration(self, start, end, granularity='M5'):
+        ''' 広範囲期間チャート取得用の複数回リクエスト '''
+        candles = None
+        requestable_duration = self.__calc_requestable_time_duration(granularity)
+        next_starttime = start
+        next_endtime = start + requestable_duration
+
+        while next_starttime < end:
+            now = datetime.datetime.now() - datetime.timedelta(hours=9, minutes=1)
+            if now < next_endtime: next_endtime = now
+            response = self.__request_oanda_instruments(
+                start=self.__convert_datetime_into_oanda_format(next_starttime),
+                end=self.__convert_datetime_into_oanda_format(next_endtime),
+                granularity=granularity
+            )
+            tmp_candles = self.__transform_to_candle_chart(response)
+            candles = FXBase.union_candles_distinct(candles, tmp_candles)
+            print('取得済み: {datetime}まで'.format(datetime=next_endtime))
+            time.sleep(1)
+
+            next_starttime += requestable_duration
+            next_endtime += requestable_duration
+
+        return {'success': '[Client] APIリクエスト成功', 'candles': candles}
 
     def request_latest_candles(self, target_datetime, granularity='M10', period_of_time='D'):
         end_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
@@ -387,6 +411,20 @@ class OandaPyClient():
         # http://developer.oanda.com/rest-live-v20/instrument-ep/
         max_days = int(5000 / candles_per_a_day)  # 1 requestにつき5000本まで
         return max_days
+
+    def __calc_requestable_time_duration(self, granularity):
+        time_unit = granularity[0]
+        if time_unit == 'M':
+            minutes = int(OandaPyClient.REQUESTABLE_COUNT / int(granularity[1:]))
+            requestable_duration = datetime.timedelta(minutes=minutes)
+        elif time_unit == 'H':
+            hours = int(OandaPyClient.REQUESTABLE_COUNT / int(granularity[1:]))
+            requestable_duration = datetime.timedelta(hours=hours)
+        elif time_unit == 'D':
+            days = OandaPyClient.REQUESTABLE_COUNT
+            requestable_duration = datetime.timedelta(days=days)
+
+        return requestable_duration
 
     def __convert_datetime_into_oanda_format(self, target_datetime):
         return target_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')

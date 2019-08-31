@@ -40,6 +40,8 @@ class Trader():
                 self.__drawer.close_all()
                 return
             self._client.load_specified_length_candles(granularity=self.__granularity)
+        else:
+            return
 
         # OPTIMIZE: これがあるせいで意外とトレードが発生しない
         self._client.request_current_price()
