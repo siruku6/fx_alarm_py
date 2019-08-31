@@ -58,6 +58,7 @@ class FXBase():
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class OandaPyClient():
+    FILEPATH_HEAD = 'log/candles'
     REQUESTABLE_COUNT = 5000
 
     @classmethod
@@ -137,6 +138,30 @@ class OandaPyClient():
 
         return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
 
+    def load_or_query_candles(self, start_time, end_time, granularity):
+        csv_path = '{head}_{inst}_{granularity}.csv'.format(
+            head=OandaPyClient.FILEPATH_HEAD, inst=self.__instrument, granularity=granularity
+        )
+        try:
+            stocked_candles = pd.read_csv(csv_path, index_col=0)
+            lacked_start_time, lacked_end_time = self.__examine_lacked_duration(
+                exist_first=stocked_candles.index[0], wanted_start_time=start_time,
+                exist_last=stocked_candles.index[-1], wanted_end_time=end_time
+            )
+        except FileNotFoundError as _error:
+            print(_error)
+            stocked_candles = pd.DataFrame([])
+            lacked_start_time, lacked_end_time = start_time, end_time
+
+        if lacked_start_time < lacked_end_time:
+            candles_supplement = self.load_candles_by_duration(
+                start=lacked_start_time, end=lacked_end_time,
+                granularity=granularity
+            )['candles'].set_index(['time'])
+            candles = stocked_candles.combine_first(candles_supplement)
+            candles.to_csv(csv_path)
+        return candles
+
     def load_candles_by_duration(self, start, end, granularity='M5'):
         ''' 広範囲期間チャート取得用の複数回リクエスト '''
         candles = None
@@ -194,6 +219,7 @@ class OandaPyClient():
         candles = self.__transform_to_candle_chart(response)
         return candles
 
+    # TODO: これからいらなくなる予定
     def request_specified_candles(self, start_datetime, granularity='M10', base_granurarity='D'):
         start_time = datetime.datetime.strptime(start_datetime, '%Y-%m-%d %H:%M:%S')
         time_unit = base_granurarity[0]
@@ -425,6 +451,24 @@ class OandaPyClient():
             requestable_duration = datetime.timedelta(days=days)
 
         return requestable_duration
+
+    def __examine_lacked_duration(
+        self, exist_first, exist_last, wanted_start_time, wanted_end_time
+    ):
+        exist_first_time = datetime.datetime.strptime(exist_first, '%Y-%m-%d %H:%M:%S')
+        exist_last_time = datetime.datetime.strptime(exist_last, '%Y-%m-%d %H:%M:%S')
+
+        if exist_first_time <= wanted_start_time:
+            lacked_start_time = exist_last_time
+        else:
+            lacked_start_time = wanted_start_time
+
+        if wanted_end_time <= exist_last_time:
+            lacked_end_time = exist_first_time
+        else:
+            lacked_end_time = wanted_end_time
+
+        return lacked_start_time, lacked_end_time
 
     def __convert_datetime_into_oanda_format(self, target_datetime):
         return target_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
