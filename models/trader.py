@@ -270,12 +270,13 @@ class Trader():
 
     def _judge_settle_position(self, i, c_price):
         candles = FXBase.get_candles()
-        parabolic      = self._indicators['SAR']
-        position_type  = self._position['type']
+        parabolic = self._indicators['SAR']
+        position_type = self._position['type']
         stoploss_price = self._position['stoploss']
         if position_type == 'long':
-            if candles.low[i - 1] - self._STOPLOSS_BUFFER_pips > stoploss_price:
-                stoploss_price = candles.low[i - 1] - self._STOPLOSS_BUFFER_pips
+            possible_stoploss = candles.low[i - 1] - self._STOPLOSS_BUFFER_pips
+            if possible_stoploss > stoploss_price:
+                stoploss_price = possible_stoploss
                 self._trail_stoploss(
                     new_stop=stoploss_price, time=candles.time[i]
                 )
@@ -288,8 +289,9 @@ class Trader():
                     index=i, price=c_price, time=candles.time[i]
                 )
         elif position_type == 'short':
-            if candles.high[i - 1] + self._STOPLOSS_BUFFER_pips < stoploss_price:
-                stoploss_price = candles.high[i - 1] + self._STOPLOSS_BUFFER_pips
+            possible_stoploss = candles.high[i - 1] + self._STOPLOSS_BUFFER_pips
+            if possible_stoploss < stoploss_price:
+                stoploss_price = possible_stoploss
                 self._trail_stoploss(
                     new_stop=stoploss_price, time=candles.time[i]
                 )
@@ -373,10 +375,10 @@ class Trader():
         if direction == 'long':
             # OPTIMIZE: entry_priceが甘い。 candles.close[index] でもいいかも
             entry_price = candles.high[index - 1] + self.__static_spread
-            stoploss    = candles.low[index - 1] - self._STOPLOSS_BUFFER_pips
+            stoploss = candles.low[index - 1] - self._STOPLOSS_BUFFER_pips
         elif direction == 'short':
             entry_price = candles.low[index - 1]
-            stoploss    = candles.high[index - 1] + self._STOPLOSS_BUFFER_pips
+            stoploss = candles.high[index - 1] + self._STOPLOSS_BUFFER_pips
 
         self.__set_position({
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,

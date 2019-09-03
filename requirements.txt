@@ -1,6 +1,6 @@
 ###### Requirements without Version Specifiers ######
 # General
-# numpy # 今は使ってない
+numpy
 matplotlib
 requests
 # scipy # trendline生成時には必要
