@@ -280,13 +280,13 @@ class Trader():
                 self._trail_stoploss(
                     new_stop=stoploss_price, time=candles.time[i]
                 )
-            if stoploss_price > candles.low[i]:
+            if stoploss_price > candles.low[i] - self.__static_spread:
                 self._settle_position(
                     index=i, price=stoploss_price, time=candles.time[i]
                 )
-            elif parabolic[i] > c_price:
+            elif parabolic[i] > c_price - self.__static_spread:
                 self._settle_position(
-                    index=i, price=c_price, time=candles.time[i]
+                    index=i, price=parabolic[i], time=candles.time[i]
                 )
         elif position_type == 'short':
             possible_stoploss = candles.high[i - 1] + self._STOPLOSS_BUFFER_pips
@@ -295,13 +295,13 @@ class Trader():
                 self._trail_stoploss(
                     new_stop=stoploss_price, time=candles.time[i]
                 )
-            if stoploss_price < candles.high[i] + self.__static_spread:
+            if stoploss_price < candles.high[i]:
                 self._settle_position(
                     index=i, price=stoploss_price, time=candles.time[i]
                 )
-            elif parabolic[i] < c_price + self.__static_spread:
+            elif parabolic[i] < c_price:
                 self._settle_position(
-                    index=i, price=c_price + self.__static_spread, time=candles.time[i]
+                    index=i, price=parabolic[i], time=candles.time[i]
                 )
 
     #
@@ -374,10 +374,10 @@ class Trader():
         candles = FXBase.get_candles()
         if direction == 'long':
             # OPTIMIZE: entry_priceが甘い。 candles.close[index] でもいいかも
-            entry_price = candles.high[index - 1] + self.__static_spread
+            entry_price = candles.high[index - 1]
             stoploss = candles.low[index - 1] - self._STOPLOSS_BUFFER_pips
         elif direction == 'short':
-            entry_price = candles.low[index - 1]
+            entry_price = candles.low[index - 1] - self.__static_spread
             stoploss = candles.high[index - 1] + self._STOPLOSS_BUFFER_pips
 
         self.__set_position({
@@ -388,8 +388,8 @@ class Trader():
 
     def _trail_stoploss(self, new_stop, time):
         direction = self._position['type']
-        self._position['stoploss']      = new_stop
-        position_after_trailing         = self._position.copy()
+        self._position['stoploss'] = new_stop
+        position_after_trailing = self._position.copy()
         position_after_trailing['type'] = 'trail'
         position_after_trailing['time'] = time
         self.__hist_positions[direction].append(position_after_trailing)
