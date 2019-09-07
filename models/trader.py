@@ -281,7 +281,7 @@ class Trader():
                     new_stop=stoploss_price, time=candles.time[i]
                 )
             # INFO: 本番ではstoplossで決済されるので不要
-            if operation != 'live' and stoploss_price > candles.low[i] - self.__static_spread:
+            if self._operation != 'live' and stoploss_price > candles.low[i] - self.__static_spread:
                 self._settle_position(
                     index=i, price=stoploss_price, time=candles.time[i]
                 )
@@ -297,7 +297,7 @@ class Trader():
                     new_stop=stoploss_price, time=candles.time[i]
                 )
             # INFO: 本番ではstoplossで決済されるので不要
-            if operation != 'live' and stoploss_price < candles.high[i]:
+            if self._operation != 'live' and stoploss_price < candles.high[i]:
                 self._settle_position(
                     index=i, price=stoploss_price, time=candles.time[i]
                 )
@@ -555,18 +555,23 @@ class Trader():
             end=candles.time.tail(1).values[0]
         )
         columns = [
-            'Duration', 'CandlesCnt', 'EntryCnt', 'Spread', 'WinRate', 'WinCnt', 'LoseCnt',
+            'DoneTime', 'Granularity', 'StoplossBuf', 'Spread',
+            'Duration', 'CandlesCnt', 'EntryCnt', 'WinRate', 'WinCnt', 'LoseCnt',
             'Gross', 'GrossProfit', 'GrossLoss', 'MaxProfit', 'MaxLoss',
             'MaxDrawdown', 'Profit Factor', 'Recovery Factor'
         ]
+        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         result_row = [
-            duration,                # 'Duration'
-            len(candles) - 20,       # 'CandlesCnt'
-            result['trades_count'],  # 'EntryCnt'
-            self.__static_spread,    # 'Spread'
-            result['win_rate'],      # 'WinRate'
-            result['win_count'],     # 'WinCnt'
-            result['lose_count'],    # 'LoseCnt'
+            now,                         # 'DoneTime'
+            self.__granularity,          # 'Granularity'
+            self._STOPLOSS_BUFFER_pips,  # 'StoplossBuf'
+            self.__static_spread,        # 'Spread'
+            duration,                    # 'Duration'
+            len(candles) - 20,           # 'CandlesCnt'
+            result['trades_count'],      # 'EntryCnt'
+            result['win_rate'],          # 'WinRate'
+            result['win_count'],         # 'WinCnt'
+            result['lose_count'],        # 'LoseCnt'
             round(result['profit_sum'] * 100, 3),    # 'Gross'
             round(result['gross_profit'] * 100, 3),  # 'GrossProfit'
             round(result['gross_loss'] * 100, 3),    # 'GrossLoss'
