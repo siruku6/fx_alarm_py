@@ -280,7 +280,8 @@ class Trader():
                 self._trail_stoploss(
                     new_stop=stoploss_price, time=candles.time[i]
                 )
-            if stoploss_price > candles.low[i] - self.__static_spread:
+            # INFO: 本番ではstoplossで決済されるので不要
+            if operation != 'live' and stoploss_price > candles.low[i] - self.__static_spread:
                 self._settle_position(
                     index=i, price=stoploss_price, time=candles.time[i]
                 )
@@ -295,7 +296,8 @@ class Trader():
                 self._trail_stoploss(
                     new_stop=stoploss_price, time=candles.time[i]
                 )
-            if stoploss_price < candles.high[i]:
+            # INFO: 本番ではstoplossで決済されるので不要
+            if operation != 'live' and stoploss_price < candles.high[i]:
                 self._settle_position(
                     index=i, price=stoploss_price, time=candles.time[i]
                 )
@@ -372,13 +374,15 @@ class Trader():
         ルールに基づいてポジションをとる(検証用)
         '''
         candles = FXBase.get_candles()
+        highs = candles.high
+        lows = candles.low
         if direction == 'long':
-            # OPTIMIZE: entry_priceが甘い。 candles.close[index] でもいいかも
-            entry_price = candles.high[index - 1]
-            stoploss = candles.low[index - 1] - self._STOPLOSS_BUFFER_pips
+            # INFO: 窓開けを想定して max, min を使用（動作検証中）
+            entry_price = max(highs[index - 1], candles.open[index])
+            stoploss = lows[index - 1] - self._STOPLOSS_BUFFER_pips
         elif direction == 'short':
-            entry_price = candles.low[index - 1] - self.__static_spread
-            stoploss = candles.high[index - 1] + self._STOPLOSS_BUFFER_pips
+            entry_price = min(lows[index - 1], candles.open[index]) - self.__static_spread
+            stoploss = highs[index - 1] + self._STOPLOSS_BUFFER_pips
 
         self.__set_position({
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
