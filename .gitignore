@@ -4,3 +4,7 @@ test_cord.py
 *.json
 log/*.log
 tmp/images/*.png
+# tmp/cython/*
+tmp/cython/build/*
+tmp/cython/*.c
+tmp/cython/*.so
