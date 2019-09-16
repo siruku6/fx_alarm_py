@@ -56,11 +56,8 @@ class Trader():
         self.__initialize_position_variables()
 
     def __initialize_position_variables(self):
-        self.__set_position({'type': 'none'})
+        self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
-
-    def __set_position(self, position_dict):
-        self._position = position_dict
 
     #
     # public
@@ -171,6 +168,8 @@ class Trader():
     #
     # Shared with subclass
     #
+    def _set_position(self, position_dict):
+        self._position = position_dict
 
     def _SMA_run_along_trend(self, index, trend):
         sma = self._indicators['20SMA']
@@ -209,7 +208,11 @@ class Trader():
 
         if not ma_gap_is_expanding and self._operation == 'live':
             self._log_skip_reason(
-                'c. {}: MA_gap is shrinking'.format(FXBase.get_candles().time[index])
+                'c. {}: MA_gap is shrinking,\n  10EMA: {} -> {},\n  20SMA: {} -> {}'.format(
+                    FXBase.get_candles().time[index],
+                    ema[index - 1], ema[index],
+                    sma[index - 1], sma[index]
+                )
             )
         return ma_gap_is_expanding
 
@@ -383,7 +386,7 @@ class Trader():
             entry_price = min(lows[index - 1], candles.open[index]) - self.__static_spread
             stoploss = highs[index - 1] + self._STOPLOSS_BUFFER_pips
 
-        self.__set_position({
+        self._set_position({
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
             'type': direction, 'time': candles.time[index]
         })
@@ -415,7 +418,7 @@ class Trader():
         None
         '''
         direction = self._position['type']
-        self.__set_position({'type': 'none'})
+        self._set_position({'type': 'none'})
         self.__hist_positions[direction].append({
             'sequence': index, 'price': price,
             'stoploss': 0.0, 'type': 'close', 'time': time
@@ -707,7 +710,7 @@ class RealTrader(Trader):
         last_index = len(self._indicators) - 1
         close_price = FXBase.get_candles().close.values[-1]
 
-        self.__set_position(self.__load_position())
+        self._set_position(self.__load_position())
         if self._position['type'] == 'none':
             trend = self._check_trend(index=last_index, c_price=close_price)
             if trend is None:
@@ -731,6 +734,7 @@ class RealTrader(Trader):
         else:
             self._judge_settle_position(last_index, close_price)
 
+        print('[Trader] -------- end --------')
         return None
 
     def __load_position(self):
