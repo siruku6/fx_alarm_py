@@ -67,7 +67,8 @@ class OandaPyClient():
         instruments = [
             {'name': 'USD_JPY', 'spread': 0.004},
             {'name': 'EUR_USD', 'spread': 0.00014},
-            {'name': 'GBP_JPY', 'spread': 0.014}
+            {'name': 'GBP_JPY', 'spread': 0.014},
+            {'name': 'USD_CHF', 'spread': 0.00014}
         ]
         if inst_id is not None: return instruments[inst_id]
 
@@ -154,6 +155,7 @@ class OandaPyClient():
             exist_first_time = datetime.datetime(2900, 1, 1)
             exist_last_time = datetime.datetime(1900, 1, 1)
 
+        # INFO: ファイルがなかった時の動作がおかしい
         if start_time < exist_first_time:
             candles_supplement = self.load_candles_by_duration(
                 start=start_time, end=exist_first_time,
