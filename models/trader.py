@@ -14,6 +14,7 @@ class Trader():
     def __init__(self, operation='verification'):
         if operation in ['verification']:
             inst = OandaPyClient.select_instrument()
+            self.__drawer = FigureDrawer()
             self.__instrument = inst['name']
             self.__static_spread = inst['spread']
         else:
@@ -23,7 +24,6 @@ class Trader():
         self._operation = operation
         self._client = OandaPyClient(instrument=self.get_instrument())
         self.__ana = Analyzer()
-        self.__drawer = FigureDrawer()
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
         self.__granularity = os.environ.get('GRANULARITY') or 'M5'
         sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
@@ -37,7 +37,6 @@ class Trader():
             self.tradeable = result['tradeable']
             if not self.tradeable:
                 self._log_skip_reason('1. market is not open')
-                self.__drawer.close_all()
                 return
             self._client.load_specified_length_candles(granularity=self.__granularity)
         else:

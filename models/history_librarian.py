@@ -120,7 +120,7 @@ class Librarian():
         close_df = d_frame[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
 
         long_df, short_df = entry_df.copy(), entry_df.copy()
-        # INFO: 本当は None ではなく Nan にすれば表示されないが、 None でも表示されない
+        # INFO: Nan は描画されないが None も描画されない
         long_df.loc[long_df.units <= 0, 'price'] = None
         short_df.loc[short_df.units >= 0, 'price'] = None
 

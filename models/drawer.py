@@ -22,10 +22,10 @@ class FigureDrawer():
         ''' 生成画像の初期設定 '''
         self.__figure, (self.__axis1, self.__axis2) = plt.subplots(
             nrows=2, ncols=1, gridspec_kw={'height_ratios': [3, 1]},
-            figsize=(8, 4), dpi=144
+            figsize=(8, 5), dpi=144
         )
         # INFO: https://zaburo-ch.github.io/post/20141217_0/
-        self.__figure.subplots_adjust(left=0.03, right=0.92, bottom=0.03, top=0.92, hspace=0.35)
+        self.__figure.subplots_adjust(left=0.03, right=0.92, bottom=0.03, top=0.92, hspace=0.45)
 
     def close_all(self):
         # https://stackoverflow.com/questions/21884271/warning-about-too-many-open-figures
@@ -149,10 +149,10 @@ class FigureDrawer():
         # OPTIMIZE: x軸目盛の分割数...今はこれでいいが、最適化する
         num_break_xticks_into = 12
 
-        # X軸の見た目を整える
         self.__axis1.set_title('{inst}-{granularity} candles (len={len})'.format(
             inst=instrument, granularity=granularity, len=len(FXBase.get_candles())
         ))
+        self.__axis1.set_xlabel('Datetime (UTC+00:00)', fontsize=8)
         self.__axis1.yaxis.tick_right()
         self.__axis2.yaxis.tick_right()
 
@@ -163,7 +163,7 @@ class FigureDrawer():
             xticks_index = range(0, len(sr_time), xticks_number)
             # INFO: 日付から表示するため、先頭12文字目から取る
             xticks_display = [sr_time.values[i][5:16] for i in xticks_index]
-            plt.xticks(xticks_index, xticks_display, rotation=30, fontsize='small')
+            plt.xticks(xticks_index, xticks_display, rotation=30, fontsize=8)
             plt.legend(loc='best', fontsize=8)
             plt.grid(which='major', linestyle='dashed', linewidth=0.5)
 
@@ -172,6 +172,7 @@ class FigureDrawer():
         plt.hlines([20, 80], 0, len(sr_time), color='lightgray', linestyle='dashed', linewidth=0.5)
         if xticks_number > 0:
             plt.xticks(xticks_index, [])
+            plt.tick_params(top=True, bottom=False)
             # plt.tick_params(labelbottom=False)
         plt.grid(linestyle='dashed', linewidth=0.5)
         plt.legend(loc='upper left', fontsize=8)
