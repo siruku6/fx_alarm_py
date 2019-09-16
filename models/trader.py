@@ -585,6 +585,7 @@ class Trader():
         ]
         result_df = pd.DataFrame([result_row], columns=columns)
         result_df.to_csv('tmp/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
+        print('[Trader] トレード統計をcsv追記完了')
 
     def __calc_profit(self, entry_array, sign=1):
         ''' トレード履歴の利益を計算 '''
@@ -616,6 +617,8 @@ class Trader():
         loss_array \
             = [profit for profit in long_profit_array if profit < 0] \
             + [profit for profit in short_profit_array if profit < 0]
+        max_profit = max(profit_array) if profit_array != [] else 0
+        max_loss = min(loss_array) if loss_array != [] else 0
 
         max_drawdown = min([row['drawdown'] for row in (long_entry_array + short_entry_array)])
         gross_profit = sum(profit_array)
@@ -631,8 +634,8 @@ class Trader():
             'profit_sum': sum(long_profit_array + short_profit_array),
             'gross_profit': gross_profit,
             'gross_loss': gross_loss,
-            'max_profit': max(profit_array),
-            'max_loss': min(loss_array),
+            'max_profit': max_profit,
+            'max_loss': max_loss,
             'drawdown': max_drawdown,
             'profit_factor': round(-gross_profit / gross_loss, 2),
             'recovery_factor': round((gross_profit + gross_loss) / -max_drawdown, 2)
