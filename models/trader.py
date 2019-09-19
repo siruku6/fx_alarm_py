@@ -26,8 +26,8 @@ class Trader():
         self.__ana = Analyzer()
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
         self.__granularity = os.environ.get('GRANULARITY') or 'M5'
-        sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
-        self._STOPLOSS_BUFFER_pips = sl_buffer or 0.05
+        sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
+        self._STOPLOSS_BUFFER_pips = sl_buffer
         self._position = None
 
         if operation == 'verification':
