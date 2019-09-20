@@ -253,17 +253,15 @@ class OandaPyClient():
             target_datetime=str(now)[:19],
             granularity='M1',
             period_of_time='M1',
-        ).iloc[-1]
+        ).iloc[-1].to_dict()
 
-        candles = FXBase.get_candles()
-        if candles.iloc[-1].high < latest_candle.high:
-            FXBase.replace_latest_price('high', latest_candle.high)
-        elif candles.iloc[-1].low > latest_candle.low:
-            FXBase.replace_latest_price('low', latest_candle.low)
-        print('[Client] 直前値')
-        print(FXBase.get_candles().iloc[-1])
-        print('[Client] 現在値')
-        print(latest_candle)
+        candle_dict = FXBase.get_candles().iloc[-1].to_dict()
+        if candle_dict['high'] < latest_candle['high']:
+            FXBase.replace_latest_price('high', latest_candle['high'])
+        elif candle_dict['low'] > latest_candle['low']:
+            FXBase.replace_latest_price('low', latest_candle['low'])
+        print('[Client] 直前値', candle_dict)
+        print('[Client] 現在値', latest_candle)
 
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''
