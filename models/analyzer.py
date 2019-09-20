@@ -35,12 +35,13 @@ class Analyzer():
     #                       Driver                        #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def calc_indicators(self):
-        if FXBase.get_candles() is None:
+        candles = FXBase.get_candles()
+        if candles is None:
             return {'error': '[ERROR] Analyzer: 分析対象データがありません'}
-        self.__calc_SMA()
-        self.__calc_EMA()
-        self.__calc_bollinger_bands()
-        self.__calc_parabolic()
+        self.__calc_SMA(close_candles=candles.close)
+        self.__calc_EMA(close_candles=candles.close)
+        self.__calc_bollinger_bands(close_candles=candles.close)
+        self.__calc_parabolic(candles=candles)
         self.__indicators['stoD'] = self.__calc_STOD(window_size=5)
         self.__indicators['stoSD'] = self.__calc_STOSD(window_size=5)
         # result = self.__calc_trendlines()
@@ -70,30 +71,28 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Moving Average                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def __calc_SMA(self, window_size=20):
+    def __calc_SMA(self, close_candles, window_size=20):
         ''' 単純移動平均線を生成 '''
-        close = FXBase.get_candles().close
         # mean()後の .dropna().reset_index(drop = True) を消去中
-        sma = pd.Series.rolling(close, window=window_size).mean()
+        sma = pd.Series.rolling(close_candles, window=window_size).mean()
         self.__indicators['SMA'] = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
-        sma50 = pd.Series.rolling(close, window=50).mean()
+        sma50 = pd.Series.rolling(close_candles, window=50).mean()
         self.__indicators['50SMA'] = pd.DataFrame(sma50).rename(columns={'close': '50SMA'})
 
-    def __calc_EMA(self, window_size=10):
+    def __calc_EMA(self, close_candles, window_size=10):
         ''' 指数平滑移動平均線を生成 '''
         # TODO: scipyを使うと早くなる
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
-        ema = FXBase.get_candles().close.ewm(span=window_size).mean()
+        ema = close_candles.ewm(span=window_size).mean()
         self.__indicators['EMA'] = pd.DataFrame(ema).rename(columns={'close': '10EMA'})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Bollinger Bands                    #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def __calc_bollinger_bands(self, window_size=20):
+    def __calc_bollinger_bands(self, close_candles, window_size=20):
         '''ボリンジャーバンドを生成'''
-        close = FXBase.get_candles().close
-        mean = pd.Series.rolling(close, window=window_size).mean()
-        standard_deviation = pd.Series.rolling(close, window=window_size).std()
+        mean = pd.Series.rolling(close_candles, window=window_size).mean()
+        standard_deviation = pd.Series.rolling(close_candles, window=window_size).std()
 
         self.__indicators['SIGMA*2_BAND'] = \
             pd.DataFrame(mean + standard_deviation * 2) \
@@ -212,16 +211,16 @@ class Analyzer():
             return True
         return False
 
-    def __calc_parabolic(self):
+    def __calc_parabolic(self, candles):
         # 初期状態は上昇トレンドと仮定して計算
         bull = True
         acceleration_factor = Analyzer.INITIAL_AF
-        extreme_price = FXBase.get_candles().high[0]
-        temp_sar_array = [FXBase.get_candles().low[0]]
+        extreme_price = candles.high[0]
+        temp_sar_array = [candles.low[0]]
 
         # HACK: dataframeのまま処理するより、to_dictで辞書配列化した方が処理が早い
-        candles_array = FXBase.get_candles().to_dict('records')
-        # for i, row in FXBase.get_candles().iterrows():
+        candles_array = candles.to_dict('records')
+        # for i, row in candles.iterrows():
         for i, row in enumerate(candles_array):
             current_high = row['high']
             current_low = row['low']
