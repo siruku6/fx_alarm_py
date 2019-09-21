@@ -1,6 +1,7 @@
 import datetime
 import math
 import os
+import numpy as np
 import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
@@ -74,8 +75,8 @@ class Trader():
     def verify_varios_stoploss(self, accurize=True):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
         verification_dataframes_array = []
-        stoploss_buffer_list = range_2nd_decimal(0.01, 0.10, 0.02)
-        stoploss_buffer_list.append(0.50)
+        stoploss_digit = self.__select_stoploss_digit()
+        stoploss_buffer_list = range_2nd_decimal(stoploss_digit, stoploss_digit * 20, stoploss_digit * 2)
 
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
@@ -166,7 +167,7 @@ class Trader():
         print('[Trader] ポジション履歴をcsv出力完了')
 
     #
-    # Shared with subclass
+    # Methods for judging Entry or Close
     #
     def _set_position(self, position_dict):
         self._position = position_dict
@@ -215,6 +216,23 @@ class Trader():
                 )
             )
         return ma_gap_is_expanding
+
+    def __drive_checking_trend(self, c_prices):
+        sma = self._indicators['20SMA']
+        ema = self._indicators['10EMA']
+        parabo = self._indicators['SAR']
+
+        method_trend_checker = np.frompyfunc(self.__make_sure_of_trend, 4, 1)
+        result = method_trend_checker(c_prices, sma, ema, parabo)
+        return result
+
+    def __make_sure_of_trend(self, c_price, sma, ema, parabo):
+        if sma < ema < c_price and parabo < c_price:
+            return 'bull'
+        elif sma > ema > c_price and parabo > c_price:
+            return 'bear'
+        else:
+            return None
 
     def _check_trend(self, index, c_price):
         '''
@@ -329,13 +347,29 @@ class Trader():
             exit()
         FXBase.set_candles(result['candles'])
 
+    def __select_stoploss_digit(self):
+        while True:
+            print('[Trader] 通貨の価格の桁を選択して下さい 1: 100.000, 2: 1.00000, 3: それ以下又は以外')
+            digit_id = int(input())
+            if digit_id == 1:
+                return 0.01
+            elif digit_id == 2:
+                return 0.0001
+            elif digit_id == 3:
+                return 0.00001
+            else:
+                print('[Trader] please input 1 or 2 ! >д<;')
+
     def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''
         sma = self._indicators['20SMA']
         # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする
         self.__initialize_position_variables()
 
-        close_candles = FXBase.get_candles().close
+        candles = FXBase.get_candles()
+        close_candles = candles.close
+        candles['trend'] = self.__drive_checking_trend(c_prices=close_candles)
+
         candle_length = len(close_candles)
         for index, close_price in enumerate(close_candles):
             print('[Trader] progress... {i}/{total}'.format(i=index, total=candle_length))
@@ -343,25 +377,25 @@ class Trader():
             if self._position['type'] == 'none':
                 if math.isnan(sma[index]):
                     continue
-                trend = self._check_trend(index, close_price)
-                if trend is None:
+                # trend = self._check_trend(index, close_price)
+                if candles.trend[index] is None:
                     continue
 
                 if os.environ.get('CUSTOM_RULE') == 'on':
                     # INFO: 総損益減だが、勝率増、drawdown減、PF・RFが改善
-                    if not self._SMA_run_along_trend(index, trend):
+                    if not self._SMA_run_along_trend(index, candles.trend[index]):
                         continue
                     # 大失敗を防いでくれる
-                    if self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]):
+                    if self._over_2_sigma(index, o_price=candles.open[index]):
                         continue
                     # 大幅に改善する
-                    if not self._expand_MA_gap(index, trend):
+                    if not self._expand_MA_gap(index, candles.trend[index]):
                         continue
                     # 若干効果あり
-                    if not self._stochastic_allow_trade(index, trend):
+                    if not self._stochastic_allow_trade(index, candles.trend[index]):
                         continue
 
-                direction = self._find_thrust(index, trend)
+                direction = self._find_thrust(index, candles.trend[index])
                 if direction is None:
                     continue
 
