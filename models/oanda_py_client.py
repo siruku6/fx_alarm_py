@@ -278,8 +278,19 @@ class OandaPyClient():
                 trade['instrument'] == self.__instrument
             )
         ]
-        print('[Client] open_trades: {}'.format(extracted_trades))
         self.__tradeIDs = [trade['id'] for trade in extracted_trades]
+
+        open_position_for_diplay = [
+            {
+                'instrument': trade['instrument'],
+                'price': trade['price'],
+                'units': trade['initialUnits'],
+                'openTime': trade['openTime'],
+                'stoploss': trade['stopLossOrder']
+            } for trade in extracted_trades
+        ]
+        print('[Client] open_trades: {}'.format(open_position_for_diplay))
+
         return extracted_trades
 
     def request_market_ordering(self, posi_nega_sign='', stoploss_price=None):
@@ -302,8 +313,19 @@ class OandaPyClient():
         request_obj = orders.OrderCreate(
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
-        response = self.__api_client.request(request_obj)
-        logger.info('[Client] market-order: %s', response)
+        try:
+            response = self.__api_client.request(request_obj)['orderCreateTransaction']
+        except V20Error as error:
+            logger.error('[request_market_ordering] V20Error: {}'.format(error))
+
+        response_for_display = {
+            'instrument': response['instrument'],
+            'price': response['price'],
+            'units': response['units'],
+            'time': response['time'],
+            'stoploss': response['stopLossOnFill']
+        }
+        logger.info('[Client] market-order: %s', response_for_display)
         return response
 
     def request_closing_position(self):
