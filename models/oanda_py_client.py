@@ -216,7 +216,7 @@ class OandaPyClient():
                 granularity=granularity
             )
         except V20Error as error:
-            print('request_latest_candles..V20Error: {},\nstart: {},\nend: {}'.format(
+            print('[request_latest_candles] V20Error: {},\nstart: {},\nend: {}'.format(
                 error, start_datetime, end_datetime
             ))
             # INFO: 保険として、1分前のデータの再取得を試みる
@@ -256,6 +256,7 @@ class OandaPyClient():
         ).iloc[-1].to_dict()
 
         candle_dict = FXBase.get_candles().iloc[-1].to_dict()
+        FXBase.replace_latest_price('close', latest_candle['close'])
         if candle_dict['high'] < latest_candle['high']:
             FXBase.replace_latest_price('high', latest_candle['high'])
         elif candle_dict['low'] > latest_candle['low']:
