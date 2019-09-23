@@ -146,27 +146,26 @@ class OandaPyClient():
 
         try:
             stocked_candles = pd.read_csv(csv_path, index_col=0)
-            exist_first_time = self.__str_to_datetime(stocked_candles.index[0])
-            exist_last_time = self.__str_to_datetime(stocked_candles.index[-1])
+            stocked_first_time = self.__str_to_datetime(stocked_candles.index[0])
+            stocked_last_time = self.__str_to_datetime(stocked_candles.index[-1])
         except FileNotFoundError as _error:
             print(_error)
             stocked_candles = pd.DataFrame([])
-            # INDO: dataが一切ないことを示すdatetimeを代入
-            exist_first_time = datetime.datetime(2900, 1, 1)
-            exist_last_time = datetime.datetime(1900, 1, 1)
+            # INDO: stocked_dataが一切ないことを示すdatetimeを代入
+            stocked_first_time = end_time
+            stocked_last_time = end_time
 
-        # INFO: ファイルがなかった時の動作がおかしい
-        if start_time < exist_first_time:
+        if start_time < stocked_first_time:
             candles_supplement = self.load_candles_by_duration(
-                start=start_time, end=exist_first_time,
+                start=start_time, end=stocked_first_time,
                 granularity=granularity
             )['candles'].set_index(['time'])
             stocked_candles = stocked_candles.combine_first(candles_supplement)
             stocked_candles.to_csv(csv_path)
 
-        if exist_last_time < end_time:
+        if stocked_last_time < end_time:
             candles_supplement = self.load_candles_by_duration(
-                start=exist_last_time, end=end_time,
+                start=stocked_last_time, end=end_time,
                 granularity=granularity
             )['candles'].set_index(['time'])
             stocked_candles = stocked_candles.combine_first(candles_supplement)
@@ -179,6 +178,7 @@ class OandaPyClient():
         candles = None
         requestable_duration = self.__calc_requestable_time_duration(granularity)
         next_starttime = start
+        # INFO: start から end まで1回のリクエストで取得できる場合は、取れるだけたくさん取得してしまう
         next_endtime = start + requestable_duration
 
         while next_starttime < end:
