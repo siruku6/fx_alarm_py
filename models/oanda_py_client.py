@@ -29,7 +29,7 @@ class FXBase():
         return cls.__candles[start:end]
 
     @classmethod
-    def set_timeID(cls):
+    def set_time_id(cls):
         cls.__candles['time_id'] = cls.get_candles().index + 1
 
     @classmethod
@@ -89,7 +89,7 @@ class OandaPyClient():
         )
         self.__instrument = instrument or 'USD_JPY'
         self.__units = os.environ.get('UNITS') or '1'
-        self.__tradeIDs = []
+        self.__trade_ids = []
         self.__lastTransactionID = None
 
     #
@@ -279,7 +279,7 @@ class OandaPyClient():
                 trade['instrument'] == self.__instrument
             )
         ]
-        self.__tradeIDs = [trade['id'] for trade in extracted_trades]
+        self.__trade_ids = [trade['id'] for trade in extracted_trades]
 
         open_position_for_diplay = [
             {
@@ -331,12 +331,12 @@ class OandaPyClient():
 
     def request_closing_position(self):
         ''' ポジションをclose '''
-        if self.__tradeIDs == []: return {'error': '[Client] closeすべきポジションが見つかりませんでした。'}
+        if self.__trade_ids == []: return {'error': '[Client] closeすべきポジションが見つかりませんでした。'}
 
-        target_tradeID = self.__tradeIDs[0]
+        target_trade_id = self.__trade_ids[0]
         # data = {'units': self.__units}
         request_obj = trades.TradeClose(
-            accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_tradeID  # , data=data
+            accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_trade_id  # , data=data
         )
         response = self.__api_client.request(request_obj)
         logger.info('[Client] close-position: %s', response)
@@ -344,7 +344,7 @@ class OandaPyClient():
 
     def request_trailing_stoploss(self, stoploss_price=None):
         ''' ポジションのstoplossを強気方向に修正 '''
-        if self.__tradeIDs == []: return {'error': '[Client] trailすべきポジションが見つかりませんでした。'}
+        if self.__trade_ids == []: return {'error': '[Client] trailすべきポジションが見つかりませんでした。'}
         if stoploss_price is None: return {'error': '[Client] StopLoss価格がなく、trailできませんでした。'}
 
         data = {
@@ -353,7 +353,7 @@ class OandaPyClient():
         }
         request_obj = trades.TradeCRCDO(
             accountID=os.environ['OANDA_ACCOUNT_ID'],
-            tradeID=self.__tradeIDs[0],
+            tradeID=self.__trade_ids[0],
             data=data
         )
         response = self.__api_client.request(request_obj)

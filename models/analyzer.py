@@ -115,7 +115,7 @@ class Analyzer():
     # def __calc_trendlines(self, span=20, min_interval=3):
     #     if FXBase.get_candles() is None:
     #         return {'error': '[Analyzer] データが存在しません'}
-    #     FXBase.set_timeID()
+    #     FXBase.set_time_id()
     #     trendlines = {'high': [], 'low': []}
 
     #     # [下降・上昇]の２回ループ
