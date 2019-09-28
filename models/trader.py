@@ -117,13 +117,10 @@ class Trader():
 
         df_segments_count = len(dfs_indicator)
         for i in range(0, df_segments_count):
+            # indicators
             drwr.draw_indicators(d_frame=dfs_indicator[i])
 
-            start = df_len - MAX_ROWS * (i + 1)
-            if start < 0: start = 0
-            end = df_len - MAX_ROWS * i
-            sr_time = drwr.draw_candles(start, end)['time']
-
+            # positions
             long_entry_df = dfs_long_hist[i][dfs_long_hist[i].type == 'long']
             long_trail_df = dfs_long_hist[i][dfs_long_hist[i].type == 'trail']
             long_close_df = dfs_long_hist[i][dfs_long_hist[i].type == 'close']
@@ -137,6 +134,21 @@ class Trader():
             drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
             drwr.draw_positions_df(positions_df=short_trail_df, plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
             drwr.draw_positions_df(positions_df=short_close_df, plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
+
+            drwr.draw_vertical_lines(
+                indexes=np.concatenate(
+                    [long_entry_df.sequence.values, short_entry_df.sequence.values]
+                ),
+                vmin=dfs_indicator[i]['band_-3σ'].min(skipna=True),
+                vmax=dfs_indicator[i]['band_+3σ'].max(skipna=True)
+            )
+
+            # candles
+            start = df_len - MAX_ROWS * (i + 1)
+            if start < 0: start = 0
+            end = df_len - MAX_ROWS * i
+            sr_time = drwr.draw_candles(start, end)['time']
+
             result = drwr.create_png(
                 instrument=self.get_instrument(),
                 granularity=self.__granularity,
