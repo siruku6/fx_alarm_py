@@ -38,13 +38,9 @@ class Librarian():
             history_df['time'] = [self.__convert_to_h4(time) for time in history_df.time]
         entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
 
-        # INFO: instrumentによってはhistory_dfが空
-        if history_df.empty:
-            dt_a_month_ago = datetime.datetime.now() - datetime.timedelta(days=30)
-            start_str = dt_a_month_ago.strftime('%Y-%m-%d %H:%M:%S')
-        else:
-            start_str = history_df.iat[0,9]  # dataframe 1行目のtimeを取得
-
+        # prepare candles: 暫定で50日分のデータを取得
+        dt_a_month_ago = datetime.datetime.now() - datetime.timedelta(days=50)
+        start_str = dt_a_month_ago.strftime('%Y-%m-%d %H:%M:%S')
         candles = self.__prepare_candles(
             starttime_str=start_str,
             granularity=granularity
