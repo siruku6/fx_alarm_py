@@ -172,7 +172,7 @@ class Trader():
     def _set_position(self, position_dict):
         self._position = position_dict
 
-    def _SMA_run_along_trend(self, index, trend):
+    def _sma_run_along_trend(self, index, trend):
         sma = self._indicators['20SMA']
         if trend == 'bull' and sma[index - 1] < sma[index]:
             return True
@@ -383,7 +383,7 @@ class Trader():
 
                 if os.environ.get('CUSTOM_RULE') == 'on':
                     # INFO: 総損益減だが、勝率増、drawdown減、PF・RFが改善
-                    if not self._SMA_run_along_trend(index, candles.trend[index]):
+                    if not self._sma_run_along_trend(index, candles.trend[index]):
                         continue
                     # 大失敗を防いでくれる
                     if self._over_2_sigma(index, o_price=candles.open[index]):
@@ -754,7 +754,7 @@ class RealTrader(Trader):
                 return
 
             if os.environ.get('CUSTOM_RULE') == 'on':
-                if not self._SMA_run_along_trend(last_index, trend):
+                if not self._sma_run_along_trend(last_index, trend):
                     return
                 if self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]):
                     return
