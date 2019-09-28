@@ -144,6 +144,10 @@ class FigureDrawer():
         )
         return {'success': 'チャートを描画', 'time': target_candles.time}
 
+    def draw_vertical_lines(self, indexes, vmin, vmax):
+        self.__axis1.vlines(indexes, vmin, vmax, color='orangered', linewidth=0.5)
+        self.__axis2.vlines(indexes, 0, 100, color='orangered', linewidth=0.5)
+
     def create_png(self, instrument, granularity, sr_time, num=0, filename=None):
         ''' 描画済みイメージをpngファイルに書き出す '''
         # OPTIMIZE: x軸目盛の分割数...今はこれでいいが、最適化する
