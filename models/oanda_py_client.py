@@ -13,6 +13,8 @@ import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
 
+from models.mathematics import prompt_inputting_decimal
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
@@ -70,15 +72,19 @@ class OandaPyClient():
             {'name': 'GBP_JPY', 'spread': 0.014},
             {'name': 'USD_CHF', 'spread': 0.00014}
         ]
-        if inst_id is not None: return instruments[inst_id]
+        if inst_id is not None:
+            return instruments[inst_id]
 
-        print('通貨ペアは？')
-        prompt_message = ''
-        for i, inst in enumerate(instruments):
-            prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst['name'])
-        print(prompt_message + '(半角数字): ', end='')
-        inst_id = int(input())
-        return instruments[inst_id]
+        while True:
+            print('通貨ペアは？')
+            prompt_message = ''
+            for i, inst in enumerate(instruments):
+                prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst['name'])
+            print(prompt_message + '(半角数字): ', end='')
+
+            inst_id = prompt_inputting_decimal()
+            if inst_id < len(instruments):
+                return instruments[inst_id]
 
     def __init__(self, instrument=None, environment=None):
         ''' 固定パラメータの設定 '''
