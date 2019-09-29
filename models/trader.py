@@ -29,7 +29,7 @@ class Trader():
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
         self.__granularity = os.environ.get('GRANULARITY') or 'M5'
         sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
-        self._STOPLOSS_BUFFER_pips = sl_buffer
+        self._stoploss_buffer_pips = sl_buffer
         self._position = None
 
         if operation == 'verification':
@@ -81,7 +81,7 @@ class Trader():
 
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
-            self._STOPLOSS_BUFFER_pips = stoploss_buf
+            self._stoploss_buffer_pips = stoploss_buf
             self.auto_verify_trading_rule(accurize=accurize)
 
             self.__calc_statistics()
@@ -207,7 +207,7 @@ class Trader():
 
         return False
 
-    def _expand_MA_gap(self, index, trend):
+    def _expand_moving_average_gap(self, index, trend):
         sma = self._indicators['20SMA']
         ema = self._indicators['10EMA']
 
@@ -323,7 +323,7 @@ class Trader():
         position_type = self._position['type']
         stoploss_price = self._position['stoploss']
         if position_type == 'long':
-            possible_stoploss = candles.low[i - 1] - self._STOPLOSS_BUFFER_pips
+            possible_stoploss = candles.low[i - 1] - self._stoploss_buffer_pips
             if possible_stoploss > stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(
@@ -339,7 +339,7 @@ class Trader():
                     index=i, price=parabolic[i], time=candles.time[i]
                 )
         elif position_type == 'short':
-            possible_stoploss = candles.high[i - 1] + self._STOPLOSS_BUFFER_pips
+            possible_stoploss = candles.high[i - 1] + self._stoploss_buffer_pips
             if possible_stoploss < stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(
@@ -428,14 +428,14 @@ class Trader():
                     if self._over_2_sigma(index, o_price=candles.open[index]):
                         continue
                     # 大幅に改善する
-                    if not self._expand_MA_gap(index, candles.trend[index]):
+                    if not self._expand_moving_average_gap(index, candles.trend[index]):
                         continue
                     # 若干効果あり
                     if not self._stochastic_allow_trade(index, candles.trend[index]):
                         continue
 
                 # direction = self._find_thrust(index, candles.trend[index])
-                direction = candles.thrust[index] 
+                direction = candles.thrust[index]
                 if direction is None:
                     continue
 
@@ -455,10 +455,10 @@ class Trader():
         if direction == 'long':
             # INFO: 窓開けを想定して max, min を使用（動作検証中）
             entry_price = max(highs[index - 1], candles.open[index])
-            stoploss = lows[index - 1] - self._STOPLOSS_BUFFER_pips
+            stoploss = lows[index - 1] - self._stoploss_buffer_pips
         elif direction == 'short':
             entry_price = min(lows[index - 1], candles.open[index]) - self.__static_spread
-            stoploss = highs[index - 1] + self._STOPLOSS_BUFFER_pips
+            stoploss = highs[index - 1] + self._stoploss_buffer_pips
 
         self._set_position({
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
@@ -522,7 +522,6 @@ class Trader():
                 end = self.__add_candle_duration(row['time'][:19])
                 short_candles = _m10_candles.loc[start:end, :]
 
-                # TODO: dataframeでなく辞書をloopさせればもっと早くなる
                 for _j, m10_row in short_candles.iterrows():
                     if row['price'] < m10_row.high:
                         old_price = row['price']
@@ -638,7 +637,7 @@ class Trader():
         result_row = [
             now,                         # 'DoneTime'
             self.__granularity,          # 'Granularity'
-            self._STOPLOSS_BUFFER_pips,  # 'StoplossBuf'
+            self._stoploss_buffer_pips,  # 'StoplossBuf'
             self.__static_spread,        # 'Spread'
             duration,                    # 'Duration'
             len(candles) - 20,           # 'CandlesCnt'
@@ -735,10 +734,10 @@ class RealTrader(Trader):
         candles = FXBase.get_candles()
         if direction == 'long':
             sign = ''
-            stoploss = candles.low[index - 1] - self._STOPLOSS_BUFFER_pips
+            stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
         elif direction == 'short':
             sign = '-'
-            stoploss = candles.high[index - 1] + self._STOPLOSS_BUFFER_pips
+            stoploss = candles.high[index - 1] + self._stoploss_buffer_pips
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
 
     def _trail_stoploss(self, new_stop, time):
@@ -796,7 +795,7 @@ class RealTrader(Trader):
                     return
                 if self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]):
                     return
-                if not self._expand_MA_gap(last_index, trend):
+                if not self._expand_moving_average_gap(last_index, trend):
                     return
                 if not self._stochastic_allow_trade(last_index, trend):
                     return
