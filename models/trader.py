@@ -229,7 +229,7 @@ class Trader():
             )
         return ma_gap_is_expanding
 
-    def __drive_checking_trend(self, c_prices):
+    def __generate_trend_column(self, c_prices):
         sma = self._indicators['20SMA']
         ema = self._indicators['10EMA']
         parabo = self._indicators['SAR']
@@ -243,6 +243,23 @@ class Trader():
             return 'bull'
         elif sma > ema > c_price and parabo > c_price:
             return 'bear'
+        else:
+            return None
+
+    def __generate_thrust_column(self, candles):
+        method_thrust_checker = np.frompyfunc(self._detect_thrust, 5, 1)
+        result = method_thrust_checker(
+            candles.trend,
+            candles.high.shift(1), candles.high,
+            candles.low.shift(1), candles.low
+        )
+        return result
+
+    def _detect_thrust(self, trend, previous_high, high, previous_low, low):
+        if trend == 'bull' and not np.isnan(previous_high) and previous_high < high:
+            return 'long'
+        elif trend == 'bear' and not np.isnan(previous_low) and previous_low > low:
+            return 'short'
         else:
             return None
 
@@ -387,9 +404,10 @@ class Trader():
         # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする
         self.__initialize_position_variables()
 
-        candles = FXBase.get_candles()
-        close_candles = candles.close
-        candles['trend'] = self.__drive_checking_trend(c_prices=close_candles)
+        candles = FXBase.get_candles().copy()
+        close_candles = candles.close.values.tolist()
+        candles['trend'] = self.__generate_trend_column(c_prices=candles.close)
+        candles['thrust'] = self.__generate_thrust_column(candles=candles)
 
         candle_length = len(close_candles)
         for index, close_price in enumerate(close_candles):
@@ -416,7 +434,8 @@ class Trader():
                     if not self._stochastic_allow_trade(index, candles.trend[index]):
                         continue
 
-                direction = self._find_thrust(index, candles.trend[index])
+                # direction = self._find_thrust(index, candles.trend[index])
+                direction = candles.thrust[index] 
                 if direction is None:
                     continue
 
