@@ -10,6 +10,7 @@ from models.mathematics import range_2nd_decimal, prompt_inputting_decimal
 
 
 class Trader():
+    MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
     def __init__(self, operation='verification'):
@@ -103,7 +104,6 @@ class Trader():
 
     def draw_chart(self):
         ''' チャートや指標をpngに描画 '''
-        MAX_ROWS = 200
         drwr = self.__drawer
         df_pos = {
             'long': pd.DataFrame(self.__hist_positions['long'], columns=self.__columns),
@@ -144,9 +144,9 @@ class Trader():
             )
 
             # candles
-            start = df_len - MAX_ROWS * (i + 1)
+            start = df_len - Trader.MAX_ROWS_COUNT * (i + 1)
             if start < 0: start = 0
-            end = df_len - MAX_ROWS * i
+            end = df_len - Trader.MAX_ROWS_COUNT * i
             sr_time = drwr.draw_candles(start, end)['time']
 
             result = drwr.create_png(
@@ -569,27 +569,25 @@ class Trader():
 
     def __split_df_by_200rows(self, d_frame):
         dfs = []
-        MAX_LEN = 200
         df_len = len(d_frame)
         loop = 0
 
-        while MAX_LEN * loop < df_len:
-            end = df_len - MAX_LEN * loop
+        while Trader.MAX_ROWS_COUNT * loop < df_len:
+            end = df_len - Trader.MAX_ROWS_COUNT * loop
             loop += 1
-            start = df_len - MAX_LEN * loop
+            start = df_len - Trader.MAX_ROWS_COUNT * loop
             start = start if start > 0 else 0
             dfs.append(d_frame[start:end].reset_index(drop=True))
         return dfs
 
     def __split_df_by_200sequences(self, d_frame, df_len):
         dfs = []
-        MAX_LEN = 200
         loop = 0
 
-        while MAX_LEN * loop < df_len:
-            end = df_len - MAX_LEN * loop
+        while Trader.MAX_ROWS_COUNT * loop < df_len:
+            end = df_len - Trader.MAX_ROWS_COUNT * loop
             loop += 1
-            start = df_len - MAX_LEN * loop
+            start = df_len - Trader.MAX_ROWS_COUNT * loop
             start = start if start > 0 else 0
             df_target = d_frame[(start <= d_frame.sequence) & (d_frame.sequence < end)].copy()
             # 描画は sequence に基づいて行われるので、ずらしておく
