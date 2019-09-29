@@ -6,7 +6,7 @@ import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
-from models.mathematics import range_2nd_decimal
+from models.mathematics import range_2nd_decimal, prompt_inputting_decimal
 
 
 class Trader():
@@ -344,14 +344,23 @@ class Trader():
 
     def __request_custom_candles(self):
         # Custom request
-        print('何日分のデータを取得する？(半角数字): ', end='')
-        days = int(input())
-        if days > 365:
-            print('[ALERT] 現在は365日までに制限しています')
-            exit()
+        while True:
+            print('何日分のデータを取得する？(半角数字): ', end='')
+            days = prompt_inputting_decimal()
+            if days > 365:
+                print('[ALERT] 現在は365日までに制限しています')
+            else:
+                break
 
-        print('取得スパンは？(ex: M5): ', end='')
-        self.__granularity = str(input())
+        while True:
+            print('取得スパンは？(ex: M5): ', end='')
+            self.__granularity = str(input())
+            if self.__granularity[0] in 'MH' and self.__granularity[1:].isdecimal():
+                break
+            elif self.__granularity[0] in 'DW':
+                break
+            else:
+                print('Invalid granularity !\n')
 
         result = self._client.load_long_chart(days=days, granularity=self.__granularity)
         if 'error' in result:
@@ -362,7 +371,7 @@ class Trader():
     def __select_stoploss_digit(self):
         while True:
             print('[Trader] 通貨の価格の桁を選択して下さい 1: 100.000, 2: 1.00000, 3: それ以下又は以外')
-            digit_id = int(input())
+            digit_id = prompt_inputting_decimal()
             if digit_id == 1:
                 return 0.01
             elif digit_id == 2:
@@ -370,7 +379,7 @@ class Trader():
             elif digit_id == 3:
                 return 0.00001
             else:
-                print('[Trader] please input 1 or 2 ! >д<;')
+                print('[Trader] please input 1 - 3 ! >д<;')
 
     def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''
