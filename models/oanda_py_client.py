@@ -96,21 +96,17 @@ class OandaPyClient():
         self.__instrument = instrument or 'USD_JPY'
         self.__units = os.environ.get('UNITS') or '1'
         self.__trade_ids = []
-        self.__lastTransactionID = None
+        self.__last_transaction_id = None
 
     #
     # Public
     #
 
     # INFO: request-candles
-    def load_specified_length_candles(self, granularity='M5'):
+    def load_specified_length_candles(self, count=60, granularity='M5'):
         ''' チャート情報を更新 '''
-        end_datetime = datetime.datetime.now() - datetime.timedelta(hours=9)
-        length = 60
         response = self.__request_oanda_instruments(
-            start=None,
-            end=self.__convert_datetime_into_oanda_format(end_datetime),
-            candles_count=length,
+            candles_count=count,
             granularity=granularity
         )
 
@@ -276,7 +272,7 @@ class OandaPyClient():
         response = self.__api_client.request(request_obj)
 
         # TODO: last_transactionID は 対象 instrument のlast transaction の ID が望ましい
-        self.__lastTransactionID = response['lastTransactionID']
+        self.__last_transaction_id = response['lastTransactionID']
         open_trades = response['trades']
 
         extracted_trades = [
@@ -369,8 +365,8 @@ class OandaPyClient():
     def request_transactions(self):
         params = {
             # len(from ... to) <= 1000
-            'to': int(self.__lastTransactionID),
-            'from': int(self.__lastTransactionID) - 999,
+            'to': int(self.__last_transaction_id),
+            'from': int(self.__last_transaction_id) - 999,
             'type': ['ORDER'],
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
@@ -399,26 +395,27 @@ class OandaPyClient():
             return int(days * 24 * 60 / time_span)
 
     def __request_oanda_instruments(
-        self, start, end=None, candles_count=None, granularity='M5'
-    ):
+            self, start=None, end=None, candles_count=None, granularity='M5'
+        ):
         ''' OandaAPIと直接通信し、為替データを取得 '''
-        if candles_count is not None:
-            time_params = {
+        if start is None and end is None:
+            params = {'count': candles_count, 'granularity': granularity}
+        elif candles_count is not None:
+            params = {
                 # INFO: つけない方が一般的なレートに近くなる
                 # 'alignmentTimezone':   'Asia/Tokyo',
                 'from': start, 'count': candles_count,
                 'granularity': granularity
             }
         else:
-            time_params = {
-                # 'alignmentTimezone': 'Asia/Tokyo',
+            params = {
                 'from': start, 'to': end,
                 'granularity': granularity
             }
 
         request_obj = module_inst.InstrumentsCandles(
             instrument=self.__instrument,
-            params=time_params
+            params=params
         )
         # HACK: 現在値を取得する際、誤差で将来の時間と扱われてエラーになることがある
         try:
@@ -483,9 +480,9 @@ class OandaPyClient():
         # INFO: filtering by transaction-type
         filtered_transactions = [
             row for row in response_transactions if (
-                row['type'] != 'ORDER_CANCEL' and
-                row['type'] != 'MARKET_ORDER'  # and
-                # row['type']!='MARKET_ORDER_REJECT'
+                    row['type'] != 'ORDER_CANCEL'
+                and row['type'] != 'MARKET_ORDER'
+                # and row['type']!='MARKET_ORDER_REJECT'
             )
         ]
 
