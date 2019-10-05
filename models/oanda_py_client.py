@@ -103,7 +103,7 @@ class OandaPyClient():
     #
 
     # INFO: request-candles
-    def load_specified_length_candles(self, count=60, granularity='M5'):
+    def specify_count_and_load_candles(self, count=60, granularity='M5', set_candles=False):
         ''' チャート情報を更新 '''
         response = self.__request_oanda_instruments(
             candles_count=count,
@@ -111,10 +111,11 @@ class OandaPyClient():
         )
 
         candles = self.__transform_to_candle_chart(response)
-        FXBase.set_candles(
-            candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
-        )
-        return {'success': '[Watcher] Oandaからのレート取得に成功'}
+        if set_candles:
+            FXBase.set_candles(
+                candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
+            )
+        return {'success': '[Watcher] Oandaからのレート取得に成功', 'candles': candles}
 
     def load_long_chart(self, days=0, granularity='M5'):
         ''' 長期間のチャート取得のために複数回APIリクエスト '''
@@ -250,12 +251,10 @@ class OandaPyClient():
         '''
         最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き
         '''
-        now = datetime.datetime.now() - datetime.timedelta(hours=9)
-        latest_candle = self.request_latest_candles(
-            target_datetime=str(now)[:19],
-            granularity='M1',
-            period_of_time='M1',
-        ).iloc[-1].to_dict()
+        # INFO: .to_dictは、単にコンソールログの見やすさ向上のために使用中
+        latest_candle = self.specify_count_and_load_candles(
+            count=1, granularity='M1'
+        )['candles'].iloc[-1].to_dict()
 
         candle_dict = FXBase.get_candles().iloc[-1].to_dict()
         FXBase.replace_latest_price('close', latest_candle['close'])
@@ -396,7 +395,7 @@ class OandaPyClient():
 
     def __request_oanda_instruments(
             self, start=None, end=None, candles_count=None, granularity='M5'
-        ):
+    ):
         ''' OandaAPIと直接通信し、為替データを取得 '''
         if start is None and end is None:
             params = {'count': candles_count, 'granularity': granularity}
@@ -480,7 +479,7 @@ class OandaPyClient():
         # INFO: filtering by transaction-type
         filtered_transactions = [
             row for row in response_transactions if (
-                    row['type'] != 'ORDER_CANCEL'
+                row['type'] != 'ORDER_CANCEL'
                 and row['type'] != 'MARKET_ORDER'
                 # and row['type']!='MARKET_ORDER_REJECT'
             )

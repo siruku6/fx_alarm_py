@@ -32,15 +32,15 @@ class Trader():
         self._stoploss_buffer_pips = sl_buffer
         self._position = None
 
-        if operation == 'verification':
+        if operation in ['verification']:
             self.__request_custom_candles()
         elif operation == 'live':
             result = self._client.request_is_tradeable()
             self.tradeable = result['tradeable']
-            if not self.tradeable:
+            if not self.tradeable and not operation == 'unittest':
                 self._log_skip_reason('1. market is not open')
                 return
-            self._client.load_specified_length_candles(granularity=self.__granularity)
+            self._client.specify_count_and_load_candles(granularity=self.__granularity, set_candles=True)
         else:
             return
 
