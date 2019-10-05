@@ -37,7 +37,7 @@ class Trader():
         elif operation == 'live':
             result = self._client.request_is_tradeable()
             self.tradeable = result['tradeable']
-            if not self.tradeable and not operation == 'unittest':
+            if not self.tradeable and operation != 'unittest':
                 self._log_skip_reason('1. market is not open')
                 return
             self._client.specify_count_and_load_candles(granularity=self.__granularity, set_candles=True)
@@ -67,9 +67,13 @@ class Trader():
     def get_instrument(self):
         return self.__instrument
 
-    def auto_verify_trading_rule(self, accurize=True):
+    def auto_verify_trading_rule(self, accurize=True, rule='swing'):
         ''' tradeルールを自動検証 '''
-        print(self.__demo_swing_trade()['success'])
+        if rule == 'swing':
+            print(self.__demo_swing_trade()['success'])
+        elif rule == 'scalping':
+            print(self.__demo_scalping_trade()['success'])
+
         if accurize and (self.__granularity[0] != 'M'):
             print(self.__accurize_entry_prices()['success'])
 
@@ -196,12 +200,12 @@ class Trader():
             self._log_skip_reason('c. 20SMA not run along trend')
         return False
 
-    def _over_2_sigma(self, index, o_price):
-        if self._indicators['band_+2σ'][index] < o_price or \
-           self._indicators['band_-2σ'][index] > o_price:
+    def _over_2_sigma(self, index, price):
+        if self._indicators['band_+2σ'][index] < price or \
+           self._indicators['band_-2σ'][index] > price:
             if self._operation == 'live':
                 self._log_skip_reason(
-                    'c. {}: o_price is over 2sigma'.format(FXBase.get_candles().time[index])
+                    'c. {}: price is over 2sigma'.format(FXBase.get_candles().time[index])
                 )
             return True
 
@@ -262,6 +266,14 @@ class Trader():
             return 'short'
         else:
             return None
+
+    def __generate_in_the_band_column(self, price_series):
+        """ 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 """
+        df_over_band_detection = pd.DataFrame({
+            'under_positive_band': self._indicators['band_-2σ'] < price_series,
+            'above_negative_band': self._indicators['band_+2σ'] > price_series
+        })
+        return np.all(df_over_band_detection, axis=1)
 
     def _check_trend(self, index, c_price):
         '''
@@ -405,9 +417,8 @@ class Trader():
         self.__initialize_position_variables()
 
         candles = FXBase.get_candles().copy()
+        self.__prepare_trade_signs(candles)
         close_candles = candles.close.values.tolist()
-        candles['trend'] = self.__generate_trend_column(c_prices=candles.close)
-        candles['thrust'] = self.__generate_thrust_column(candles=candles)
 
         candle_length = len(close_candles)
         for index, close_price in enumerate(close_candles):
@@ -425,7 +436,8 @@ class Trader():
                     if not self._sma_run_along_trend(index, candles.trend[index]):
                         continue
                     # 大失敗を防いでくれる
-                    if self._over_2_sigma(index, o_price=candles.open[index]):
+                    # if self._over_2_sigma(index, price=candles.open[index]):
+                    if not candles.in_the_band[index]:
                         continue
                     # 大幅に改善する
                     if not self._expand_moving_average_gap(index, candles.trend[index]):
@@ -444,6 +456,21 @@ class Trader():
                 self._judge_settle_position(index, close_price)
 
         return {'success': '[Trader] 売買判定終了'}
+
+    def __demo_scalping_trade(self):
+        ''' スキャルピングのentry pointを検出 '''
+        self.__initialize_position_variables()
+
+        candles = FXBase.get_candles().copy()
+        self.__prepare_trade_signs(candles)
+        close_candles = candles.close.values.tolist()
+        return {'success': candles}
+
+    def __prepare_trade_signs(self, candles):
+        candles['trend'] = self.__generate_trend_column(c_prices=candles.close)
+        candles['thrust'] = self.__generate_thrust_column(candles=candles)
+        candles['in_the_band'] = self.__generate_in_the_band_column(price_series=candles.open)
+        # candles['ma_gap_expanding'] =
 
     def _create_position(self, index, direction):
         '''
@@ -793,7 +820,7 @@ class RealTrader(Trader):
             if os.environ.get('CUSTOM_RULE') == 'on':
                 if not self._sma_run_along_trend(last_index, trend):
                     return
-                if self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]):
+                if self._over_2_sigma(last_index, price=FXBase.get_candles().close[last_index]):
                     return
                 if not self._expand_moving_average_gap(last_index, trend):
                     return
