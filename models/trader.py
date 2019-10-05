@@ -270,8 +270,8 @@ class Trader():
     def __generate_in_the_band_column(self, price_series):
         """ 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 """
         df_over_band_detection = pd.DataFrame({
-            'under_positive_band': self._indicators['band_-2σ'] < price_series,
-            'above_negative_band': self._indicators['band_+2σ'] > price_series
+            'under_positive_band': self._indicators['band_+2σ'] > price_series,
+            'above_negative_band': self._indicators['band_-2σ'] < price_series
         })
         return np.all(df_over_band_detection, axis=1)
 
@@ -336,6 +336,7 @@ class Trader():
         stoploss_price = self._position['stoploss']
         if position_type == 'long':
             possible_stoploss = candles.low[i - 1] - self._stoploss_buffer_pips
+            # if possible_stoploss > stoploss_price and candles.high[i - 1] < candles.high[i]:
             if possible_stoploss > stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(
@@ -352,6 +353,7 @@ class Trader():
                 )
         elif position_type == 'short':
             possible_stoploss = candles.high[i - 1] + self._stoploss_buffer_pips
+            # if possible_stoploss < stoploss_price and candles.low[i - 1] > candles.low[i]:
             if possible_stoploss < stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(
@@ -809,7 +811,8 @@ class RealTrader(Trader):
         ''' 現在のレートにおいて、スイングトレードルールでトレード '''
         print('[Trader] -------- start --------')
         last_index = len(self._indicators) - 1
-        close_price = FXBase.get_candles().close.values[-1]
+        candles = FXBase.get_candles()
+        close_price = candles.close.values[-1]
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
@@ -820,7 +823,7 @@ class RealTrader(Trader):
             if os.environ.get('CUSTOM_RULE') == 'on':
                 if not self._sma_run_along_trend(last_index, trend):
                     return
-                if self._over_2_sigma(last_index, price=FXBase.get_candles().close[last_index]):
+                if self._over_2_sigma(last_index, price=close_price):
                     return
                 if not self._expand_moving_average_gap(last_index, trend):
                     return
