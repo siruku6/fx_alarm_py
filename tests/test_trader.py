@@ -5,13 +5,21 @@ import models.trader as trader
 from tests.oanda_dummy_responses import dummy_open_trades
 
 class TestTrader(unittest.TestCase):
-    def setUp(self):
+
+    @classmethod
+    def setUpClass(cls):
         print('\n[Trader] setup')
         # TODO: TEST用のデータを用意しないとテストもできない
         with patch('models.oanda_py_client.OandaPyClient.select_instrument',
                    return_value={ 'name': 'USD_JPY', 'spread': 0.0 }):
-            self.__trader = trader.Trader()
-            self.__real_trader = trader.RealTrader()
+            cls.__trader = trader.Trader(operation='unittest')
+            cls.__real_trader = trader.RealTrader(operation='unittest')
+
+    @classmethod
+    def tearDownClass(cls):
+        print('\n[Trader] tearDown')
+        cls.__trader._client._OandaPyClient__api_client.client.close()
+        cls.__real_trader._client._OandaPyClient__api_client.client.close()
 
     def test__accurize_entry_prices(self):
         pass

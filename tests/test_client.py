@@ -16,16 +16,16 @@ class TestClient(unittest.TestCase):
     #     self.__watcher_instance = watcher.OandaPyClient()
 
     @classmethod
-    def setUpClass(self):
+    def setUpClass(cls):
         print('\n[Watcher] setup')
-        self.__watcher_instance = watcher.OandaPyClient()
+        cls.__watcher_instance = watcher.OandaPyClient()
 
     @classmethod
-    def tearDownClass(self):
+    def tearDownClass(cls):
         print('\n[Watcher] tearDown')
         # INFO: Preventing ResourceWarning: unclosed <ssl.SSLSocket
         # https://stackoverflow.com/questions/48160728/resourcewarning-unclosed-socket-in-python-3-unit-test
-        self.__watcher_instance._OandaPyClient__api_client.client.close()
+        cls.__watcher_instance._OandaPyClient__api_client.client.close()
 
     #  - - - - - - - - - - -
     #    Public methods
@@ -37,8 +37,8 @@ class TestClient(unittest.TestCase):
             granularity='M10',
             period_of_time='D'
         )
-        result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S+00:00')
-        result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S+00:00')
+        result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S')
+        result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S')
         result_size  = len(result)
 
         expected_start = datetime(2018, 7, 11, 21)
@@ -54,8 +54,8 @@ class TestClient(unittest.TestCase):
             granularity='M30',
             period_of_time='H4'
         )
-        result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S+00:00')
-        result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S+00:00')
+        result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S')
+        result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S')
         result_size  = len(result)
 
         expected_start = datetime(2017, 6, 29, 17)
@@ -66,10 +66,10 @@ class TestClient(unittest.TestCase):
         self.assertEqual(result_size,  expected_size,  '[request_latest_candles] 戻り値のサイズ')
 
     def test_request_open_trades(self):
-        self.assertIsNone(self.__watcher_instance._OandaPyClient__lastTransactionID)
+        self.assertIsNone(self.__watcher_instance._OandaPyClient__last_transaction_id)
 
         result = self.__watcher_instance.request_open_trades()
-        self.assertIsInstance(int(self.__watcher_instance._OandaPyClient__lastTransactionID), int)
+        self.assertIsInstance(int(self.__watcher_instance._OandaPyClient__last_transaction_id), int)
 
     def test_request_market_ordering(self):
         result = self.__watcher_instance.request_market_ordering(stoploss_price=None)
@@ -105,6 +105,7 @@ class TestClient(unittest.TestCase):
     #         self.assertTrue((trade.index.values == expected_columns).all(), '列名が正しい')
 
     def test_request_transactions(self):
+        self.__watcher_instance._OandaPyClient__last_transaction_id = 1000
         result = self.__watcher_instance.request_transactions()
         # import pdb; pdb.set_trace()
         # TODO: testcord がない
@@ -121,13 +122,14 @@ class TestClient(unittest.TestCase):
 
     def test___calc_requestable_max_days(self):
         correction = {
-            'D': 5000, 'M12': int(5000/120), 'H12': int(5000/2)
+            'D': 5000, 'M12': int(5000 / 120), 'H12': int(5000 / 2)
         }
         for key, val in correction.items():
             cnt = self.__watcher_instance._OandaPyClient__calc_requestable_max_days(
                 granularity=key
             )
             self.assertEqual(cnt, val, '[Client __calc_requestable_max_days] {}'.format(key))
+
 
 if __name__ == '__main__':
     unittest.main()
