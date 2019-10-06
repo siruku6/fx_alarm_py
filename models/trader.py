@@ -268,12 +268,36 @@ class Trader():
             return None
 
     def __generate_in_the_band_column(self, price_series):
-        """ 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 """
+        ''' 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 '''
         df_over_band_detection = pd.DataFrame({
             'under_positive_band': self._indicators['band_+2σ'] > price_series,
             'above_negative_band': self._indicators['band_-2σ'] < price_series
         })
         return np.all(df_over_band_detection, axis=1)
+
+    def __generate_getting_steeper_column(self, trend_series):
+        ''' 移動平均が勢いづいているか否かを判定 '''
+        bull = np.where(trend_series == 'bull', True, False)
+        bear = np.where(trend_series == 'bear', True, False)
+        gap_of_ma = self._indicators['10EMA'] - self._indicators['20SMA']
+        result = gap_of_ma.shift(1) < gap_of_ma
+
+        # INFO: 上昇方向に勢いづいている
+        is_long_steeper = np.all(
+            pd.DataFrame({'bull': bull, 'inclination': result}),
+            axis=1
+        )
+        # INFO: 下降方向に勢いづいている
+        is_short_steeper = np.all(
+            pd.DataFrame({'bear': bear, 'inclination': np.where(result, False, True)}),
+            axis=1
+        )
+
+        # どちらかにでも勢いがついていれば True
+        return np.any(
+            pd.DataFrame({'l_steeper': is_long_steeper, 'sh_steeper': is_short_steeper}),
+            axis=1
+        )
 
     def _check_trend(self, index, c_price):
         '''
@@ -442,7 +466,8 @@ class Trader():
                     if not candles.in_the_band[index]:
                         continue
                     # 大幅に改善する
-                    if not self._expand_moving_average_gap(index, candles.trend[index]):
+                    # if not self._expand_moving_average_gap(index, candles.trend[index]):
+                    if not candles.ma_gap_expanding[index]:
                         continue
                     # 若干効果あり
                     if not self._stochastic_allow_trade(index, candles.trend[index]):
@@ -472,7 +497,7 @@ class Trader():
         candles['trend'] = self.__generate_trend_column(c_prices=candles.close)
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=candles.open)
-        # candles['ma_gap_expanding'] =
+        candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(trend_series=candles.trend)
 
     def _create_position(self, index, direction):
         '''
