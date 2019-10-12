@@ -237,10 +237,12 @@ class Trader():
         sma = self._indicators['20SMA']
         ema = self._indicators['10EMA']
         parabo = self._indicators['SAR']
-
         method_trend_checker = np.frompyfunc(self.__make_sure_of_trend, 4, 1)
-        result = method_trend_checker(c_prices, sma, ema, parabo)
-        return result
+
+        trend = method_trend_checker(c_prices, sma, ema, parabo)
+        bull = np.where(trend == 'bull', True, False)
+        bear = np.where(trend == 'bear', True, False)
+        return trend, bull, bear
 
     def __make_sure_of_trend(self, c_price, sma, ema, parabo):
         if sma < ema < c_price and parabo < c_price:
@@ -275,21 +277,19 @@ class Trader():
         })
         return np.all(df_over_band_detection, axis=1)
 
-    def __generate_getting_steeper_column(self, trend_series):
+    def __generate_getting_steeper_column(self, df_trend):
         ''' 移動平均が勢いづいているか否かを判定 '''
-        bull = np.where(trend_series == 'bull', True, False)
-        bear = np.where(trend_series == 'bear', True, False)
         gap_of_ma = self._indicators['10EMA'] - self._indicators['20SMA']
         result = gap_of_ma.shift(1) < gap_of_ma
 
         # INFO: 上昇方向に勢いづいている
         is_long_steeper = np.all(
-            pd.DataFrame({'bull': bull, 'inclination': result}),
+            pd.DataFrame({'bull': df_trend.bull, 'inclination': result}),
             axis=1
         )
         # INFO: 下降方向に勢いづいている
         is_short_steeper = np.all(
-            pd.DataFrame({'bear': bear, 'inclination': np.where(result, False, True)}),
+            pd.DataFrame({'bear': df_trend.bear, 'inclination': np.where(result, False, True)}),
             axis=1
         )
 
@@ -298,6 +298,19 @@ class Trader():
             pd.DataFrame({'l_steeper': is_long_steeper, 'sh_steeper': is_short_steeper}),
             axis=1
         )
+
+    def __generate_following_trend_column(self, df_trend):
+        ''' 移動平均線がtrendに沿う方向に動いているか判定する列を返却 '''
+        df_sma = self._indicators['20SMA'].copy()
+        df_tmp = df_trend.copy()
+        df_tmp['sma_up'] = df_sma.shift(1) < df_sma
+        df_tmp['sma_down'] = df_sma.shift(1) > df_sma
+
+        tmp_df = pd.DataFrame({
+            'both_up': np.all(df_tmp[['bull', 'sma_up']], axis=1),
+            'both_down': np.all(df_tmp[['bear', 'sma_down']], axis=1)
+        })
+        return np.any(tmp_df, axis=1)
 
     def _check_trend(self, index, c_price):
         '''
@@ -459,7 +472,8 @@ class Trader():
 
                 if os.environ.get('CUSTOM_RULE') == 'on':
                     # INFO: 総損益減だが、勝率増、drawdown減、PF・RFが改善
-                    if not self._sma_run_along_trend(index, candles.trend[index]):
+                    # if not self._sma_run_along_trend(index, candles.trend[index]):
+                    if not candles.sma_follow_trend[index]:
                         continue
                     # 大失敗を防いでくれる
                     # if self._over_2_sigma(index, price=candles.open[index]):
@@ -494,10 +508,16 @@ class Trader():
         return {'success': candles}
 
     def __prepare_trade_signs(self, candles):
-        candles['trend'] = self.__generate_trend_column(c_prices=candles.close)
+        candles['trend'], candles['bull'], candles['bear'] \
+            = self.__generate_trend_column(c_prices=candles.close)
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=candles.open)
-        candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(trend_series=candles.trend)
+        candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(
+            df_trend=candles[['bull', 'bear']]
+        )
+        candles['sma_follow_trend'] = self.__generate_following_trend_column(
+            df_trend=candles[['bull', 'bear']]
+        )
 
     def _create_position(self, index, direction):
         '''
