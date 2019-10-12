@@ -1,4 +1,5 @@
 import datetime
+import numpy as np
 import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
@@ -32,6 +33,8 @@ class Librarian():
 
         # preapre history_df: trade-history
         history_df = self.__client.request_transactions()
+        print('[Libra] trade_log is loaded')
+
         if granularity == 'M10':
             history_df['time'] = [self.__convert_to_m10(time) for time in history_df.time]
         elif granularity == 'H4':
@@ -126,20 +129,25 @@ class Librarian():
 
         # INFO: 描画
         drwr = self.__drawer
-        drwr.draw_candles(-DRAWABLE_ROWS, None)  # 200本より古い足は消している
         drwr.draw_indicators(d_frame=self._indicators[-DRAWABLE_ROWS:None].reset_index(drop=True))
 
-        drwr.draw_positions_df(
-            positions_df=long_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['long']
+        drwr.draw_vertical_lines(
+            indexes=np.concatenate(
+                [long_df.dropna(subset=['price']).sequence.values,
+                short_df.dropna(subset=['price']).sequence.values]
+            ),
+            vmin=self._indicators['band_-3σ'].min(skipna=True),
+            vmax=self._indicators['band_+3σ'].max(skipna=True)
         )
-        drwr.draw_positions_df(
-            positions_df=short_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['short']
+
+        drwr.draw_positions_df(positions_df=close_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['exit'])
+        drwr.draw_positions_df(positions_df=long_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['long'])
+        drwr.draw_positions_df(positions_df=short_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['short'])
+        drwr.draw_positions_df(positions_df=d_frame[['sequence', 'stoploss']], plot_type=drwr.PLOT_TYPE['trail'])
+
+        drwr.draw_candles(-DRAWABLE_ROWS, None)  # 200本より古い足は消している
+        result = drwr.create_png(
+            instrument=self.__instrument, granularity='real-trade',
+            sr_time=d_frame.time, num=0, filename='hist_figure'
         )
-        drwr.draw_positions_df(
-            positions_df=d_frame[['sequence', 'stoploss']], plot_type=drwr.PLOT_TYPE['trail']
-        )
-        drwr.draw_positions_df(
-            positions_df=close_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['exit']
-        )
-        result = drwr.create_png(instrument=self.__instrument, granularity='real-trade', sr_time=d_frame.time, num=0)
         print(result['success'])

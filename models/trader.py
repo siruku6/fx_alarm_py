@@ -132,12 +132,12 @@ class Trader():
             short_trail_df = dfs_short_hist[i][dfs_short_hist[i].type == 'trail']
             short_close_df = dfs_short_hist[i][dfs_short_hist[i].type == 'close']
 
+            drwr.draw_positions_df(positions_df=long_close_df, plot_type=drwr.PLOT_TYPE['exit'])
             drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
             drwr.draw_positions_df(positions_df=long_trail_df, plot_type=drwr.PLOT_TYPE['trail'])
-            drwr.draw_positions_df(positions_df=long_close_df, plot_type=drwr.PLOT_TYPE['exit'])
+            drwr.draw_positions_df(positions_df=short_close_df, plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
             drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
             drwr.draw_positions_df(positions_df=short_trail_df, plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
-            drwr.draw_positions_df(positions_df=short_close_df, plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
 
             drwr.draw_vertical_lines(
                 indexes=np.concatenate(

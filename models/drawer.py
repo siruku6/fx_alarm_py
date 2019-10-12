@@ -75,7 +75,7 @@ class FigureDrawer():
         trade_marker_size = 20
         if plot_type == FigureDrawer.PLOT_TYPE['long']:
             color = 'white'
-            edgecolors = 'red'
+            edgecolors = 'green'
             label = 'long'
             mark = '^'
         elif plot_type == FigureDrawer.PLOT_TYPE['short']:
