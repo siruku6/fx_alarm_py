@@ -508,20 +508,14 @@ class OandaPyClient():
         hist_df = self.__fill_instrument_for_history(hist_df.copy())
         hist_df = hist_df[
             (hist_df.instrument == self.__instrument)
-            | (hist_df.filled_inst == self.__instrument)
+            | (hist_df.instrument_parent == self.__instrument)
         ]
         return hist_df
 
-    # TODO: 可能なら dataframe 化する前にfilterした方が早い...
     def __fill_instrument_for_history(self, hist_df):
-        inst_array = []
-        for _index, row in hist_df.iterrows():
-            parent_trade_row = hist_df[hist_df.id == row.tradeID]
-            if not parent_trade_row.empty:
-                inst = parent_trade_row.iloc[0, :].instrument
-            else:
-                inst = None
-            inst_array.append(inst)
-
-        hist_df['filled_inst'] = inst_array
-        return hist_df
+        hist_df_parent = hist_df.set_index(hist_df.id)['instrument']
+        result_df = hist_df.merge(
+            hist_df_parent, how='left',
+            left_on='tradeID', right_index=True, suffixes=['', '_parent']
+        )
+        return result_df
