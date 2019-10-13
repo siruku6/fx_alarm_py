@@ -16,10 +16,10 @@ class Analyzer():
         self.__indicators = {
             'SMA': None,
             'EMA': None,
+            'SIGMA_BAND': None,
+            'SIGMA*-1_BAND': None,
             'SIGMA*2_BAND': None,
             'SIGMA*-2_BAND': None,
-            'SIGMA*3_BAND': None,
-            'SIGMA*-3_BAND': None,
             'SAR': None,
             'stoD': None,
             'stoSD': None
@@ -56,10 +56,10 @@ class Analyzer():
                 self.__indicators['SMA'],
                 self.__indicators['50SMA'],
                 self.__indicators['EMA'],
+                self.__indicators['SIGMA_BAND'],
+                self.__indicators['SIGMA*-1_BAND'],
                 self.__indicators['SIGMA*2_BAND'],
                 self.__indicators['SIGMA*-2_BAND'],
-                self.__indicators['SIGMA*3_BAND'],
-                self.__indicators['SIGMA*-3_BAND'],
                 self.__indicators['SAR'],
                 self.__indicators['stoD'],
                 self.__indicators['stoSD']
@@ -94,18 +94,18 @@ class Analyzer():
         mean = pd.Series.rolling(close_candles, window=window_size).mean()
         standard_deviation = pd.Series.rolling(close_candles, window=window_size).std()
 
+        self.__indicators['SIGMA_BAND'] = \
+            pd.DataFrame(mean + standard_deviation) \
+              .rename(columns={'close': 'band_+1σ'})
+        self.__indicators['SIGMA*-1_BAND'] = \
+            pd.DataFrame(mean - standard_deviation) \
+              .rename(columns={'close': 'band_-1σ'})
         self.__indicators['SIGMA*2_BAND'] = \
             pd.DataFrame(mean + standard_deviation * 2) \
               .rename(columns={'close': 'band_+2σ'})
         self.__indicators['SIGMA*-2_BAND'] = \
             pd.DataFrame(mean - standard_deviation * 2) \
               .rename(columns={'close': 'band_-2σ'})
-        self.__indicators['SIGMA*3_BAND'] = \
-            pd.DataFrame(mean + standard_deviation * 3) \
-              .rename(columns={'close': 'band_+3σ'})
-        self.__indicators['SIGMA*-3_BAND'] = \
-            pd.DataFrame(mean - standard_deviation * 3) \
-              .rename(columns={'close': 'band_-3σ'})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #

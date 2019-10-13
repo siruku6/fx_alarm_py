@@ -141,8 +141,8 @@ class Trader():
                 indexes=np.concatenate(
                     [long_entry_df.sequence.values, short_entry_df.sequence.values]
                 ),
-                vmin=dfs_indicator[i]['band_-3σ'].min(skipna=True),
-                vmax=dfs_indicator[i]['band_+3σ'].max(skipna=True)
+                vmin=dfs_indicator[i]['band_-2σ'].min(skipna=True),
+                vmax=dfs_indicator[i]['band_+2σ'].max(skipna=True)
             )
 
             # candles

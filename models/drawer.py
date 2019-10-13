@@ -25,7 +25,7 @@ class FigureDrawer():
             figsize=(8, 5), dpi=144
         )
         # INFO: https://zaburo-ch.github.io/post/20141217_0/
-        self.__figure.subplots_adjust(left=0.03, right=0.92, bottom=0.03, top=0.92, hspace=0.45)
+        self.__figure.subplots_adjust(left=0.05, right=0.90, bottom=0.18, top=0.92, hspace=0.05)
 
     def close_all(self):
         # https://stackoverflow.com/questions/21884271/warning-about-too-many-open-figures
@@ -37,10 +37,10 @@ class FigureDrawer():
         # self.draw_df_on_plt(d_frame.loc[:, ['50SMA']], FigureDrawer.PLOT_TYPE['dashed-line'], color='lime')
         self.draw_df_on_plt(d_frame.loc[:, ['20SMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightskyblue')
         self.draw_df_on_plt(d_frame.loc[:, ['10EMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='cyan')
+        self.draw_df_on_plt(d_frame.loc[:, ['band_+1σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='midnightblue')
+        self.draw_df_on_plt(d_frame.loc[:, ['band_-1σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='midnightblue', nolabel='_nolegend_')
         self.draw_df_on_plt(d_frame.loc[:, ['band_+2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue')
         self.draw_df_on_plt(d_frame.loc[:, ['band_-2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
-        self.draw_df_on_plt(d_frame.loc[:, ['band_+3σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightcyan')
-        self.draw_df_on_plt(d_frame.loc[:, ['band_-3σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightcyan', nolabel='_nolegend_')
         self.draw_df_on_plt(d_frame.loc[:, ['SAR']],      FigureDrawer.PLOT_TYPE['dot'],         color='purple')
         self.draw_df_on_plt(d_frame.loc[:, ['stoD:3']],   FigureDrawer.PLOT_TYPE['simple-line'], color='turquoise', plt_id=2)
         self.draw_df_on_plt(d_frame.loc[:, ['stoSD:3']],  FigureDrawer.PLOT_TYPE['simple-line'], color='orangered', plt_id=2)
@@ -59,13 +59,13 @@ class FigureDrawer():
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
         if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
             for key, column in d_frame.iteritems():
-                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linewidth=0.6)
+                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
             for key, column in d_frame.iteritems():
-                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linestyle='dashed', linewidth=0.6)
+                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linestyle='dashed', linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
             for key, column in d_frame.iteritems():
-                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=2)
+                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=1)
 
         print('[Drawer] ', d_frame.columns[0], 'を描画')
         return {'success': 'd_frameを描画'}
@@ -156,30 +156,30 @@ class FigureDrawer():
         self.__axis1.set_title('{inst}-{granularity} candles (len={len})'.format(
             inst=instrument, granularity=granularity, len=len(FXBase.get_candles())
         ))
-        self.__axis1.set_xlabel('Datetime (UTC+00:00)', fontsize=8)
         self.__axis1.yaxis.tick_right()
         self.__axis2.yaxis.tick_right()
+        self.__axis2.set_xlabel('Datetime (UTC+00:00)', fontsize=6)
 
         # INFO: axis1
         plt.sca(self.__axis1)
         xticks_number = int(len(sr_time) / num_break_xticks_into)
         if xticks_number > 0:
             xticks_index = range(0, len(sr_time), xticks_number)
-            # INFO: 日付から表示するため、先頭12文字目から取る
-            xticks_display = [sr_time.values[i][5:16] for i in xticks_index]
-            plt.xticks(xticks_index, xticks_display, rotation=30, fontsize=8)
-            plt.legend(loc='best', fontsize=8)
-            plt.grid(which='major', linestyle='dashed', linewidth=0.5)
+            plt.xticks(xticks_index, [])
+        plt.legend(loc='best', fontsize=8)
+        plt.grid(which='major', linestyle='dashed', linewidth=0.5)
 
         # INFO: axis2
         plt.sca(self.__axis2)
         plt.hlines([20, 80], 0, len(sr_time), color='lightgray', linestyle='dashed', linewidth=0.5)
         if xticks_number > 0:
-            plt.xticks(xticks_index, [])
-            plt.tick_params(top=True, bottom=False)
-            # plt.tick_params(labelbottom=False)
-        plt.grid(linestyle='dashed', linewidth=0.5)
+            # INFO: 日付から表示するため、先頭12文字目から取る
+            xticks_display = [sr_time.values[i][5:16] for i in xticks_index]
+            plt.tick_params(top=False, bottom=True)
+            plt.xticks(xticks_index, xticks_display, rotation=30, fontsize=8)
+        plt.yticks([20, 80], [20, 80])
         plt.legend(loc='upper left', fontsize=8)
+        plt.grid(linestyle='dashed', linewidth=0.5)
 
         png_filename = filename or 'figure'
         plt.savefig('tmp/images/{filename}_{num}.png'.format(filename=png_filename, num=num))

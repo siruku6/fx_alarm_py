@@ -132,12 +132,12 @@ class Librarian():
         drwr.draw_indicators(d_frame=self._indicators[-DRAWABLE_ROWS:None].reset_index(drop=True))
 
         drwr.draw_vertical_lines(
-            indexes=np.concatenate(
-                [long_df.dropna(subset=['price']).sequence.values,
-                short_df.dropna(subset=['price']).sequence.values]
-            ),
-            vmin=self._indicators['band_-3σ'].min(skipna=True),
-            vmax=self._indicators['band_+3σ'].max(skipna=True)
+            indexes=np.concatenate([
+                long_df.dropna(subset=['price']).sequence.values,
+                short_df.dropna(subset=['price']).sequence.values
+            ]),
+            vmin=self._indicators['band_-2σ'].min(skipna=True),
+            vmax=self._indicators['band_+2σ'].max(skipna=True)
         )
 
         drwr.draw_positions_df(positions_df=close_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['exit'])
