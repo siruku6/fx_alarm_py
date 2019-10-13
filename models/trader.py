@@ -25,14 +25,12 @@ class Trader():
 
         self._operation = operation
         self._client = OandaPyClient(instrument=self.get_instrument())
-        self.__ana = Analyzer()
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
         self.__granularity = os.environ.get('GRANULARITY') or 'M5'
-        sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
-        self._stoploss_buffer_pips = sl_buffer
         self._position = None
 
         if operation in ['verification']:
+            self._stoploss_buffer_pips = self.__select_stoploss_digit() * 5
             self.__request_custom_candles()
         elif operation == 'live':
             result = self._client.request_is_tradeable()
@@ -40,13 +38,13 @@ class Trader():
             if not self.tradeable and operation != 'unittest':
                 self._log_skip_reason('1. market is not open')
                 return
+            self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
             self._client.specify_count_and_load_candles(granularity=self.__granularity, set_candles=True)
         else:
             return
 
-        # OPTIMIZE: これがあるせいで意外とトレードが発生しない
         self._client.request_current_price()
-
+        self.__ana = Analyzer()
         result = self.__ana.calc_indicators()
         if 'error' in result:
             self._log_skip_reason(result['error'])
