@@ -364,46 +364,45 @@ class Trader():
                 self._log_skip_reason('3. There isn`t thrust')
         return direction
 
-    def _judge_settle_position(self, i, c_price):
-        candles = FXBase.get_candles()
+    def _judge_settle_position(self, index, c_price, candles):
         parabolic = self._indicators['SAR']
         position_type = self._position['type']
         stoploss_price = self._position['stoploss']
         if position_type == 'long':
-            possible_stoploss = candles.low[i - 1] - self._stoploss_buffer_pips
-            # if possible_stoploss > stoploss_price and candles.high[i - 1] < candles.high[i]:
-            if possible_stoploss > stoploss_price:
+            possible_stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
+            # INFO: trailing
+            if possible_stoploss > stoploss_price:  # and candles.high[index - 20:index].max() < candles.high[index]:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(
-                    new_stop=stoploss_price, time=candles.time[i]
+                    new_stop=stoploss_price, time=candles.time[index]
                 )
             # INFO: 本番ではstoplossで決済されるので不要
-            if self._operation != 'live' and stoploss_price > candles.low[i] - self.__static_spread:
+            if self._operation != 'live' and stoploss_price > candles.low[index] - self.__static_spread:
                 self._settle_position(
-                    index=i, price=stoploss_price, time=candles.time[i]
+                    index=index, price=stoploss_price, time=candles.time[index]
                 )
-            elif parabolic[i] > c_price - self.__static_spread:
-                exit_price = self.__ana.calc_next_parabolic(parabolic[i - 1], candles.low[i - 1])
+            elif parabolic[index] > c_price - self.__static_spread:
+                exit_price = self.__ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
                 self._settle_position(
-                    index=i, price=exit_price, time=candles.time[i]
+                    index=index, price=exit_price, time=candles.time[index]
                 )
         elif position_type == 'short':
-            possible_stoploss = candles.high[i - 1] + self._stoploss_buffer_pips
-            # if possible_stoploss < stoploss_price and candles.low[i - 1] > candles.low[i]:
-            if possible_stoploss < stoploss_price:
+            possible_stoploss = candles.high[index - 1] + self._stoploss_buffer_pips
+            # INFO: trailing
+            if possible_stoploss < stoploss_price:  # and candles.low[index - 20:index].min() > candles.low[index]:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(
-                    new_stop=stoploss_price, time=candles.time[i]
+                    new_stop=stoploss_price, time=candles.time[index]
                 )
             # INFO: 本番ではstoplossで決済されるので不要
-            if self._operation != 'live' and stoploss_price < candles.high[i]:
+            if self._operation != 'live' and stoploss_price < candles.high[index]:
                 self._settle_position(
-                    index=i, price=stoploss_price, time=candles.time[i]
+                    index=index, price=stoploss_price, time=candles.time[index]
                 )
-            elif parabolic[i] < c_price:
-                exit_price = self.__ana.calc_next_parabolic(parabolic[i - 1], candles.low[i - 1])
+            elif parabolic[index] < c_price:
+                exit_price = self.__ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
                 self._settle_position(
-                    index=i, price=exit_price, time=candles.time[i]
+                    index=index, price=exit_price, time=candles.time[index]
                 )
 
     #
@@ -494,7 +493,7 @@ class Trader():
 
                 self._create_position(index, direction)
             else:
-                self._judge_settle_position(index, close_price)
+                self._judge_settle_position(index, close_price, candles)
 
         return {'success': '[Trader] 売買判定終了'}
 
@@ -881,7 +880,7 @@ class RealTrader(Trader):
 
             self._create_position(last_index, direction)
         else:
-            self._judge_settle_position(last_index, close_price)
+            self._judge_settle_position(last_index, close_price, candles)
 
         print('[Trader] -------- end --------')
         return None
