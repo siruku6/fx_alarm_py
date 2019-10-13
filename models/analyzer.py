@@ -204,8 +204,8 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                   Parabolic SAR                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def calc_next_parabolic(self, last_sar, last_low, acceleration_f=INITIAL_AF):
-        return last_sar + acceleration_f * (last_low - last_sar)
+    def calc_next_parabolic(self, last_sar, ep, acceleration_f=INITIAL_AF):
+        return last_sar + acceleration_f * (ep - last_sar)
 
     def __parabolic_is_touched(self, bull, current_parabo, current_h, current_l):
         if bull and (current_parabo > current_l):
@@ -215,9 +215,10 @@ class Analyzer():
         return False
 
     def __calc_parabolic(self, candles):
-        # 初期状態は上昇トレンドと仮定して計算
-        bull = True
+        # 初期値
         acceleration_factor = Analyzer.INITIAL_AF
+        # INFO: 初期状態は上昇トレンドと仮定して計算
+        bull = True
         extreme_price = candles.high[0]
         temp_sar_array = [candles.low[0]]
 
@@ -244,22 +245,31 @@ class Analyzer():
                     bull = True
                     extreme_price = current_high
             else:
-                if bull and extreme_price < current_high:
-                    extreme_price = current_high
-                    acceleration_factor = min(
-                        acceleration_factor + Analyzer.INITIAL_AF,
-                        Analyzer.MAX_AF
-                    )
-                elif not bull and extreme_price > current_low:
-                    extreme_price = current_low
-                    acceleration_factor = min(
-                        acceleration_factor + Analyzer.INITIAL_AF,
-                        Analyzer.MAX_AF
-                    )
+                # SARの仮決め
                 # temp_sar = last_sar + acceleration_factor * (extreme_price - last_sar)
                 temp_sar = self.calc_next_parabolic(
-                    last_sar=last_sar, last_low=extreme_price, acceleration_f=acceleration_factor
+                    last_sar=last_sar, ep=extreme_price, acceleration_f=acceleration_factor
                 )
+
+                # AFの更新
+                if (bull and extreme_price < current_high) \
+                    or not bull and extreme_price > current_low:
+                    acceleration_factor = min(
+                        acceleration_factor + Analyzer.INITIAL_AF,
+                        Analyzer.MAX_AF
+                    )
+
+                # SARの調整
+                if bull:
+                    temp_sar = min(
+                        temp_sar, candles_array[i-1]['low'], candles_array[i-2]['low']
+                    )
+                    extreme_price = max(extreme_price, current_high)
+                else:
+                    temp_sar = max(
+                        temp_sar, candles_array[i-1]['high'], candles_array[i-2]['high']
+                    )
+                    extreme_price = min(extreme_price, current_low)
 
             if i == 0:
                 temp_sar_array[-1] = temp_sar
