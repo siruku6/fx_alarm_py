@@ -385,8 +385,9 @@ class Trader():
                     index=i, price=stoploss_price, time=candles.time[i]
                 )
             elif parabolic[i] > c_price - self.__static_spread:
+                exit_price = self.__ana.calc_next_parabolic(parabolic[i-1], candles.low[i-1])
                 self._settle_position(
-                    index=i, price=parabolic[i], time=candles.time[i]
+                    index=i, price=exit_price, time=candles.time[i]
                 )
         elif position_type == 'short':
             possible_stoploss = candles.high[i - 1] + self._stoploss_buffer_pips
@@ -402,8 +403,9 @@ class Trader():
                     index=i, price=stoploss_price, time=candles.time[i]
                 )
             elif parabolic[i] < c_price:
+                exit_price = self.__ana.calc_next_parabolic(parabolic[i-1], candles.low[i-1])
                 self._settle_position(
-                    index=i, price=parabolic[i], time=candles.time[i]
+                    index=i, price=exit_price, time=candles.time[i]
                 )
 
     #

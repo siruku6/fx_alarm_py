@@ -204,6 +204,9 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                   Parabolic SAR                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def calc_next_parabolic(self, last_sar, last_low, acceleration_f=INITIAL_AF):
+        return last_sar + acceleration_f * (last_low - last_sar)
+
     def __parabolic_is_touched(self, bull, current_parabo, current_h, current_l):
         if bull and (current_parabo > current_l):
             return True
@@ -253,7 +256,10 @@ class Analyzer():
                         acceleration_factor + Analyzer.INITIAL_AF,
                         Analyzer.MAX_AF
                     )
-                temp_sar = last_sar + acceleration_factor * (extreme_price - last_sar)
+                # temp_sar = last_sar + acceleration_factor * (extreme_price - last_sar)
+                temp_sar = self.calc_next_parabolic(
+                    last_sar=last_sar, last_low=extreme_price, acceleration_f=acceleration_factor
+                )
 
             if i == 0:
                 temp_sar_array[-1] = temp_sar
@@ -269,8 +275,8 @@ class Analyzer():
         ''' ストキャスの%Kを計算 '''
         candles = FXBase.get_candles()
         stoK = ((candles.close - candles.low.rolling(window=window_size, center=False).min()) / (
-            candles.high.rolling(window=window_size, center=False).max() -
-            candles.low.rolling(window=window_size, center=False).min()
+            candles.high.rolling(window=window_size, center=False).max()
+            - candles.low.rolling(window=window_size, center=False).min()
         )) * 100
         return stoK
 
