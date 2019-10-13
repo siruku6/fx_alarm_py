@@ -310,6 +310,21 @@ class Trader():
         })
         return np.any(tmp_df, axis=1)
 
+    def _stoc_allows_entry(self, stod, stosd, trend):
+        if trend == 'bull' and (stod > stosd or stod > 80):
+            return True
+        elif trend == 'bear' and (stod < stosd or stod < 20):
+            return True
+
+        return False
+
+    def __generate_stoc_allows_column(self, sr_trend):
+        ''' stocがtrendに沿う値を取っているか判定する列を返却 '''
+        stod = self._indicators['stoD:3']
+        stosd = self._indicators['stoSD:3']
+        column_generator = np.frompyfunc(self._stoc_allows_entry, 3, 1)
+        return column_generator(stod, stosd, sr_trend)
+
     def _check_trend(self, index, c_price):
         '''
         ルールに基づいてトレンドの有無を判定
@@ -483,7 +498,8 @@ class Trader():
                     if not candles.ma_gap_expanding[index]:
                         continue
                     # 若干効果あり
-                    if not self._stochastic_allow_trade(index, candles.trend[index]):
+                    if not candles.stoc_allows[index]:
+                    # if not self._stochastic_allow_trade(index, candles.trend[index]):
                         continue
 
                 # direction = self._find_thrust(index, candles.trend[index])
@@ -511,12 +527,9 @@ class Trader():
             = self.__generate_trend_column(c_prices=candles.close)
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=candles.open)
-        candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(
-            df_trend=candles[['bull', 'bear']]
-        )
-        candles['sma_follow_trend'] = self.__generate_following_trend_column(
-            df_trend=candles[['bull', 'bear']]
-        )
+        candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=candles[['bull', 'bear']])
+        candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
+        candles['stoc_allows'] = self.__generate_stoc_allows_column(sr_trend=candles['trend'])
 
     def _create_position(self, index, direction):
         '''
