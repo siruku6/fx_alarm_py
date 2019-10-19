@@ -383,8 +383,17 @@ class Trader():
         parabolic = self._indicators['SAR']
         position_type = self._position['type']
         stoploss_price = self._position['stoploss']
+
         if position_type == 'long':
             possible_stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
+            if self._operation == 'live':
+                print('[Trader] position: {}, possible_SL: {}, stoploss: {}, (SL) possible < current: {}'.format(
+                    position_type,
+                    possible_stoploss,
+                    stoploss_price,
+                    possible_stoploss < stoploss_price
+                ))
+
             # INFO: trailing
             if possible_stoploss > stoploss_price:  # and candles.high[index - 20:index].max() < candles.high[index]:
                 stoploss_price = possible_stoploss
@@ -403,6 +412,14 @@ class Trader():
                 )
         elif position_type == 'short':
             possible_stoploss = candles.high[index - 1] + self._stoploss_buffer_pips
+            if self._operation == 'live':
+                print('[Trader] position: {}, possible_SL: {}, stoploss: {}, (SL) possible < current: {}'.format(
+                    position_type,
+                    possible_stoploss,
+                    stoploss_price,
+                    possible_stoploss < stoploss_price
+                ))
+
             # INFO: trailing
             if possible_stoploss < stoploss_price:  # and candles.low[index - 20:index].min() > candles.low[index]:
                 stoploss_price = possible_stoploss
