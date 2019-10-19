@@ -3,6 +3,7 @@ import time
 import logging
 import os
 import pandas as pd
+import pprint
 
 # For trading
 from oandapyV20 import API
@@ -291,8 +292,8 @@ class OandaPyClient():
                 'stoploss': trade['stopLossOrder']
             } for trade in extracted_trades
         ]
-        print('[Client] open_trades: {}'.format(open_position_for_diplay))
-
+        print('[Client] open_trades: {}'.format(open_position_for_diplay != []))
+        pprint.pprint(open_position_for_diplay, compact=True)
         return extracted_trades
 
     def request_market_ordering(self, posi_nega_sign='', stoploss_price=None):
@@ -431,10 +432,11 @@ class OandaPyClient():
 
         candle = pd.DataFrame.from_dict([row['mid'] for row in response['candles']])
         candle = candle.astype({
-            'c': 'float64',
-            'l': 'float64',
-            'h': 'float64',
-            'o': 'float64'
+            # INFO: 'float64' より早くなるらしいが...
+            'c': 'float32',
+            'l': 'float32',
+            'h': 'float32',
+            'o': 'float32'
         })
         candle.columns = ['close', 'high', 'low', 'open']
         candle['time'] = [row['time'] for row in response['candles']]
