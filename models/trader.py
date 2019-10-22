@@ -251,18 +251,42 @@ class Trader():
             return None
 
     def __generate_thrust_column(self, candles):
-        method_thrust_checker = np.frompyfunc(self._detect_thrust, 5, 1)
-        result = method_thrust_checker(
-            candles.trend,
-            candles.high.shift(1), candles.high,
-            candles.low.shift(1), candles.low
+        # INFO: if high == the max of recent-10-candles: True is set !
+        sr_highest_in_10candles = (candles.high == candles.high.rolling(window=10).max())
+        sr_lowest_in_10candles = (candles.low == candles.low.rolling(window=10).min())
+        sr_up_thrust = np.all(
+            pd.DataFrame({'highest': sr_highest_in_10candles, 'bull': candles.bull}),
+            axis=1
         )
+        sr_down_thrust = np.all(
+            pd.DataFrame({'lowest': sr_lowest_in_10candles, 'bull': candles.bear}),
+            axis=1
+        )
+        method_thrust_checker = np.frompyfunc(self._detect_thrust2, 2, 1)
+        result = method_thrust_checker(sr_up_thrust, sr_down_thrust)
         return result
+
+        # INFO: shift(1)との比較のみでthrustを判定する場合
+        # method_thrust_checker = np.frompyfunc(self._detect_thrust, 5, 1)
+        # result = method_thrust_checker(
+        #     candles.trend,
+        #     candles.high.shift(1), candles.high,
+        #     candles.low.shift(1), candles.low
+        # )
+        # return result
 
     def _detect_thrust(self, trend, previous_high, high, previous_low, low):
         if trend == 'bull' and not np.isnan(previous_high) and previous_high < high:
             return 'long'
         elif trend == 'bear' and not np.isnan(previous_low) and previous_low > low:
+            return 'short'
+        else:
+            return None
+
+    def _detect_thrust2(self, up_thrust, down_thrust):
+        if up_thrust:
+            return 'long'
+        elif down_thrust:
             return 'short'
         else:
             return None
@@ -359,24 +383,38 @@ class Trader():
             self._log_skip_reason('c. stochastic denies trade')
         return result
 
-    def _find_thrust(self, i, trend):
+    def _find_thrust(self, index, candles, trend):
         '''
         thrust発生の有無と方向を判定して返却する
         '''
-        candles = FXBase.get_candles()
-        candles_h = candles.high
-        candles_l = candles.low
-        if trend == 'bull' and candles_h[i] > candles_h[i - 1]:
+        if trend == 'bull' and candles[:index + 1].tail(10).high.idxmax() == index:
             direction = 'long'
-        elif trend == 'bear' and candles_l[i] < candles_l[i - 1]:
+        elif trend == 'bear' and candles[:index + 1].tail(10).low.idxmin() == index:
             direction = 'short'
         else:
             direction = None
             if self._operation == 'live':
                 print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
-                    trend, candles_h[i - 1], candles_h[i], candles_l[i - 1], candles_l[i]
+                    trend,
+                    candles.high[index - 1], candles.high[index],
+                    candles.low[index - 1], candles.low[index]
                 ))
                 self._log_skip_reason('3. There isn`t thrust')
+
+        # INFO: shift(1)との比較だけでthrust判定したい場合はこちら
+        # candles_h = candles.high
+        # candles_l = candles.low
+        # if trend == 'bull' and candles_h[index] > candles_h[index - 1]:
+        #     direction = 'long'
+        # elif trend == 'bear' and candles_l[index] < candles_l[index - 1]:
+        #     direction = 'short'
+        # else:
+        #     direction = None
+        #     if self._operation == 'live':
+        #         print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
+        #             trend, candles_h[index - 1], candles_h[index], candles_l[index - 1], candles_l[index]
+        #         ))
+        #         self._log_skip_reason('3. There isn`t thrust')
         return direction
 
     def _judge_settle_position(self, index, c_price, candles):
@@ -519,7 +557,7 @@ class Trader():
                     # if not self._stochastic_allow_trade(index, candles.trend[index]):
                         continue
 
-                # direction = self._find_thrust(index, candles.trend[index])
+                # direction = self._find_thrust(index, candles, candles.trend[index])
                 direction = candles.thrust[index]
                 if direction is None:
                     continue
@@ -794,6 +832,7 @@ class Trader():
         max_profit = max(profit_array) if profit_array != [] else 0
         max_loss = min(loss_array) if loss_array != [] else 0
 
+        # TODO: in 以下が空だとエラーになるバグが残っている
         max_drawdown = min([row['drawdown'] for row in (long_entry_array + short_entry_array)])
         gross_profit = sum(profit_array)
         gross_loss = sum(loss_array)
@@ -904,7 +943,7 @@ class RealTrader(Trader):
                 if not self._stochastic_allow_trade(last_index, trend):
                     return
 
-            direction = self._find_thrust(last_index, trend)
+            direction = self._find_thrust(last_index, candles, trend)
             if direction is None:
                 return
 
