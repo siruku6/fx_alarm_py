@@ -439,17 +439,17 @@ class Trader():
                     new_stop=stoploss_price, time=candles.time[index]
                 )
             # INFO: 本番ではstoplossで決済されるので不要
-            if self._operation != 'live' and stoploss_price > candles.low[index] - self.__static_spread:
+            if self._operation != 'live' and stoploss_price > candles.low[index]:
                 self._settle_position(
                     index=index, price=stoploss_price, time=candles.time[index]
                 )
-            elif parabolic[index] > c_price - self.__static_spread:
+            elif parabolic[index] > c_price:
                 exit_price = self.__ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
                 self._settle_position(
                     index=index, price=exit_price, time=candles.time[index]
                 )
         elif position_type == 'short':
-            possible_stoploss = candles.high[index - 1] + self._stoploss_buffer_pips
+            possible_stoploss = candles.high[index - 1] + self._stoploss_buffer_pips + self.__static_spread
             if self._operation == 'live':
                 print('[Trader] position: {}, possible_SL: {}, stoploss: {}, (SL) possible < current: {}'.format(
                     position_type,
@@ -465,11 +465,11 @@ class Trader():
                     new_stop=stoploss_price, time=candles.time[index]
                 )
             # INFO: 本番ではstoplossで決済されるので不要
-            if self._operation != 'live' and stoploss_price < candles.high[index]:
+            if self._operation != 'live' and stoploss_price < candles.high[index] + self.__static_spread:
                 self._settle_position(
                     index=index, price=stoploss_price, time=candles.time[index]
                 )
-            elif parabolic[index] < c_price:
+            elif parabolic[index] < c_price + self.__static_spread:
                 exit_price = self.__ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
                 self._settle_position(
                     index=index, price=exit_price, time=candles.time[index]
@@ -595,11 +595,11 @@ class Trader():
         lows = candles.low
         if direction == 'long':
             # INFO: 窓開けを想定して max, min を使用（動作検証中）
-            entry_price = max(highs[index - 1], candles.open[index])
+            entry_price = max(highs[index - 1], candles.open[index]) + self.__static_spread
             stoploss = lows[index - 1] - self._stoploss_buffer_pips
         elif direction == 'short':
-            entry_price = min(lows[index - 1], candles.open[index]) - self.__static_spread
-            stoploss = highs[index - 1] + self._stoploss_buffer_pips
+            entry_price = min(lows[index - 1], candles.open[index])
+            stoploss = highs[index - 1] + self._stoploss_buffer_pips + self.__static_spread
 
         self._set_position({
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
@@ -876,7 +876,7 @@ class RealTrader(Trader):
         candles = FXBase.get_candles()
         if direction == 'long':
             sign = ''
-            stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
+            stoploss = candles.low[index - 1]
         elif direction == 'short':
             sign = '-'
             stoploss = candles.high[index - 1] + self._stoploss_buffer_pips
