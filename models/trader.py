@@ -275,7 +275,7 @@ class Trader():
             axis=1
         )
         sr_down_thrust = np.all(
-            pd.DataFrame({'lowest': sr_lowest_in_10candles, 'bull': candles.bear}),
+            pd.DataFrame({'lowest': sr_lowest_in_10candles, 'bear': candles.bear}),
             axis=1
         )
         method_thrust_checker = np.frompyfunc(self._detect_thrust2, 2, 1)
@@ -666,10 +666,12 @@ class Trader():
         first_time = self.__str_to_datetime(FXBase.get_candles().iloc[0, :].time[:19])
         last_time = self.__str_to_datetime(FXBase.get_candles().iloc[-1, :].time[:19])
         _m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')
+        spread = self.__static_spread
 
         # long価格の修正
-        len_of_long_hist = len(self.__hist_positions['long']) - 1
-        for i, row in enumerate(self.__hist_positions['long']):
+        long_hist = self.__hist_positions['long'].copy()
+        len_of_long_hist = len(long_hist) - 1
+        for i, row in enumerate(long_hist):
             if i == len_of_long_hist:
                 break
 
@@ -685,13 +687,14 @@ class Trader():
                         row['price'] = m10_row.high
                         row['time'] = m10_row.name
                         self.__chain_accurization(
-                            i, 'long', old_price, accurater_price=m10_row.high
+                            i, 'long', old_price, accurater_price=m10_row.high + spread
                         )
                         break
 
         # short価格の修正
-        len_of_short_hist = len(self.__hist_positions['short']) - 1
-        for i, row in enumerate(self.__hist_positions['short']):
+        short_hist = self.__hist_positions['short'].copy()
+        len_of_short_hist = len(short_hist) - 1
+        for i, row in enumerate(short_hist):
             if i == len_of_short_hist:
                 break
 
