@@ -417,6 +417,42 @@ class Trader():
         #         self._log_skip_reason('3. There isn`t thrust')
         return direction
 
+    # def _set_entryable(self, satisfy_precondition, thrust):
+    #     if not satisfy_precondition:
+    #         return None
+    #     elif thrust == 'long':
+    #         return 'long'
+    #     elif thrust == 'short':
+    #         return True
+
+    def __generate_entry_column(self, candles):
+        satisfy_preconditions = np.all(
+            candles[['in_the_band', 'ma_gap_expanding', 'sma_follow_trend', 'stoc_allows']],
+            axis=1
+        )
+        candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
+        # column_generator = np.frompyfunc(self._set_entryable, 2, 1)
+        # result = column_generator(satisfy_preconditions, candles['thrust'])
+
+        # INFO: long-entry
+        long_index = candles.entryable == 'long'
+        long_entry_prices = pd.DataFrame({
+            'previous_high': candles.shift(1)[long_index].high,
+            'current_open': candles[long_index].open
+        }).max(axis=1) + self.__static_spread
+        candles.loc[long_index, 'entryable_price'] = long_entry_prices
+
+        # INFO: short-entry
+        short_index = candles.entryable == 'short'
+        short_entry_prices = pd.DataFrame({
+            'previous_low': candles.shift(1)[short_index].low,
+            'current_open': candles[short_index].open
+        }).min(axis=1)
+        candles.loc[short_index, 'entryable_price'] = short_entry_prices
+
+        # import pdb; pdb.set_trace()
+
+
     def _judge_settle_position(self, index, c_price, candles):
         parabolic = self._indicators['SAR']
         position_type = self._position['type']
@@ -566,6 +602,9 @@ class Trader():
             else:
                 self._judge_settle_position(index, close_price, candles)
 
+        # TODO: 要削除 一時的なコード
+        # candles.to_csv('./tmp/full_data_dump.csv')
+
         return {'success': '[Trader] 売買判定終了'}
 
     def __demo_scalping_trade(self):
@@ -585,6 +624,7 @@ class Trader():
         candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=candles[['bull', 'bear']])
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
         candles['stoc_allows'] = self.__generate_stoc_allows_column(sr_trend=candles['trend'])
+        self.__generate_entry_column(candles=candles)
 
     def _create_position(self, index, direction):
         '''
