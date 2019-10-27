@@ -433,22 +433,13 @@ class Trader():
         #         self._log_skip_reason('3. There isn`t thrust')
         return direction
 
-    # def _set_entryable(self, satisfy_precondition, thrust):
-    #     if not satisfy_precondition:
-    #         return None
-    #     elif thrust == 'long':
-    #         return 'long'
-    #     elif thrust == 'short':
-    #         return True
-
     def __generate_entry_column(self, candles):
         satisfy_preconditions = np.all(
             candles[['in_the_band', 'ma_gap_expanding', 'sma_follow_trend', 'stoc_allows']],
             axis=1
         )
         candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
-        # column_generator = np.frompyfunc(self._set_entryable, 2, 1)
-        # result = column_generator(satisfy_preconditions, candles['thrust'])
+        candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
 
         # INFO: long-entry
         long_index = candles.entryable == 'long'
@@ -466,6 +457,35 @@ class Trader():
         }).min(axis=1)
         candles.loc[short_index, 'entryable_price'] = short_entry_prices
 
+        entry_direction = candles.entryable.fillna(method='ffill')
+        # INFO: long-stoploss
+        long_direction_index = entry_direction == 'long'
+        long_stoploss_prices = candles.shift(1)[long_direction_index].low - self._stoploss_buffer_pips
+        candles.loc[long_direction_index, 'possible_stoploss'] = long_stoploss_prices
+
+        # INFO: short-stoploss
+        short_direction_index = entry_direction == 'short'
+        short_stoploss_prices = candles.shift(1)[short_direction_index].high \
+                              + self._stoploss_buffer_pips \
+                              + self.__static_spread
+        candles.loc[short_direction_index, 'possible_stoploss'] = short_stoploss_prices
+
+        # INFO: set exit-timing
+        long_exits = np.all(np.array([
+            long_direction_index,
+            candles.low < candles.possible_stoploss
+        ]), axis=0)
+        candles.loc[long_exits, 'position'] = 'exit'
+        candles.loc[long_exits, 'entryable_price'] = candles[long_exits].possible_stoploss
+
+        short_exits = np.all(np.array([
+            short_direction_index,
+            candles.high + self.__static_spread > candles.possible_stoploss
+        ]), axis=0)
+        candles.loc[short_exits, 'position'] = 'exit'
+        candles.loc[short_exits, 'entryable_price'] = candles[short_exits].possible_stoploss
+
+        candles.position.fillna(method='ffill', inplace=True)
         # import pdb; pdb.set_trace()
 
 
