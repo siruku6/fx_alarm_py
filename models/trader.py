@@ -16,7 +16,10 @@ class Trader():
     def __init__(self, operation='verification'):
         if operation in ['verification']:
             inst = OandaPyClient.select_instrument()
-            self.__drawer = FigureDrawer()
+            if self.__switch_drawer_on():
+                self.__drawer = FigureDrawer()
+            else:
+                self.__drawer = None
             self.__instrument = inst['name']
             self.__static_spread = inst['spread']
         else:
@@ -59,6 +62,16 @@ class Trader():
         self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
 
+    def __switch_drawer_on(self):
+        while True:
+            print('[Trader] 画像描画する？ [1]:Yes, [2]:No : ', end='')
+            selection = prompt_inputting_decimal()
+            if selection == 1:
+                return True
+            elif selection == 2:
+                return False
+            else:
+                print('[Trader] please input 1 - 2 ! >д<;')
     #
     # public
     #
@@ -106,6 +119,9 @@ class Trader():
 
     def draw_chart(self):
         ''' チャートや指標をpngに描画 '''
+        if self.__drawer is None:
+            return
+
         drwr = self.__drawer
         df_pos = {
             'long': pd.DataFrame(self.__hist_positions['long'], columns=self.__columns),
@@ -161,7 +177,7 @@ class Trader():
             if df_segments_count != i + 1:
                 drwr.init_figure()
             if 'success' in result:
-                print(result['success'], '/{}'.format(df_segments_count))
+                print('{msg} / {count}'.format(msg=result['success'], count=df_segments_count))
 
         return {
             'success': '[Trader] チャート分析、png生成完了',
@@ -507,7 +523,7 @@ class Trader():
 
     def __select_stoploss_digit(self):
         while True:
-            print('[Trader] 通貨の価格の桁を選択して下さい 1: 100.000, 2: 1.00000, 3: それ以下又は以外')
+            print('[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', end='')
             digit_id = prompt_inputting_decimal()
             if digit_id == 1:
                 return 0.01
