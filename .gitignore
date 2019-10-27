@@ -4,3 +4,5 @@ test_cord.py
 *.json
 log/*.log
 tmp/images/*.png
+tmp/*.txt
+

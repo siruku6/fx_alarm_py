@@ -67,7 +67,6 @@ class FigureDrawer():
             for key, column in d_frame.iteritems():
                 plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=1)
 
-        print('[Drawer] ', d_frame.columns[0], 'を描画')
         return {'success': 'd_frameを描画'}
 
     def draw_positions_df(self, positions_df, plot_type=PLOT_TYPE['long'], nolabel=None):
@@ -183,4 +182,4 @@ class FigureDrawer():
 
         png_filename = filename or 'figure'
         plt.savefig('tmp/images/{filename}_{num}.png'.format(filename=png_filename, num=num))
-        return {'success': '[Drawer] 描画済みイメージをpng化 {}'.format(num + 1)}
+        return {'success': '[Drawer] 描画済みイメージをpng化完了 {}'.format(num + 1)}
