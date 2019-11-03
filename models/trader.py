@@ -965,6 +965,9 @@ class RealTrader(Trader):
             if os.environ.get('CUSTOM_RULE') == 'on':
                 if not self._sma_run_along_trend(last_index, trend):
                     return
+                if trend == 'bull' and self._indicators['60EMA'][last_index] < close_price \
+                    or trend == 'bear' and self._indicators['60EMA'][last_index] > close_price:
+                    return
                 if self._over_2_sigma(last_index, price=close_price):
                     return
                 if not self._expand_moving_average_gap(last_index, trend):
