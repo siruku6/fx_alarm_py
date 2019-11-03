@@ -54,8 +54,8 @@ class Analyzer():
         indicators = pd.concat(
             [
                 self.__indicators['SMA'],
-                self.__indicators['50SMA'],
                 self.__indicators['EMA'],
+                self.__indicators['60EMA'],
                 self.__indicators['SIGMA_BAND'],
                 self.__indicators['SIGMA*-1_BAND'],
                 self.__indicators['SIGMA*2_BAND'],
@@ -76,8 +76,6 @@ class Analyzer():
         # mean()後の .dropna().reset_index(drop = True) を消去中
         sma = pd.Series.rolling(close_candles, window=window_size).mean()
         self.__indicators['SMA'] = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
-        sma50 = pd.Series.rolling(close_candles, window=50).mean()
-        self.__indicators['50SMA'] = pd.DataFrame(sma50).rename(columns={'close': '50SMA'})
 
     def __calc_EMA(self, close_candles, window_size=10):
         ''' 指数平滑移動平均線を生成 '''
@@ -85,6 +83,8 @@ class Analyzer():
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
         ema = close_candles.ewm(span=window_size).mean()
         self.__indicators['EMA'] = pd.DataFrame(ema).rename(columns={'close': '10EMA'})
+        ema60 = close_candles.ewm(span=60).mean()
+        self.__indicators['60EMA'] = pd.DataFrame(ema60).rename(columns={'close': '60EMA'})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Bollinger Bands                    #

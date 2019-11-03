@@ -307,6 +307,12 @@ class Trader():
         else:
             return None
 
+    def __generate_ema_allows_column(self, candles):
+        ema60 = self._indicators['60EMA']
+        ema60_allows_bull = np.all(np.array([candles.bull, ema60 < candles.close]), axis=0)
+        ema60_allows_bear = np.all(np.array([candles.bear, ema60 > candles.close]), axis=0)
+        return np.any(np.array([ema60_allows_bull, ema60_allows_bear]), axis=0)
+
     def __generate_in_the_band_column(self, price_series):
         ''' 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 '''
         df_over_band_detection = pd.DataFrame({
@@ -560,6 +566,9 @@ class Trader():
                     # if not self._sma_run_along_trend(index, candles.trend[index]):
                     if not candles.sma_follow_trend[index]:
                         continue
+                    # INFO: MTF H4 に D1-10EMA を描画 PF・RFが大きく改善
+                    if not candles.ema60_allows[index]:
+                        continue
                     # 大失敗を防いでくれる
                     # if self._over_2_sigma(index, price=candles.open[index]):
                     if not candles.in_the_band[index]:
@@ -597,6 +606,7 @@ class Trader():
         candles['trend'], candles['bull'], candles['bear'] \
             = self.__generate_trend_column(c_prices=candles.close)
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
+        candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=candles.open)
         candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=candles[['bull', 'bear']])
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
