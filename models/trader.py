@@ -505,6 +505,10 @@ class Trader():
         candles.loc[short_exits, 'position'] = 'exit'
         candles.loc[short_exits, 'exitable_price'] = candles[short_exits].possible_stoploss
 
+        # INFO: 不要な列を削除
+        candles.drop(['possible_stoploss'], axis=1, inplace=True)
+
+        # INFO: position column の整理
         candles.position.fillna(method='ffill', inplace=True)
         position_ser = candles.position
         candles.loc[:, 'position'] = np.where(position_ser == position_ser.shift(1), None, position_ser)
