@@ -434,6 +434,26 @@ class Trader():
         return direction
 
     def __generate_entry_column(self, candles):
+        self.__judge_entryable(candles)
+        self.__set_entryable_prices(candles)
+
+        entry_direction = candles.entryable.fillna(method='ffill')
+        long_direction_index = entry_direction == 'long'
+        short_direction_index = entry_direction == 'short'
+
+        self.__set_stoploss_prices(
+            candles,
+            long_indexes=long_direction_index,
+            short_indexes=short_direction_index
+        )
+        self.__commit_positions(
+            candles,
+            long_indexes=long_direction_index,
+            short_indexes=short_direction_index
+        )
+
+    def __judge_entryable(self, candles):
+        ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
         satisfy_preconditions = np.all(
             candles[['in_the_band', 'ma_gap_expanding', 'sma_follow_trend', 'stoc_allows']],
             axis=1
@@ -441,6 +461,8 @@ class Trader():
         candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
         candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
 
+    def __set_entryable_prices(self, candles):
+        ''' entry した場合の price を candles dataframe に設定 '''
         # INFO: long-entry
         long_index = candles.entryable == 'long'
         long_entry_prices = pd.DataFrame({
@@ -457,37 +479,41 @@ class Trader():
         }).min(axis=1)
         candles.loc[short_index, 'entryable_price'] = short_entry_prices
 
-        entry_direction = candles.entryable.fillna(method='ffill')
+    def __set_stoploss_prices(self, candles, long_indexes, short_indexes):
+        ''' trail した場合の stoploss 価格を candles dataframe に設定 '''
         # INFO: long-stoploss
-        long_direction_index = entry_direction == 'long'
-        long_stoploss_prices = candles.shift(1)[long_direction_index].low - self._stoploss_buffer_pips
-        candles.loc[long_direction_index, 'possible_stoploss'] = long_stoploss_prices
+        long_stoploss_prices = candles.shift(1)[long_indexes].low - self._stoploss_buffer_pips
+        candles.loc[long_indexes, 'possible_stoploss'] = long_stoploss_prices
 
         # INFO: short-stoploss
-        short_direction_index = entry_direction == 'short'
-        short_stoploss_prices = candles.shift(1)[short_direction_index].high \
+        short_stoploss_prices = candles.shift(1)[short_indexes].high \
                               + self._stoploss_buffer_pips \
                               + self.__static_spread
-        candles.loc[short_direction_index, 'possible_stoploss'] = short_stoploss_prices
+        candles.loc[short_indexes, 'possible_stoploss'] = short_stoploss_prices
 
-        # INFO: set exit-timing
+    def __commit_positions(self, candles, long_indexes, short_indexes):
+        ''' set exit-timing, price '''
         long_exits = np.all(np.array([
-            long_direction_index,
-            candles.low < candles.possible_stoploss
+            long_indexes, candles.low < candles.possible_stoploss
         ]), axis=0)
         candles.loc[long_exits, 'position'] = 'exit'
-        candles.loc[long_exits, 'entryable_price'] = candles[long_exits].possible_stoploss
+        candles.loc[long_exits, 'exitable_price'] = candles[long_exits].possible_stoploss
 
         short_exits = np.all(np.array([
-            short_direction_index,
-            candles.high + self.__static_spread > candles.possible_stoploss
+            short_indexes, candles.high + self.__static_spread > candles.possible_stoploss
         ]), axis=0)
         candles.loc[short_exits, 'position'] = 'exit'
-        candles.loc[short_exits, 'entryable_price'] = candles[short_exits].possible_stoploss
+        candles.loc[short_exits, 'exitable_price'] = candles[short_exits].possible_stoploss
 
         candles.position.fillna(method='ffill', inplace=True)
-        # import pdb; pdb.set_trace()
+        position_ser = candles.position
+        candles.loc[:, 'position'] = np.where(position_ser == position_ser.shift(1), None, position_ser)
 
+        # INFO: entry したその足で exit した足があった場合、この処理が必須
+        short_life_entries = np.all(np.vstack(
+            (candles.entryable_price.notna(), candles.exitable_price.notna())
+        ).transpose(), axis=1)
+        candles.loc[short_life_entries, 'position'] = candles.entryable
 
     def _judge_settle_position(self, index, c_price, candles):
         parabolic = self._indicators['SAR']
