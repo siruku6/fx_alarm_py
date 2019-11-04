@@ -552,7 +552,7 @@ class Trader():
                     # if not self._sma_run_along_trend(index, candles.trend[index]):
                     if not candles.sma_follow_trend[index]:
                         continue
-                    # INFO: MTF H4 に D1-10EMA を描画 PF・RFが大きく改善
+                    # INFO: MTF H4 に D1-10EMA を描画 効果は限定的、又は変化なし
                     if not candles.ema60_allows[index]:
                         continue
                     # 大失敗を防いでくれる
@@ -573,7 +573,7 @@ class Trader():
                 if direction is None:
                     continue
 
-                self._create_position(index, direction)
+                self._create_position(index, direction, candles)
             else:
                 self._judge_settle_position(index, close_price, candles)
 
@@ -598,26 +598,38 @@ class Trader():
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
         candles['stoc_allows'] = self.__generate_stoc_allows_column(sr_trend=candles['trend'])
 
-    def _create_position(self, index, direction):
+    def _create_position(self, index, direction, candles):
         '''
         ルールに基づいてポジションをとる(検証用)
         '''
-        candles = FXBase.get_candles()
-        highs = candles.high
-        lows = candles.low
-        if direction == 'long':
-            # INFO: 窓開けを想定して max, min を使用（動作検証中）
-            entry_price = max(highs[index - 1], candles.open[index]) + self.__static_spread
-            stoploss = lows[index - 1] - self._stoploss_buffer_pips
-        elif direction == 'short':
-            entry_price = min(lows[index - 1], candles.open[index])
-            stoploss = highs[index - 1] + self._stoploss_buffer_pips + self.__static_spread
-
+        entry_price, stoploss = self.__decide_entry_price(
+            direction=direction,
+            previous_high=candles.high[index - 1],
+            previous_low=candles.low[index - 1],
+            current_open=candles.open[index],
+            current_60ema=self._indicators['60EMA'][index]
+        )
         self._set_position({
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
             'type': direction, 'time': candles.time[index]
         })
         self.__hist_positions[direction].append(self._position.copy())
+
+    def __decide_entry_price(self, direction, previous_high, previous_low, current_open, current_60ema):
+        custom_rule_on = os.environ.get('CUSTOM_RULE') == 'on'
+        if direction == 'long':
+            if custom_rule_on:
+                entry_price = max(previous_high, current_open + self.__static_spread, current_60ema)
+            else:
+                entry_price = max(previous_high, current_open + self.__static_spread)
+            stoploss = previous_low - self._stoploss_buffer_pips
+        elif direction == 'short':
+            if custom_rule_on:
+                entry_price = min(previous_low, current_open, current_60ema)
+            else:
+                entry_price = min(previous_low, current_open)
+            stoploss = previous_high + self._stoploss_buffer_pips + self.__static_spread
+        return entry_price, stoploss
 
     def _trail_stoploss(self, new_stop, time):
         direction = self._position['type']
