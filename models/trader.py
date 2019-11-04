@@ -6,8 +6,9 @@ import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
-from models.mathematics import range_2nd_decimal, prompt_inputting_decimal
-
+from models.mathematics import range_2nd_decimal
+import models.interface as i_face
+import models.statistics_module as statistics
 
 class Trader():
     MAX_ROWS_COUNT = 200
@@ -16,7 +17,7 @@ class Trader():
     def __init__(self, operation='verification'):
         if operation in ['verification']:
             inst = OandaPyClient.select_instrument()
-            if self.__switch_drawer_on():
+            if i_face.ask_true_or_false(msg='[Trader] 画像描画する？ [1]:Yes, [2]:No : '):
                 self.__drawer = FigureDrawer()
             else:
                 self.__drawer = None
@@ -33,7 +34,7 @@ class Trader():
         self._position = None
 
         if operation in ['verification']:
-            self._stoploss_buffer_pips = self.__select_stoploss_digit() * 5
+            self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
             self.__request_custom_candles()
         elif operation == 'live':
             result = self._client.request_is_tradeable()
@@ -62,16 +63,6 @@ class Trader():
         self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
 
-    def __switch_drawer_on(self):
-        while True:
-            print('[Trader] 画像描画する？ [1]:Yes, [2]:No : ', end='')
-            selection = prompt_inputting_decimal()
-            if selection == 1:
-                return True
-            elif selection == 2:
-                return False
-            else:
-                print('[Trader] please input 1 - 2 ! >д<;')
     #
     # public
     #
@@ -91,7 +82,7 @@ class Trader():
     def verify_varios_stoploss(self, accurize=True):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
         verification_dataframes_array = []
-        stoploss_digit = self.__select_stoploss_digit()
+        stoploss_digit = i_face.select_stoploss_digit()
         stoploss_buffer_list = range_2nd_decimal(stoploss_digit, stoploss_digit * 20, stoploss_digit * 2)
 
         for stoploss_buf in stoploss_buffer_list:
@@ -99,7 +90,14 @@ class Trader():
             self._stoploss_buffer_pips = stoploss_buf
             self.auto_verify_trading_rule(accurize=accurize)
 
-            self.__calc_statistics()
+            statistics.aggregate_history(
+                candles=FXBase.get_candles(),
+                hist_positions=self.__hist_positions,
+                granularity=self.__granularity,
+                stoploss_buffer=self._stoploss_buffer_pips,
+                spread=self.__static_spread
+            )
+
             _df = pd.concat(
                 [
                     pd.DataFrame(self.__hist_positions['long'], columns=self.__columns),
@@ -187,10 +185,17 @@ class Trader():
 
     def report_trading_result(self):
         ''' ポジション履歴をcsv出力 '''
-        self.__calc_statistics()
+        hist_positions = self.__hist_positions
+        statistics.aggregate_history(
+            candles=FXBase.get_candles(),
+            hist_positions=hist_positions,
+            granularity=self.__granularity,
+            stoploss_buffer=self._stoploss_buffer_pips,
+            spread=self.__static_spread
+        )
 
-        df_long = pd.DataFrame.from_dict(self.__hist_positions['long'])
-        df_short = pd.DataFrame.from_dict(self.__hist_positions['short'])
+        df_long = pd.DataFrame.from_dict(hist_positions['long'])
+        df_short = pd.DataFrame.from_dict(hist_positions['short'])
         df_long.to_csv('./tmp/long_history.csv')
         df_short.to_csv('./tmp/short_history.csv')
 
@@ -589,13 +594,7 @@ class Trader():
 
     def __request_custom_candles(self):
         # Custom request
-        while True:
-            print('何日分のデータを取得する？(半角数字): ', end='')
-            days = prompt_inputting_decimal()
-            if days > 365:
-                print('[ALERT] 現在は365日までに制限しています')
-            else:
-                break
+        days = i_face.ask_number(msg='何日分のデータを取得する？(半角数字): ', limit=365)
 
         while True:
             print('取得スパンは？(ex: M5): ', end='')
@@ -612,19 +611,6 @@ class Trader():
             print(result['error'])
             exit()
         FXBase.set_candles(result['candles'])
-
-    def __select_stoploss_digit(self):
-        while True:
-            print('[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', end='')
-            digit_id = prompt_inputting_decimal()
-            if digit_id == 1:
-                return 0.01
-            elif digit_id == 2:
-                return 0.0001
-            elif digit_id == 3:
-                return 0.00001
-            else:
-                print('[Trader] please input 1 - 3 ! >д<;')
 
     def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''
@@ -652,7 +638,7 @@ class Trader():
                     # if not self._sma_run_along_trend(index, candles.trend[index]):
                     if not candles.sma_follow_trend[index]:
                         continue
-                    # INFO: MTF H4 に D1-10EMA を描画 PF・RFが大きく改善
+                    # INFO: MTF H4 に D1-10EMA を描画 効果は限定的、又は変化なし
                     if not candles.ema60_allows[index]:
                         continue
                     # 大失敗を防いでくれる
@@ -673,7 +659,7 @@ class Trader():
                 if direction is None:
                     continue
 
-                self._create_position(index, direction)
+                self._create_position(index, direction, candles)
             else:
                 self._judge_settle_position(index, close_price, candles)
 
@@ -702,26 +688,38 @@ class Trader():
         candles['stoc_allows'] = self.__generate_stoc_allows_column(sr_trend=candles['trend'])
         self.__generate_entry_column(candles=candles)
 
-    def _create_position(self, index, direction):
+    def _create_position(self, index, direction, candles):
         '''
         ルールに基づいてポジションをとる(検証用)
         '''
-        candles = FXBase.get_candles()
-        highs = candles.high
-        lows = candles.low
-        if direction == 'long':
-            # INFO: 窓開けを想定して max, min を使用（動作検証中）
-            entry_price = max(highs[index - 1], candles.open[index]) + self.__static_spread
-            stoploss = lows[index - 1] - self._stoploss_buffer_pips
-        elif direction == 'short':
-            entry_price = min(lows[index - 1], candles.open[index])
-            stoploss = highs[index - 1] + self._stoploss_buffer_pips + self.__static_spread
-
+        entry_price, stoploss = self.__decide_entry_price(
+            direction=direction,
+            previous_high=candles.high[index - 1],
+            previous_low=candles.low[index - 1],
+            current_open=candles.open[index],
+            current_60ema=self._indicators['60EMA'][index]
+        )
         self._set_position({
             'sequence': index, 'price': entry_price, 'stoploss': stoploss,
             'type': direction, 'time': candles.time[index]
         })
         self.__hist_positions[direction].append(self._position.copy())
+
+    def __decide_entry_price(self, direction, previous_high, previous_low, current_open, current_60ema):
+        custom_rule_on = os.environ.get('CUSTOM_RULE') == 'on'
+        if direction == 'long':
+            if custom_rule_on:
+                entry_price = max(previous_high, current_open + self.__static_spread, current_60ema)
+            else:
+                entry_price = max(previous_high, current_open + self.__static_spread)
+            stoploss = previous_low - self._stoploss_buffer_pips
+        elif direction == 'short':
+            if custom_rule_on:
+                entry_price = min(previous_low, current_open, current_60ema)
+            else:
+                entry_price = min(previous_low, current_open)
+            stoploss = previous_high + self._stoploss_buffer_pips + self.__static_spread
+        return entry_price, stoploss
 
     def _trail_stoploss(self, new_stop, time):
         direction = self._position['type']
@@ -872,106 +870,6 @@ class Trader():
             df_target['sequence'] = df_target.sequence - start
             dfs.append(df_target)
         return dfs
-
-    def __calc_statistics(self):
-        ''' トレード履歴の統計情報計算処理を呼び出す '''
-        long_entry_array = self.__hist_positions['long']
-        long_entry_array = self.__calc_profit(long_entry_array, sign=1)
-        short_entry_array = self.__hist_positions['short']
-        short_entry_array = self.__calc_profit(short_entry_array, sign=-1)
-
-        result = self.__calc_detaild_statistics(long_entry_array, short_entry_array)
-        candles = FXBase.get_candles()
-
-        duration = '{start} ~ {end}'.format(
-            start=candles.time[20],
-            end=candles.time.tail(1).values[0]
-        )
-        columns = [
-            'DoneTime', 'Granularity', 'StoplossBuf', 'Spread',
-            'Duration', 'CandlesCnt', 'EntryCnt', 'WinRate', 'WinCnt', 'LoseCnt',
-            'Gross', 'GrossProfit', 'GrossLoss', 'MaxProfit', 'MaxLoss',
-            'MaxDrawdown', 'Profit Factor', 'Recovery Factor'
-        ]
-        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        result_row = [
-            now,                         # 'DoneTime'
-            self.__granularity,          # 'Granularity'
-            self._stoploss_buffer_pips,  # 'StoplossBuf'
-            self.__static_spread,        # 'Spread'
-            duration,                    # 'Duration'
-            len(candles) - 20,           # 'CandlesCnt'
-            result['trades_count'],      # 'EntryCnt'
-            result['win_rate'],          # 'WinRate'
-            result['win_count'],         # 'WinCnt'
-            result['lose_count'],        # 'LoseCnt'
-            round(result['profit_sum'] * 100, 3),    # 'Gross'
-            round(result['gross_profit'] * 100, 3),  # 'GrossProfit'
-            round(result['gross_loss'] * 100, 3),    # 'GrossLoss'
-            round(result['max_profit'] * 100, 3),    # 'MaxProfit'
-            round(result['max_loss'] * 100, 3),      # 'MaxLoss'
-            round(result['drawdown'] * 100, 3),      # 'MaxDrawdown'
-            result['profit_factor'],                 # 'Profit Factor'
-            result['recovery_factor']                # 'Recovery Factor'
-        ]
-        result_df = pd.DataFrame([result_row], columns=columns)
-        result_df.to_csv('tmp/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
-        print('[Trader] トレード統計をcsv追記完了')
-
-    def __calc_profit(self, entry_array, sign=1):
-        ''' トレード履歴の利益を計算 '''
-        gross = 0
-        gross_max = 0
-        # INFO: pandas-dataframe化して計算するよりも速度が圧倒的に早い
-        for i, row in enumerate(entry_array):
-            if row['type'] == 'close':
-                row['profit'] = sign * (row['price'] - entry_array[i - 1]['price'])
-                gross += row['profit']
-                gross_max = max(gross_max, gross)
-            row['gross'] = gross
-            row['drawdown'] = gross - gross_max
-        return entry_array
-
-    def __calc_detaild_statistics(self, long_entry_array, short_entry_array):
-        ''' トレード履歴の詳細な分析を行う '''
-        long_count = len([row['type'] for row in long_entry_array if row['type'] == 'long'])
-        short_count = len([row['type'] for row in short_entry_array if row['type'] == 'short'])
-
-        long_profit_array = \
-            [row['profit'] for row in long_entry_array if row['type'] == 'close']
-        short_profit_array = \
-            [row['profit'] for row in short_entry_array if row['type'] == 'close']
-
-        profit_array \
-            = [profit for profit in long_profit_array if profit > 0] \
-            + [profit for profit in short_profit_array if profit > 0]
-        loss_array \
-            = [profit for profit in long_profit_array if profit < 0] \
-            + [profit for profit in short_profit_array if profit < 0]
-        max_profit = max(profit_array) if profit_array != [] else 0
-        max_loss = min(loss_array) if loss_array != [] else 0
-
-        # TODO: in 以下が空だとエラーになるバグが残っている
-        max_drawdown = min([row['drawdown'] for row in (long_entry_array + short_entry_array)])
-        gross_profit = sum(profit_array)
-        gross_loss = sum(loss_array)
-
-        return {
-            'trades_count': long_count + short_count,
-            'win_rate': round(len(profit_array) / (long_count + short_count) * 100, 2),
-            'win_count': len(profit_array),
-            'lose_count': len(loss_array),
-            'long_count': long_count,
-            'short_count': short_count,
-            'profit_sum': sum(long_profit_array + short_profit_array),
-            'gross_profit': gross_profit,
-            'gross_loss': gross_loss,
-            'max_profit': max_profit,
-            'max_loss': max_loss,
-            'drawdown': max_drawdown,
-            'profit_factor': round(-gross_profit / gross_loss, 2),
-            'recovery_factor': round((gross_profit + gross_loss) / -max_drawdown, 2)
-        }
 
 
 class RealTrader(Trader):

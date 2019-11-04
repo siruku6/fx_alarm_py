@@ -14,7 +14,7 @@ import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
 
-from models.mathematics import prompt_inputting_decimal
+from models.interface import prompt_inputting_decimal
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
