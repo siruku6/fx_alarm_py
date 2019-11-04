@@ -275,7 +275,7 @@ class Trader():
             axis=1
         )
         sr_down_thrust = np.all(
-            pd.DataFrame({'lowest': sr_lowest_in_10candles, 'bull': candles.bear}),
+            pd.DataFrame({'lowest': sr_lowest_in_10candles, 'bear': candles.bear}),
             axis=1
         )
         method_thrust_checker = np.frompyfunc(self._detect_thrust2, 2, 1)
@@ -306,6 +306,12 @@ class Trader():
             return 'short'
         else:
             return None
+
+    def __generate_ema_allows_column(self, candles):
+        ema60 = self._indicators['60EMA']
+        ema60_allows_bull = np.all(np.array([candles.bull, ema60 < candles.close]), axis=0)
+        ema60_allows_bear = np.all(np.array([candles.bear, ema60 > candles.close]), axis=0)
+        return np.any(np.array([ema60_allows_bull, ema60_allows_bear]), axis=0)
 
     def __generate_in_the_band_column(self, price_series):
         ''' 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 '''
@@ -646,6 +652,9 @@ class Trader():
                     # if not self._sma_run_along_trend(index, candles.trend[index]):
                     if not candles.sma_follow_trend[index]:
                         continue
+                    # INFO: MTF H4 に D1-10EMA を描画 PF・RFが大きく改善
+                    if not candles.ema60_allows[index]:
+                        continue
                     # 大失敗を防いでくれる
                     # if self._over_2_sigma(index, price=candles.open[index]):
                     if not candles.in_the_band[index]:
@@ -686,6 +695,7 @@ class Trader():
         candles['trend'], candles['bull'], candles['bear'] \
             = self.__generate_trend_column(c_prices=candles.close)
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
+        candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=candles.open)
         candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=candles[['bull', 'bear']])
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
@@ -756,10 +766,12 @@ class Trader():
         first_time = self.__str_to_datetime(FXBase.get_candles().iloc[0, :].time[:19])
         last_time = self.__str_to_datetime(FXBase.get_candles().iloc[-1, :].time[:19])
         _m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')
+        spread = self.__static_spread
 
         # long価格の修正
-        len_of_long_hist = len(self.__hist_positions['long']) - 1
-        for i, row in enumerate(self.__hist_positions['long']):
+        long_hist = self.__hist_positions['long'].copy()
+        len_of_long_hist = len(long_hist) - 1
+        for i, row in enumerate(long_hist):
             if i == len_of_long_hist:
                 break
 
@@ -775,13 +787,14 @@ class Trader():
                         row['price'] = m10_row.high
                         row['time'] = m10_row.name
                         self.__chain_accurization(
-                            i, 'long', old_price, accurater_price=m10_row.high
+                            i, 'long', old_price, accurater_price=m10_row.high + spread
                         )
                         break
 
         # short価格の修正
-        len_of_short_hist = len(self.__hist_positions['short']) - 1
-        for i, row in enumerate(self.__hist_positions['short']):
+        short_hist = self.__hist_positions['short'].copy()
+        len_of_short_hist = len(short_hist) - 1
+        for i, row in enumerate(short_hist):
             if i == len_of_short_hist:
                 break
 
@@ -1041,6 +1054,13 @@ class RealTrader(Trader):
 
             if os.environ.get('CUSTOM_RULE') == 'on':
                 if not self._sma_run_along_trend(last_index, trend):
+                    return
+                ema60 = self._indicators['60EMA'][last_index]
+                if trend == 'bull' and ema60 < close_price \
+                    or trend == 'bear' and ema60 > close_price:
+                    print('[Trader] c. 60EMA does not allow, c_price: {}, 60EMA: {}, trend: {}'.format(
+                        close_price, ema60, trend
+                    ))
                     return
                 if self._over_2_sigma(last_index, price=close_price):
                     return

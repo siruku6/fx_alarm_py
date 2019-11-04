@@ -34,7 +34,7 @@ class FigureDrawer():
     # OPTIMIZE: Analyzerクラスと密結合なメソッドになってしまった
     def draw_indicators(self, d_frame):
         ''' DateFrameからindicatorを描画 '''
-        # self.draw_df_on_plt(d_frame.loc[:, ['50SMA']], FigureDrawer.PLOT_TYPE['dashed-line'], color='lime')
+        self.draw_df_on_plt(d_frame.loc[:, ['60EMA']], FigureDrawer.PLOT_TYPE['dashed-line'], color='lime')
         self.draw_df_on_plt(d_frame.loc[:, ['20SMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightskyblue')
         self.draw_df_on_plt(d_frame.loc[:, ['10EMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='cyan')
         self.draw_df_on_plt(d_frame.loc[:, ['band_+1σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='midnightblue')
