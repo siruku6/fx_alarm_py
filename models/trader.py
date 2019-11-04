@@ -43,7 +43,7 @@ class Trader():
                 self._log_skip_reason('1. market is not open')
                 return
             self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
-            self._client.specify_count_and_load_candles(granularity=self.__granularity, set_candles=True)
+            self._client.specify_count_and_load_candles(count=70, granularity=self.__granularity, set_candles=True)
         else:
             return
 
@@ -325,6 +325,11 @@ class Trader():
             'above_negative_band': self._indicators['band_-2σ'] < price_series
         })
         return np.all(df_over_band_detection, axis=1)
+
+    def __generate_band_expansion_column(self, df_bands, shift_size=3):
+        ''' band が拡張していれば True を格納して numpy配列 を生成 '''
+        bands_gap = df_bands['band_+2σ'] - df_bands['band_-2σ']
+        return bands_gap.shift(shift_size) < bands_gap
 
     def __generate_getting_steeper_column(self, df_trend):
         ''' 移動平均が勢いづいているか否かを判定 '''
@@ -634,12 +639,15 @@ class Trader():
                     continue
 
                 if os.environ.get('CUSTOM_RULE') == 'on':
-                    # INFO: 総損益減だが、勝率増、drawdown減、PF・RFが改善
+                    # INFO: 勝率増、drawdown減、PF・RFが改善
                     # if not self._sma_run_along_trend(index, candles.trend[index]):
                     if not candles.sma_follow_trend[index]:
                         continue
                     # INFO: MTF H4 に D1-10EMA を描画 効果は限定的、又は変化なし
                     if not candles.ema60_allows[index]:
+                        continue
+                    # INFO: bandが足3本前よりも広がっている場合のみentryを許可 効果は高い
+                    if not candles.band_expansion[index]:
                         continue
                     # 大失敗を防いでくれる
                     # if self._over_2_sigma(index, price=candles.open[index]):
@@ -678,11 +686,15 @@ class Trader():
         return {'success': candles}
 
     def __prepare_trade_signs(self, candles):
+        indicators = self._indicators
         candles['trend'], candles['bull'], candles['bear'] \
             = self.__generate_trend_column(c_prices=candles.close)
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
         candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=candles.open)
+        candles['band_expansion'] =  self.__generate_band_expansion_column(
+            df_bands=indicators[['band_+2σ', 'band_-2σ']]
+        )
         candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=candles[['bull', 'bear']])
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
         candles['stoc_allows'] = self.__generate_stoc_allows_column(sr_trend=candles['trend'])
@@ -943,6 +955,7 @@ class RealTrader(Trader):
         last_index = len(self._indicators) - 1
         candles = FXBase.get_candles()
         close_price = candles.close.values[-1]
+        indicators = self._indicators
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
@@ -953,12 +966,16 @@ class RealTrader(Trader):
             if os.environ.get('CUSTOM_RULE') == 'on':
                 if not self._sma_run_along_trend(last_index, trend):
                     return
-                ema60 = self._indicators['60EMA'][last_index]
-                if trend == 'bull' and ema60 < close_price \
-                    or trend == 'bear' and ema60 > close_price:
+                ema60 = indicators['60EMA'][last_index]
+                if not (trend == 'bull' and ema60 < close_price \
+                        or trend == 'bear' and ema60 > close_price):
                     print('[Trader] c. 60EMA does not allow, c_price: {}, 60EMA: {}, trend: {}'.format(
                         close_price, ema60, trend
                     ))
+                    return
+                bands_gap = indicators['band_+2σ'] - indicators['band_-2σ']
+                if bands_gap[last_index - 3] > bands_gap[last_index]:
+                    print('[Trader] c. band is shrinking...')
                     return
                 if self._over_2_sigma(last_index, price=close_price):
                     return
