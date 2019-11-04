@@ -6,7 +6,8 @@ import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
-from models.mathematics import range_2nd_decimal, prompt_inputting_decimal
+from models.mathematics import range_2nd_decimal
+import models.interface as i_face
 import models.statistics_module as statistics
 
 class Trader():
@@ -16,7 +17,7 @@ class Trader():
     def __init__(self, operation='verification'):
         if operation in ['verification']:
             inst = OandaPyClient.select_instrument()
-            if self.__switch_drawer_on():
+            if i_face.ask_true_or_false(msg='[Trader] 画像描画する？ [1]:Yes, [2]:No : '):
                 self.__drawer = FigureDrawer()
             else:
                 self.__drawer = None
@@ -33,7 +34,7 @@ class Trader():
         self._position = None
 
         if operation in ['verification']:
-            self._stoploss_buffer_pips = self.__select_stoploss_digit() * 5
+            self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
             self.__request_custom_candles()
         elif operation == 'live':
             result = self._client.request_is_tradeable()
@@ -62,16 +63,6 @@ class Trader():
         self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
 
-    def __switch_drawer_on(self):
-        while True:
-            print('[Trader] 画像描画する？ [1]:Yes, [2]:No : ', end='')
-            selection = prompt_inputting_decimal()
-            if selection == 1:
-                return True
-            elif selection == 2:
-                return False
-            else:
-                print('[Trader] please input 1 - 2 ! >д<;')
     #
     # public
     #
@@ -91,7 +82,7 @@ class Trader():
     def verify_varios_stoploss(self, accurize=True):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
         verification_dataframes_array = []
-        stoploss_digit = self.__select_stoploss_digit()
+        stoploss_digit = i_face.select_stoploss_digit()
         stoploss_buffer_list = range_2nd_decimal(stoploss_digit, stoploss_digit * 20, stoploss_digit * 2)
 
         for stoploss_buf in stoploss_buffer_list:
@@ -517,13 +508,7 @@ class Trader():
 
     def __request_custom_candles(self):
         # Custom request
-        while True:
-            print('何日分のデータを取得する？(半角数字): ', end='')
-            days = prompt_inputting_decimal()
-            if days > 365:
-                print('[ALERT] 現在は365日までに制限しています')
-            else:
-                break
+        days = i_face.ask_number(msg='何日分のデータを取得する？(半角数字): ', limit=365)
 
         while True:
             print('取得スパンは？(ex: M5): ', end='')
@@ -540,19 +525,6 @@ class Trader():
             print(result['error'])
             exit()
         FXBase.set_candles(result['candles'])
-
-    def __select_stoploss_digit(self):
-        while True:
-            print('[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', end='')
-            digit_id = prompt_inputting_decimal()
-            if digit_id == 1:
-                return 0.01
-            elif digit_id == 2:
-                return 0.0001
-            elif digit_id == 3:
-                return 0.00001
-            else:
-                print('[Trader] please input 1 - 3 ! >д<;')
 
     def __demo_swing_trade(self):
         ''' スイングトレードのentry pointを検出 '''
