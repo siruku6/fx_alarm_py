@@ -671,10 +671,49 @@ class Trader():
             else:
                 self._judge_settle_position(index, close_price, candles)
 
+        self.__slide_prices_to_really_possible(candles=candles)
+
         # TODO: 要削除 一時的なコード
         # candles.to_csv('./tmp/full_data_dump.csv')
 
         return {'success': '[Trader] 売買判定終了'}
+
+    def __slide_prices_to_really_possible(self, candles):
+        print('[Trader] start sliding ...')
+        first_time = self.__str_to_datetime(candles.iloc[0, 4][:19])
+        last_time = self.__str_to_datetime(candles.iloc[-1, 4][:19])
+        m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
+        spread = self.__static_spread
+
+        position_rows = candles[(candles.position == 'long') | (candles.position == 'short')][[
+            'time', 'entryable_price', 'position'
+        ]].to_dict('records')
+        len_of_rows = len(position_rows)
+        for i, row in enumerate(position_rows):
+            print('[Trader] sliding price .. {}/{}'.format(i + 1, len_of_rows))
+            start = row['time']
+            end = self.__add_candle_duration(row['time'][:19])
+            candles_in_granularity = m10_candles.loc[start:end, :].to_dict('records')
+
+            if row['position'] == 'long':
+                for m10_candle in candles_in_granularity:
+                    if row['entryable_price'] < m10_candle['high'] + spread:
+                        row['price'] = m10_candle['high'] + spread
+                        break
+                # INFO: 今のところ必要なさそう
+                # if not 'price' in row:
+                #     row['price'] = row['entryable_price']
+            elif row['position'] == 'short':
+                for m10_candle in candles_in_granularity:
+                    if row['entryable_price'] > m10_candle['low']:
+                        row['price'] = m10_candle['low']
+                        break
+                # if not 'price' in row:
+                #     row['price'] = row['entryable_price']
+
+        new_prices = pd.DataFrame.from_dict(position_rows).price.to_numpy(copy=True)
+        candles.loc[(candles.position == 'long') | (candles.position == 'short'), 'entry_price'] = new_prices
+        print('[Trader] finished sliding !')
 
     def __demo_scalping_trade(self):
         ''' スキャルピングのentry pointを検出 '''
