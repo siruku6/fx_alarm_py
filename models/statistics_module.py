@@ -1,5 +1,14 @@
 from datetime import datetime
+from decimal import Decimal, ROUND_HALF_UP, ROUND_HALF_EVEN
+import numpy as np
 from pandas import DataFrame
+
+TRADE_RESULT_ITEMS = [
+    'DoneTime', 'Granularity', 'StoplossBuf', 'Spread',
+    'Duration', 'CandlesCnt', 'EntryCnt', 'WinRate', 'WinCnt', 'LoseCnt',
+    'Gross', 'GrossProfit', 'GrossLoss', 'MaxProfit', 'MaxLoss',
+    'MaxDrawdown', 'Profit Factor', 'Recovery Factor'
+]
 
 def aggregate_history(candles, hist_positions, granularity, stoploss_buffer, spread):
     ''' トレード履歴の統計情報計算処理を呼び出す '''
@@ -12,12 +21,6 @@ def aggregate_history(candles, hist_positions, granularity, stoploss_buffer, spr
         start=candles.time[20],
         end=candles.time.tail(1).values[0]
     )
-    columns = [
-        'DoneTime', 'Granularity', 'StoplossBuf', 'Spread',
-        'Duration', 'CandlesCnt', 'EntryCnt', 'WinRate', 'WinCnt', 'LoseCnt',
-        'Gross', 'GrossProfit', 'GrossLoss', 'MaxProfit', 'MaxLoss',
-        'MaxDrawdown', 'Profit Factor', 'Recovery Factor'
-    ]
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     result_row = [
         now,                         # 'DoneTime'
@@ -39,7 +42,7 @@ def aggregate_history(candles, hist_positions, granularity, stoploss_buffer, spr
         result['profit_factor'],                 # 'Profit Factor'
         result['recovery_factor']                # 'Recovery Factor'
     ]
-    result_df = DataFrame([result_row], columns=columns)
+    result_df = DataFrame([result_row], columns=TRADE_RESULT_ITEMS)
     result_df.to_csv('tmp/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
     print('[Trader] トレード統計をcsv追記完了')
 
@@ -79,7 +82,7 @@ def __calc_detaild_statistics(long_entry_array, short_entry_array):
     max_loss = min(loss_array) if loss_array != [] else 0
 
     # TODO: in 以下が空だとエラーになるバグが残っている
-    max_drawdown = min([row['drawdown'] for row in (long_entry_array + short_entry_array)])
+    max_drawdown = min([row['drawdown'] for row in long_entry_array + short_entry_array])
     gross_profit = sum(profit_array)
     gross_loss = sum(loss_array)
 
@@ -99,3 +102,58 @@ def __calc_detaild_statistics(long_entry_array, short_entry_array):
         'profit_factor': round(-gross_profit / gross_loss, 2),
         'recovery_factor': round((gross_profit + gross_loss) / -max_drawdown, 2)
     }
+
+
+def aggregate_demo_result(df_positions, granularity, stoploss_buffer, spread):
+    '''
+    トレード履歴の統計情報計算処理を呼び出す(new)
+    params: df_positions     # DataFrame
+        columns: [
+            'time',          # str ('2xxx/xx/xx hh:MM:ss')
+            'position',      # str ('long', 'short', 'sell_exit', 'buy_exit' or None)
+            'entry_price',   # float64
+            'exitable_price' # float64
+        ]
+    '''
+    duration = '{start} ~ {end}'.format(
+        start=df_positions.time[20],
+        end=df_positions.time.tail(1).values[0]
+    )
+
+    positions = df_positions.loc[df_positions.position.notnull(), :].copy()
+    positions = __calc_profit_2(copied_positions=positions)
+
+    # TODO: 要削除 一時的なコード
+    positions.to_csv('./tmp/positions_dump.csv')
+
+
+def __calc_profit_2(copied_positions):
+    # INFO: entry したその足で exit してしまった分の profit を計算
+    is_soon_exit = copied_positions.exitable_price.notnull() & copied_positions.entry_price.notnull()
+    soon_exit_positions = copied_positions[is_soon_exit]
+    copied_positions.loc[is_soon_exit, 'profit'] = \
+        np.where(
+            # INFO: long か short かで正負を逆にする
+            soon_exit_positions.position == 'long',
+            (soon_exit_positions.exitable_price - soon_exit_positions.entry_price).map(lambda x: __round_really(x)),
+            (soon_exit_positions.entry_price - soon_exit_positions.exitable_price).map(lambda x: __round_really(x))
+        )
+
+    # INFO: entry 後、次の足までは position を持ち越した分の profit を計算
+    # ~ で、 series の正負を反転
+    continued_positions = copied_positions[~is_soon_exit]
+    previous_positions = continued_positions.shift(1)
+    copied_positions.loc[~is_soon_exit, 'profit'] = \
+        np.where(
+            # INFO: sell_exit か buy_exit かで正負を逆にする
+            continued_positions.position == 'sell_exit',
+            (continued_positions.exitable_price - previous_positions.entry_price).map(lambda x: __round_really(x)),
+            (previous_positions.entry_price - continued_positions.exitable_price).map(lambda x: __round_really(x))
+        )
+
+    return copied_positions
+
+
+def __round_really(x):
+    ''' 小数点第3位で四捨五入(roundでは四捨五入できないため、実装した) '''
+    return float(Decimal(str(x)).quantize(Decimal('0.001'), rounding=ROUND_HALF_UP))

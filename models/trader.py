@@ -72,10 +72,16 @@ class Trader():
     def auto_verify_trading_rule(self, accurize=True, rule='swing'):
         ''' tradeルールを自動検証 '''
         if rule == 'swing':
-            print(self.__demo_swing_trade()['success'])
+            result = self.__demo_swing_trade()
+            print(result['success'])
+            statistics.aggregate_demo_result(
+                df_positions=result['df_positions'],
+                granularity=self.__granularity,
+                stoploss_buffer=self._stoploss_buffer_pips,
+                spread=self.__static_spread
+            )
         elif rule == 'scalping':
             print(self.__demo_scalping_trade()['success'])
-
         if accurize and (self.__granularity[0] != 'M'):
             print(self.__accurize_entry_prices()['success'])
 
@@ -512,13 +518,13 @@ class Trader():
         long_exits = np.all(np.array([
             long_indexes, candles.low < candles.possible_stoploss
         ]), axis=0)
-        candles.loc[long_exits, 'position'] = 'exit'
+        candles.loc[long_exits, 'position'] = 'sell_exit'
         candles.loc[long_exits, 'exitable_price'] = candles[long_exits].possible_stoploss
 
         short_exits = np.all(np.array([
             short_indexes, candles.high + self.__static_spread > candles.possible_stoploss
         ]), axis=0)
-        candles.loc[short_exits, 'position'] = 'exit'
+        candles.loc[short_exits, 'position'] = 'buy_exit'
         candles.loc[short_exits, 'exitable_price'] = candles[short_exits].possible_stoploss
 
         # INFO: 不要な列を削除
@@ -672,11 +678,9 @@ class Trader():
                 self._judge_settle_position(index, close_price, candles)
 
         self.__slide_prices_to_really_possible(candles=candles)
+        df_positions = candles.loc[:, ['time', 'position', 'entry_price', 'exitable_price']]
 
-        # TODO: 要削除 一時的なコード
-        # candles.to_csv('./tmp/full_data_dump.csv')
-
-        return {'success': '[Trader] 売買判定終了'}
+        return {'success': '[Trader] 売買判定終了', 'df_positions': df_positions}
 
     def __slide_prices_to_really_possible(self, candles):
         print('[Trader] start sliding ...')
@@ -699,6 +703,7 @@ class Trader():
                 for m10_candle in candles_in_granularity:
                     if row['entryable_price'] < m10_candle['high'] + spread:
                         row['price'] = m10_candle['high'] + spread
+                        # TODO: timeも書き換える short においても
                         break
                 # INFO: 今のところ必要なさそう
                 # if not 'price' in row:
