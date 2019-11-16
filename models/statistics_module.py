@@ -122,6 +122,8 @@ def aggregate_demo_result(df_positions, granularity, stoploss_buffer, spread):
 
     positions = df_positions.loc[df_positions.position.notnull(), :].copy()
     positions = __calc_profit_2(copied_positions=positions)
+    positions.loc[:, 'gross'] = positions.profit.cumsum()
+    positions.loc[:, 'drawdown'] = positions.gross - positions.gross.cummax()
 
     # TODO: 要削除 一時的なコード
     positions.to_csv('./tmp/positions_dump.csv')
