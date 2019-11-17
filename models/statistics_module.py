@@ -137,8 +137,8 @@ def __calc_profit_2(copied_positions):
         np.where(
             # INFO: long か short かで正負を逆にする
             soon_exit_positions.position == 'long',
-            (soon_exit_positions.exitable_price - soon_exit_positions.entry_price).map(lambda x: __round_really(x)),
-            (soon_exit_positions.entry_price - soon_exit_positions.exitable_price).map(lambda x: __round_really(x))
+            (soon_exit_positions.exitable_price - soon_exit_positions.entry_price).map(__round_really),
+            (soon_exit_positions.entry_price - soon_exit_positions.exitable_price).map(__round_really)
         )
 
     # INFO: entry 後、次の足までは position を持ち越した分の profit を計算
@@ -149,8 +149,8 @@ def __calc_profit_2(copied_positions):
         np.where(
             # INFO: sell_exit か buy_exit かで正負を逆にする
             continued_positions.position == 'sell_exit',
-            (continued_positions.exitable_price - previous_positions.entry_price).map(lambda x: __round_really(x)),
-            (previous_positions.entry_price - continued_positions.exitable_price).map(lambda x: __round_really(x))
+            (continued_positions.exitable_price - previous_positions.entry_price).map(__round_really),
+            (previous_positions.entry_price - continued_positions.exitable_price).map(__round_really)
         )
 
     return copied_positions
