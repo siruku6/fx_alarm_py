@@ -2,6 +2,7 @@
 # General
 numpy
 matplotlib
+pymongo
 requests
 # scipy # trendline生成時には必要
 
