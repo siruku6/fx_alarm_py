@@ -104,7 +104,7 @@ def __calc_detaild_statistics(long_entry_array, short_entry_array):
     }
 
 
-def aggregate_demo_result(df_positions, granularity, stoploss_buffer, spread):
+def aggregate_backtest_result(df_positions, granularity, stoploss_buffer, spread):
     '''
     トレード履歴の統計情報計算処理を呼び出す(new)
     params: df_positions     # DataFrame

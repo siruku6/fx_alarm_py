@@ -74,7 +74,7 @@ class Trader():
         if rule == 'swing':
             result = self.__demo_swing_trade()
             print(result['success'])
-            statistics.aggregate_demo_result(
+            statistics.aggregate_backtest_result(
                 df_positions=result['df_positions'],
                 granularity=self.__granularity,
                 stoploss_buffer=self._stoploss_buffer_pips,
@@ -687,23 +687,25 @@ class Trader():
         first_time = self.__str_to_datetime(candles.iloc[0, 4][:19])
         last_time = self.__str_to_datetime(candles.iloc[-1, 4][:19])
         m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
+        m10_candles['time'] = m10_candles.index
         spread = self.__static_spread
 
-        position_rows = candles[(candles.position == 'long') | (candles.position == 'short')][[
+        position_index = (candles.position == 'long') | (candles.position == 'short')
+        position_rows = candles[position_index][[
             'time', 'entryable_price', 'position'
         ]].to_dict('records')
         len_of_rows = len(position_rows)
         for i, row in enumerate(position_rows):
             print('[Trader] sliding price .. {}/{}'.format(i + 1, len_of_rows))
             start = row['time']
-            end = self.__add_candle_duration(row['time'][:19])
+            end = self.__add_candle_duration(start[:19])
             candles_in_granularity = m10_candles.loc[start:end, :].to_dict('records')
 
             if row['position'] == 'long':
                 for m10_candle in candles_in_granularity:
                     if row['entryable_price'] < m10_candle['high'] + spread:
                         row['price'] = m10_candle['high'] + spread
-                        # TODO: timeも書き換える short においても
+                        row['time'] = m10_candle['time']
                         break
                 # INFO: 今のところ必要なさそう
                 # if not 'price' in row:
@@ -712,12 +714,13 @@ class Trader():
                 for m10_candle in candles_in_granularity:
                     if row['entryable_price'] > m10_candle['low']:
                         row['price'] = m10_candle['low']
+                        row['time'] = m10_candle['time']
                         break
-                # if not 'price' in row:
-                #     row['price'] = row['entryable_price']
 
-        new_prices = pd.DataFrame.from_dict(position_rows).price.to_numpy(copy=True)
-        candles.loc[(candles.position == 'long') | (candles.position == 'short'), 'entry_price'] = new_prices
+        slided_positions = pd.DataFrame.from_dict(position_rows)
+        candles.loc[position_index, 'entry_price'] = slided_positions.price.to_numpy(copy=True)
+        candles.loc[position_index, 'time'] = slided_positions.time.map(str).to_numpy(copy=True)
+
         print('[Trader] finished sliding !')
 
     def __demo_scalping_trade(self):
