@@ -743,6 +743,7 @@ class Trader():
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
         candles['stoc_allows'] = self.__generate_stoc_allows_column(sr_trend=candles['trend'])
         self.__generate_entry_column(candles=candles)
+        # candles.to_csv('./tmp/full_data_dump.csv')
 
     def _create_position(self, index, direction, candles):
         '''
