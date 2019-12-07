@@ -61,19 +61,3 @@ class CandlesCsvAccessor():
 
     def __datetime_to_str(self, time):
         return datetime.datetime.strftime(time, CandlesCsvAccessor.DATETIME_FMT)
-
-def main():
-    accessor = CandlesCsvAccessor(granularity='M10', currency_pare='GBP_JPY')
-    # gbp_m10_candles = pd.read_csv('log/candles_GBP_JPY_M10.csv', index_col=0, parse_dates=[0])
-    # gbp_m10_candles.columns = ['close', 'high', 'low', 'open']
-    # m10_dict = gbp_m10_candles.to_dict('records')
-
-    # stocked_candles = pd.read_csv('log/candles_GBP_JPY_M10.csv', index_col=0)
-
-    # # accessor.bulk_insert(collection_name='gbp', dict_array=m10_dict)
-    # res = accessor.where_by_datetimes_set('gbp', datetime.datetime(year=2010, month=10, day=1), datetime.datetime(year=2019, month=11, day=16))
-    first, last = accessor.edge_datetimes_of()
-    import pdb; pdb.set_trace()
-
-if __name__ == '__main__':
-    main()

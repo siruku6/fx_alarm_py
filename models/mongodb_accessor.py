@@ -2,7 +2,7 @@ import datetime
 import pandas as pd
 from pymongo import MongoClient, DESCENDING, ASCENDING
 
-class MongoDBAccessor():
+class MongodbAccessor():
     def __init__(self, db_name):
         self.client = MongoClient()
         self._database = self.client.get_database(db_name)
@@ -11,7 +11,42 @@ class MongoDBAccessor():
     def database(self):
         return self._database
 
-    def where_by_datetimes_set(self, collection_name, start_dt, end_dt):
+    def query_candles(self, currency_pare='gbp', start_dt=None, end_dt=None):
+        '''
+        Return
+            DataFrame
+                columns -> time(index) |  close  |   high  |   low   |   open  |
+                type    ->   string    | float64 | float64 | float64 | float64 |
+        '''
+        if start_dt is None:
+            start_dt = datetime.datetime(1900, 1, 1)
+        if end_dt is None:
+            end_dt = datetime.datetime.now()
+
+        candles = pd.DataFrame.from_dict(
+            self.__where_by(collection_name=currency_pare, start_dt=start_dt, end_dt=end_dt),
+        )
+        candles.rename(columns={'_id': 'time'}, inplace=True)
+        candles.set_index('time', inplace=True)
+        return candles
+
+    def edge_datetimes_of(self, collection_name):
+        '''
+        Return
+            [datetime, datetime]
+        '''
+        collection = self.database.get_collection(collection_name)
+        first = collection.find_one(sort=[('_id', ASCENDING)])['_id']
+        last = collection.find_one(sort=[('_id', DESCENDING)])['_id']
+        return first, last
+
+    def bulk_insert(self, collection_name, dict_array):
+        print('[Mongo] bulk_insert is starting ...')
+        collection = self.database.get_collection(collection_name)
+        collection.insert_many(dict_array)
+        print('[Mongo] bulk_insert is finished !')
+
+    def __where_by(self, collection_name, start_dt, end_dt):
         '''
         Summary
             query from collection (where _id: from start_dt to end_dt),
@@ -39,26 +74,11 @@ class MongoDBAccessor():
             filter={'_id': {'$gte': start_dt, '$lt': end_dt}},
             sort=[('_id', ASCENDING)]
         )
+        # INFO: <pymongo.cursor.Cursor object at xxxxxxxxxxxxxxxx> を dict に変換
         return [record for record in records]
 
-    def edge_datetimes_of(self, collection_name):
-        '''
-        Return
-            [datetime, datetime]
-        '''
-        collection = self.database.get_collection(collection_name)
-        first = collection.find_one(sort=[('_id', ASCENDING)])['_id']
-        last = collection.find_one(sort=[('_id', DESCENDING)])['_id']
-        return first, last
-
-    def bulk_insert(self, collection_name, dict_array):
-        print('[Mongo] bulk_insert is starting ...')
-        collection = self.database.get_collection(collection_name)
-        collection.insert_many(dict_array)
-        print('[Mongo] bulk_insert is finished !')
-
 def main():
-    accessor = MongoDBAccessor(db_name='candles')
+    accessor = MongodbAccessor(db_name='candles')
     # gbp_m10_candles = pd.read_csv('log/candles_GBP_JPY_M10.csv', index_col=0, parse_dates=[0])
     # gbp_m10_candles.columns = ['close', 'high', 'low', 'open']
     # m10_dict = gbp_m10_candles.to_dict('records')
@@ -66,7 +86,10 @@ def main():
     # stocked_candles = pd.read_csv('log/candles_GBP_JPY_M10.csv', index_col=0)
 
     # # accessor.bulk_insert(collection_name='gbp', dict_array=m10_dict)
-    # res = accessor.where_by_datetimes_set('gbp', datetime.datetime(year=2010, month=10, day=1), datetime.datetime(year=2019, month=11, day=16))
+    res = accessor.query_candles(
+        start_dt=datetime.datetime(year=2010, month=10, day=1),
+        end_dt=datetime.datetime(year=2019, month=11, day=16)
+    )
     first, last = accessor.edge_datetimes_of(collection_name='gbp')
     import pdb; pdb.set_trace()
 
