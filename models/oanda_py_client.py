@@ -15,7 +15,8 @@ import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
 
 from models.interface import prompt_inputting_decimal
-from models.candles_csv_accessor import CandlesCsvAccessor
+# from models.candles_csv_accessor import CandlesCsvAccessor
+from models.mongodb_accessor import MongodbAccessor
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -144,24 +145,32 @@ class OandaPyClient():
         return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
 
     def load_or_query_candles(self, start_time, end_time, granularity):
-        candles_accessor = CandlesCsvAccessor(granularity=granularity, currency_pare=self.__instrument)
-        stocked_first_time, stocked_last_time = candles_accessor.edge_datetimes_of()
+        # candles_accessor = CandlesCsvAccessor(granularity=granularity, currency_pare=self.__instrument)
+        candles_accessor = MongodbAccessor(db_name='candles')
+        stocked_first_time, stocked_last_time = candles_accessor.edge_datetimes_of(currency_pare=self.__instrument)
 
         if start_time < stocked_first_time:
             candles_supplement = self.load_candles_by_duration(
                 start=start_time, end=stocked_first_time,
                 granularity=granularity
-            )['candles'].set_index(['time'])
-            candles_accessor.bulk_insert(candles_supplement)
+            )['candles'].rename(columns={'time': '_id'})
+            candles_supplement['_id'] = pd.to_datetime(candles_supplement._id)
+            candles_dict = candles_supplement.to_dict('records')
+            candles_accessor.bulk_insert(currency_pare=self.__instrument, dict_array=candles_dict)
 
         if stocked_last_time < end_time:
             candles_supplement = self.load_candles_by_duration(
                 start=stocked_last_time, end=end_time,
                 granularity=granularity
-            )['candles'].set_index(['time'])
-            candles_accessor.bulk_insert(candles_supplement)
+            )['candles'].rename(columns={'time': '_id'})
+            candles_supplement['_id'] = pd.to_datetime(candles_supplement._id)
+            candles_dict = candles_supplement.to_dict('records')
+            candles_accessor.bulk_insert(currency_pare=self.__instrument, dict_array=candles_dict)
 
-        stocked_candles = candles_accessor.query_candles(start_time, end_time)
+        stocked_candles = candles_accessor.query_candles(
+            currency_pare=self.__instrument,
+            start_dt=start_time, end_dt=end_time
+        )
         del candles_accessor
 
         return stocked_candles

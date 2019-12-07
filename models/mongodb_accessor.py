@@ -11,7 +11,7 @@ class MongodbAccessor():
     def database(self):
         return self._database
 
-    def query_candles(self, currency_pare='gbp', start_dt=None, end_dt=None):
+    def query_candles(self, currency_pare, start_dt=None, end_dt=None):
         '''
         Return
             DataFrame
@@ -26,23 +26,33 @@ class MongodbAccessor():
         candles = pd.DataFrame.from_dict(
             self.__where_by(collection_name=currency_pare, start_dt=start_dt, end_dt=end_dt),
         )
+        if candles is None:
+            return candles
+
         candles.rename(columns={'_id': 'time'}, inplace=True)
         candles.set_index('time', inplace=True)
         return candles
 
-    def edge_datetimes_of(self, collection_name):
+    def edge_datetimes_of(self, currency_pare):
         '''
         Return
             [datetime, datetime]
         '''
-        collection = self.database.get_collection(collection_name)
-        first = collection.find_one(sort=[('_id', ASCENDING)])['_id']
-        last = collection.find_one(sort=[('_id', DESCENDING)])['_id']
+        collection = self.database.get_collection(currency_pare)
+        first_record = collection.find_one(sort=[('_id', ASCENDING)])
+        last_record = collection.find_one(sort=[('_id', DESCENDING)])
+
+        if first_record is None or last_record is None:
+            first = datetime.datetime.now()
+            last = first
+        else:
+            first = first_record['_id']
+            last = last_record['_id']
         return first, last
 
-    def bulk_insert(self, collection_name, dict_array):
+    def bulk_insert(self, dict_array, currency_pare):
         print('[Mongo] bulk_insert is starting ...')
-        collection = self.database.get_collection(collection_name)
+        collection = self.database.get_collection(currency_pare)
         collection.insert_many(dict_array)
         print('[Mongo] bulk_insert is finished !')
 
@@ -86,12 +96,15 @@ def main():
     # stocked_candles = pd.read_csv('log/candles_GBP_JPY_M10.csv', index_col=0)
 
     # # accessor.bulk_insert(collection_name='gbp', dict_array=m10_dict)
+    db = accessor.database
+    # import pdb; pdb.set_trace()
+
     res = accessor.query_candles(
+        currency_pare='GBP_JPY',
         start_dt=datetime.datetime(year=2010, month=10, day=1),
         end_dt=datetime.datetime(year=2019, month=11, day=16)
     )
-    first, last = accessor.edge_datetimes_of(collection_name='gbp')
-    import pdb; pdb.set_trace()
+    first, last = accessor.edge_datetimes_of(currency_pare='gbp')
 
 
 if __name__ == '__main__':
