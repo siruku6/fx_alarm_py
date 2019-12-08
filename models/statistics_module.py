@@ -115,16 +115,19 @@ def aggregate_backtest_result(df_positions, granularity, stoploss_buffer, spread
             'exitable_price' # float64
         ]
     '''
-    duration = '{start} ~ {end}'.format(
-        start=df_positions.time[20],
-        end=df_positions.time.tail(1).values[0]
-    )
-
     positions = df_positions.loc[df_positions.position.notnull(), :].copy()
     positions = __calc_profit_2(copied_positions=positions)
     positions.loc[:, 'gross'] = positions.profit.cumsum()
     positions.loc[:, 'drawdown'] = positions.gross - positions.gross.cummax()
 
+    performance_result = __calc_performance_indicators(positions)
+    __append_performance_result_to_csv(
+        granularity=granularity,
+        sl_buf=stoploss_buffer,
+        spread=spread,
+        candles=df_positions,
+        performance_result=performance_result
+    )
     # TODO: 要削除 一時的なコード
     positions.to_csv('./tmp/positions_dump.csv')
 
@@ -157,6 +160,65 @@ def __calc_profit_2(copied_positions):
         )
 
     return copied_positions
+
+
+def __calc_performance_indicators(positions):
+    long_cnt = len(positions[(positions.position == 'long')])
+    short_cnt = len(positions[(positions.position == 'short')])
+    entry_cnt = long_cnt + short_cnt
+    win_positions = positions[positions.profit >= 0]
+    lose_positions = positions[positions.profit < 0]
+    gross_profit = win_positions.profit.sum()
+    gross_loss = lose_positions.profit.sum()
+    max_drawdown = positions.drawdown.min()
+
+    return {
+        'entry_count': entry_cnt,
+        'win_rate': round(len(win_positions) / entry_cnt * 100, 2),
+        'win_count': len(win_positions),
+        'lose_count': len(lose_positions),
+        'long_count': long_cnt,
+        'short_count': short_cnt,
+        'profit_sum': positions.profit.sum(),
+        'gross_profit': gross_profit,
+        'gross_loss': gross_loss,
+        'max_profit': win_positions.profit.max(),
+        'max_loss': lose_positions.profit.min(),
+        'drawdown': max_drawdown,
+        'profit_factor': round(-gross_profit / gross_loss, 2),
+        'recovery_factor': round((gross_profit + gross_loss) / -max_drawdown, 2)
+    }
+
+
+def __append_performance_result_to_csv(granularity, sl_buf, spread, candles, performance_result):
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    duration = '{start} ~ {end}'.format(
+        start=candles.time[20],
+        end=candles.time.tail(1).values[0]  # TODO: iloc[-1] の方がいいかも、後で比較する
+    )
+    result_row = [
+        now,                                # 'DoneTime'
+        granularity,                        # 'Granularity'
+        sl_buf,                             # 'StoplossBuf'
+        spread,                             # 'Spread'
+        duration,                           # 'Duration'
+        len(candles) - 20,                  # 'CandlesCnt'
+        performance_result['entry_count'],  # 'EntryCnt'
+        performance_result['win_rate'],     # 'WinRate'
+        performance_result['win_count'],    # 'WinCnt'
+        performance_result['lose_count'],   # 'LoseCnt'
+        round(performance_result['profit_sum'] * 100, 3),    # 'Gross'
+        round(performance_result['gross_profit'] * 100, 3),  # 'GrossProfit'
+        round(performance_result['gross_loss'] * 100, 3),    # 'GrossLoss'
+        round(performance_result['max_profit'] * 100, 3),    # 'MaxProfit'
+        round(performance_result['max_loss'] * 100, 3),      # 'MaxLoss'
+        round(performance_result['drawdown'] * 100, 3),      # 'MaxDrawdown'
+        performance_result['profit_factor'],                 # 'Profit Factor'
+        performance_result['recovery_factor']                # 'Recovery Factor'
+    ]
+    result_df = DataFrame([result_row], columns=TRADE_RESULT_ITEMS)
+    result_df.to_csv('tmp/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
+    print('[Trader] トレード統計(vectorized)をcsv追記完了')
 
 
 def __round_really(x):
