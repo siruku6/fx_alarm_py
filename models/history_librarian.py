@@ -31,16 +31,6 @@ class Librarian():
         # INFO: lastTransactionIDを取得するために実行
         self.__client.request_open_trades()
 
-        # preapre history_df: trade-history
-        history_df = self.__client.request_transactions()
-        print('[Libra] trade_log is loaded')
-
-        if granularity == 'M10':
-            history_df['time'] = [self.__convert_to_m10(time) for time in history_df.time]
-        elif granularity == 'H4':
-            history_df['time'] = [self.__convert_to_h4(time) for time in history_df.time]
-        entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
-
         # prepare candles: 暫定で50日分のデータを取得
         dt_a_month_ago = datetime.datetime.now() - datetime.timedelta(days=50)
         start_str = dt_a_month_ago.strftime('%Y-%m-%d %H:%M:%S')
@@ -48,7 +38,18 @@ class Librarian():
             starttime_str=start_str,
             granularity=granularity
         )
+        dict_summer_time_borders = self.__detect_summer_time_borders(candles)
         print('[Libra] candles are loaded')
+
+        # preapre history_df: trade-history
+        history_df = self.__client.request_transactions()
+        print('[Libra] trade_log is loaded')
+
+        if granularity == 'M10':
+            history_df['time'] = [self.__convert_to_m10(time) for time in history_df.time]
+        elif granularity == 'H4':
+            history_df['time'] = [self.__convert_to_h4(time, dict_summer_time_borders) for time in history_df.time]
+        entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
 
         # merge
         result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
@@ -69,33 +70,50 @@ class Librarian():
     #
     # Private
     #
-    def __convert_to_m10(self, oanda_time):
-        m1_pos = 15
-        m10_str = oanda_time[:m1_pos] + '0' + oanda_time[m1_pos + 1:]
-        m10_str = self.__truncate_sec(m10_str).replace('T', ' ')
-        return m10_str
-
-    def __convert_to_h4(self, oanda_time):
-        # INFO: 12文字目までで hour まで取得できる
-        time = datetime.datetime.strptime(oanda_time.replace('T', ' ')[:13], '%Y-%m-%d %H')
-
-        # INFO: OandaのH4は [1,5,9,13,17,21] を取り得るので、それをはみ出した時間を切り捨て
-        minus = ((time.hour + 3) % 4)
-        time -= datetime.timedelta(hours=minus)
-        h4_str = time.strftime('%Y-%m-%d %H:%M:%S')
-        return h4_str
-
-    def __truncate_sec(self, oanda_time_str):
-        sec_start = 17
-        truncated_str = oanda_time_str[:sec_start] + '00'
-        return truncated_str
-
     def __prepare_candles(self, starttime_str, granularity):
         today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
         start_dt = datetime.datetime.strptime(starttime_str, '%Y-%m-%d %H:%M:%S')
         days_wanted = (today_dt - start_dt).days + 1
         result = self.__client.load_long_chart(days=days_wanted, granularity=granularity)
         return result['candles']
+
+    def __detect_summer_time_borders(self, candles):
+        candles['summer_time'] = pd.to_numeric(candles.time.str[12], downcast='signed') % 2 == 1
+        return candles[candles.summer_time != candles.summer_time.shift(1)][['time', 'summer_time']].to_dict('records')
+
+    def __convert_to_m10(self, oanda_time):
+        m1_pos = 15
+        m10_str = oanda_time[:m1_pos] + '0' + oanda_time[m1_pos + 1:]
+        m10_str = self.__truncate_sec(m10_str).replace('T', ' ')
+        return m10_str
+
+    def __convert_to_h4(self, oanda_time, dict_summer_time_borders):
+        time_str = oanda_time.replace('T', ' ')
+
+        # INFO: 12文字目までで hour まで取得できる
+        time = datetime.datetime.strptime(time_str[:13], '%Y-%m-%d %H')
+
+        if self.__is_summer_time(time_str, dict_summer_time_borders):
+            # INFO: OandaのH4は [1,5,9,13,17,21] を取り得るので、それをはみ出した時間を切り捨て
+            minus = ((time.hour + 3) % 4)
+        else:
+            minus = ((time.hour + 2) % 4)
+
+        time -= datetime.timedelta(hours=minus)
+        h4_str = time.strftime('%Y-%m-%d %H:%M:%S')
+        return h4_str
+
+    def __is_summer_time(self, time_str, dict_summer_time_borders):
+        for i, summertime_dict in enumerate(dict_summer_time_borders):
+            if dict_summer_time_borders[-1]['time'] < time_str:
+                return dict_summer_time_borders[-1]['summer_time']
+            elif summertime_dict['time'] < time_str and time_str < dict_summer_time_borders[i + 1]['time']:
+                return summertime_dict['summer_time']
+
+    def __truncate_sec(self, oanda_time_str):
+        sec_start = 17
+        truncated_str = oanda_time_str[:sec_start] + '00'
+        return truncated_str
 
     def __divide_history_by_type(self, d_frame):
         entry_df = d_frame.dropna(subset=['tradeOpened'])[['price', 'time', 'units']]
