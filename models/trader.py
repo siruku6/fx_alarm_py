@@ -477,7 +477,7 @@ class Trader():
     def __judge_entryable(self, candles):
         ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
         satisfy_preconditions = np.all(
-            candles[['in_the_band', 'ma_gap_expanding', 'sma_follow_trend', 'stoc_allows']],
+            candles[['in_the_band', 'ma_gap_expanding', 'sma_follow_trend', 'stoc_allows', 'ema60_allows', 'band_expansion']],
             axis=1
         )
         candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
