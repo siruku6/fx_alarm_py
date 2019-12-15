@@ -1,5 +1,7 @@
 import datetime
 import pandas as pd
+
+import pymongo.errors
 from pymongo import MongoClient, DESCENDING, ASCENDING
 
 class MongodbAccessor():
@@ -53,7 +55,14 @@ class MongodbAccessor():
     def bulk_insert(self, dict_array, currency_pare):
         print('[Mongo] bulk_insert is starting ...')
         collection = self.database.get_collection(currency_pare)
-        collection.insert_many(dict_array)
+        try:
+            collection.insert_many(dict_array)
+
+        except pymongo.errors.BulkWriteError as error:
+            print(error.details)
+            # 以下のようにして、これを使うと更に詳しく調査できるらしい
+            # werrors = error.details['writeErrors']
+            raise
         print('[Mongo] bulk_insert is finished !')
 
     def __where_by(self, collection_name, start_dt, end_dt):

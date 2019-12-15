@@ -151,7 +151,7 @@ class OandaPyClient():
 
         if start_time < stocked_first_time:
             candles_supplement = self.load_candles_by_duration(
-                start=start_time, end=stocked_first_time,
+                start=start_time, end=stocked_first_time - datetime.timedelta(minutes=10),
                 granularity=granularity
             )['candles'].rename(columns={'time': '_id'})
             candles_supplement['_id'] = pd.to_datetime(candles_supplement._id)
@@ -160,7 +160,7 @@ class OandaPyClient():
 
         if stocked_last_time < end_time:
             candles_supplement = self.load_candles_by_duration(
-                start=stocked_last_time, end=end_time,
+                start=stocked_last_time + datetime.timedelta(minutes=10), end=end_time,
                 granularity=granularity
             )['candles'].rename(columns={'time': '_id'})
             candles_supplement['_id'] = pd.to_datetime(candles_supplement._id)
