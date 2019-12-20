@@ -82,11 +82,11 @@ class Trader():
                 stoploss_buffer=self._stoploss_buffer_pips,
                 spread=self.__static_spread
             )
-            self.__draw_chart_vectorized_ver(
-                result['result'][[
-                    'time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price'
-                ]].copy()
-            )
+            df_positions = self.__wrangle_result_for_graph(result['result'][
+                ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
+            ].copy())
+            self.__draw_chart_vectorized_ver(df_positions)
+            return df_positions
         elif rule == 'scalping':
             print(self.__demo_scalping_trade()['success'])
         if accurize and (self.__granularity[0] != 'M'):
@@ -101,32 +101,15 @@ class Trader():
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
             self._stoploss_buffer_pips = stoploss_buf
-            self.auto_verify_trading_rule(accurize=accurize)
-
-            statistics.aggregate_history(
-                candles=FXBase.get_candles(),
-                hist_positions=self.__hist_positions,
-                granularity=self.__granularity,
-                stoploss_buffer=self._stoploss_buffer_pips,
-                spread=self.__static_spread
-            )
-
-            _df = pd.concat(
-                [
-                    pd.DataFrame(self.__hist_positions['long'], columns=self.__columns),
-                    pd.DataFrame(self.__hist_positions['short'], columns=self.__columns)
-                ],
-                axis=1, keys=['long', 'short'],
-                names=['type', '-']
-            )
-            verification_dataframes_array.append(_df)
+            df_positions = self.auto_verify_trading_rule(accurize=accurize)
+            verification_dataframes_array.append(df_positions)
 
         result = pd.concat(
             verification_dataframes_array,
             axis=1, keys=stoploss_buffer_list,
             names=['SL_buffer']
         )
-        result.to_csv('./tmp/sl_verify_{inst}.csv'.format(inst=self.get_instrument()))
+        result.to_csv('./tmp/csvs/sl_verify_{inst}.csv'.format(inst=self.get_instrument()))
 
     #
     # Methods for judging Entry or Close
@@ -620,12 +603,13 @@ class Trader():
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
         candles['stoc_allows'] = self.__generate_stoc_allows_column(sr_trend=candles['trend'])
         self.__generate_entry_column(candles=candles)
-        candles.to_csv('./tmp/full_data_dump.csv')
+        candles.to_csv('./tmp/csvs/full_data_dump.csv')
 
-    def __draw_chart_vectorized_ver(self, result):
-        filename_postfix = datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d_%H%M%S')
+    def __draw_chart_vectorized_ver(self, df_positions):
         drwr = self.__drawer
-        df_positions = self.__wrangle_result_for_graph(result)
+        if drwr is None: return
+
+        filename_postfix = datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d_%H%M%S')
         df_len = len(df_positions)
         dfs_indicator = self.__split_df_by_200rows(self._indicators)
         dfs_position = self.__split_df_by_200sequences(df_positions, df_len)
