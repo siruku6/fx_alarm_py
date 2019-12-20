@@ -688,11 +688,12 @@ class Trader():
         print('[Trader] start sliding ...')
         first_time = self.__str_to_datetime(candles.iloc[0, 4][:19])
         last_time = self.__str_to_datetime(candles.iloc[-1, 4][:19])
+        # INFO: 実は、candlesのlastrow分のm10candlesがない
         m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
         m10_candles['time'] = m10_candles.index
         spread = self.__static_spread
 
-        position_index = (candles.position == 'long') | (candles.position == 'short')
+        position_index = candles.position.isin(['long', 'short'])
         position_rows = candles[position_index][[
             'time', 'entryable_price', 'position'
         ]].to_dict('records')
@@ -720,8 +721,9 @@ class Trader():
                         break
 
         slided_positions = pd.DataFrame.from_dict(position_rows)
+        # TODO: price 列がないときにエラーになる（なぜかprice列がないことがある...candlesが異様に短いときに発生した）
         candles.loc[position_index, 'entry_price'] = slided_positions.price.to_numpy(copy=True)
-        candles.loc[position_index, 'time'] = slided_positions.time.map(str).to_numpy(copy=True)
+        candles.loc[position_index, 'time'] = slided_positions.time.astype(str).to_numpy(copy=True)
 
         print('[Trader] finished sliding !')
 
