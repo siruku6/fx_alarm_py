@@ -149,6 +149,7 @@ class OandaPyClient():
         candles_accessor = MongodbAccessor(db_name='candles')
         stocked_first_time, stocked_last_time = candles_accessor.edge_datetimes_of(currency_pare=self.__instrument)
 
+        print('[MongoDB] slide用10分足の不足分を解析・request中....')
         if start_time < stocked_first_time:
             candles_supplement = self.load_candles_by_duration(
                 start=start_time, end=stocked_first_time - datetime.timedelta(minutes=10),
@@ -167,11 +168,13 @@ class OandaPyClient():
             candles_dict = candles_supplement.to_dict('records')
             candles_accessor.bulk_insert(currency_pare=self.__instrument, dict_array=candles_dict)
 
+        print('[MongoDB] querying m10_candles ...')
         stocked_candles = candles_accessor.query_candles(
             currency_pare=self.__instrument,
             start_dt=start_time, end_dt=end_time
         )
         del candles_accessor
+        print('[MongoDB] m10_candles are loaded !')
 
         return stocked_candles
 
