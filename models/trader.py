@@ -17,10 +17,9 @@ class Trader():
     def __init__(self, operation='verification'):
         if operation in ['verification']:
             inst = OandaPyClient.select_instrument()
-            if i_face.ask_true_or_false(msg='[Trader] 画像描画する？ [1]:Yes, [2]:No : '):
-                self.__drawer = FigureDrawer()
-            else:
-                self.__drawer = None
+            self.__static_options = {}
+            self.__static_options['be_drawn'] = i_face.ask_true_or_false(msg='[Trader] 画像描画する？ [1]:Yes, [2]:No : ')
+            self.__drawer = None
             self.__instrument = inst['name']
             self.__static_spread = inst['spread']
         else:
@@ -71,8 +70,11 @@ class Trader():
 
     def auto_verify_trading_rule(self, accurize=True, rule='swing'):
         ''' tradeルールを自動検証 '''
+        if self.__static_options['be_drawn']:
+            self.__drawer = FigureDrawer()
+
         if rule == 'swing':
-            result = self.__demo_swing_trade()
+            result = self.__backtest_swing()
             print(result['success'])
 
             df_positions = result['result'].loc[:, ['time', 'position', 'entry_price', 'exitable_price']]
@@ -88,9 +90,7 @@ class Trader():
             self.__draw_chart_vectorized_ver(df_positions)
             return df_positions
         elif rule == 'scalping':
-            print(self.__demo_scalping_trade()['success'])
-        if accurize and (self.__granularity[0] != 'M'):
-            print(self.__accurize_entry_prices()['success'])
+            print(self.__backtest_scalping()['success'])
 
     def verify_varios_stoploss(self, accurize=True):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
@@ -525,7 +525,7 @@ class Trader():
             exit()
         FXBase.set_candles(result['candles'])
 
-    def __demo_swing_trade(self):
+    def __backtest_swing(self):
         ''' スイングトレードのentry pointを検出 '''
         # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする
         self.__initialize_position_variables()
@@ -578,7 +578,7 @@ class Trader():
 
         print('[Trader] finished sliding !')
 
-    def __demo_scalping_trade(self):
+    def __backtest_scalping(self):
         ''' スキャルピングのentry pointを検出 '''
         self.__initialize_position_variables()
 
@@ -663,15 +663,21 @@ class Trader():
     def __wrangle_result_for_graph(self, result):
         positions_df = result.rename(columns={'entry_price': 'price', 'possible_stoploss': 'stoploss'})
         positions_df['sequence'] = positions_df.index
+        # INFO: exit直後のrowで、かつposition列が空
         positions_df.loc[
-            (positions_df.shift(1).position == 'sell_exit') | (positions_df.shift(1).position == 'buy_exit') \
+            ((positions_df.shift(1).position.isin(['sell_exit', 'buy_exit'])) \
+            | ((positions_df.shift(1).position.isin(['long', 'short'])) \
+            & (~positions_df.shift(1).exitable_price.isna()))) \
             & (positions_df.position.isna()), 'position'
         ] = '-'
+        # INFO: entry直後のrowで、かつexit-rowではない
         positions_df.loc[
-            ((positions_df.shift(1).position == 'long') | (positions_df.shift(1).position == 'short')) \
-            & (positions_df.shift(1).exitable_price.isna()),'position'
+            (positions_df.shift(1).position.isin(['long', 'short'])) \
+            & (positions_df.shift(1).exitable_price.isna()) \
+            & (~positions_df.position.isin(['sell_exit', 'buy_exit'])),'position'
         ] = '|'
         positions_df.position.fillna(method='ffill', inplace=True)
+
         return positions_df
 
     # def _create_position(self, index, direction, candles):
@@ -743,63 +749,6 @@ class Trader():
         print('[Trader] skip: {}'.format(reason))
         print('[Trader] -------- end --------')
 
-    def __accurize_entry_prices(self):
-        '''
-        ポジション履歴のエントリーpriceを、実際にエントリー可能な価格に修正する
-        '''
-        first_time = self.__str_to_datetime(FXBase.get_candles().iloc[0, :].time[:19])
-        last_time = self.__str_to_datetime(FXBase.get_candles().iloc[-1, :].time[:19])
-        _m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')
-        spread = self.__static_spread
-
-        # long価格の修正
-        long_hist = self.__hist_positions['long'].copy()
-        len_of_long_hist = len(long_hist) - 1
-        for i, row in enumerate(long_hist):
-            if i == len_of_long_hist:
-                break
-
-            print('[Trader] long-accurize: {i}/{total}'.format(i=i, total=len_of_long_hist))
-            if row['type'] == 'long':
-                start = row['time'][:19]
-                end = self.__add_candle_duration(row['time'][:19])
-                short_candles = _m10_candles.loc[start:end, :]
-
-                for _j, m10_row in short_candles.iterrows():
-                    if row['price'] < m10_row.high:
-                        old_price = row['price']
-                        row['price'] = m10_row.high
-                        row['time'] = m10_row.name
-                        self.__chain_accurization(
-                            i, 'long', old_price, accurater_price=m10_row.high + spread
-                        )
-                        break
-
-        # short価格の修正
-        short_hist = self.__hist_positions['short'].copy()
-        len_of_short_hist = len(short_hist) - 1
-        for i, row in enumerate(short_hist):
-            if i == len_of_short_hist:
-                break
-
-            print('[Trader] short-accurize: {i}/{total}'.format(i=i, total=len_of_short_hist))
-            if row['type'] == 'short':
-                start = row['time'][:19]
-                end = self.__add_candle_duration(row['time'][:19])
-                short_candles = _m10_candles.loc[start:end, :]
-
-                for _j, m10_row in short_candles.iterrows():
-                    if row['price'] > m10_row.low:
-                        old_price = row['price']
-                        row['price'] = m10_row.low
-                        row['time'] = m10_row.name
-                        self.__chain_accurization(
-                            i, 'short', old_price, accurater_price=m10_row.low
-                        )
-                        break
-
-        return {'success': '[Trader] entry価格を、現実的に取引可能な値に修正'}
-
     def __add_candle_duration(self, start_string):
         start_time = self.__str_to_datetime(start_string)
         granularity = self.__granularity
@@ -814,16 +763,6 @@ class Trader():
         a_minute = datetime.timedelta(minutes=1)
         result = (start_time + candle_duration - a_minute).strftime(Trader.TIME_STRING_FMT)
         return result
-
-    def __chain_accurization(self, index, entry_type, old_price, accurater_price):
-        index += 1
-        length = len(self.__hist_positions[entry_type])
-        while index < length:
-            if self.__hist_positions[entry_type][index]['price'] != old_price:
-                break
-
-            self.__hist_positions[entry_type][index]['price'] = accurater_price
-            index += 1
 
     def __str_to_datetime(self, time_string):
         result_dt = datetime.datetime.strptime(time_string, Trader.TIME_STRING_FMT)
