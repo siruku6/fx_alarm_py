@@ -95,17 +95,13 @@ class Analyzer():
         standard_deviation = pd.Series.rolling(close_candles, window=window_size).std()
 
         self.__indicators['SIGMA_BAND'] = \
-            pd.DataFrame(mean + standard_deviation) \
-              .rename(columns={'close': 'band_+1σ'})
+            pd.DataFrame(mean + standard_deviation).rename(columns={'close': 'band_+1σ'})
         self.__indicators['SIGMA*-1_BAND'] = \
-            pd.DataFrame(mean - standard_deviation) \
-              .rename(columns={'close': 'band_-1σ'})
+            pd.DataFrame(mean - standard_deviation).rename(columns={'close': 'band_-1σ'})
         self.__indicators['SIGMA*2_BAND'] = \
-            pd.DataFrame(mean + standard_deviation * 2) \
-              .rename(columns={'close': 'band_+2σ'})
+            pd.DataFrame(mean + standard_deviation * 2).rename(columns={'close': 'band_+2σ'})
         self.__indicators['SIGMA*-2_BAND'] = \
-            pd.DataFrame(mean - standard_deviation * 2) \
-              .rename(columns={'close': 'band_-2σ'})
+            pd.DataFrame(mean - standard_deviation * 2).rename(columns={'close': 'band_-2σ'})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #

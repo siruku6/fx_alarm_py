@@ -74,11 +74,18 @@ class Trader():
         if rule == 'swing':
             result = self.__demo_swing_trade()
             print(result['success'])
+
+            df_positions = result['result'].loc[:, ['time', 'position', 'entry_price', 'exitable_price']]
             statistics.aggregate_backtest_result(
-                df_positions=result['df_positions'],
+                df_positions=df_positions,
                 granularity=self.__granularity,
                 stoploss_buffer=self._stoploss_buffer_pips,
                 spread=self.__static_spread
+            )
+            self.__draw_chart_vectorized_ver(
+                result['result'][[
+                    'time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price'
+                ]].copy()
             )
         elif rule == 'scalping':
             print(self.__demo_scalping_trade()['success'])
@@ -527,9 +534,6 @@ class Trader():
         candles.loc[short_exits, 'position'] = 'buy_exit'
         candles.loc[short_exits, 'exitable_price'] = candles[short_exits].possible_stoploss
 
-        # INFO: 不要な列を削除
-        candles.drop(['possible_stoploss'], axis=1, inplace=True)
-
         # INFO: position column の整理
         candles.position.fillna(method='ffill', inplace=True)
         position_ser = candles.position
@@ -678,9 +682,7 @@ class Trader():
                 self._judge_settle_position(index, close_price, candles)
 
         self.__slide_prices_to_really_possible(candles=candles)
-        df_positions = candles.loc[:, ['time', 'position', 'entry_price', 'exitable_price']]
-
-        return {'success': '[Trader] 売買判定終了', 'df_positions': df_positions}
+        return {'success': '[Trader] 売買判定終了', 'result': candles}
 
     def __slide_prices_to_really_possible(self, candles):
         print('[Trader] start sliding ...')
@@ -746,7 +748,75 @@ class Trader():
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
         candles['stoc_allows'] = self.__generate_stoc_allows_column(sr_trend=candles['trend'])
         self.__generate_entry_column(candles=candles)
-        # candles.to_csv('./tmp/full_data_dump.csv')
+        candles.to_csv('./tmp/full_data_dump.csv')
+
+    def __draw_chart_vectorized_ver(self, result):
+        filename_postfix = datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d_%H%M%S')
+        drwr = self.__drawer
+        df_positions = self.__wrangle_result_for_graph(result)
+        df_len = len(df_positions)
+        dfs_indicator = self.__split_df_by_200rows(self._indicators)
+        dfs_position = self.__split_df_by_200sequences(df_positions, df_len)
+
+        df_segments_count = len(dfs_indicator)
+        for i in range(0, df_segments_count):
+            # indicators
+            drwr.draw_indicators(d_frame=dfs_indicator[i])
+
+            # positions
+            long_entry_df = dfs_position[i][dfs_position[i].position == 'long']
+            close_df = dfs_position[i][
+                (dfs_position[i].position.isin(['long', 'short', 'sell_exit', 'buy_exit'])) \
+                & (~dfs_position[i].exitable_price.isna())
+            ].drop('price', axis=1).rename(columns={'exitable_price': 'price'})
+            short_entry_df = dfs_position[i][dfs_position[i].position == 'short']
+            trail_df = dfs_position[i][dfs_position[i].position != '-']
+
+            drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
+            drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
+            drwr.draw_positions_df(positions_df=close_df, plot_type=drwr.PLOT_TYPE['exit'])
+            # drwr.draw_positions_df(positions_df=short_close_df, plot_type=drwr.PLOT_TYPE['exit'], nolabel='_nolegend_')
+            drwr.draw_positions_df(positions_df=trail_df, plot_type=drwr.PLOT_TYPE['trail'])
+
+            drwr.draw_vertical_lines(
+                indexes=np.concatenate(
+                    [long_entry_df.sequence.values, short_entry_df.sequence.values]
+                ),
+                vmin=dfs_indicator[i]['band_-2σ'].min(skipna=True),
+                vmax=dfs_indicator[i]['band_+2σ'].max(skipna=True)
+            )
+
+            # candles
+            start = df_len - Trader.MAX_ROWS_COUNT * (i + 1)
+            if start < 0: start = 0
+            end = df_len - Trader.MAX_ROWS_COUNT * i
+            sr_time = drwr.draw_candles(start, end)['time']
+
+            result = drwr.create_png(
+                instrument='sample', # self.get_instrument(),
+                granularity=self.__granularity,
+                sr_time=sr_time, num=i
+            )
+
+            drwr.close_all()
+            if df_segments_count != i + 1:
+                drwr.init_figure()
+            if 'success' in result:
+                print('{msg} / {count}'.format(msg=result['success'], count=df_segments_count))
+
+    def __wrangle_result_for_graph(self, result):
+        positions_df = result.rename(columns={'entry_price': 'price', 'possible_stoploss': 'stoploss'})
+        positions_df['sequence'] = positions_df.index
+        positions_df.loc[
+            (positions_df.shift(1).position == 'sell_exit') | (positions_df.shift(1).position == 'buy_exit') \
+            & (positions_df.position.isna()), 'position'
+        ] = '-'
+        positions_df.loc[
+            ((positions_df.shift(1).position == 'long') | (positions_df.shift(1).position == 'short')) \
+            & (positions_df.shift(1).exitable_price.isna()),'position'
+        ] = '|'
+        positions_df.position.fillna(method='ffill', inplace=True)
+        return positions_df
 
     def _create_position(self, index, direction, candles):
         '''
