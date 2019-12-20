@@ -463,6 +463,7 @@ class Trader():
         return direction
 
     def __generate_entry_column(self, candles):
+        print('[Trader] judging entryable or not ...')
         self.__judge_entryable(candles)
         self.__set_entryable_prices(candles)
 
@@ -737,6 +738,8 @@ class Trader():
         return {'success': candles}
 
     def __prepare_trade_signs(self, candles):
+        print('[Trader] preparing base-data for judging ...')
+
         indicators = self._indicators
         candles['trend'], candles['bull'], candles['bear'] \
             = self.__generate_trend_column(c_prices=candles.close)
