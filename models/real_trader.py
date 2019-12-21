@@ -1,6 +1,7 @@
 import os
 from models.oanda_py_client import FXBase
 from models.trader import Trader
+import models.trade_rules.base as rules
 
 class RealTrader(Trader):
     ''' トレードルールに基づいてOandaへの発注を行うclass '''
@@ -131,3 +132,31 @@ class RealTrader(Trader):
 
         pos['stoploss'] = float(target['stopLossOrder']['price'])
         return pos
+
+    #
+    #  apply each rules
+    #
+    def _check_trend(self, index, c_price):
+        '''
+        ルールに基づいてトレンドの有無を判定
+        '''
+        sma = self._indicators['20SMA'][index]
+        ema = self._indicators['10EMA'][index]
+        parabo = self._indicators['SAR'][index]
+        trend = rules.detect_trend_type(c_price, sma, ema, parabo)
+
+        if trend is None:
+            print('[Trader] 20SMA: {}, 10EMA: {}, close: {}'.format(sma, ema, c_price))
+            self._log_skip_reason('2. There isn`t the trend')
+        return trend
+
+    def _stochastic_allow_trade(self, index, trend):
+        ''' stocがtrendと一致した動きをしていれば true を返す '''
+        stod = self._indicators['stoD:3'][index]
+        stosd = self._indicators['stoSD:3'][index]
+
+        result = rules.stoc_allows_entry(stod, stosd, trend)
+        if result is False:
+            print('[Trader] stoD: {}, stoSD: {}'.format(stod, stosd))
+            self._log_skip_reason('c. stochastic denies trade')
+        return result

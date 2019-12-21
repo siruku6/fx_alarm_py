@@ -6,6 +6,7 @@ from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 from models.mathematics import range_2nd_decimal
+import models.trade_rules.base as rules
 import models.interface as i_face
 import models.statistics_module as statistics
 
@@ -165,20 +166,12 @@ class Trader():
         sma = self._indicators['20SMA']
         ema = self._indicators['10EMA']
         parabo = self._indicators['SAR']
-        method_trend_checker = np.frompyfunc(self.__make_sure_of_trend, 4, 1)
+        method_trend_checker = np.frompyfunc(rules.detect_trend_type, 4, 1)
 
         trend = method_trend_checker(c_prices, sma, ema, parabo)
         bull = np.where(trend == 'bull', True, False)
         bear = np.where(trend == 'bear', True, False)
         return trend, bull, bear
-
-    def __make_sure_of_trend(self, c_price, sma, ema, parabo):
-        if sma < ema < c_price and parabo < c_price:
-            return 'bull'
-        elif sma > ema > c_price and parabo > c_price:
-            return 'bear'
-        else:
-            return None
 
     def __generate_thrust_column(self, candles):
         # INFO: if high == the max of recent-10-candles: True is set !
@@ -197,21 +190,13 @@ class Trader():
         return result
 
         # INFO: shift(1)との比較のみでthrustを判定する場合
-        # method_thrust_checker = np.frompyfunc(self._detect_thrust, 5, 1)
+        # method_thrust_checker = np.frompyfunc(rules.detect_thrust, 5, 1)
         # result = method_thrust_checker(
         #     candles.trend,
         #     candles.high.shift(1), candles.high,
         #     candles.low.shift(1), candles.low
         # )
         # return result
-
-    def _detect_thrust(self, trend, previous_high, high, previous_low, low):
-        if trend == 'bull' and not np.isnan(previous_high) and previous_high < high:
-            return 'long'
-        elif trend == 'bear' and not np.isnan(previous_low) and previous_low > low:
-            return 'short'
-        else:
-            return None
 
     def _detect_thrust2(self, up_thrust, down_thrust):
         if up_thrust:
@@ -275,54 +260,12 @@ class Trader():
         })
         return np.any(tmp_df, axis=1)
 
-    def _stoc_allows_entry(self, stod, stosd, trend):
-        if trend == 'bull' and (stod > stosd or stod > 80):
-            return True
-        elif trend == 'bear' and (stod < stosd or stod < 20):
-            return True
-
-        return False
-
     def __generate_stoc_allows_column(self, sr_trend):
         ''' stocがtrendに沿う値を取っているか判定する列を返却 '''
         stod = self._indicators['stoD:3']
         stosd = self._indicators['stoSD:3']
-        column_generator = np.frompyfunc(self._stoc_allows_entry, 3, 1)
+        column_generator = np.frompyfunc(rules.stoc_allows_entry, 3, 1)
         return column_generator(stod, stosd, sr_trend)
-
-    def _check_trend(self, index, c_price):
-        '''
-        ルールに基づいてトレンドの有無を判定
-        '''
-        sma = self._indicators['20SMA'][index]
-        ema = self._indicators['10EMA'][index]
-        parabo = self._indicators['SAR'][index]
-        if sma < ema < c_price and parabo < c_price:
-            trend = 'bull'
-        elif sma > ema > c_price and parabo > c_price:
-            trend = 'bear'
-        else:
-            trend = None
-            if self._operation == 'live':
-                print('[Trader] 20SMA: {}, 10EMA: {}, close: {}'.format(sma, ema, c_price))
-                self._log_skip_reason('2. There isn`t the trend')
-        return trend
-
-    def _stochastic_allow_trade(self, index, trend):
-        ''' stocがtrendと一致した動きをしていれば true を返す '''
-        stod = self._indicators['stoD:3'][index]
-        stosd = self._indicators['stoSD:3'][index]
-        result = False
-
-        if trend == 'bull' and (stod > stosd or stod > 80):
-            result = True
-        elif trend == 'bear' and (stod < stosd or stod < 20):
-            result = True
-
-        if result is False and self._operation == 'live':
-            print('[Trader] stoD: {}, stoSD: {}'.format(stod, stosd))
-            self._log_skip_reason('c. stochastic denies trade')
-        return result
 
     def _find_thrust(self, index, candles, trend):
         '''
@@ -345,17 +288,17 @@ class Trader():
         # INFO: shift(1)との比較だけでthrust判定したい場合はこちら
         # candles_h = candles.high
         # candles_l = candles.low
-        # if trend == 'bull' and candles_h[index] > candles_h[index - 1]:
-        #     direction = 'long'
-        # elif trend == 'bear' and candles_l[index] < candles_l[index - 1]:
-        #     direction = 'short'
-        # else:
-        #     direction = None
-        #     if self._operation == 'live':
-        #         print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
-        #             trend, candles_h[index - 1], candles_h[index], candles_l[index - 1], candles_l[index]
-        #         ))
-        #         self._log_skip_reason('3. There isn`t thrust')
+        # direction = rules.detect_thrust(
+        #     trend,
+        #     previous_high=candles_h[index - 1], high=candles_h[index],
+        #     previous_low=candles_l[index - 1], low=candles_l[index]
+        # )
+
+        # if direction = None and self._operation == 'live':
+        #     print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
+        #         trend, candles_h[index - 1], candles_h[index], candles_l[index - 1], candles_l[index]
+        #     ))
+        #     self._log_skip_reason('3. There isn`t thrust')
         return direction
 
     def __generate_entry_column(self, candles):
