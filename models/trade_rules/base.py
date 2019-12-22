@@ -41,7 +41,7 @@ def commit_positions(candles, long_indexes, short_indexes, spread):
     # INFO: position column の整理
     candles.position.fillna(method='ffill', inplace=True)
     position_ser = candles.position
-    candles.loc[:, 'position'] = np.where(position_ser == position_ser.shift(1), None, position_ser)
+    candles.loc[position_ser == position_ser.shift(1), 'position'] = None
 
     # INFO: entry したその足で exit した足があった場合、この処理が必須
     short_life_entries = candles.entryable_price.notna() & candles.exitable_price.notna()
