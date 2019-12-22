@@ -400,7 +400,7 @@ class Trader():
         return {'success': '[Trader] 売買判定終了', 'result': candles}
 
     def __backtest_wait_close(self):
-        ''' スキャルピングのentry pointを検出 '''
+        ''' swingでH4 close直後のみにentryする場合のentry pointを検出 '''
         candles = FXBase.get_candles().copy()
         self.__prepare_trade_signs(candles)
         candles['thrust'] = wait_close.generate_thrust_column(candles)
@@ -409,6 +409,17 @@ class Trader():
         self.__slide_prices_to_really_possible(candles=candles)
 
         candles.to_csv('./tmp/csvs/wait_close_data_dump.csv')
+        return {'success': '[Trader] 売買判定終了', 'result': candles}
+
+    def __backtest_scalping(self):
+        ''' スキャルピングのentry pointを検出 '''
+        candles = FXBase.get_candles().copy()
+        self.__prepare_trade_signs(candles)
+        candles['thrust'] = scalping.generate_repulsion_column(candles)
+        self.__generate_entry_column_for_wait_close(candles)
+        self.__slide_prices_to_really_possible(candles=candles)
+
+        candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
         return {'success': '[Trader] 売買判定終了', 'result': candles}
 
     def __prepare_trade_signs(self, candles):
@@ -441,10 +452,11 @@ class Trader():
             long_indexes=long_direction_index,
             short_indexes=short_direction_index
         )
-        self.__commit_positions(
+        rules.commit_positions(
             candles,
             long_indexes=long_direction_index,
-            short_indexes=short_direction_index
+            short_indexes=short_direction_index,
+            spread=self.__static_spread
         )
 
     # TODO: いまいち変 win lose の合計が trade_count と一致しない
@@ -462,10 +474,11 @@ class Trader():
             long_indexes=long_direction_index,
             short_indexes=short_direction_index
         )
-        self.__commit_positions(
+        rules.commit_positions(
             candles,
             long_indexes=long_direction_index,
-            short_indexes=short_direction_index
+            short_indexes=short_direction_index,
+            spread=self.__static_spread
         )
 
     def __judge_entryable(self, candles):
@@ -506,31 +519,6 @@ class Trader():
                               + self._stoploss_buffer_pips \
                               + self.__static_spread
         candles.loc[short_indexes, 'possible_stoploss'] = short_stoploss_prices
-
-    def __commit_positions(self, candles, long_indexes, short_indexes):
-        ''' set exit-timing, price '''
-        long_exits = np.all(np.array([
-            long_indexes, candles.low < candles.possible_stoploss
-        ]), axis=0)
-        candles.loc[long_exits, 'position'] = 'sell_exit'
-        candles.loc[long_exits, 'exitable_price'] = candles[long_exits].possible_stoploss
-
-        short_exits = np.all(np.array([
-            short_indexes, candles.high + self.__static_spread > candles.possible_stoploss
-        ]), axis=0)
-        candles.loc[short_exits, 'position'] = 'buy_exit'
-        candles.loc[short_exits, 'exitable_price'] = candles[short_exits].possible_stoploss
-
-        # INFO: position column の整理
-        candles.position.fillna(method='ffill', inplace=True)
-        position_ser = candles.position
-        candles.loc[:, 'position'] = np.where(position_ser == position_ser.shift(1), None, position_ser)
-
-        # INFO: entry したその足で exit した足があった場合、この処理が必須
-        short_life_entries = np.all(np.vstack(
-            (candles.entryable_price.notna(), candles.exitable_price.notna())
-        ).transpose(), axis=1)
-        candles.loc[short_life_entries, 'position'] = candles.entryable
 
     def __slide_prices_to_really_possible(self, candles):
         print('[Trader] start sliding ...')
@@ -667,21 +655,21 @@ class Trader():
     #     })
     #     self.__hist_positions[direction].append(self._position.copy())
 
-    def __decide_entry_price(self, direction, previous_high, previous_low, current_open, current_60ema):
-        custom_rule_on = os.environ.get('CUSTOM_RULE') == 'on'
-        if direction == 'long':
-            if custom_rule_on:
-                entry_price = max(previous_high, current_open + self.__static_spread, current_60ema)
-            else:
-                entry_price = max(previous_high, current_open + self.__static_spread)
-            stoploss = previous_low - self._stoploss_buffer_pips
-        elif direction == 'short':
-            if custom_rule_on:
-                entry_price = min(previous_low, current_open, current_60ema)
-            else:
-                entry_price = min(previous_low, current_open)
-            stoploss = previous_high + self._stoploss_buffer_pips + self.__static_spread
-        return entry_price, stoploss
+    # def __decide_entry_price(self, direction, previous_high, previous_low, current_open, current_60ema):
+    #     custom_rule_on = os.environ.get('CUSTOM_RULE') == 'on'
+    #     if direction == 'long':
+    #         if custom_rule_on:
+    #             entry_price = max(previous_high, current_open + self.__static_spread, current_60ema)
+    #         else:
+    #             entry_price = max(previous_high, current_open + self.__static_spread)
+    #         stoploss = previous_low - self._stoploss_buffer_pips
+    #     elif direction == 'short':
+    #         if custom_rule_on:
+    #             entry_price = min(previous_low, current_open, current_60ema)
+    #         else:
+    #             entry_price = min(previous_low, current_open)
+    #         stoploss = previous_high + self._stoploss_buffer_pips + self.__static_spread
+    #     return entry_price, stoploss
 
     def _trail_stoploss(self, new_stop, time):
         direction = self._position['type']

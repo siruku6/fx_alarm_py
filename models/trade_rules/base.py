@@ -26,3 +26,29 @@ def stoc_allows_entry(stod, stosd, trend):
         return True
 
     return False
+
+
+def commit_positions(candles, long_indexes, short_indexes, spread):
+    ''' set exit-timing, price '''
+    long_exits = np.all(np.array([
+        long_indexes, candles.low < candles.possible_stoploss
+    ]), axis=0)
+    candles.loc[long_exits, 'position'] = 'sell_exit'
+    candles.loc[long_exits, 'exitable_price'] = candles[long_exits].possible_stoploss
+
+    short_exits = np.all(np.array([
+        short_indexes, candles.high + spread > candles.possible_stoploss
+    ]), axis=0)
+    candles.loc[short_exits, 'position'] = 'buy_exit'
+    candles.loc[short_exits, 'exitable_price'] = candles[short_exits].possible_stoploss
+
+    # INFO: position column の整理
+    candles.position.fillna(method='ffill', inplace=True)
+    position_ser = candles.position
+    candles.loc[:, 'position'] = np.where(position_ser == position_ser.shift(1), None, position_ser)
+
+    # INFO: entry したその足で exit した足があった場合、この処理が必須
+    short_life_entries = np.all(np.vstack(
+        (candles.entryable_price.notna(), candles.exitable_price.notna())
+    ).transpose(), axis=1)
+    candles.loc[short_life_entries, 'position'] = candles.entryable
