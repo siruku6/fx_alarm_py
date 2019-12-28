@@ -8,6 +8,7 @@ from models.drawer import FigureDrawer
 from models.mathematics import range_2nd_decimal
 import models.trade_rules.base as rules
 import models.trade_rules.wait_close as wait_close
+import models.trade_rules.scalping as scalping
 import models.interface as i_face
 import models.statistics_module as statistics
 
@@ -415,9 +416,9 @@ class Trader():
         ''' スキャルピングのentry pointを検出 '''
         candles = FXBase.get_candles().copy()
         self.__prepare_trade_signs(candles)
-        candles['thrust'] = scalping.generate_repulsion_column(candles)
-        self.__generate_entry_column_for_wait_close(candles)
-        self.__slide_prices_to_really_possible(candles=candles)
+        candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
+        self.__generate_entry_column_for_scalping(candles)
+        # self.__slide_prices_to_really_possible(candles=candles)
 
         candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
         return {'success': '[Trader] 売買判定終了', 'result': candles}
@@ -476,6 +477,29 @@ class Trader():
         )
         rules.commit_positions(
             candles,
+            long_indexes=long_direction_index,
+            short_indexes=short_direction_index,
+            spread=self.__static_spread
+        )
+
+    def __generate_entry_column_for_scalping(self, candles):
+        print('[Trader] judging entryable or not ...')
+        wait_close.the_previous_satisfy_rules(candles)
+        self.__set_entryable_prices(candles)
+
+        entry_direction = candles.entryable.fillna(method='ffill')
+        long_direction_index = entry_direction == 'long'
+        short_direction_index = entry_direction == 'short'
+
+        self.__set_stoploss_prices(
+            candles,
+            long_indexes=long_direction_index,
+            short_indexes=short_direction_index
+        )
+        scalping.commit_positions(
+            candles,
+            self._indicators['band_+2σ'],
+            self._indicators['band_-2σ'],
             long_indexes=long_direction_index,
             short_indexes=short_direction_index,
             spread=self.__static_spread
