@@ -603,12 +603,17 @@ class Trader():
             drwr.draw_indicators(d_frame=dfs_indicator[i])
 
             # positions
-            long_entry_df = dfs_position[i][dfs_position[i].position == 'long']
-            close_df = dfs_position[i][
-                (dfs_position[i].position.isin(['long', 'short', 'sell_exit', 'buy_exit'])) \
-                & (~dfs_position[i].exitable_price.isna())
-            ].drop('price', axis=1).rename(columns={'exitable_price': 'price'})
-            short_entry_df = dfs_position[i][dfs_position[i].position == 'short']
+            long_entry_df = dfs_position[i][
+                dfs_position[i].position.isin(['long', 'sell_exit']) \
+                & (~dfs_position[i].price.isna())
+            ]
+            close_df = dfs_position[i][dfs_position[i].position.isin(['sell_exit', 'buy_exit'])] \
+                                   .drop('price', axis=1) \
+                                   .rename(columns={'exitable_price': 'price'})
+            short_entry_df = dfs_position[i][
+                dfs_position[i].position.isin(['short', 'buy_exit']) \
+                & (~dfs_position[i].price.isna())
+            ]
             trail_df = dfs_position[i][dfs_position[i].position != '-']
 
             drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
