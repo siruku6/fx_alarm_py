@@ -553,7 +553,8 @@ class Trader():
         m10_candles['time'] = m10_candles.index
         spread = self.__static_spread
 
-        position_index = candles.position.isin(['long', 'short'])
+        position_index = candles.position.isin(['long', 'short']) \
+                         | (candles.position.isin(['sell_exit', 'buy_exit']) & ~candles.entryable_price.isna())
         position_rows = candles[position_index][[
             'time', 'entryable_price', 'position'
         ]].to_dict('records')
@@ -564,7 +565,7 @@ class Trader():
             end = self.__add_candle_duration(start[:19])
             candles_in_granularity = m10_candles.loc[start:end, :].to_dict('records')
 
-            if row['position'] == 'long':
+            if row['position'] in ['long', 'sell_exit']:
                 for m10_candle in candles_in_granularity:
                     if row['entryable_price'] < m10_candle['high'] + spread:
                         row['price'] = m10_candle['high'] + spread
@@ -573,7 +574,7 @@ class Trader():
                 # INFO: 今のところ必要なさそう
                 # if not 'price' in row:
                 #     row['price'] = row['entryable_price']
-            elif row['position'] == 'short':
+            elif row['position'] in ['short', 'buy_exit']:
                 for m10_candle in candles_in_granularity:
                     if row['entryable_price'] > m10_candle['low']:
                         row['price'] = m10_candle['low']

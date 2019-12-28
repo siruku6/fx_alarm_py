@@ -139,16 +139,14 @@ def __calc_profit_2(copied_positions):
     copied_positions.loc[is_soon_exit, 'profit'] = \
         np.where(
             # INFO: long か short かで正負を逆にする
-            soon_exit_positions.position == 'long',
+            soon_exit_positions.position == 'sell_exit',
             (soon_exit_positions.exitable_price - soon_exit_positions.entry_price).map(__round_really),
             (soon_exit_positions.entry_price - soon_exit_positions.exitable_price).map(__round_really)
         )
 
     # INFO: entry 後、次の足までは position を持ち越した分の profit を計算
-    # HACK: exitした後その足ですぐentryしていた場合のための処理が混じっているため複雑になった 20191207
     continued_index = ((copied_positions.position == 'long') \
-                    | (copied_positions.position == 'short')) \
-                    & ~is_soon_exit  # ~ で、 series の真偽を反転
+                    | (copied_positions.position == 'short'))
     continued_positions = copied_positions[continued_index]
     next_positions = copied_positions.shift(-1)
     copied_positions.loc[continued_index, 'profit'] = \
