@@ -571,15 +571,14 @@ class Trader():
                         row['price'] = m10_candle['high'] + spread
                         row['time'] = m10_candle['time']
                         break
-                # INFO: 今のところ必要なさそう
-                # if not 'price' in row:
-                #     row['price'] = row['entryable_price']
             elif row['position'] in ['short', 'buy_exit']:
                 for m10_candle in candles_in_granularity:
                     if row['entryable_price'] > m10_candle['low']:
                         row['price'] = m10_candle['low']
                         row['time'] = m10_candle['time']
                         break
+            if not 'price' in row:
+                row['price'] = row['entryable_price']
 
         slided_positions = pd.DataFrame.from_dict(position_rows)
         # TODO: price 列がないときにエラーになる（なぜかprice列がないことがある...candlesが異様に短いときに発生した）
