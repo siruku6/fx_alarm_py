@@ -43,7 +43,7 @@ def aggregate_history(candles, hist_positions, granularity, stoploss_buffer, spr
         result['recovery_factor']                # 'Recovery Factor'
     ]
     result_df = DataFrame([result_row], columns=TRADE_RESULT_ITEMS)
-    result_df.to_csv('tmp/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
+    result_df.to_csv('tmp/csvs/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
     print('[Trader] トレード統計をcsv追記完了')
 
 
@@ -129,7 +129,7 @@ def aggregate_backtest_result(df_positions, granularity, stoploss_buffer, spread
         performance_result=performance_result
     )
     # TODO: 要削除 一時的なコード
-    positions.to_csv('./tmp/positions_dump.csv')
+    positions.to_csv('./tmp/csvs/positions_dump.csv')
 
 
 def __calc_profit_2(copied_positions):
@@ -215,7 +215,7 @@ def __append_performance_result_to_csv(granularity, sl_buf, spread, candles, per
         performance_result['recovery_factor']                # 'Recovery Factor'
     ]
     result_df = DataFrame([result_row], columns=TRADE_RESULT_ITEMS)
-    result_df.to_csv('tmp/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
+    result_df.to_csv('tmp/csvs/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
     print('[Trader] トレード統計(vectorized)をcsv追記完了')
 
 
