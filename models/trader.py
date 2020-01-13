@@ -309,59 +309,29 @@ class Trader():
         parabolic = self._indicators['SAR']
         position_type = self._position['type']
         stoploss_price = self._position['stoploss']
+        possible_stoploss = None
 
         if position_type == 'long':
             possible_stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
-            # if self._operation == 'live':
-            print('[Trader] position: {}, possible_SL: {}, stoploss: {}, (SL) possible < current: {}'.format(
-                position_type,
-                possible_stoploss,
-                stoploss_price,
-                possible_stoploss < stoploss_price
-            ))
-
-            # INFO: trailing
             if possible_stoploss > stoploss_price:  # and candles.high[index - 20:index].max() < candles.high[index]:
-                stoploss_price = possible_stoploss
-                self._trail_stoploss(
-                    new_stop=stoploss_price, time=candles.time[index]
-                )
-            # # INFO: 本番ではstoplossで決済されるので不要
-            # if self._operation != 'live' and stoploss_price > candles.low[index]:
-            #     self._settle_position(
-            #         index=index, price=stoploss_price, time=candles.time[index]
-            #     )
+                # stoploss_price = possible_stoploss
+                self._trail_stoploss(new_stop=possible_stoploss, time=candles.time[index])
             elif parabolic[index] > c_price:
                 exit_price = self.__ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
-                self._settle_position(
-                    index=index, price=exit_price, time=candles.time[index]
-                )
+                self._settle_position(index=index, price=exit_price, time=candles.time[index])
+
         elif position_type == 'short':
             possible_stoploss = candles.high[index - 1] + self._stoploss_buffer_pips + self.__static_spread
-            # if self._operation == 'live':
-            print('[Trader] position: {}, possible_SL: {}, stoploss: {}, (SL) possible < current: {}'.format(
-                position_type,
-                possible_stoploss,
-                stoploss_price,
-                possible_stoploss < stoploss_price
-            ))
-
-            # INFO: trailing
             if possible_stoploss < stoploss_price:  # and candles.low[index - 20:index].min() > candles.low[index]:
-                stoploss_price = possible_stoploss
-                self._trail_stoploss(
-                    new_stop=stoploss_price, time=candles.time[index]
-                )
-            # # INFO: 本番ではstoplossで決済されるので不要
-            # if self._operation != 'live' and stoploss_price < candles.high[index] + self.__static_spread:
-            #     self._settle_position(
-            #         index=index, price=stoploss_price, time=candles.time[index]
-            #     )
+                # stoploss_price = possible_stoploss
+                self._trail_stoploss(new_stop=possible_stoploss, time=candles.time[index])
             elif parabolic[index] < c_price + self.__static_spread:
                 exit_price = self.__ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
-                self._settle_position(
-                    index=index, price=exit_price, time=candles.time[index]
-                )
+                self._settle_position(index=index, price=exit_price, time=candles.time[index])
+
+        print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
+            position_type, possible_stoploss, stoploss_price
+        ))
 
     #
     # private
