@@ -235,10 +235,10 @@ class Analyzer():
 
             # レートがparabolicに触れたときの処理
             if self.__parabolic_is_touched(
-                bull=bull,
-                current_parabo=last_sar,
-                current_h=current_high, current_l=current_low
-            ):
+                    bull=bull,
+                    current_parabo=last_sar,
+                    current_h=current_high, current_l=current_low
+                ):
                 temp_sar = extreme_price
                 acceleration_factor = Analyzer.INITIAL_AF
                 if bull:
@@ -287,25 +287,25 @@ class Analyzer():
     def __calc_STOK(self, window_size=5):
         ''' ストキャスの%Kを計算 '''
         candles = FXBase.get_candles()
-        stoK = ((candles.close - candles.low.rolling(window=window_size, center=False).min()) / (
+        stok = ((candles.close - candles.low.rolling(window=window_size, center=False).min()) / (
             candles.high.rolling(window=window_size, center=False).max()
             - candles.low.rolling(window=window_size, center=False).min()
         )) * 100
-        return stoK
+        return stok
 
     def __calc_STOD(self, window_size):
         ''' ストキャスの%Dを計算（%Kの3日SMA） '''
-        stoK = self.__calc_STOK(window_size)
-        stoD = stoK.rolling(window=3, center=False).mean()
-        stoD.name = 'stoD:3'
-        return stoD
+        stok = self.__calc_STOK(window_size)
+        stod = stok.rolling(window=3, center=False).mean()
+        stod.name = 'stoD:3'
+        return stod
 
     def __calc_STOSD(self, window_size):
         ''' ストキャスの%SDを計算（%Dの3日SMA） '''
-        stoD = self.__calc_STOD(window_size)
-        stoSD = stoD.rolling(window=3, center=False).mean()
-        stoSD.name = 'stoSD:3'
-        return stoSD
+        stod = self.__calc_STOD(window_size)
+        stosd = stod.rolling(window=3, center=False).mean()
+        stosd.name = 'stoSD:3'
+        return stosd
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                Support / Registance                 #
