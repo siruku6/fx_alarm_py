@@ -485,7 +485,7 @@ class Trader():
     def __generate_entry_column_for_scalping(self, candles):
         print('[Trader] judging entryable or not ...')
         wait_close.the_previous_satisfy_rules(candles)
-        self.__set_entryable_prices(candles)
+        scalping.set_entryable_prices(candles, self.__static_spread)
 
         entry_direction = candles.entryable.fillna(method='ffill')
         long_direction_index = entry_direction == 'long'

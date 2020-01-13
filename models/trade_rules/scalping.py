@@ -35,6 +35,18 @@ def the_previous_satisfy_rules(candles):
     candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
 
 
+def set_entryable_prices(candles, spread):
+    ''' entry した場合の price を candles dataframe に設定 '''
+    long_index = candles.entryable == 'long'
+    short_index = candles.entryable == 'short'
+    candles.loc[long_index, 'entryable_price'] = candles[long_index].open + spread
+    candles.loc[short_index, 'entryable_price'] = candles[short_index].open
+
+
+def set_stoploss_prices(candles):
+    pass
+
+
 def commit_positions(candles, plus2sigma, minus2sigma, long_indexes, short_indexes, spread):
     ''' set exit-timing, price '''
     # bollinger_band に達したことによる exit
@@ -64,10 +76,9 @@ def commit_positions(candles, plus2sigma, minus2sigma, long_indexes, short_index
     candles.loc[short_exits_by_sl, 'exitable_price'] = candles[short_exits_by_sl].possible_stoploss
 
     # INFO: position column の整理
-    import pdb; pdb.set_trace()
     candles.position.fillna(method='ffill', inplace=True)
-    # candles.loc[candles.position == candles.position.shift(1), 'position'] = None
-
-    # INFO: entry したその足で exit した足があった場合、この処理が必須
-    short_life_entries = candles.entryable_price.notna() & candles.exitable_price.notna()
-    candles.loc[short_life_entries, 'position'] = candles.entryable
+    # INFO: 2連続entry, entryなしでのexitを除去
+    no_position_index = (candles.position == candles.position.shift(1)) \
+                        & (candles.entryable_price.isna() | candles.exitable_price.isna())
+    candles.loc[no_position_index, 'position'] = None
+    candles['entry_price'] = candles.entryable_price
