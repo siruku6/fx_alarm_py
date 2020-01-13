@@ -1,4 +1,5 @@
-import math
+# import math
+import numpy as np
 import pandas as pd
 # from scipy.stats import linregress
 from models.oanda_py_client import FXBase
@@ -22,7 +23,9 @@ class Analyzer():
             'SIGMA*-2_BAND': None,
             'SAR': None,
             'stoD': None,
-            'stoSD': None
+            'stoSD': None,
+            'support': None,
+            'regist': None
         }
 
         # Trendline
@@ -44,6 +47,8 @@ class Analyzer():
         self.__calc_parabolic(candles=candles)
         self.__indicators['stoD'] = self.__calc_STOD(window_size=5)
         self.__indicators['stoSD'] = self.__calc_STOSD(window_size=5)
+        self.__indicators['regist'] = self.__calc_registance(high_candles=candles.high)
+        self.__indicators['support'] = self.__calc_support(low_candles=candles.low)
         # result = self.__calc_trendlines()
         # if 'success' in result:
         #     print(result['success'])
@@ -62,7 +67,9 @@ class Analyzer():
                 self.__indicators['SIGMA*-2_BAND'],
                 self.__indicators['SAR'],
                 self.__indicators['stoD'],
-                self.__indicators['stoSD']
+                self.__indicators['stoSD'],
+                self.__indicators['regist'],
+                self.__indicators['support']
             ],
             axis=1
         )
@@ -200,8 +207,8 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                   Parabolic SAR                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def calc_next_parabolic(self, last_sar, ep, acceleration_f=INITIAL_AF):
-        return last_sar + acceleration_f * (ep - last_sar)
+    def calc_next_parabolic(self, last_sar, extr_price, acceleration_f=INITIAL_AF):
+        return last_sar + acceleration_f * (extr_price - last_sar)
 
     def __parabolic_is_touched(self, bull, current_parabo, current_h, current_l):
         if bull and (current_parabo > current_l):
@@ -244,7 +251,7 @@ class Analyzer():
                 # SARの仮決め
                 # temp_sar = last_sar + acceleration_factor * (extreme_price - last_sar)
                 temp_sar = self.calc_next_parabolic(
-                    last_sar=last_sar, ep=extreme_price, acceleration_f=acceleration_factor
+                    last_sar=last_sar, extr_price=extreme_price, acceleration_f=acceleration_factor
                 )
 
                 # AFの更新
@@ -299,3 +306,24 @@ class Analyzer():
         stoSD = stoD.rolling(window=3, center=False).mean()
         stoSD.name = 'stoSD:3'
         return stoSD
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #                Support / Registance                 #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def __calc_registance(self, high_candles):
+        regist_points = \
+            (pd.Series.rolling(high_candles, window=7).max() == high_candles) \
+            & (high_candles.shift(1) < high_candles) \
+            & (high_candles > high_candles.shift(-1))
+        return pd.Series(np.where(regist_points, high_candles, None)) \
+                 .fillna(method='ffill') \
+                 .rename('regist', inplace=True)
+
+    def __calc_support(self, low_candles):
+        support_points = \
+            (pd.Series.rolling(low_candles, window=7).min() == low_candles) \
+            & (low_candles.shift(1) > low_candles) \
+            & (low_candles < low_candles.shift(-1))
+        return pd.Series(np.where(support_points, low_candles, None)) \
+                 .fillna(method='ffill') \
+                 .rename('support', inplace=True)

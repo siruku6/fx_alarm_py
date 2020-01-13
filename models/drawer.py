@@ -41,11 +41,13 @@ class FigureDrawer():
         self.draw_df_on_plt(d_frame.loc[:, ['band_-1σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='midnightblue', nolabel='_nolegend_')
         self.draw_df_on_plt(d_frame.loc[:, ['band_+2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue')
         self.draw_df_on_plt(d_frame.loc[:, ['band_-2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
-        self.draw_df_on_plt(d_frame.loc[:, ['SAR']],      FigureDrawer.PLOT_TYPE['dot'],         color='purple')
-        self.draw_df_on_plt(d_frame.loc[:, ['stoD:3']],   FigureDrawer.PLOT_TYPE['simple-line'], color='turquoise', plt_id=2)
-        self.draw_df_on_plt(d_frame.loc[:, ['stoSD:3']],  FigureDrawer.PLOT_TYPE['simple-line'], color='orangered', plt_id=2)
+        self.draw_df_on_plt(d_frame.loc[:, ['SAR']], FigureDrawer.PLOT_TYPE['dot'], color='purple')
+        self.draw_df_on_plt(d_frame.loc[:, ['stoD:3']], FigureDrawer.PLOT_TYPE['simple-line'], color='turquoise', plt_id=2)
+        self.draw_df_on_plt(d_frame.loc[:, ['stoSD:3']], FigureDrawer.PLOT_TYPE['simple-line'], color='orangered', plt_id=2)
+        self.draw_df_on_plt(d_frame.loc[:, ['regist']], FigureDrawer.PLOT_TYPE['dot'], color='orangered', size=0.5)
+        self.draw_df_on_plt(d_frame.loc[:, ['support']], FigureDrawer.PLOT_TYPE['dot'], color='blue', size=0.5)
 
-    def draw_df_on_plt(self, d_frame, plot_type, color='black', nolabel=None, plt_id=1):
+    def draw_df_on_plt(self, d_frame, plot_type, color='black', size=1, nolabel=None, plt_id=1):
         ''' DataFrameを受け取って、各columnを描画 '''
         # エラー防止処理
         if d_frame is None:
@@ -65,13 +67,12 @@ class FigureDrawer():
                 plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linestyle='dashed', linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
             for key, column in d_frame.iteritems():
-                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=1)
+                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=size, alpha=0.5)
 
         return {'success': 'd_frameを描画'}
 
-    def draw_positions_df(self, positions_df, plot_type=PLOT_TYPE['long'], nolabel=None):
+    def draw_positions_df(self, positions_df, plot_type=PLOT_TYPE['long'], size=20, nolabel=None):
         ''' __hist_positionsから抽出したdfを受け取って描画 '''
-        trade_marker_size = 20
         if plot_type == FigureDrawer.PLOT_TYPE['long']:
             color = 'white'
             edgecolors = 'green'
@@ -100,7 +101,7 @@ class FigureDrawer():
         self.__axis1.scatter(
             x=positions_df.sequence, y=prices,
             marker=mark, edgecolors=edgecolors, label=nolabel or label,
-            color=color, s=trade_marker_size, linewidths=0.7
+            color=color, s=size, linewidths=0.7
         )
 
     # INFO: 今は使われていない
