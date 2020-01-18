@@ -98,7 +98,7 @@ class RealTrader(Trader):
 
             self._create_position(last_index, direction)
         else:
-            self._judge_settle_position()
+            self._judge_settle_position(last_index, close_price, candles)
 
         print('[Trader] -------- end --------')
         return None
