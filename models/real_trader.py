@@ -2,6 +2,7 @@ import os
 from models.oanda_py_client import FXBase
 from models.trader import Trader
 import models.trade_rules.base as rules
+import models.trade_rules.scalping as scalping
 
 class RealTrader(Trader):
     ''' トレードルールに基づいてOandaへの発注を行うclass '''
@@ -13,6 +14,7 @@ class RealTrader(Trader):
     #
     def apply_trading_rule(self):
         self.__play_swing_trade()
+        # self.__play_scalping_trade()
 
     #
     # Override shared methods
@@ -47,21 +49,8 @@ class RealTrader(Trader):
         result = self._client.request_trailing_stoploss(stoploss_price=new_stop)
         print(result)
 
-    def _settle_position(self, index, price, time):
-        '''
-        ポジションをcloseする
-
-        Parameters
-        ----------
-        index : int
-        price : float
-        time : string
-            全て不要
-
-        Returns
-        -------
-        None
-        '''
+    def __settle_position(self):
+        ''' ポジションをcloseする '''
         from pprint import pprint
         pprint(self._client.request_closing_position())
 
@@ -78,7 +67,7 @@ class RealTrader(Trader):
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
-            trend = self._check_trend(index=last_index, c_price=close_price)
+            trend = self.__detect_latest_trend(index=last_index, c_price=close_price)
             if trend is None:
                 return
 
@@ -109,7 +98,75 @@ class RealTrader(Trader):
 
             self._create_position(last_index, direction)
         else:
-            self._judge_settle_position(last_index, close_price, candles)
+            self._judge_settle_position()
+
+        print('[Trader] -------- end --------')
+        return None
+
+    def _judge_settle_position(self, index, c_price, candles):
+        parabolic = self._indicators['SAR']
+        position_type = self._position['type']
+        stoploss_price = self._position['stoploss']
+        possible_stoploss = None
+
+        if position_type == 'long':
+            possible_stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
+            if possible_stoploss > stoploss_price:  # and candles.high[index - 20:index].max() < candles.high[index]:
+                stoploss_price = possible_stoploss
+                self._trail_stoploss(new_stop=possible_stoploss, time=candles.time[index])
+            elif parabolic[index] > c_price:
+                # exit_price = self._ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
+                self.__settle_position()
+
+        elif position_type == 'short':
+            possible_stoploss = candles.high[index - 1] + self._stoploss_buffer_pips + self._static_spread
+            if possible_stoploss < stoploss_price:  # and candles.low[index - 20:index].min() > candles.low[index]:
+                stoploss_price = possible_stoploss
+                self._trail_stoploss(new_stop=possible_stoploss, time=candles.time[index])
+            elif parabolic[index] < c_price + self._static_spread:
+                # exit_price = self._ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
+                self.__settle_position()
+
+        print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
+            position_type, possible_stoploss, stoploss_price
+        ))
+
+    def __play_scalping_trade(self):
+        ''' 現在のレートにおいて、scalpingルールでトレード '''
+        print('[Trader] -------- start --------')
+        last_index = len(self._indicators) - 1
+        candles = FXBase.get_candles()
+        close_price = candles.close.values[-1]
+        indicators = self._indicators
+
+        self._set_position(self.__load_position())
+        if self._position['type'] == 'none':
+            trend = self.__detect_latest_trend(index=last_index, c_price=close_price)
+            if trend is None:
+                return
+            if self._over_2_sigma(last_index, price=close_price):
+                return
+
+            direction = scalping.repulsion_exist(
+                trend=trend, ema=indicators['EMA'].values[-1],
+                two_before_high=candles.high.values[-3], previous_high=candles.high.values[-2],
+                two_before_low=candles.low.values[-3], previous_low=candles.low.values[-2]
+            )
+            if direction is None:
+                print('[Trader] repulsion is not exist')
+                return
+
+            self._create_position(last_index, direction)
+        else:
+            # self._judge_settle_position(last_index, close_price, candles)
+            if scalping.position_is_exitable(
+                    close_price, indicators['band_+2σ'][last_index], indicators['band_-2σ'][last_index]
+                ):
+                self.__settle_position()
+
+        # print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
+        #     self._position['type'], possible_stoploss, stoploss_price
+        # ))
 
         print('[Trader] -------- end --------')
         return None
@@ -136,7 +193,7 @@ class RealTrader(Trader):
     #
     #  apply each rules
     #
-    def _check_trend(self, index, c_price):
+    def __detect_latest_trend(self, index, c_price):
         '''
         ルールに基づいてトレンドの有無を判定
         '''

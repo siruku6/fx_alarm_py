@@ -23,10 +23,10 @@ class Trader():
             self.__static_options['be_drawn'] = i_face.ask_true_or_false(msg='[Trader] 画像描画する？ [1]:Yes, [2]:No : ')
             self.__drawer = None
             self.__instrument = inst['name']
-            self.__static_spread = inst['spread']
+            self._static_spread = inst['spread']
         else:
             self.__instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
-            self.__static_spread = 0.0
+            self._static_spread = 0.0
 
         self._operation = operation
         self._client = OandaPyClient(instrument=self.get_instrument())
@@ -49,15 +49,15 @@ class Trader():
             return
 
         self._client.request_current_price()
-        self.__ana = Analyzer()
-        result = self.__ana.calc_indicators()
+        self._ana = Analyzer()
+        result = self._ana.calc_indicators()
         if 'error' in result:
             self._log_skip_reason(result['error'])
             return
         elif operation != 'live':
             print(result['success'])
 
-        self._indicators = self.__ana.get_indicators()
+        self._indicators = self._ana.get_indicators()
         self.__initialize_position_variables()
 
     def __initialize_position_variables(self):
@@ -88,7 +88,7 @@ class Trader():
             df_positions=df_positions,
             granularity=self.__granularity,
             stoploss_buffer=self._stoploss_buffer_pips,
-            spread=self.__static_spread
+            spread=self._static_spread
         )
         df_positions = self.__wrangle_result_for_graph(result['result'][
             ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
@@ -305,34 +305,6 @@ class Trader():
         #     self._log_skip_reason('3. There isn`t thrust')
         return direction
 
-    def _judge_settle_position(self, index, c_price, candles):
-        parabolic = self._indicators['SAR']
-        position_type = self._position['type']
-        stoploss_price = self._position['stoploss']
-        possible_stoploss = None
-
-        if position_type == 'long':
-            possible_stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
-            if possible_stoploss > stoploss_price:  # and candles.high[index - 20:index].max() < candles.high[index]:
-                # stoploss_price = possible_stoploss
-                self._trail_stoploss(new_stop=possible_stoploss, time=candles.time[index])
-            elif parabolic[index] > c_price:
-                exit_price = self.__ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
-                self._settle_position(index=index, price=exit_price, time=candles.time[index])
-
-        elif position_type == 'short':
-            possible_stoploss = candles.high[index - 1] + self._stoploss_buffer_pips + self.__static_spread
-            if possible_stoploss < stoploss_price:  # and candles.low[index - 20:index].min() > candles.low[index]:
-                # stoploss_price = possible_stoploss
-                self._trail_stoploss(new_stop=possible_stoploss, time=candles.time[index])
-            elif parabolic[index] < c_price + self.__static_spread:
-                exit_price = self.__ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
-                self._settle_position(index=index, price=exit_price, time=candles.time[index])
-
-        print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
-            position_type, possible_stoploss, stoploss_price
-        ))
-
     #
     # private
     #
@@ -427,7 +399,7 @@ class Trader():
             candles,
             long_indexes=long_direction_index,
             short_indexes=short_direction_index,
-            spread=self.__static_spread
+            spread=self._static_spread
         )
 
     # TODO: いまいち変 win lose の合計が trade_count と一致しない
@@ -449,13 +421,13 @@ class Trader():
             candles,
             long_indexes=long_direction_index,
             short_indexes=short_direction_index,
-            spread=self.__static_spread
+            spread=self._static_spread
         )
 
     def __generate_entry_column_for_scalping(self, candles):
         print('[Trader] judging entryable or not ...')
         wait_close.the_previous_satisfy_rules(candles)
-        scalping.set_entryable_prices(candles, self.__static_spread)
+        scalping.set_entryable_prices(candles, self._static_spread)
 
         entry_direction = candles.entryable.fillna(method='ffill')
         long_direction_index = entry_direction == 'long'
@@ -472,7 +444,7 @@ class Trader():
             self._indicators['band_-2σ'],
             long_indexes=long_direction_index,
             short_indexes=short_direction_index,
-            spread=self.__static_spread
+            spread=self._static_spread
         )
 
     def __judge_entryable(self, candles):
@@ -491,7 +463,7 @@ class Trader():
         long_entry_prices = pd.DataFrame({
             'previous_high': candles.shift(1)[long_index].high,
             'current_open': candles[long_index].open
-        }).max(axis=1) + self.__static_spread
+        }).max(axis=1) + self._static_spread
         candles.loc[long_index, 'entryable_price'] = long_entry_prices
 
         # INFO: short-entry
@@ -511,7 +483,7 @@ class Trader():
         # INFO: short-stoploss
         short_stoploss_prices = candles.shift(1)[short_indexes].high \
                               + self._stoploss_buffer_pips \
-                              + self.__static_spread
+                              + self._static_spread
         candles.loc[short_indexes, 'possible_stoploss'] = short_stoploss_prices
 
     def __slide_prices_to_really_possible(self, candles):
@@ -521,7 +493,7 @@ class Trader():
         # INFO: 実は、candlesのlastrow分のm10candlesがない
         m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
         m10_candles['time'] = m10_candles.index
-        spread = self.__static_spread
+        spread = self._static_spread
 
         position_index = candles.position.isin(['long', 'short']) \
                          | (candles.position.isin(['sell_exit', 'buy_exit']) & ~candles.entryable_price.isna())
@@ -658,49 +630,49 @@ class Trader():
     #     custom_rule_on = os.environ.get('CUSTOM_RULE') == 'on'
     #     if direction == 'long':
     #         if custom_rule_on:
-    #             entry_price = max(previous_high, current_open + self.__static_spread, current_60ema)
+    #             entry_price = max(previous_high, current_open + self._static_spread, current_60ema)
     #         else:
-    #             entry_price = max(previous_high, current_open + self.__static_spread)
+    #             entry_price = max(previous_high, current_open + self._static_spread)
     #         stoploss = previous_low - self._stoploss_buffer_pips
     #     elif direction == 'short':
     #         if custom_rule_on:
     #             entry_price = min(previous_low, current_open, current_60ema)
     #         else:
     #             entry_price = min(previous_low, current_open)
-    #         stoploss = previous_high + self._stoploss_buffer_pips + self.__static_spread
+    #         stoploss = previous_high + self._stoploss_buffer_pips + self._static_spread
     #     return entry_price, stoploss
 
-    def _trail_stoploss(self, new_stop, time):
-        direction = self._position['type']
-        self._position['stoploss'] = new_stop
-        position_after_trailing = self._position.copy()
-        position_after_trailing['type'] = 'trail'
-        position_after_trailing['time'] = time
-        self.__hist_positions[direction].append(position_after_trailing)
+    # def _trail_stoploss(self, new_stop, time):
+    #     direction = self._position['type']
+    #     self._position['stoploss'] = new_stop
+    #     position_after_trailing = self._position.copy()
+    #     position_after_trailing['type'] = 'trail'
+    #     position_after_trailing['time'] = time
+    #     self.__hist_positions[direction].append(position_after_trailing)
 
-    def _settle_position(self, index, price, time):
-        '''
-        ポジション解消の履歴を残す
+    # def _settle_position(self, index, price, time):
+    #     '''
+    #     ポジション解消の履歴を残す
 
-        Parameters
-        ----------
-        index : int
-            ポジションを解消するタイミングを表す
-        price : float
-            ポジション解消時の価格
-        time : string
-            ポジションを解消する日（時）
+    #     Parameters
+    #     ----------
+    #     index : int
+    #         ポジションを解消するタイミングを表す
+    #     price : float
+    #         ポジション解消時の価格
+    #     time : string
+    #         ポジションを解消する日（時）
 
-        Returns
-        -------
-        None
-        '''
-        direction = self._position['type']
-        self._set_position({'type': 'none'})
-        self.__hist_positions[direction].append({
-            'sequence': index, 'price': price,
-            'stoploss': 0.0, 'type': 'close', 'time': time
-        })
+    #     Returns
+    #     -------
+    #     None
+    #     '''
+    #     direction = self._position['type']
+    #     self._set_position({'type': 'none'})
+    #     self.__hist_positions[direction].append({
+    #         'sequence': index, 'price': price,
+    #         'stoploss': 0.0, 'type': 'close', 'time': time
+    #     })
 
     def _log_skip_reason(self, reason):
         print('[Trader] skip: {}'.format(reason))
@@ -752,134 +724,3 @@ class Trader():
             df_target['sequence'] = df_target.sequence - start
             dfs.append(df_target)
         return dfs
-
-
-# class RealTrader(Trader):
-#     ''' トレードルールに基づいてOandaへの発注を行うclass '''
-#     def __init__(self, operation='verification'):
-#         super(RealTrader, self).__init__(operation=operation)
-
-#     #
-#     # Public
-#     #
-#     def apply_trading_rule(self):
-#         self.__play_swing_trade()
-
-#     #
-#     # Override shared methods
-#     #
-#     def _create_position(self, index, direction):
-#         '''
-#         ルールに基づいてポジションをとる(Oanda通信有)
-#         '''
-#         candles = FXBase.get_candles()
-#         if direction == 'long':
-#             sign = ''
-#             stoploss = candles.low[index - 1]
-#         elif direction == 'short':
-#             sign = '-'
-#             stoploss = candles.high[index - 1] + self._stoploss_buffer_pips
-#         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
-
-#     def _trail_stoploss(self, new_stop, time):
-#         '''
-#         ポジションのstoploss-priceを強気方向へ修正する
-#         Parameters
-#         ----------
-#         new_stop : float
-#             新しいstoploss-price
-#         time : string
-#             不要
-
-#         Returns
-#         -------
-#         None
-#         '''
-#         result = self._client.request_trailing_stoploss(stoploss_price=new_stop)
-#         print(result)
-
-#     def _settle_position(self, index, price, time):
-#         '''
-#         ポジションをcloseする
-
-#         Parameters
-#         ----------
-#         index : int
-#         price : float
-#         time : string
-#             全て不要
-
-#         Returns
-#         -------
-#         None
-#         '''
-#         from pprint import pprint
-#         pprint(self._client.request_closing_position())
-
-#     #
-#     # Private
-#     #
-#     def __play_swing_trade(self):
-#         ''' 現在のレートにおいて、スイングトレードルールでトレード '''
-#         print('[Trader] -------- start --------')
-#         last_index = len(self._indicators) - 1
-#         candles = FXBase.get_candles()
-#         close_price = candles.close.values[-1]
-#         indicators = self._indicators
-
-#         self._set_position(self.__load_position())
-#         if self._position['type'] == 'none':
-#             trend = self._check_trend(index=last_index, c_price=close_price)
-#             if trend is None:
-#                 return
-
-#             if os.environ.get('CUSTOM_RULE') == 'on':
-#                 if not self._sma_run_along_trend(last_index, trend):
-#                     return
-#                 ema60 = indicators['60EMA'][last_index]
-#                 if not (trend == 'bull' and ema60 < close_price \
-#                         or trend == 'bear' and ema60 > close_price):
-#                     print('[Trader] c. 60EMA does not allow, c_price: {}, 60EMA: {}, trend: {}'.format(
-#                         close_price, ema60, trend
-#                     ))
-#                     return
-#                 bands_gap = indicators['band_+2σ'] - indicators['band_-2σ']
-#                 if bands_gap[last_index - 3] > bands_gap[last_index]:
-#                     print('[Trader] c. band is shrinking...')
-#                     return
-#                 if self._over_2_sigma(last_index, price=close_price):
-#                     return
-#                 if not self._expand_moving_average_gap(last_index, trend):
-#                     return
-#                 if not self._stochastic_allow_trade(last_index, trend):
-#                     return
-
-#             direction = self._find_thrust(last_index, candles, trend)
-#             if direction is None:
-#                 return
-
-#             self._create_position(last_index, direction)
-#         else:
-#             self._judge_settle_position(last_index, close_price, candles)
-
-#         print('[Trader] -------- end --------')
-#         return None
-
-#     def __load_position(self):
-#         pos = {'type': 'none'}
-#         open_trades = self._client.request_open_trades()
-#         if open_trades == []:
-#             return pos
-
-#         # Open position の情報抽出
-#         target = open_trades[0]
-#         pos['price'] = float(target['price'])
-#         if target['currentUnits'][0] == '-':
-#             pos['type'] = 'short'
-#         else:
-#             pos['type'] = 'long'
-#         if 'stopLossOrder' not in target:
-#             return pos
-
-#         pos['stoploss'] = float(target['stopLossOrder']['price'])
-#         return pos
