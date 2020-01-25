@@ -609,23 +609,6 @@ class Trader():
 
         return positions_df
 
-    # def _create_position(self, index, direction, candles):
-    #     '''
-    #     ルールに基づいてポジションをとる(検証用)
-    #     '''
-    #     entry_price, stoploss = self.__decide_entry_price(
-    #         direction=direction,
-    #         previous_high=candles.high[index - 1],
-    #         previous_low=candles.low[index - 1],
-    #         current_open=candles.open[index],
-    #         current_60ema=self._indicators['60EMA'][index]
-    #     )
-    #     self._set_position({
-    #         'sequence': index, 'price': entry_price, 'stoploss': stoploss,
-    #         'type': direction, 'time': candles.time[index]
-    #     })
-    #     self.__hist_positions[direction].append(self._position.copy())
-
     # def __decide_entry_price(self, direction, previous_high, previous_low, current_open, current_60ema):
     #     custom_rule_on = os.environ.get('CUSTOM_RULE') == 'on'
     #     if direction == 'long':
@@ -641,38 +624,6 @@ class Trader():
     #             entry_price = min(previous_low, current_open)
     #         stoploss = previous_high + self._stoploss_buffer_pips + self._static_spread
     #     return entry_price, stoploss
-
-    # def _trail_stoploss(self, new_stop, time):
-    #     direction = self._position['type']
-    #     self._position['stoploss'] = new_stop
-    #     position_after_trailing = self._position.copy()
-    #     position_after_trailing['type'] = 'trail'
-    #     position_after_trailing['time'] = time
-    #     self.__hist_positions[direction].append(position_after_trailing)
-
-    # def _settle_position(self, index, price, time):
-    #     '''
-    #     ポジション解消の履歴を残す
-
-    #     Parameters
-    #     ----------
-    #     index : int
-    #         ポジションを解消するタイミングを表す
-    #     price : float
-    #         ポジション解消時の価格
-    #     time : string
-    #         ポジションを解消する日（時）
-
-    #     Returns
-    #     -------
-    #     None
-    #     '''
-    #     direction = self._position['type']
-    #     self._set_position({'type': 'none'})
-    #     self.__hist_positions[direction].append({
-    #         'sequence': index, 'price': price,
-    #         'stoploss': 0.0, 'type': 'close', 'time': time
-    #     })
 
     def _log_skip_reason(self, reason):
         print('[Trader] skip: {}'.format(reason))
