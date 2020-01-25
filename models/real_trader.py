@@ -13,8 +13,8 @@ class RealTrader(Trader):
     # Public
     #
     def apply_trading_rule(self):
-        self.__play_swing_trade()
-        # self.__play_scalping_trade()
+        # self.__play_swing_trade()
+        self.__play_scalping_trade()
 
     #
     # Override shared methods
@@ -32,15 +32,13 @@ class RealTrader(Trader):
             stoploss = candles.high[index - 1] + self._stoploss_buffer_pips
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
 
-    def _trail_stoploss(self, new_stop, time):
+    def _trail_stoploss(self, new_stop):
         '''
         ポジションのstoploss-priceを強気方向へ修正する
         Parameters
         ----------
         new_stop : float
             新しいstoploss-price
-        time : string
-            不要
 
         Returns
         -------
@@ -113,7 +111,7 @@ class RealTrader(Trader):
             possible_stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
             if possible_stoploss > stoploss_price:  # and candles.high[index - 20:index].max() < candles.high[index]:
                 stoploss_price = possible_stoploss
-                self._trail_stoploss(new_stop=possible_stoploss, time=candles.time[index])
+                self._trail_stoploss(new_stop=possible_stoploss)
             elif parabolic[index] > c_price:
                 # exit_price = self._ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
                 self.__settle_position()
@@ -122,7 +120,7 @@ class RealTrader(Trader):
             possible_stoploss = candles.high[index - 1] + self._stoploss_buffer_pips + self._static_spread
             if possible_stoploss < stoploss_price:  # and candles.low[index - 20:index].min() > candles.low[index]:
                 stoploss_price = possible_stoploss
-                self._trail_stoploss(new_stop=possible_stoploss, time=candles.time[index])
+                self._trail_stoploss(new_stop=possible_stoploss)
             elif parabolic[index] < c_price + self._static_spread:
                 # exit_price = self._ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
                 self.__settle_position()
@@ -131,6 +129,7 @@ class RealTrader(Trader):
             position_type, possible_stoploss, stoploss_price
         ))
 
+    # TODO: 実装はいったん終わり、検証中
     def __play_scalping_trade(self):
         ''' 現在のレートにおいて、scalpingルールでトレード '''
         print('[Trader] -------- start --------')
@@ -148,25 +147,30 @@ class RealTrader(Trader):
                 return
 
             direction = scalping.repulsion_exist(
-                trend=trend, ema=indicators['EMA'].values[-1],
+                trend=trend, ema=indicators['10EMA'].values[-1],
                 two_before_high=candles.high.values[-3], previous_high=candles.high.values[-2],
                 two_before_low=candles.low.values[-3], previous_low=candles.low.values[-2]
             )
             if direction is None:
-                print('[Trader] repulsion is not exist')
+                print('[Trader] repulsion is not exist ... 10EMA: {}'.format(indicators['10EMA'].values[-1]))
                 return
 
             self._create_position(last_index, direction)
         else:
-            # self._judge_settle_position(last_index, close_price, candles)
+            new_stop = scalping.new_stoploss_price(
+                position_type=self._position['type'], old_stoploss=self._position['stoploss'],
+                current_sup=indicators.at[last_index, 'support'], current_regist=indicators.at[last_index, 'regist']
+            )
+            if new_stop is not None:
+                self._trail_stoploss(new_stop=new_stop)
             if scalping.position_is_exitable(
-                    close_price, indicators['band_+2σ'][last_index], indicators['band_-2σ'][last_index]
+                    close_price, indicators.at[last_index, 'band_+2σ'], indicators.at[last_index, 'band_-2σ']
                 ):
                 self.__settle_position()
 
-        # print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
-        #     self._position['type'], possible_stoploss, stoploss_price
-        # ))
+        print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
+            self._position['type'], new_stop, self._position['stoploss']
+        ))
 
         print('[Trader] -------- end --------')
         return None

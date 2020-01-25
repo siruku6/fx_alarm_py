@@ -1,6 +1,7 @@
 import numpy as np
 
 
+# INFO: backtest用の処理
 def generate_repulsion_column(candles, ema):
     method_thrust_checker = np.frompyfunc(repulsion_exist, 6, 1)
     result = method_thrust_checker(
@@ -12,6 +13,7 @@ def generate_repulsion_column(candles, ema):
 
 
 def repulsion_exist(trend, ema, two_before_high, previous_high, two_before_low, previous_low):
+    ''' 1, 2本前の足から見て、trend方向にcrossしていればentry可のsignを出す '''
     if trend == 'bull' \
         and two_before_high < previous_high \
         and ema < previous_high \
@@ -25,6 +27,7 @@ def repulsion_exist(trend, ema, two_before_high, previous_high, two_before_low, 
     return None
 
 
+# INFO: backtest用の処理
 def the_previous_satisfy_rules(candles):
     ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
     satisfy_preconditions = np.all(
@@ -35,6 +38,7 @@ def the_previous_satisfy_rules(candles):
     candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
 
 
+# INFO: backtest用の処理
 def set_entryable_prices(candles, spread):
     ''' entry した場合の price を candles dataframe に設定 '''
     long_index = candles.entryable == 'long'
@@ -43,10 +47,28 @@ def set_entryable_prices(candles, spread):
     candles.loc[short_index, 'entryable_price'] = candles[short_index].open
 
 
-def set_stoploss_prices(candles):
-    pass
+def new_stoploss_price(position_type, old_stoploss, current_sup, current_regist):
+    if position_type == 'long':
+        if old_stoploss < current_sup:
+            return current_sup
+        else:
+            return None
+        # if registances.value[-1] != registances.value[-2]:
+        #     return supports.drop_duplicates().values[-1]
+        # else:
+        #     return supports.drop_duplicates().values[-2]
+    elif position_type == 'short':
+        if old_stoploss > current_regist:
+            return current_regist
+        else:
+            return None
+        # if supports.value[-1] != supports.value[-2]:
+        #     return registances.drop_duplicates().values[-1] + self._static_spread
+        # else:
+        #     return registances.drop_duplicates().values[-2] + self._static_spread
 
 
+# INFO: backtest用の処理
 def commit_positions(candles, plus2sigma, minus2sigma, long_indexes, short_indexes, spread):
     ''' set exit-timing, price '''
     # bollinger_band に達したことによる exit
@@ -82,3 +104,10 @@ def commit_positions(candles, plus2sigma, minus2sigma, long_indexes, short_index
                         & (candles.entryable_price.isna() | candles.exitable_price.isna())
     candles.loc[no_position_index, 'position'] = None
     candles['entry_price'] = candles.entryable_price
+
+
+def position_is_exitable(close, last_plus_2sigma, last_minus_2sigma):
+    if close < last_minus_2sigma or last_plus_2sigma < close:
+        return True
+    else:
+        return False
