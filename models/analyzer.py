@@ -15,8 +15,8 @@ class Analyzer():
 
     def __init__(self):
         self.__indicators = {
-            'SMA': None,
-            'EMA': None,
+            '20SMA': None,
+            '10EMA': None,
             'SIGMA_BAND': None,
             'SIGMA*-1_BAND': None,
             'SIGMA*2_BAND': None,
@@ -58,8 +58,8 @@ class Analyzer():
     def get_indicators(self):
         indicators = pd.concat(
             [
-                self.__indicators['SMA'],
-                self.__indicators['EMA'],
+                self.__indicators['20SMA'],
+                self.__indicators['10EMA'],
                 self.__indicators['60EMA'],
                 self.__indicators['SIGMA_BAND'],
                 self.__indicators['SIGMA*-1_BAND'],
@@ -82,14 +82,14 @@ class Analyzer():
         ''' 単純移動平均線を生成 '''
         # mean()後の .dropna().reset_index(drop = True) を消去中
         sma = pd.Series.rolling(close_candles, window=window_size).mean()
-        self.__indicators['SMA'] = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
+        self.__indicators['20SMA'] = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
 
     def __calc_EMA(self, close_candles, window_size=10):
         ''' 指数平滑移動平均線を生成 '''
         # TODO: scipyを使うと早くなる
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
         ema = close_candles.ewm(span=window_size).mean()
-        self.__indicators['EMA'] = pd.DataFrame(ema).rename(columns={'close': '10EMA'})
+        self.__indicators['10EMA'] = pd.DataFrame(ema).rename(columns={'close': '10EMA'})
         ema60 = close_candles.ewm(span=60).mean()
         self.__indicators['60EMA'] = pd.DataFrame(ema60).rename(columns={'close': '60EMA'})
 
