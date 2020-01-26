@@ -402,7 +402,6 @@ class Trader():
             spread=self._static_spread
         )
 
-    # TODO: いまいち変 win lose の合計が trade_count と一致しない
     def __generate_entry_column_for_wait_close(self, candles):
         print('[Trader] judging entryable or not ...')
         wait_close.the_previous_satisfy_rules(candles)
