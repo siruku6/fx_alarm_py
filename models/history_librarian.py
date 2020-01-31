@@ -31,8 +31,13 @@ class Librarian():
         # INFO: lastTransactionIDを取得するために実行
         self.__client.request_open_trades()
 
-        # prepare candles: 暫定で50日分のデータを取得
-        dt_a_month_ago = datetime.datetime.now() - datetime.timedelta(days=50)
+        # preapre history_df: trade-history
+        history_df = self.__client.request_transactions()
+        print('[Libra] trade_log is loaded')
+
+        # prepare candles:
+        oldest_log_datetime = pd.to_datetime(history_df.iloc[0].time)
+        dt_a_month_ago = oldest_log_datetime - datetime.timedelta(days=1)
         start_str = dt_a_month_ago.strftime('%Y-%m-%d %H:%M:%S')
         candles = self.__prepare_candles(
             starttime_str=start_str,
@@ -40,10 +45,6 @@ class Librarian():
         )
         dict_summer_time_borders = self.__detect_summer_time_borders(candles)
         print('[Libra] candles are loaded')
-
-        # preapre history_df: trade-history
-        history_df = self.__client.request_transactions()
-        print('[Libra] trade_log is loaded')
 
         if granularity == 'M10':
             history_df['time'] = [self.__convert_to_m10(time) for time in history_df.time]
