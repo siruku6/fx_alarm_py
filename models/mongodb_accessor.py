@@ -106,7 +106,6 @@ def main():
 
     # # accessor.bulk_insert(collection_name='gbp', dict_array=m10_dict)
     db = accessor.database
-    # import pdb; pdb.set_trace()
 
     res = accessor.query_candles(
         currency_pare='GBP_JPY',

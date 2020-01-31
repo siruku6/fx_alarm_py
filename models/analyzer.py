@@ -41,8 +41,8 @@ class Analyzer():
         candles = FXBase.get_candles()
         if candles is None:
             return {'error': '[ERROR] Analyzer: 分析対象データがありません'}
-        self.__calc_SMA(close_candles=candles.close)
-        self.__calc_EMA(close_candles=candles.close)
+        self.__calc_sma(close_candles=candles.close)
+        self.__calc_ema(close_candles=candles.close)
         self.__calc_bollinger_bands(close_candles=candles.close)
         self.__calc_parabolic(candles=candles)
         self.__indicators['stoD'] = self.__calc_STOD(window_size=5)
@@ -78,13 +78,13 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Moving Average                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def __calc_SMA(self, close_candles, window_size=20):
+    def __calc_sma(self, close_candles, window_size=20):
         ''' 単純移動平均線を生成 '''
         # mean()後の .dropna().reset_index(drop = True) を消去中
         sma = pd.Series.rolling(close_candles, window=window_size).mean()
         self.__indicators['20SMA'] = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
 
-    def __calc_EMA(self, close_candles, window_size=10):
+    def __calc_ema(self, close_candles, window_size=10):
         ''' 指数平滑移動平均線を生成 '''
         # TODO: scipyを使うと早くなる
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
