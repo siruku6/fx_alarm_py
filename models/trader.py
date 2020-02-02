@@ -96,7 +96,7 @@ class Trader():
         self.__draw_chart_vectorized_ver(df_positions)
         return df_positions
 
-    def verify_varios_stoploss(self, accurize=True):
+    def verify_varios_stoploss(self, rule, accurize=True):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
         verification_dataframes_array = []
         stoploss_digit = i_face.select_stoploss_digit()
@@ -105,7 +105,7 @@ class Trader():
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
             self._stoploss_buffer_pips = stoploss_buf
-            df_positions = self.auto_verify_trading_rule(accurize=accurize)
+            df_positions = self.auto_verify_trading_rule(accurize=accurize, rule=rule)
             verification_dataframes_array.append(df_positions)
 
         result = pd.concat(

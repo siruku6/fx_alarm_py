@@ -36,6 +36,25 @@ def select_stoploss_digit():
             print('[Trader] please input 1 - 3 ! >д<;')
 
 
+def select_from_dict(dictionary, menumsg='選択して下さい'):
+    menu = '[interface] {}'.format(menumsg)
+    min_num = min(dictionary.keys())
+    max_num = max(dictionary.keys())
+    dict_len = len(dictionary)
+    for i, (key, val) in enumerate(dictionary.items()):
+        menu = '{menu} [{key}]:{val},'.format(menu=menu, key=key, val=val)
+
+    menu = menu[0:-1] + ': '
+
+    while True:
+        print(menu, end='')
+        digit_id = prompt_inputting_decimal()
+        if digit_id in dictionary:
+            return dictionary[digit_id]
+        else:
+            print('[interface] please input {} - {} ! >д<;'.format(min_num, max_num))
+
+
 def prompt_inputting_decimal():
     '''
     整数を入力させ、int型にして返す
