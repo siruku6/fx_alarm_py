@@ -22,7 +22,7 @@ def repulsion_exist(trend, ema, two_before_high, previous_high, two_before_low, 
     elif trend == 'bear' \
         and two_before_low > previous_low \
         and previous_low < ema \
-        and (ema < two_before_low or ema < previous_low):
+        and (ema < two_before_high or ema < previous_high):
         return 'short'
     return None
 
