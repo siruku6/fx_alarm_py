@@ -37,6 +37,12 @@ class Trader():
         if operation in ['verification']:
             self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
             self.__request_custom_candles()
+
+            time_series = FXBase.get_candles().time
+            first_time = self.__str_to_datetime(time_series.iat[0][:19])
+            last_time = self.__str_to_datetime(time_series.iat[-1][:19])
+            # INFO: 実は、candlesのlastrow分のm10candlesがない
+            self.__m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
         elif operation == 'live':
             result = self._client.request_is_tradeable()
             self.tradeable = result['tradeable']
@@ -488,10 +494,7 @@ class Trader():
 
     def __slide_prices_to_really_possible(self, candles):
         print('[Trader] start sliding ...')
-        first_time = self.__str_to_datetime(candles.iloc[0, 4][:19])
-        last_time = self.__str_to_datetime(candles.iloc[-1, 4][:19])
-        # INFO: 実は、candlesのlastrow分のm10candlesがない
-        m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
+        m10_candles = self.__m10_candles
         m10_candles['time'] = m10_candles.index
         spread = self._static_spread
 
