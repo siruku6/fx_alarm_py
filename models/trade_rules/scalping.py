@@ -25,6 +25,7 @@ def repulsion_exist(trend, ema, two_before_high, previous_high, two_before_low, 
     return None
 
 
+# TODO: 使って無くない？ 2020/02/03
 def the_previous_satisfy_rules(candles):
     ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
     satisfy_preconditions = np.all(

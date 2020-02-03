@@ -9,6 +9,9 @@ TRADE_RESULT_ITEMS = [
     'Gross', 'GrossProfit', 'GrossLoss', 'MaxProfit', 'MaxLoss',
     'MaxDrawdown', 'Profit Factor', 'Recovery Factor'
 ]
+FILTER_ELEMENTS = [
+    'in_the_band', 'ma_gap_expanding', 'sma_follow_trend', 'stoc_allows', 'ema60_allows', 'band_expansion'
+]
 
 def aggregate_history(candles, hist_positions, granularity, stoploss_buffer, spread):
     ''' トレード履歴の統計情報計算処理を呼び出す '''
@@ -104,7 +107,7 @@ def __calc_detaild_statistics(long_entry_array, short_entry_array):
     }
 
 
-def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, spread):
+def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, spread, entry_filter):
     '''
     トレード履歴の統計情報計算処理を呼び出す(new)
     params:
@@ -120,6 +123,8 @@ def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, 
                 'exitable_price' # float64
             ]
     '''
+    filter_boolean = __filter_to_boolean(entry_filter)
+
     positions = df_positions.loc[df_positions.position.notnull(), :].copy()
     positions = __calc_profit_2(copied_positions=positions)
     positions.loc[:, 'gross'] = positions.profit.cumsum()
@@ -132,10 +137,15 @@ def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, 
         sl_buf=stoploss_buffer,
         spread=spread,
         candles=df_positions,
-        performance_result=performance_result
+        performance_result=performance_result,
+        filter_boolean=filter_boolean
     )
     # TODO: 要削除 一時的なコード
     positions.to_csv('./tmp/csvs/positions_dump.csv')
+
+
+def __filter_to_boolean(_filter):
+    return [(elem in _filter) for elem in FILTER_ELEMENTS]
 
 
 def __calc_profit_2(copied_positions):
@@ -194,7 +204,7 @@ def __calc_performance_indicators(positions):
     }
 
 
-def __append_performance_result_to_csv(rule, granularity, sl_buf, spread, candles, performance_result):
+def __append_performance_result_to_csv(rule, granularity, sl_buf, spread, candles, performance_result, filter_boolean):
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     duration = '{start} ~ {end}'.format(
         start=candles.time[20],
@@ -221,7 +231,7 @@ def __append_performance_result_to_csv(rule, granularity, sl_buf, spread, candle
         performance_result['profit_factor'],                 # 'Profit Factor'
         performance_result['recovery_factor']                # 'Recovery Factor'
     ]
-    result_df = DataFrame([result_row], columns=TRADE_RESULT_ITEMS)
+    result_df = DataFrame([result_row + filter_boolean], columns=TRADE_RESULT_ITEMS + FILTER_ELEMENTS)
     result_df.to_csv('tmp/csvs/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
     print('[Trader] トレード統計(vectorized)をcsv追記完了')
 
