@@ -4,7 +4,7 @@ import numpy as np
 from pandas import DataFrame
 
 TRADE_RESULT_ITEMS = [
-    'DoneTime', 'Granularity', 'StoplossBuf', 'Spread',
+    'DoneTime', 'Rule', 'Granularity', 'StoplossBuf', 'Spread',
     'Duration', 'CandlesCnt', 'EntryCnt', 'WinRate', 'WinCnt', 'LoseCnt',
     'Gross', 'GrossProfit', 'GrossLoss', 'MaxProfit', 'MaxLoss',
     'MaxDrawdown', 'Profit Factor', 'Recovery Factor'
@@ -104,16 +104,21 @@ def __calc_detaild_statistics(long_entry_array, short_entry_array):
     }
 
 
-def aggregate_backtest_result(df_positions, granularity, stoploss_buffer, spread):
+def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, spread):
     '''
     トレード履歴の統計情報計算処理を呼び出す(new)
-    params: df_positions     # DataFrame
-        columns: [
-            'time',          # str ('2xxx/xx/xx hh:MM:ss')
-            'position',      # str ('long', 'short', 'sell_exit', 'buy_exit' or None)
-            'entry_price',   # float64
-            'exitable_price' # float64
-        ]
+    params:
+        rule
+            type:    string
+            example: 'swing', 'scalping', ... etc
+        df_positions
+            type:    DataFrame
+            columns: [
+                'time',          # str ('2xxx/xx/xx hh:MM:ss')
+                'position',      # str ('long', 'short', 'sell_exit', 'buy_exit' or None)
+                'entry_price',   # float64
+                'exitable_price' # float64
+            ]
     '''
     positions = df_positions.loc[df_positions.position.notnull(), :].copy()
     positions = __calc_profit_2(copied_positions=positions)
@@ -122,6 +127,7 @@ def aggregate_backtest_result(df_positions, granularity, stoploss_buffer, spread
 
     performance_result = __calc_performance_indicators(positions)
     __append_performance_result_to_csv(
+        rule=rule,
         granularity=granularity,
         sl_buf=stoploss_buffer,
         spread=spread,
@@ -188,7 +194,7 @@ def __calc_performance_indicators(positions):
     }
 
 
-def __append_performance_result_to_csv(granularity, sl_buf, spread, candles, performance_result):
+def __append_performance_result_to_csv(rule, granularity, sl_buf, spread, candles, performance_result):
     now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     duration = '{start} ~ {end}'.format(
         start=candles.time[20],
@@ -196,6 +202,7 @@ def __append_performance_result_to_csv(granularity, sl_buf, spread, candles, per
     )
     result_row = [
         now,                                # 'DoneTime'
+        rule,                               # 'Rule'
         granularity,                        # 'Granularity'
         sl_buf,                             # 'StoplossBuf'
         spread,                             # 'Spread'

@@ -91,6 +91,7 @@ class Trader():
         print(result['success'])
         df_positions = result['result'].loc[:, ['time', 'position', 'entry_price', 'exitable_price']]
         statistics.aggregate_backtest_result(
+            rule=rule,
             df_positions=df_positions,
             granularity=self.__granularity,
             stoploss_buffer=self._stoploss_buffer_pips,
@@ -102,7 +103,18 @@ class Trader():
         self.__draw_chart_vectorized_ver(df_positions)
         return df_positions
 
-    def verify_varios_stoploss(self, rule, accurize=True):
+    # def verify_varios_entry_filters(self, rule):
+    #     self.verify_various_stoploss(rule=rule)
+    #     [
+    #         'in_the_band',
+    #         'ma_gap_expanding',
+    #         'sma_follow_trend',
+    #         'stoc_allows',
+    #         'ema60_allows',
+    #         'band_expansion'
+    #     ]
+
+    def verify_various_stoploss(self, rule, accurize=True):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
         verification_dataframes_array = []
         stoploss_digit = i_face.select_stoploss_digit()
