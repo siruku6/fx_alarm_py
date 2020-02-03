@@ -166,7 +166,7 @@ class FigureDrawer():
         if xticks_number > 0:
             xticks_index = range(0, len(sr_time), xticks_number)
             plt.xticks(xticks_index, [])
-        plt.legend(loc='best', fontsize=8)
+        plt.legend(loc='upper left', fontsize=8) # best だと結構右に来て邪魔
         plt.grid(which='major', linestyle='dashed', linewidth=0.5)
 
         # INFO: axis2

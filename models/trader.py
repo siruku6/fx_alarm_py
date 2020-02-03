@@ -37,6 +37,12 @@ class Trader():
         if operation in ['verification']:
             self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
             self.__request_custom_candles()
+
+            time_series = FXBase.get_candles().time
+            first_time = self.__str_to_datetime(time_series.iat[0][:19])
+            last_time = self.__str_to_datetime(time_series.iat[-1][:19])
+            # INFO: 実は、candlesのlastrow分のm10candlesがない
+            self.__m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
         elif operation == 'live':
             result = self._client.request_is_tradeable()
             self.tradeable = result['tradeable']
@@ -85,6 +91,7 @@ class Trader():
         print(result['success'])
         df_positions = result['result'].loc[:, ['time', 'position', 'entry_price', 'exitable_price']]
         statistics.aggregate_backtest_result(
+            rule=rule,
             df_positions=df_positions,
             granularity=self.__granularity,
             stoploss_buffer=self._stoploss_buffer_pips,
@@ -96,7 +103,18 @@ class Trader():
         self.__draw_chart_vectorized_ver(df_positions)
         return df_positions
 
-    def verify_varios_stoploss(self, rule, accurize=True):
+    # def verify_varios_entry_filters(self, rule):
+    #     self.verify_various_stoploss(rule=rule)
+    #     [
+    #         'in_the_band',
+    #         'ma_gap_expanding',
+    #         'sma_follow_trend',
+    #         'stoc_allows',
+    #         'ema60_allows',
+    #         'band_expansion'
+    #     ]
+
+    def verify_various_stoploss(self, rule, accurize=True):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
         verification_dataframes_array = []
         stoploss_digit = i_face.select_stoploss_digit()
@@ -487,10 +505,7 @@ class Trader():
 
     def __slide_prices_to_really_possible(self, candles):
         print('[Trader] start sliding ...')
-        first_time = self.__str_to_datetime(candles.iloc[0, 4][:19])
-        last_time = self.__str_to_datetime(candles.iloc[-1, 4][:19])
-        # INFO: 実は、candlesのlastrow分のm10candlesがない
-        m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
+        m10_candles = self.__m10_candles
         m10_candles['time'] = m10_candles.index
         spread = self._static_spread
 
