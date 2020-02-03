@@ -31,7 +31,10 @@ class Trader():
         self._operation = operation
         self._client = OandaPyClient(instrument=self.get_instrument())
         self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
-        self.__granularity = os.environ.get('GRANULARITY') or 'M5'
+        self.__entry_rules = {
+            'granularity': os.environ.get('GRANULARITY') or 'M5',
+            'entry_filter': []
+        }
         self._position = None
 
         if operation in ['verification']:
@@ -50,7 +53,7 @@ class Trader():
                 self._log_skip_reason('1. market is not open')
                 return
             self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
-            self._client.specify_count_and_load_candles(count=70, granularity=self.__granularity, set_candles=True)
+            self._client.specify_count_and_load_candles(count=70, granularity=self.get_granularity(), set_candles=True)
         else:
             return
 
@@ -73,8 +76,34 @@ class Trader():
     #
     # public
     #
+    def set_entry_filter(self, entry_filter):
+        self.__entry_rules['entry_filter'] = entry_filter
+
     def get_instrument(self):
         return self.__instrument
+
+    def get_granularity(self):
+        return self.__entry_rules['granularity']
+
+    def get_entry_filter(self):
+        return self.__entry_rules['entry_filter']
+
+    # TODO: 作成中の処理
+    #   _filterをverify_various_stoploss メソッドに渡し、連続検証すればよい
+    def verify_various_entry_filters(self, rule):
+        filters = [[]]
+        filter_elements = statistics.FILTER_ELEMENTS
+        for elem in filter_elements:
+            tmp_filters = filters.copy()
+            for tmp_filter in tmp_filters:
+                filter_copy = tmp_filter.copy()
+                filter_copy.append(elem)
+                filters.append(filter_copy)
+
+        filters.sort()
+        for _filter in filters:
+            print(_filter)
+            # self.verify_various_stoploss(rule=rule)
 
     def auto_verify_trading_rule(self, accurize=True, rule='swing'):
         ''' tradeルールを自動検証 '''
@@ -82,37 +111,33 @@ class Trader():
             self.__drawer = FigureDrawer()
 
         if rule == 'swing':
+            self.set_entry_filter(statistics.FILTER_ELEMENTS)
             result = self.__backtest_swing()
         elif rule == 'wait_close':
+            self.set_entry_filter(['in_the_band'])
             result = self.__backtest_wait_close()
         elif rule == 'scalping':
+            self.set_entry_filter(['in_the_band'])
             result = self.__backtest_scalping()
+        else:
+            print('Rule {} is not exist ...'.format(rule))
+            exit()
 
         print(result['success'])
         df_positions = result['result'].loc[:, ['time', 'position', 'entry_price', 'exitable_price']]
         statistics.aggregate_backtest_result(
             rule=rule,
             df_positions=df_positions,
-            granularity=self.__granularity,
+            granularity=self.get_granularity(),
             stoploss_buffer=self._stoploss_buffer_pips,
-            spread=self._static_spread
+            spread=self._static_spread,
+            entry_filter=self.get_entry_filter()
         )
         df_positions = self.__wrangle_result_for_graph(result['result'][
             ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
         ].copy())
         self.__draw_chart_vectorized_ver(df_positions)
         return df_positions
-
-    # def verify_varios_entry_filters(self, rule):
-    #     self.verify_various_stoploss(rule=rule)
-    #     [
-    #         'in_the_band',
-    #         'ma_gap_expanding',
-    #         'sma_follow_trend',
-    #         'stoc_allows',
-    #         'ema60_allows',
-    #         'band_expansion'
-    #     ]
 
     def verify_various_stoploss(self, rule, accurize=True):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
@@ -333,15 +358,16 @@ class Trader():
 
         while True:
             print('取得スパンは？(ex: M5): ', end='')
-            self.__granularity = str(input())
-            if self.__granularity[0] in 'MH' and self.__granularity[1:].isdecimal():
+            granularity = str(input())
+            self.__entry_rules['granularity'] = granularity
+            if granularity[0] in 'MH' and granularity[1:].isdecimal():
                 break
-            elif self.__granularity[0] in 'DW':
+            elif granularity[0] in 'DW':
                 break
             else:
                 print('Invalid granularity !\n')
 
-        result = self._client.load_long_chart(days=days, granularity=self.__granularity)
+        result = self._client.load_long_chart(days=days, granularity=granularity)
         if 'error' in result:
             print(result['error'])
             exit()
@@ -422,7 +448,7 @@ class Trader():
 
     def __generate_entry_column_for_wait_close(self, candles):
         print('[Trader] judging entryable or not ...')
-        wait_close.the_previous_satisfy_rules(candles)
+        wait_close.the_previous_satisfy_rules(candles, entry_filter=self.get_entry_filter())
         self.__set_entryable_prices(candles)
 
         entry_direction = candles.entryable.fillna(method='ffill')
@@ -443,7 +469,7 @@ class Trader():
 
     def __generate_entry_column_for_scalping(self, candles):
         print('[Trader] judging entryable or not ...')
-        wait_close.the_previous_satisfy_rules(candles)
+        wait_close.the_previous_satisfy_rules(candles, entry_filter=self.get_entry_filter())
         scalping.set_entryable_prices(candles, self._static_spread)
 
         entry_direction = candles.entryable.fillna(method='ffill')
@@ -466,10 +492,7 @@ class Trader():
 
     def __judge_entryable(self, candles):
         ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
-        satisfy_preconditions = np.all(
-            candles[['in_the_band', 'ma_gap_expanding', 'sma_follow_trend', 'stoc_allows', 'ema60_allows', 'band_expansion']],
-            axis=1
-        )
+        satisfy_preconditions = np.all(candles[self.get_entry_filter()], axis=1)
         candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
         candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
 
@@ -593,7 +616,7 @@ class Trader():
 
             result = drwr.create_png(
                 instrument='sample', # self.get_instrument(),
-                granularity=self.__granularity,
+                granularity=self.get_granularity(),
                 sr_time=sr_time, num=i
             )
 
@@ -645,7 +668,7 @@ class Trader():
 
     def __add_candle_duration(self, start_string):
         start_time = self.__str_to_datetime(start_string)
-        granularity = self.__granularity
+        granularity = self.get_granularity()
         time_unit = granularity[0]
         if time_unit == 'M':
             candle_duration = datetime.timedelta(minutes=int(granularity[1:]))

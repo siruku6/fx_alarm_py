@@ -19,11 +19,11 @@ def generate_thrust_column(candles):
     return result
 
 
-def the_previous_satisfy_rules(candles):
+def the_previous_satisfy_rules(candles, entry_filter):
     ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
     satisfy_preconditions = np.all(
         # candles.shift(1)[['in_the_band', 'ma_gap_expanding', 'sma_follow_trend', 'stoc_allows', 'ema60_allows', 'band_expansion']],
-        candles[['in_the_band']],
+        candles[entry_filter],
         axis=1
     )
     candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
