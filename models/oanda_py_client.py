@@ -4,6 +4,7 @@ import logging
 import os
 import pandas as pd
 import pprint
+import requests
 
 # For trading
 from oandapyV20 import API
@@ -423,6 +424,9 @@ class OandaPyClient():
             response = self.__api_client.request(request_obj)
         except V20Error as error:
             logger.error('[__request_oanda_instruments] V20Error: {}'.format(error))
+            return {'candles': []}
+        except requests.exceptions.ConnectionError as error:
+            logger.error('[__request_oanda_instruments] requests.exceptions.ConnectionError: {}'.format(error))
             return {'candles': []}
 
         return response
