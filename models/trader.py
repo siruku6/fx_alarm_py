@@ -89,8 +89,8 @@ class Trader():
         return self.__entry_rules['entry_filter']
 
     # TODO: 作成中の処理
-    #   _filterをverify_various_stoploss メソッドに渡し、連続検証すればよい
     def verify_various_entry_filters(self, rule):
+        ''' entry_filterの全パターンを検証する '''
         filters = [[]]
         filter_elements = statistics.FILTER_ELEMENTS
         for elem in filter_elements:
@@ -102,22 +102,28 @@ class Trader():
 
         filters.sort()
         for _filter in filters:
-            print(_filter)
-            # self.verify_various_stoploss(rule=rule)
+            print('[Trader] ** Now trying filter -> {} **', _filter)
+            self.set_entry_filter(_filter)
+            self.verify_various_stoploss(rule=rule)
 
-    def auto_verify_trading_rule(self, accurize=True, rule='swing'):
+    def auto_verify_trading_rule(self, rule='swing'):
         ''' tradeルールを自動検証 '''
         if self.__static_options['be_drawn']:
             self.__drawer = FigureDrawer()
 
+        # self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
+
         if rule == 'swing':
-            self.set_entry_filter(statistics.FILTER_ELEMENTS)
+            if self.get_entry_filter() == []:
+                self.set_entry_filter(statistics.FILTER_ELEMENTS)
             result = self.__backtest_swing()
         elif rule == 'wait_close':
-            self.set_entry_filter(['in_the_band'])
+            if self.get_entry_filter() == []:
+                self.set_entry_filter(['in_the_band'])
             result = self.__backtest_wait_close()
         elif rule == 'scalping':
-            self.set_entry_filter(['in_the_band'])
+            if self.get_entry_filter() == []:
+                self.set_entry_filter(['in_the_band'])
             result = self.__backtest_scalping()
         else:
             print('Rule {} is not exist ...'.format(rule))
@@ -139,7 +145,7 @@ class Trader():
         self.__draw_chart_vectorized_ver(df_positions)
         return df_positions
 
-    def verify_various_stoploss(self, rule, accurize=True):
+    def verify_various_stoploss(self, rule):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
         verification_dataframes_array = []
         stoploss_digit = i_face.select_stoploss_digit()
@@ -148,7 +154,7 @@ class Trader():
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
             self._stoploss_buffer_pips = stoploss_buf
-            df_positions = self.auto_verify_trading_rule(accurize=accurize, rule=rule)
+            df_positions = self.auto_verify_trading_rule(rule=rule)
             verification_dataframes_array.append(df_positions)
 
         result = pd.concat(
