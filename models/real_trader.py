@@ -60,12 +60,13 @@ class RealTrader(Trader):
         print('[Trader] -------- start --------')
         last_index = len(self._indicators) - 1
         candles = FXBase.get_candles()
-        close_price = candles.close.values[-1]
+        close_price = candles.iat[-1].close
+        last_time = candles.iat[-1].time
         indicators = self._indicators
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
-            trend = self.__detect_latest_trend(index=last_index, c_price=close_price)
+            trend = self.__detect_latest_trend(index=last_index, c_price=close_price, time=last_time)
             if trend is None:
                 return
 
@@ -135,12 +136,13 @@ class RealTrader(Trader):
         print('[Trader] -------- start --------')
         last_index = len(self._indicators) - 1
         candles = FXBase.get_candles()
-        close_price = candles.close.values[-1]
+        close_price = candles.iat[-1].close
+        last_time = candles.iat[-1].time
         indicators = self._indicators
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
-            trend = self.__detect_latest_trend(index=last_index, c_price=close_price)
+            trend = self.__detect_latest_trend(index=last_index, c_price=close_price, time=last_time)
             if trend is None:
                 return
             if self._over_2_sigma(last_index, price=close_price):
@@ -152,7 +154,9 @@ class RealTrader(Trader):
                 two_before_low=candles.low.values[-3], previous_low=candles.low.values[-2]
             )
             if direction is None:
-                print('[Trader] repulsion is not exist ... 10EMA: {}'.format(indicators['10EMA'].values[-1]))
+                print('[Trader] repulsion is not exist Time: {}, 10EMA: {}'.format(
+                    last_time, indicators['10EMA'].values[-1])
+                )
                 return
 
             self._create_position(last_index, direction)
@@ -197,7 +201,7 @@ class RealTrader(Trader):
     #
     #  apply each rules
     #
-    def __detect_latest_trend(self, index, c_price):
+    def __detect_latest_trend(self, index, c_price, time):
         '''
         ルールに基づいてトレンドの有無を判定
         '''
@@ -207,7 +211,9 @@ class RealTrader(Trader):
         trend = rules.detect_trend_type(c_price, sma, ema, parabo)
 
         if trend is None:
-            print('[Trader] 20SMA: {}, 10EMA: {}, close: {}'.format(sma, ema, c_price))
+            print('[Trader] Time: {}, 20SMA: {}, 10EMA: {}, close: {}'.format(
+                time, round(sma, 3), round(ema, 3), c_price)
+            )
             self._log_skip_reason('2. There isn`t the trend')
         return trend
 
