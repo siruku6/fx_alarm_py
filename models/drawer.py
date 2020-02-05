@@ -151,7 +151,7 @@ class FigureDrawer():
     def create_png(self, instrument, granularity, sr_time, num=0, filename=None):
         ''' 描画済みイメージをpngファイルに書き出す '''
         # OPTIMIZE: x軸目盛の分割数...今はこれでいいが、最適化する
-        num_break_xticks_into = 12
+        num_break_xticks_into = 24
 
         self.__axis1.set_title('{inst}-{granularity} candles (len={len})'.format(
             inst=instrument, granularity=granularity, len=len(FXBase.get_candles())
@@ -176,7 +176,7 @@ class FigureDrawer():
             # INFO: 日付から表示するため、先頭12文字目から取る
             xticks_display = [sr_time.values[i][5:16] for i in xticks_index]
             plt.tick_params(top=False, bottom=True)
-            plt.xticks(xticks_index, xticks_display, rotation=30, fontsize=8)
+            plt.xticks(xticks_index, xticks_display, rotation=30, fontsize=6)
         plt.yticks([20, 80], [20, 80])
         plt.legend(loc='upper left', fontsize=8)
         plt.grid(linestyle='dashed', linewidth=0.5)
