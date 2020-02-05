@@ -60,8 +60,8 @@ class RealTrader(Trader):
         print('[Trader] -------- start --------')
         last_index = len(self._indicators) - 1
         candles = FXBase.get_candles()
-        close_price = candles.iat[-1].close
-        last_time = candles.iat[-1].time
+        close_price = candles.close.iat[-1]
+        last_time = candles.time.iat[-1]
         indicators = self._indicators
 
         self._set_position(self.__load_position())
@@ -136,8 +136,8 @@ class RealTrader(Trader):
         print('[Trader] -------- start --------')
         last_index = len(self._indicators) - 1
         candles = FXBase.get_candles()
-        close_price = candles.iat[-1].close
-        last_time = candles.iat[-1].time
+        close_price = candles.close.iat[-1]
+        last_time = candles.time.iat[-1]
         indicators = self._indicators
 
         self._set_position(self.__load_position())
