@@ -72,6 +72,7 @@ def new_stoploss_price(position_type, old_stoploss, current_sup, current_regist)
 # INFO: backtest用の処理
 def commit_positions(candles, plus2sigma, minus2sigma, long_indexes, short_indexes, spread):
     ''' set exit-timing, price '''
+    # TODO: long ポジションが残ったま short entry するバグが残っている stoploss_ver2 で発覚
     # bollinger_band に達したことによる exit
     long_exits_by_plus_band = long_indexes & (plus2sigma < candles.high)
     candles.loc[long_exits_by_plus_band, 'position'] = 'sell_exit'
