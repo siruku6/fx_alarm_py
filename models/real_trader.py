@@ -155,8 +155,8 @@ class RealTrader(Trader):
             )
             if direction is None:
                 print('[Trader] repulsion is not exist Time: {}, 10EMA: {}'.format(
-                    last_time, indicators['10EMA'].values[-1])
-                )
+                    last_time, indicators['10EMA'].values[-1]
+                ))
                 return
 
             self._create_position(last_index, direction)
@@ -212,8 +212,8 @@ class RealTrader(Trader):
 
         if trend is None:
             print('[Trader] Time: {}, 20SMA: {}, 10EMA: {}, close: {}'.format(
-                time, round(sma, 3), round(ema, 3), c_price)
-            )
+                time, round(sma, 3), round(ema, 3), c_price
+            ))
             self._log_skip_reason('2. There isn`t the trend')
         return trend
 

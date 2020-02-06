@@ -19,8 +19,8 @@ from models.interface import prompt_inputting_decimal
 # from models.candles_csv_accessor import CandlesCsvAccessor
 from models.mongodb_accessor import MongodbAccessor
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+LOGGER = logging.getLogger()
+LOGGER.setLevel(logging.INFO)
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
 
 
@@ -321,7 +321,7 @@ class OandaPyClient():
         try:
             response = self.__api_client.request(request_obj)['orderCreateTransaction']
         except V20Error as error:
-            logger.error('[request_market_ordering] V20Error: {}'.format(error))
+            LOGGER.error('[request_market_ordering] V20Error: {}'.format(error))
 
         response_for_display = {
             'instrument': response['instrument'],
@@ -330,7 +330,7 @@ class OandaPyClient():
             'time': response['time'],
             'stoploss': response['stopLossOnFill']
         }
-        logger.info('[Client] market-order: %s', response_for_display)
+        LOGGER.info('[Client] market-order: %s', response_for_display)
         return response
 
     def request_closing_position(self):
@@ -343,7 +343,7 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_trade_id  # , data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('[Client] close-position: %s', response)
+        LOGGER.info('[Client] close-position: %s', response)
         return response
 
     def request_trailing_stoploss(self, stoploss_price=None):
@@ -361,7 +361,7 @@ class OandaPyClient():
             data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('[Client] trail: %s', response)
+        LOGGER.info('[Client] trail: %s', response)
         return response
 
     def request_transactions(self):
@@ -423,10 +423,10 @@ class OandaPyClient():
         try:
             response = self.__api_client.request(request_obj)
         except V20Error as error:
-            logger.error('[__request_oanda_instruments] V20Error: {}'.format(error))
+            LOGGER.error('[__request_oanda_instruments] V20Error: {}'.format(error))
             return {'candles': []}
         except requests.exceptions.ConnectionError as error:
-            logger.error('[__request_oanda_instruments] requests.exceptions.ConnectionError: {}'.format(error))
+            LOGGER.error('[__request_oanda_instruments] requests.exceptions.ConnectionError: {}'.format(error))
             return {'candles': []}
 
         return response
