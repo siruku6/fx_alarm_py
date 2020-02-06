@@ -1,3 +1,4 @@
+import datetime
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
@@ -182,5 +183,7 @@ class FigureDrawer():
         plt.grid(linestyle='dashed', linewidth=0.5)
 
         png_filename = filename or 'figure'
-        plt.savefig('tmp/images/{filename}_{num}.png'.format(filename=png_filename, num=num))
+        plt.savefig('tmp/images/{filename}_{num}_{date}.png'.format(
+            filename=png_filename, num=num, date=datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d_%H%M%S')
+        ))
         return {'success': '[Drawer] 描画済みイメージをpng化完了 {}'.format(num + 1)}
