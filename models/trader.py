@@ -74,7 +74,7 @@ class Trader():
         self.__hist_positions = {'long': [], 'short': []}
 
     #
-    # public
+    # getter & setter
     #
     def set_entry_filter(self, entry_filter):
         self.__entry_rules['entry_filter'] = entry_filter
@@ -88,6 +88,9 @@ class Trader():
     def get_entry_filter(self):
         return self.__entry_rules['entry_filter']
 
+    #
+    # public
+    #
     # TODO: 作成中の処理
     def verify_various_entry_filters(self, rule):
         ''' entry_filterの全パターンを検証する '''
@@ -106,11 +109,31 @@ class Trader():
             self.set_entry_filter(_filter)
             self.verify_various_stoploss(rule=rule)
 
+    def verify_various_stoploss(self, rule):
+        ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
+        verification_dataframes_array = []
+        stoploss_digit = i_face.select_stoploss_digit()
+        stoploss_buffer_list = range_2nd_decimal(stoploss_digit, stoploss_digit * 20, stoploss_digit * 2)
+
+        for stoploss_buf in stoploss_buffer_list:
+            print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
+            self._stoploss_buffer_pips = stoploss_buf
+            df_positions = self.auto_verify_trading_rule(rule=rule)
+            verification_dataframes_array.append(df_positions)
+
+        result = pd.concat(
+            verification_dataframes_array,
+            axis=1, keys=stoploss_buffer_list,
+            names=['SL_buffer']
+        )
+        result.to_csv('./tmp/csvs/sl_verify_{inst}.csv'.format(inst=self.get_instrument()))
+
     def auto_verify_trading_rule(self, rule='swing'):
         ''' tradeルールを自動検証 '''
         if self.__static_options['be_drawn']:
             self.__drawer = FigureDrawer()
 
+        # TODO: 暫定でこれを使うことを推奨
         # self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
 
         if rule == 'swing':
@@ -144,25 +167,6 @@ class Trader():
         ].copy())
         self.__draw_chart_vectorized_ver(df_positions)
         return df_positions
-
-    def verify_various_stoploss(self, rule):
-        ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
-        verification_dataframes_array = []
-        stoploss_digit = i_face.select_stoploss_digit()
-        stoploss_buffer_list = range_2nd_decimal(stoploss_digit, stoploss_digit * 20, stoploss_digit * 2)
-
-        for stoploss_buf in stoploss_buffer_list:
-            print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
-            self._stoploss_buffer_pips = stoploss_buf
-            df_positions = self.auto_verify_trading_rule(rule=rule)
-            verification_dataframes_array.append(df_positions)
-
-        result = pd.concat(
-            verification_dataframes_array,
-            axis=1, keys=stoploss_buffer_list,
-            names=['SL_buffer']
-        )
-        result.to_csv('./tmp/csvs/sl_verify_{inst}.csv'.format(inst=self.get_instrument()))
 
     #
     # Methods for judging Entry or Close
@@ -576,7 +580,6 @@ class Trader():
         drwr = self.__drawer
         if drwr is None: return
 
-        filename_postfix = datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d_%H%M%S')
         df_len = len(df_positions)
         dfs_indicator = self.__split_df_by_200rows(self._indicators)
         dfs_position = self.__split_df_by_200sequences(df_positions, df_len)
@@ -621,7 +624,7 @@ class Trader():
             sr_time = drwr.draw_candles(start, end)['time']
 
             result = drwr.create_png(
-                instrument='sample', # self.get_instrument(),
+                instrument=self.get_instrument(),
                 granularity=self.get_granularity(),
                 sr_time=sr_time, num=i
             )
@@ -651,22 +654,6 @@ class Trader():
         positions_df.position.fillna(method='ffill', inplace=True)
 
         return positions_df
-
-    # def __decide_entry_price(self, direction, previous_high, previous_low, current_open, current_60ema):
-    #     custom_rule_on = os.environ.get('CUSTOM_RULE') == 'on'
-    #     if direction == 'long':
-    #         if custom_rule_on:
-    #             entry_price = max(previous_high, current_open + self._static_spread, current_60ema)
-    #         else:
-    #             entry_price = max(previous_high, current_open + self._static_spread)
-    #         stoploss = previous_low - self._stoploss_buffer_pips
-    #     elif direction == 'short':
-    #         if custom_rule_on:
-    #             entry_price = min(previous_low, current_open, current_60ema)
-    #         else:
-    #             entry_price = min(previous_low, current_open)
-    #         stoploss = previous_high + self._stoploss_buffer_pips + self._static_spread
-    #     return entry_price, stoploss
 
     def _log_skip_reason(self, reason):
         print('[Trader] skip: {}'.format(reason))
