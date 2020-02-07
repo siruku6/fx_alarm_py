@@ -33,6 +33,7 @@ class Librarian():
 
         # preapre history_df: trade-history
         history_df = self.__client.request_transactions()
+        history_df.loc[:, 'price'] = history_df.price.astype('float32')
         print('[Libra] trade_log is loaded')
 
         # prepare candles:

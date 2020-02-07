@@ -95,12 +95,14 @@ class FigureDrawer():
             label = 'exit'
             mark = 'x'
 
+        drawing_targets = positions_df.dropna()
         if plot_type == FigureDrawer.PLOT_TYPE['trail']:
-            prices = positions_df.stoploss
+            prices = drawing_targets.stoploss
         else:
-            prices = positions_df.price
+            prices = drawing_targets.price
+
         self.__axis1.scatter(
-            x=positions_df.sequence, y=prices,
+            x=drawing_targets.sequence, y=prices,
             marker=mark, edgecolors=edgecolors, label=nolabel or label,
             color=color, s=size, linewidths=0.7
         )
