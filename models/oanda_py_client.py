@@ -255,9 +255,8 @@ class OandaPyClient():
         最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き
         '''
         # INFO: .to_dictは、単にコンソールログの見やすさ向上のために使用中
-        latest_candle = self.specify_count_and_load_candles(
-            count=1, granularity='M1'
-        )['candles'].iloc[-1].to_dict()
+        latest_candle = self.specify_count_and_load_candles(count=1, granularity='M1')['candles'] \
+                            .iloc[-1].to_dict()
 
         candle_dict = FXBase.get_candles().iloc[-1].to_dict()
         FXBase.replace_latest_price('close', latest_candle['close'])
@@ -265,8 +264,8 @@ class OandaPyClient():
             FXBase.replace_latest_price('high', latest_candle['high'])
         elif candle_dict['low'] > latest_candle['low']:
             FXBase.replace_latest_price('low', latest_candle['low'])
-        print('[Client] 直前値', candle_dict)
-        print('[Client] 現在値', latest_candle)
+        print('[Client] 直前H4: {}, 現在M1: {}', candle_dict, latest_candle)
+        print('[Client] New_H4: {}', FXBase.get_candles().iloc[-1].to_dict())
 
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''
