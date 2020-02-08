@@ -264,8 +264,8 @@ class OandaPyClient():
             FXBase.replace_latest_price('high', latest_candle['high'])
         elif candle_dict['low'] > latest_candle['low']:
             FXBase.replace_latest_price('low', latest_candle['low'])
-        print('[Client] 直前H4: {}, 現在M1: {}', candle_dict, latest_candle)
-        print('[Client] New_H4: {}', FXBase.get_candles().iloc[-1].to_dict())
+        print('[Client] Last_H4: {}, Current_M1: {}'.format(candle_dict, latest_candle))
+        print('[Client] New_H4: {}'.format(FXBase.get_candles().iloc[-1].to_dict()))
 
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''
@@ -290,7 +290,11 @@ class OandaPyClient():
                 'price': trade['price'],
                 'units': trade['initialUnits'],
                 'openTime': trade['openTime'],
-                'stoploss': trade['stopLossOrder']
+                'stoploss': {
+                    'createTime': trade['stopLossOrder']['createTime'],
+                    'price': trade['stopLossOrder']['price'],
+                    'timeInForce': trade['stopLossOrder']['timeInForce']
+                }
             } for trade in extracted_trades
         ]
         print('[Client] open_trades: {}'.format(open_position_for_diplay != []))
@@ -322,13 +326,15 @@ class OandaPyClient():
         except V20Error as error:
             LOGGER.error('[request_market_ordering] V20Error: {}'.format(error))
 
-        response_for_display = {
-            'instrument': response['instrument'],
-            'price': response['price'],
-            'units': response['units'],
-            'time': response['time'],
-            'stoploss': response['stopLossOnFill']
-        }
+        response_for_display = response
+        # response_for_display = {
+        #     'instrument': response['instrument'],
+        #     # TODO: 復旧すべし 今は 'price' が見つからないらしいので処理しない
+        #     'price': ,  # response['price'],
+        #     'units': response['units'],
+        #     'time': response['time'],
+        #     'stoploss': response['stopLossOnFill']
+        # }
         LOGGER.info('[Client] market-order: %s', response_for_display)
         return response
 
@@ -343,7 +349,13 @@ class OandaPyClient():
         )
         response = self.__api_client.request(request_obj)
         LOGGER.info('[Client] close-position: %s', response)
-        return response
+        response_for_display = {
+            'price': response['orderFillTransaction'].get('price'),
+            'profit': response['orderFillTransaction'].get('pl'),
+            'units': response['orderFillTransaction'].get('units'),
+            'reason': response['orderFillTransaction'].get('reason')
+        }
+        return response_for_display
 
     def request_trailing_stoploss(self, stoploss_price=None):
         ''' ポジションのstoplossを強気方向に修正 '''
