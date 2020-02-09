@@ -34,6 +34,7 @@ class Librarian():
         # preapre history_df: trade-history
         history_df = self.__client.request_transactions()
         history_df.loc[:, 'price'] = history_df.price.astype('float32')
+        history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
         print('[Libra] trade_log is loaded')
 
         # prepare candles:
@@ -63,7 +64,7 @@ class Librarian():
         print('[Libra] candles and trade-history is merged')
 
         # INFO: Visualization
-        result.to_csv('./tmp/oanda_trade_hist.csv', index=False)
+        result.to_csv('./tmp/csvs/oanda_trade_hist.csv', index=False)
         self.__draw_history()
         self.__drawer.close_all()
 
