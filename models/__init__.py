@@ -1,1 +1,3 @@
-from . import analyzer, oanda_py_client, drawer, mailer, trader, history_librarian, mathematics
+from . import analyzer, oanda_py_client, drawer, real_trader, trader, history_librarian, \
+    candles_csv_accessor, mongodb_accessor, \
+    interface, mailer, mathematics, statistics_module

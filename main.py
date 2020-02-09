@@ -1,6 +1,6 @@
 # from models import mailer
 import json
-from models.trader import RealTrader
+from models.real_trader import RealTrader
 
 
 # For AWS Lambda

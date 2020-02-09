@@ -3,6 +3,8 @@ import time
 import logging
 import os
 import pandas as pd
+import pprint
+import requests
 
 # For trading
 from oandapyV20 import API
@@ -13,8 +15,12 @@ import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+from models.interface import prompt_inputting_decimal
+# from models.candles_csv_accessor import CandlesCsvAccessor
+from models.mongodb_accessor import MongodbAccessor
+
+LOGGER = logging.getLogger()
+LOGGER.setLevel(logging.INFO)
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
 
 
@@ -24,10 +30,12 @@ class FXBase():
 
     @classmethod
     def get_candles(cls, start=0, end=None):
+        if cls.__candles is None:
+            return pd.DataFrame(columns=[])
         return cls.__candles[start:end]
 
     @classmethod
-    def set_timeID(cls):
+    def set_time_id(cls):
         cls.__candles['time_id'] = cls.get_candles().index + 1
 
     @classmethod
@@ -56,23 +64,30 @@ class FXBase():
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class OandaPyClient():
+    REQUESTABLE_COUNT = 5000
+
     @classmethod
     def select_instrument(cls, inst_id=None):
         # TODO: 正しいspreadを後で確認して設定する
         instruments = [
             {'name': 'USD_JPY', 'spread': 0.004},
             {'name': 'EUR_USD', 'spread': 0.00014},
-            {'name': 'GBP_JPY', 'spread': 0.014}
+            {'name': 'GBP_JPY', 'spread': 0.014},
+            {'name': 'USD_CHF', 'spread': 0.00014}
         ]
-        if inst_id is not None: return instruments[inst_id]
+        if inst_id is not None:
+            return instruments[inst_id]
 
-        print('通貨ペアは？')
-        prompt_message = ''
-        for i, inst in enumerate(instruments):
-            prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst['name'])
-        print(prompt_message + '(半角数字): ', end='')
-        inst_id = int(input())
-        return instruments[inst_id]
+        while True:
+            print('通貨ペアは？')
+            prompt_message = ''
+            for i, inst in enumerate(instruments):
+                prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst['name'])
+            print(prompt_message + '(半角数字): ', end='')
+
+            inst_id = prompt_inputting_decimal()
+            if inst_id < len(instruments):
+                return instruments[inst_id]
 
     def __init__(self, instrument=None, environment=None):
         ''' 固定パラメータの設定 '''
@@ -83,32 +98,29 @@ class OandaPyClient():
         )
         self.__instrument = instrument or 'USD_JPY'
         self.__units = os.environ.get('UNITS') or '1'
-        self.__tradeIDs = []
-        self.__lastTransactionID = None
+        self.__trade_ids = []
+        self.__last_transaction_id = None
 
     #
     # Public
     #
 
     # INFO: request-candles
-    def load_specified_length_candles(self, granularity='M5'):
+    def specify_count_and_load_candles(self, count=60, granularity='M5', set_candles=False):
         ''' チャート情報を更新 '''
-        end_datetime = datetime.datetime.now() - datetime.timedelta(hours=9)
-        length = 60
         response = self.__request_oanda_instruments(
-            start=None,
-            end=self.__format_dt_into_OandapyV20(end_datetime),
-            candles_count=length,
+            candles_count=count,
             granularity=granularity
         )
 
         candles = self.__transform_to_candle_chart(response)
-        FXBase.set_candles(
-            candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
-        )
-        return {'success': '[Watcher] Oandaからのレート取得に成功'}
+        if set_candles:
+            FXBase.set_candles(
+                candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
+            )
+        return {'success': '[Watcher] Oandaからのレート取得に成功', 'candles': candles}
 
-    def load_long_chart(self, days=1, granularity='M5'):
+    def load_long_chart(self, days=0, granularity='M5'):
         ''' 長期間のチャート取得のために複数回APIリクエスト '''
         remaining_days = days
         candles = None
@@ -122,8 +134,8 @@ class OandaPyClient():
             end_datetime = last_datetime - datetime.timedelta(days=remaining_days)
 
             response = self.__request_oanda_instruments(
-                start=self.__format_dt_into_OandapyV20(start_datetime),
-                end=self.__format_dt_into_OandapyV20(end_datetime),
+                start=self.__convert_datetime_into_oanda_format(start_datetime),
+                end=self.__convert_datetime_into_oanda_format(end_datetime),
                 granularity=granularity
             )
             tmp_candles = self.__transform_to_candle_chart(response)
@@ -131,14 +143,70 @@ class OandaPyClient():
             print('残り: {remaining_days}日分'.format(remaining_days=remaining_days))
             time.sleep(1)
 
-        if remaining_days == 0:
-            FXBase.set_candles(candles)
-            return {'success': '[Watcher] APIリクエスト成功'}
+        return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
 
-        return {'error': '[Watcher] 処理中断'}
+    def load_or_query_candles(self, start_time, end_time, granularity):
+        # candles_accessor = CandlesCsvAccessor(granularity=granularity, currency_pare=self.__instrument)
+        candles_accessor = MongodbAccessor(db_name='candles')
+        stocked_first_time, stocked_last_time = candles_accessor.edge_datetimes_of(currency_pare=self.__instrument)
+
+        print('[MongoDB] slide用10分足の不足分を解析・request中....')
+        if start_time < stocked_first_time:
+            candles_supplement = self.load_candles_by_duration(
+                start=start_time, end=stocked_first_time - datetime.timedelta(minutes=10),
+                granularity=granularity
+            )['candles'].rename(columns={'time': '_id'})
+            candles_supplement['_id'] = pd.to_datetime(candles_supplement._id)
+            candles_dict = candles_supplement.to_dict('records')
+            candles_accessor.bulk_insert(currency_pare=self.__instrument, dict_array=candles_dict)
+
+        if stocked_last_time < end_time:
+            candles_supplement = self.load_candles_by_duration(
+                start=stocked_last_time + datetime.timedelta(minutes=10), end=end_time,
+                granularity=granularity
+            )['candles'].rename(columns={'time': '_id'})
+            candles_supplement['_id'] = pd.to_datetime(candles_supplement._id)
+            candles_dict = candles_supplement.to_dict('records')
+            candles_accessor.bulk_insert(currency_pare=self.__instrument, dict_array=candles_dict)
+
+        print('[MongoDB] querying m10_candles ...')
+        stocked_candles = candles_accessor.query_candles(
+            currency_pare=self.__instrument,
+            start_dt=start_time, end_dt=end_time
+        )
+        del candles_accessor
+        print('[MongoDB] m10_candles are loaded !')
+
+        return stocked_candles
+
+    def load_candles_by_duration(self, start, end, granularity='M5'):
+        ''' 広範囲期間チャート取得用の複数回リクエスト '''
+        candles = None
+        requestable_duration = self.__calc_requestable_time_duration(granularity)
+        next_starttime = start
+        # INFO: start から end まで1回のリクエストで取得できる場合は、取れるだけたくさん取得してしまう
+        next_endtime = start + requestable_duration
+
+        while next_starttime < end:
+            now = datetime.datetime.now() - datetime.timedelta(hours=9, minutes=1)
+            if now < next_endtime: next_endtime = now
+            response = self.__request_oanda_instruments(
+                start=self.__convert_datetime_into_oanda_format(next_starttime),
+                end=self.__convert_datetime_into_oanda_format(next_endtime),
+                granularity=granularity
+            )
+            tmp_candles = self.__transform_to_candle_chart(response)
+            candles = FXBase.union_candles_distinct(candles, tmp_candles)
+            print('取得済み: {datetime}まで'.format(datetime=next_endtime))
+            time.sleep(1)
+
+            next_starttime += requestable_duration
+            next_endtime += requestable_duration
+
+        return {'success': '[Client] APIリクエスト成功', 'candles': candles}
 
     def request_latest_candles(self, target_datetime, granularity='M10', period_of_time='D'):
-        end_datetime = datetime.datetime.strptime(target_datetime, '%Y-%m-%d %H:%M:%S')
+        end_datetime = self.__str_to_datetime(target_datetime)
         time_unit = period_of_time[0]
         if time_unit == 'M':
             start_datetime = end_datetime - datetime.timedelta(minutes=int(period_of_time[1:]))
@@ -147,42 +215,25 @@ class OandaPyClient():
         elif time_unit == 'D':
             start_datetime = end_datetime - datetime.timedelta(days=1)
 
-        # try:
-        response = self.__request_oanda_instruments(
-            start=self.__format_dt_into_OandapyV20(start_datetime),
-            end=self.__format_dt_into_OandapyV20(end_datetime),
-            granularity=granularity
-        )
-        # except V20Error as e:
-        #     print("V20Error: ", e)
-        #     # INFO: 保険として、1分前のデータの再取得を試みる
-        #     start_datetime -= datetime.timedelta(minutes=1)
-        #     end_datetime   -= datetime.timedelta(minutes=1)
-        #     response = self.__request_oanda_instruments(
-        #         start=self.__format_dt_into_OandapyV20(start_datetime),
-        #         end=  self.__format_dt_into_OandapyV20(end_datetime),
-        #         granularity=granularity
-        #     )
+        try:
+            response = self.__request_oanda_instruments(
+                start=self.__convert_datetime_into_oanda_format(start_datetime),
+                end=self.__convert_datetime_into_oanda_format(end_datetime),
+                granularity=granularity
+            )
+        except V20Error as error:
+            print('[request_latest_candles] V20Error: {},\nstart: {},\nend: {}'.format(
+                error, start_datetime, end_datetime
+            ))
+            # INFO: 保険として、1分前のデータの再取得を試みる
+            start_datetime -= datetime.timedelta(minutes=1)
+            end_datetime -= datetime.timedelta(minutes=1)
+            response = self.__request_oanda_instruments(
+                start=self.__convert_datetime_into_oanda_format(start_datetime),
+                end=self.__convert_datetime_into_oanda_format(end_datetime),
+                granularity=granularity
+            )
 
-        candles = self.__transform_to_candle_chart(response)
-        return candles
-
-    def request_specified_candles(self, start_datetime, granularity='M10', base_granurarity='D'):
-        start_time = datetime.datetime.strptime(start_datetime, '%Y-%m-%d %H:%M:%S')
-        time_unit = base_granurarity[0]
-        if time_unit == 'M':
-            end_time = start_time + datetime.timedelta(minutes=int(base_granurarity[1:]))
-        elif time_unit == 'H':
-            end_time = start_time + datetime.timedelta(hours=int(base_granurarity[1:]))
-        elif time_unit == 'D':
-            end_time = start_time + datetime.timedelta(days=1)
-        if end_time > datetime.datetime.now(): end_time = datetime.datetime.now()
-
-        response = self.__request_oanda_instruments(
-            start=self.__format_dt_into_OandapyV20(start_time),
-            end=self.__format_dt_into_OandapyV20(end_time),
-            granularity=granularity
-        )
         candles = self.__transform_to_candle_chart(response)
         return candles
 
@@ -203,22 +254,18 @@ class OandaPyClient():
         '''
         最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き
         '''
-        now = datetime.datetime.now() - datetime.timedelta(hours=9)
-        latest_candle = self.request_latest_candles(
-            target_datetime=str(now)[:19],
-            granularity='M1',
-            period_of_time='M1',
-        ).iloc[-1]
+        # INFO: .to_dictは、単にコンソールログの見やすさ向上のために使用中
+        latest_candle = self.specify_count_and_load_candles(count=1, granularity='M1')['candles'] \
+                            .iloc[-1].to_dict()
 
-        candles = FXBase.get_candles()
-        if candles.iloc[-1].high < latest_candle.high:
-            FXBase.replace_latest_price('high', latest_candle.high)
-        elif candles.iloc[-1].low > latest_candle.low:
-            FXBase.replace_latest_price('low', latest_candle.low)
-        print('[Client] 直前値')
-        print(FXBase.get_candles().iloc[-1])
-        print('[Client] 現在値')
-        print(latest_candle)
+        candle_dict = FXBase.get_candles().iloc[-1].to_dict()
+        FXBase.replace_latest_price('close', latest_candle['close'])
+        if candle_dict['high'] < latest_candle['high']:
+            FXBase.replace_latest_price('high', latest_candle['high'])
+        elif candle_dict['low'] > latest_candle['low']:
+            FXBase.replace_latest_price('low', latest_candle['low'])
+        print('[Client] Last_H4: {}, Current_M1: {}'.format(candle_dict, latest_candle))
+        print('[Client] New_H4: {}'.format(FXBase.get_candles().iloc[-1].to_dict()))
 
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''
@@ -226,16 +273,32 @@ class OandaPyClient():
         response = self.__api_client.request(request_obj)
 
         # TODO: last_transactionID は 対象 instrument のlast transaction の ID が望ましい
-        self.__lastTransactionID = response['lastTransactionID']
+        self.__last_transaction_id = response['lastTransactionID']
         open_trades = response['trades']
 
         extracted_trades = [
-            trade for trade in open_trades if
+            trade for trade in open_trades if (
                 # 'clientExtensions' not in trade.keys() and
                 trade['instrument'] == self.__instrument
+            )
         ]
-        print('[Client] open_trades: {}'.format(extracted_trades))
-        self.__tradeIDs = [trade['id'] for trade in extracted_trades]
+        self.__trade_ids = [trade['id'] for trade in extracted_trades]
+
+        open_position_for_diplay = [
+            {
+                'instrument': trade['instrument'],
+                'price': trade['price'],
+                'units': trade['initialUnits'],
+                'openTime': trade['openTime'],
+                'stoploss': {
+                    'createTime': trade['stopLossOrder']['createTime'],
+                    'price': trade['stopLossOrder']['price'],
+                    'timeInForce': trade['stopLossOrder']['timeInForce']
+                }
+            } for trade in extracted_trades
+        ]
+        print('[Client] open_trades: {}'.format(open_position_for_diplay != []))
+        pprint.pprint(open_position_for_diplay, compact=True)
         return extracted_trades
 
     def request_market_ordering(self, posi_nega_sign='', stoploss_price=None):
@@ -258,46 +321,65 @@ class OandaPyClient():
         request_obj = orders.OrderCreate(
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
-        response = self.__api_client.request(request_obj)
-        logger.info('[Client] market-order: {result}'.format(result=response))
+        try:
+            response = self.__api_client.request(request_obj)['orderCreateTransaction']
+        except V20Error as error:
+            LOGGER.error('[request_market_ordering] V20Error: {}'.format(error))
+
+        response_for_display = response
+        # response_for_display = {
+        #     'instrument': response['instrument'],
+        #     # TODO: 復旧すべし 今は 'price' が見つからないらしいので処理しない
+        #     'price': ,  # response['price'],
+        #     'units': response['units'],
+        #     'time': response['time'],
+        #     'stoploss': response['stopLossOnFill']
+        # }
+        LOGGER.info('[Client] market-order: %s', response_for_display)
         return response
 
-    def request_closing_position(self):
+    def request_closing_position(self, reason=''):
         ''' ポジションをclose '''
-        if self.__tradeIDs == []: return {'error': '[Client] closeすべきポジションが見つかりませんでした。'}
+        if self.__trade_ids == []: return {'error': '[Client] closeすべきポジションが見つかりませんでした。'}
 
-        target_tradeID = self.__tradeIDs[0]
+        target_trade_id = self.__trade_ids[0]
         # data = {'units': self.__units}
         request_obj = trades.TradeClose(
-            accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_tradeID  # , data=data
+            accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_trade_id  # , data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('[Client] close-position: {result}'.format(result=response))
-        return response
+        LOGGER.info('[Client] close-position: %s \n REASON: %s', response, reason)
+        response_for_display = {
+            'price': response['orderFillTransaction'].get('price'),
+            'profit': response['orderFillTransaction'].get('pl'),
+            'units': response['orderFillTransaction'].get('units'),
+            'reason': response['orderFillTransaction'].get('reason')
+        }
+        return response_for_display
 
-    def request_trailing_stoploss(self, SL_price=None):
+    def request_trailing_stoploss(self, stoploss_price=None):
         ''' ポジションのstoplossを強気方向に修正 '''
-        if self.__tradeIDs == []: return {'error': '[Client] trailすべきポジションが見つかりませんでした。'}
-        if SL_price is None: return {'error': '[Client] StopLoss価格がなく、trailできませんでした。'}
+        if self.__trade_ids == []: return {'error': '[Client] trailすべきポジションが見つかりませんでした。'}
+        if stoploss_price is None: return {'error': '[Client] StopLoss価格がなく、trailできませんでした。'}
 
         data = {
             # 'takeProfit': {'timeInForce': 'GTC', 'price': '1.3'},
-            'stopLoss': {'timeInForce': 'GTC', 'price': str(SL_price)[:7]}
+            'stopLoss': {'timeInForce': 'GTC', 'price': str(stoploss_price)[:7]}
         }
         request_obj = trades.TradeCRCDO(
             accountID=os.environ['OANDA_ACCOUNT_ID'],
-            tradeID=self.__tradeIDs[0],
+            tradeID=self.__trade_ids[0],
             data=data
         )
         response = self.__api_client.request(request_obj)
-        logger.info('[Client] trail: {result}'.format(result=response))
+        LOGGER.info('[Client] trail: %s', response)
         return response
 
     def request_transactions(self):
         params = {
             # len(from ... to) <= 1000
-            'to': int(self.__lastTransactionID),
-            'from': int(self.__lastTransactionID) - 999,
+            'to': int(self.__last_transaction_id),
+            'from': int(self.__last_transaction_id) - 999,
             'type': ['ORDER'],
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
@@ -326,32 +408,36 @@ class OandaPyClient():
             return int(days * 24 * 60 / time_span)
 
     def __request_oanda_instruments(
-        self, start, end=None, candles_count=None, granularity='M5'
+            self, start=None, end=None, candles_count=None, granularity='M5'
     ):
         ''' OandaAPIと直接通信し、為替データを取得 '''
-        if candles_count is not None:
-            time_params = {
+        if start is None and end is None:
+            params = {'count': candles_count, 'granularity': granularity}
+        elif candles_count is not None:
+            params = {
                 # INFO: つけない方が一般的なレートに近くなる
                 # 'alignmentTimezone':   'Asia/Tokyo',
                 'from': start, 'count': candles_count,
                 'granularity': granularity
             }
         else:
-            time_params = {
-                # 'alignmentTimezone': 'Asia/Tokyo',
+            params = {
                 'from': start, 'to': end,
                 'granularity': granularity
             }
 
         request_obj = module_inst.InstrumentsCandles(
             instrument=self.__instrument,
-            params=time_params
+            params=params
         )
         # HACK: 現在値を取得する際、誤差で将来の時間と扱われてエラーになることがある
         try:
             response = self.__api_client.request(request_obj)
-        except V20Error as e:
-            logger.error('[__request_oanda_instruments] V20Error: ', e)
+        except V20Error as error:
+            LOGGER.error('[__request_oanda_instruments] V20Error: {}'.format(error))
+            return {'candles': []}
+        except requests.exceptions.ConnectionError as error:
+            LOGGER.error('[__request_oanda_instruments] requests.exceptions.ConnectionError: {}'.format(error))
             return {'candles': []}
 
         return response
@@ -362,6 +448,7 @@ class OandaPyClient():
 
         candle = pd.DataFrame.from_dict([row['mid'] for row in response['candles']])
         candle = candle.astype({
+            # INFO: 'float32' の方が速度は早くなるが、不要な小数点4桁目以下が出現するので64を使用
             'c': 'float64',
             'l': 'float64',
             'h': 'float64',
@@ -381,20 +468,38 @@ class OandaPyClient():
         candles_per_a_day = self.__calc_candles_wanted(days=1, granularity=granularity)
 
         # http://developer.oanda.com/rest-live-v20/instrument-ep/
-        max_days = int(5000 / candles_per_a_day)  # 1 requestにつき5000本まで
+        max_days = int(OandaPyClient.REQUESTABLE_COUNT / candles_per_a_day)
         return max_days
 
-    def __format_dt_into_OandapyV20(self, dt):
-        return dt.strftime('%Y-%m-%dT%H:%M:00.000000Z')
+    def __calc_requestable_time_duration(self, granularity):
+        time_unit = granularity[0]
+        if time_unit == 'M':
+            minutes = int(OandaPyClient.REQUESTABLE_COUNT * int(granularity[1:])) - 1
+            requestable_duration = datetime.timedelta(minutes=minutes)
+        elif time_unit == 'H':
+            hours = int(OandaPyClient.REQUESTABLE_COUNT * int(granularity[1:])) - 1
+            requestable_duration = datetime.timedelta(hours=hours)
+        elif time_unit == 'D':
+            days = OandaPyClient.REQUESTABLE_COUNT
+            requestable_duration = datetime.timedelta(days=days)
+
+        return requestable_duration
+
+    def __str_to_datetime(self, time_string):
+        result_dt = datetime.datetime.strptime(time_string, '%Y-%m-%d %H:%M:%S')
+        return result_dt
+
+    def __convert_datetime_into_oanda_format(self, target_datetime):
+        return target_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
 
     def __filter_and_make_df(self, response_transactions):
         ''' 必要なrecordのみ残してdataframeに変換する '''
         # INFO: filtering by transaction-type
         filtered_transactions = [
             row for row in response_transactions if (
-                row['type'] != 'ORDER_CANCEL' and
-                row['type'] != 'MARKET_ORDER'  # and
-                # row['type']!='MARKET_ORDER_REJECT'
+                row['type'] != 'ORDER_CANCEL'
+                and row['type'] != 'MARKET_ORDER'
+                # and row['type']!='MARKET_ORDER_REJECT'
             )
         ]
 
@@ -421,20 +526,14 @@ class OandaPyClient():
         hist_df = self.__fill_instrument_for_history(hist_df.copy())
         hist_df = hist_df[
             (hist_df.instrument == self.__instrument)
-            | (hist_df.filled_inst == self.__instrument)
+            | (hist_df.instrument_parent == self.__instrument)
         ]
         return hist_df
 
-    # TODO: 可能なら dataframe 化する前にfilterした方が早い...
     def __fill_instrument_for_history(self, hist_df):
-        inst_array = []
-        for _index, row in hist_df.iterrows():
-            parent_trade_row = hist_df[hist_df.id == row.tradeID]
-            if not parent_trade_row.empty:
-                inst = parent_trade_row.iloc[0, :].instrument
-            else:
-                inst = None
-            inst_array.append(inst)
-
-        hist_df['filled_inst'] = inst_array
-        return hist_df
+        hist_df_parent = hist_df.set_index(hist_df.id)['instrument']
+        result_df = hist_df.merge(
+            hist_df_parent, how='left',
+            left_on='tradeID', right_index=True, suffixes=['', '_parent']
+        )
+        return result_df

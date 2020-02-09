@@ -43,7 +43,7 @@ class SendGridAPI:
             self.inited = False
 
     def __prepare_image(self):
-        with open('figure.png', 'rb') as f:
+        with open('tmp/images/figure.png', 'rb') as f:
             encoded = base64.b64encode(f.read()).decode()
         attachment = sg_helper.Attachment()
         attachment.content = encoded
