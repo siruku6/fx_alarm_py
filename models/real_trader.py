@@ -7,6 +7,7 @@ import models.trade_rules.scalping as scalping
 class RealTrader(Trader):
     ''' トレードルールに基づいてOandaへの発注を行うclass '''
     def __init__(self, operation='verification'):
+        print('[Trader] -------- start --------')
         super(RealTrader, self).__init__(operation=operation)
 
     #
@@ -47,17 +48,16 @@ class RealTrader(Trader):
         result = self._client.request_trailing_stoploss(stoploss_price=new_stop)
         print(result)
 
-    def __settle_position(self):
+    def __settle_position(self, reason=''):
         ''' ポジションをcloseする '''
         from pprint import pprint
-        pprint(self._client.request_closing_position())
+        pprint(self._client.request_closing_position(reason))
 
     #
     # Private
     #
     def __play_swing_trade(self):
         ''' 現在のレートにおいて、スイングトレードルールでトレード '''
-        print('[Trader] -------- start --------')
         last_index = len(self._indicators) - 1
         candles = FXBase.get_candles()
         close_price = candles.close.iat[-1]
@@ -99,7 +99,6 @@ class RealTrader(Trader):
         else:
             self._judge_settle_position(last_index, close_price, candles)
 
-        print('[Trader] -------- end --------')
         return None
 
     def _judge_settle_position(self, index, c_price, candles):
@@ -133,7 +132,6 @@ class RealTrader(Trader):
     # TODO: 実装はいったん終わり、検証中
     def __play_scalping_trade(self):
         ''' 現在のレートにおいて、scalpingルールでトレード '''
-        print('[Trader] -------- start --------')
         last_index = len(self._indicators) - 1
         candles = FXBase.get_candles()
         close_price = candles.close.iat[-1]
@@ -167,16 +165,18 @@ class RealTrader(Trader):
             )
             if new_stop is not None:
                 self._trail_stoploss(new_stop=new_stop)
-            if scalping.position_is_exitable(
-                    close_price, indicators.at[last_index, 'band_+2σ'], indicators.at[last_index, 'band_-2σ']
-                ):
-                self.__settle_position()
+
+            plus_2sigma = indicators.at[last_index, 'band_+2σ']
+            minus_2sigma = indicators.at[last_index, 'band_-2σ']
+            if scalping.position_is_exitable(close_price, plus_2sigma, minus_2sigma):
+                self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
+                    plus_2sigma, close_price, minus_2sigma
+                ))
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
             self._position['type'], new_stop, self._position['stoploss']
         ))
 
-        print('[Trader] -------- end --------')
         return None
 
     def __load_position(self):

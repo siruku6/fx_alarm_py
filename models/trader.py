@@ -657,7 +657,6 @@ class Trader():
 
     def _log_skip_reason(self, reason):
         print('[Trader] skip: {}'.format(reason))
-        print('[Trader] -------- end --------')
 
     def __add_candle_duration(self, start_string):
         start_time = self.__str_to_datetime(start_string)

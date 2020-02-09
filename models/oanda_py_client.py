@@ -338,7 +338,7 @@ class OandaPyClient():
         LOGGER.info('[Client] market-order: %s', response_for_display)
         return response
 
-    def request_closing_position(self):
+    def request_closing_position(self, reason=''):
         ''' ポジションをclose '''
         if self.__trade_ids == []: return {'error': '[Client] closeすべきポジションが見つかりませんでした。'}
 
@@ -348,7 +348,7 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_trade_id  # , data=data
         )
         response = self.__api_client.request(request_obj)
-        LOGGER.info('[Client] close-position: %s', response)
+        LOGGER.info('[Client] close-position: %s \n REASON: %s', response, reason)
         response_for_display = {
             'price': response['orderFillTransaction'].get('price'),
             'profit': response['orderFillTransaction'].get('pl'),
