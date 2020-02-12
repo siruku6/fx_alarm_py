@@ -164,7 +164,10 @@ class Librarian():
         drwr.draw_positions_df(positions_df=close_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['exit'])
         drwr.draw_positions_df(positions_df=long_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['long'])
         drwr.draw_positions_df(positions_df=short_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['short'])
-        drwr.draw_positions_df(positions_df=d_frame[['sequence', 'stoploss']], plot_type=drwr.PLOT_TYPE['trail'])
+        drwr.draw_positions_df(
+            positions_df=d_frame[['sequence', 'stoploss']].rename(columns={'stoploss': 'price'}),
+            plot_type=drwr.PLOT_TYPE['trail']
+        )
 
         drwr.draw_candles(-DRAWABLE_ROWS, None)  # 200本より古い足は消している
         result = drwr.create_png(
