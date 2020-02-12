@@ -45,6 +45,7 @@ class RealTrader(Trader):
         -------
         None
         '''
+        # TODO: 通信エラー以外の理由でtrailに失敗したら即closeするよう修正する
         result = self._client.request_trailing_stoploss(stoploss_price=new_stop)
         print(result)
 
