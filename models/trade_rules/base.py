@@ -28,6 +28,15 @@ def stoc_allows_entry(stod, stosd, trend):
     return False
 
 
+def new_stoploss_price(position_type, previous_low, previous_high, old_stoploss, stoploss_buf, static_spread):
+    if position_type == 'long':
+        new_stoploss = previous_low - stoploss_buf
+        return round(max(new_stoploss, old_stoploss), 3)
+    elif position_type == 'short':
+        new_stoploss = previous_high + stoploss_buf + static_spread
+        return round(min(new_stoploss, old_stoploss), 3)
+
+
 def commit_positions(candles, long_indexes, short_indexes, spread):
     ''' set exit-timing, price '''
     long_exits = long_indexes & (candles.low < candles.possible_stoploss)

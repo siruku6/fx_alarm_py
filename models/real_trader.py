@@ -47,7 +47,7 @@ class RealTrader(Trader):
         '''
         # TODO: 通信エラー以外の理由でtrailに失敗したら即closeするよう修正する
         result = self._client.request_trailing_stoploss(stoploss_price=new_stop)
-        print(result)
+        print('[Trader] Trailing-result: {}'.format(result))
 
     def __settle_position(self, reason=''):
         ''' ポジションをcloseする '''
@@ -110,20 +110,18 @@ class RealTrader(Trader):
 
         if position_type == 'long':
             possible_stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
-            if possible_stoploss > stoploss_price:  # and candles.high[index - 20:index].max() < candles.high[index]:
+            if possible_stoploss > stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(new_stop=possible_stoploss)
             elif parabolic[index] > c_price:
-                # exit_price = self._ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
                 self.__settle_position()
 
         elif position_type == 'short':
             possible_stoploss = candles.high[index - 1] + self._stoploss_buffer_pips + self._static_spread
-            if possible_stoploss < stoploss_price:  # and candles.low[index - 20:index].min() > candles.low[index]:
+            if possible_stoploss < stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(new_stop=possible_stoploss)
             elif parabolic[index] < c_price + self._static_spread:
-                # exit_price = self._ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
                 self.__settle_position()
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
@@ -160,11 +158,22 @@ class RealTrader(Trader):
 
             self._create_position(last_index, direction)
         else:
-            new_stop = scalping.new_stoploss_price(
-                position_type=self._position['type'], old_stoploss=self._position['stoploss'],
-                current_sup=indicators.at[last_index, 'support'], current_regist=indicators.at[last_index, 'regist']
+            # INFO: stoploss設定が緩い
+            # new_stop = scalping.new_stoploss_price(
+            #     position_type=self._position['type'], old_stoploss=self._position['stoploss'],
+            #     current_sup=indicators.at[last_index, 'support'], current_regist=indicators.at[last_index, 'regist']
+            # )
+
+            # INFO: 厳しいstoploss設定
+            new_stop = rules.new_stoploss_price(
+                position_type=self._position['type'],
+                previous_low=candles.at[last_index - 1, 'low'],
+                previous_high=candles.at[last_index - 1, 'high'],
+                old_stoploss=self._position['stoploss'],
+                stoploss_buf=self._stoploss_buffer_pips,
+                static_spread=self._static_spread
             )
-            if new_stop is not None:
+            if new_stop != self._position['stoploss']:
                 self._trail_stoploss(new_stop=new_stop)
 
             plus_2sigma = indicators.at[last_index, 'band_+2σ']
