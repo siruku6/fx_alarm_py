@@ -27,10 +27,10 @@ class RealTrader(Trader):
         candles = FXBase.get_candles()
         if direction == 'long':
             sign = ''
-            stoploss = candles.low[index - 1]
+            stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
         elif direction == 'short':
             sign = '-'
-            stoploss = candles.high[index - 1] + self._stoploss_buffer_pips
+            stoploss = candles.high[index - 1] + self._stoploss_buffer_pips + self._static_spread
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
 
     def _trail_stoploss(self, new_stop):
