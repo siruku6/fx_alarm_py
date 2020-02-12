@@ -326,15 +326,13 @@ class OandaPyClient():
         except V20Error as error:
             LOGGER.error('[request_market_ordering] V20Error: {}'.format(error))
 
-        response_for_display = response
-        # response_for_display = {
-        #     'instrument': response['instrument'],
-        #     # TODO: 復旧すべし 今は 'price' が見つからないらしいので処理しない
-        #     'price': ,  # response['price'],
-        #     'units': response['units'],
-        #     'time': response['time'],
-        #     'stoploss': response['stopLossOnFill']
-        # }
+        response_for_display = {
+            'instrument': response.get('instrument'),
+            # 'price': response.get('price'),  # market order に price はなかった
+            'units': response.get('units'),
+            'time': response.get('time'),
+            'stopLossOnFill': response.get('stopLossOnFill')
+        }
         LOGGER.info('[Client] market-order: %s', response_for_display)
         return response
 

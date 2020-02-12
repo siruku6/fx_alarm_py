@@ -175,7 +175,7 @@ class RealTrader(Trader):
                 ))
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
-            self._position['type'], new_stop, self._position['stoploss']
+            self._position['type'], new_stop if 'new_stop' in locals() else '-', self._position['stoploss']
         ))
 
         return None
