@@ -600,7 +600,9 @@ class Trader():
             close_df = dfs_position[i][dfs_position[i].position.isin(['sell_exit', 'buy_exit'])] \
                                    .drop('price', axis=1) \
                                    .rename(columns={'exitable_price': 'price'})
-            trail_df = dfs_position[i][dfs_position[i].position != '-']
+            trail_df = dfs_position[i][dfs_position[i].position != '-'] \
+                                   .drop(['price', 'exitable_price'], axis=1) \
+                                   .rename(columns={'stoploss': 'price'})
 
             drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
             drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])

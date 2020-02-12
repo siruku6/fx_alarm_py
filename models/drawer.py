@@ -95,14 +95,10 @@ class FigureDrawer():
             label = 'exit'
             mark = 'x'
 
+        # HACK: price に Nan が含まれているとエラーが発生していたので除去している
         drawing_targets = positions_df.dropna()
-        if plot_type == FigureDrawer.PLOT_TYPE['trail']:
-            prices = drawing_targets.stoploss
-        else:
-            prices = drawing_targets.price
-
         self.__axis1.scatter(
-            x=drawing_targets.sequence, y=prices,
+            x=drawing_targets.sequence, y=drawing_targets.price,
             marker=mark, edgecolors=edgecolors, label=nolabel or label,
             color=color, s=size, linewidths=0.7
         )
