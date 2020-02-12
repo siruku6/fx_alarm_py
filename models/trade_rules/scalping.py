@@ -48,25 +48,15 @@ def set_entryable_prices(candles, spread):
     candles.loc[short_index, 'entryable_price'] = candles[short_index].open
 
 
-def new_stoploss_price(position_type, old_stoploss, current_sup, current_regist):
+def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss):
     if position_type == 'long':
-        if old_stoploss < current_sup:
+        if np.isnan(old_stoploss) or old_stoploss < current_sup:
             return current_sup
-        else:
-            return None
-        # if registances.value[-1] != registances.value[-2]:
-        #     return supports.drop_duplicates().values[-1]
-        # else:
-        #     return supports.drop_duplicates().values[-2]
     elif position_type == 'short':
-        if old_stoploss > current_regist:
+        if np.isnan(old_stoploss) or old_stoploss > current_regist:
             return current_regist
-        else:
-            return None
-        # if supports.value[-1] != supports.value[-2]:
-        #     return registances.drop_duplicates().values[-1] + self._static_spread
-        # else:
-        #     return registances.drop_duplicates().values[-2] + self._static_spread
+
+    return np.nan
 
 
 # INFO: backtest用の処理
@@ -113,3 +103,13 @@ def position_is_exitable(close, last_plus_2sigma, last_minus_2sigma):
         return True
     else:
         return False
+
+
+def set_stoploss_prices(types, indicators):
+    method_stoploss_generator = np.frompyfunc(new_stoploss_price, 4, 1)
+    return method_stoploss_generator(
+        types,
+        indicators.support,
+        indicators.regist,
+        np.full(len(types), np.nan)
+    )
