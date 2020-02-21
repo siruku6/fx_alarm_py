@@ -272,7 +272,7 @@ class OandaPyClient():
         request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
         response = self.__api_client.request(request_obj)
 
-        # TODO: last_transactionID は 対象 instrument のlast transaction の ID が望ましい
+        # INFO: lastTransactionID は最後に行った売買のID
         self.__last_transaction_id = response['lastTransactionID']
         open_trades = response['trades']
 
@@ -373,11 +373,11 @@ class OandaPyClient():
         LOGGER.info('[Client] trail: %s', response)
         return response
 
-    def request_transactions(self):
+    def request_transactions(self, count=999):
         params = {
             # len(from ... to) <= 1000
             'to': int(self.__last_transaction_id),
-            'from': int(self.__last_transaction_id) - 999,
+            'from': int(self.__last_transaction_id) - count,
             'type': ['ORDER'],
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }

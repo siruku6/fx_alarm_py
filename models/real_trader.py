@@ -1,3 +1,4 @@
+import datetime
 import os
 from models.oanda_py_client import FXBase
 from models.trader import Trader
@@ -139,6 +140,9 @@ class RealTrader(Trader):
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
+            if self.__since_last_loss() < datetime.timedelta(hours=1):
+                print('[Trader] skip: An hour has not passed since last loss.')
+                return
             trend = self.__detect_latest_trend(index=last_index, c_price=close_price, time=last_time)
             if trend is None:
                 return
@@ -207,6 +211,13 @@ class RealTrader(Trader):
 
         pos['stoploss'] = float(target['stopLossOrder']['price'])
         return pos
+
+    def __since_last_loss():
+        hist_df = self._client.request_transactions(80)
+        last_loss_time = hist_df[hist_df.pl < 0]['time'].iat[-1]
+        last_loss_datetime = datetime.datetime.strptime(last_loss_time.replace('T', ' ')[:16], '%Y-%m-%d %H:%M')
+        time_since_loss = datetime.datetime.utcnow() - last_loss_datetime
+        return time_since_loss
 
     #
     #  apply each rules
