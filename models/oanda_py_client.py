@@ -447,12 +447,9 @@ class OandaPyClient():
         candle = pd.DataFrame.from_dict([row['mid'] for row in response['candles']])
         candle = candle.astype({
             # INFO: 'float32' の方が速度は早くなるが、不要な小数点4桁目以下が出現するので64を使用
-            'c': 'float64',
-            'l': 'float64',
-            'h': 'float64',
-            'o': 'float64'
+            'c': 'float64', 'h': 'float64', 'l': 'float64', 'o': 'float64'
         })
-        candle.columns = ['close', 'high', 'low', 'open']
+        candle.rename(columns={'c': 'close', 'h': 'high', 'l': 'low', 'o': 'open'}, inplace=True)
         candle['time'] = [row['time'] for row in response['candles']]
         # 冗長な日時データを短縮
         # https://note.nkmk.me/python-pandas-datetime-timestamp/
