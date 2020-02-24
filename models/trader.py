@@ -59,7 +59,7 @@ class Trader():
 
         self._client.request_current_price()
         self._ana = Analyzer()
-        result = self._ana.calc_indicators()
+        result = self._ana.calc_indicators(candles=FXBase.get_candles())
         if 'error' in result:
             self._log_skip_reason(result['error'])
             return

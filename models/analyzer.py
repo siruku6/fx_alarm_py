@@ -37,16 +37,15 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                       Driver                        #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def calc_indicators(self):
-        candles = FXBase.get_candles()
+    def calc_indicators(self, candles):
         if candles is None:
             return {'error': '[ERROR] Analyzer: 分析対象データがありません'}
         self.__calc_sma(close_candles=candles.close)
         self.__calc_ema(close_candles=candles.close)
         self.__calc_bollinger_bands(close_candles=candles.close)
         self.__calc_parabolic(candles=candles)
-        self.__indicators['stoD'] = self.__calc_STOD(window_size=5)
-        self.__indicators['stoSD'] = self.__calc_STOSD(window_size=5)
+        self.__indicators['stoD'] = self.__calc_STOD(candles=candles, window_size=5)
+        self.__indicators['stoSD'] = self.__calc_STOSD(candles=candles, window_size=5)
         self.__indicators['regist'] = self.__calc_registance(high_candles=candles.high)
         self.__indicators['support'] = self.__calc_support(low_candles=candles.low)
         # result = self.__calc_trendlines()
@@ -284,25 +283,24 @@ class Analyzer():
     #                    Stochastic                       #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # http://www.algo-fx-blog.com/stochastics-python/
-    def __calc_STOK(self, window_size=5):
+    def __calc_STOK(self, candles, window_size=5):
         ''' ストキャスの%Kを計算 '''
-        candles = FXBase.get_candles()
         stok = ((candles.close - candles.low.rolling(window=window_size, center=False).min()) / (
             candles.high.rolling(window=window_size, center=False).max()
             - candles.low.rolling(window=window_size, center=False).min()
         )) * 100
         return stok
 
-    def __calc_STOD(self, window_size):
+    def __calc_STOD(self, candles, window_size):
         ''' ストキャスの%Dを計算（%Kの3日SMA） '''
-        stok = self.__calc_STOK(window_size)
+        stok = self.__calc_STOK(candles=candles, window_size=window_size)
         stod = stok.rolling(window=3, center=False).mean()
         stod.name = 'stoD:3'
         return stod
 
-    def __calc_STOSD(self, window_size):
+    def __calc_STOSD(self, candles, window_size):
         ''' ストキャスの%SDを計算（%Dの3日SMA） '''
-        stod = self.__calc_STOD(window_size)
+        stod = self.__calc_STOD(candles=candles, window_size=window_size)
         stosd = stod.rolling(window=3, center=False).mean()
         stosd.name = 'stoSD:3'
         return stosd

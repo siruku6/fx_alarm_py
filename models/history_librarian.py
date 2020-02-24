@@ -145,7 +145,7 @@ class Librarian():
         short_df.loc[short_df.units >= 0, 'price'] = None
 
         # prepare indicators
-        self.__ana.calc_indicators()
+        self.__ana.calc_indicators(candles=d_frame)
         self._indicators = self.__ana.get_indicators()
 
         # INFO: 描画
