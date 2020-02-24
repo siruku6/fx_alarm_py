@@ -212,7 +212,7 @@ class RealTrader(Trader):
         pos['stoploss'] = float(target['stopLossOrder']['price'])
         return pos
 
-    def __since_last_loss():
+    def __since_last_loss(self):
         hist_df = self._client.request_transactions(80)
         last_loss_time = hist_df[hist_df.pl < 0]['time'].iat[-1]
         last_loss_datetime = datetime.datetime.strptime(last_loss_time.replace('T', ' ')[:16], '%Y-%m-%d %H:%M')
