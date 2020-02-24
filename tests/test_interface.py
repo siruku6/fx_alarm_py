@@ -3,6 +3,15 @@ from unittest.mock import patch
 import models.interface as interface
 
 class TestInterface(unittest.TestCase):
+    def test_ask_true_or_false(self):
+        with patch('builtins.print'):
+            with patch('builtins.input', side_effect=['1']):
+                self.assertTrue(interface.ask_true_or_false('msg'))
+            with patch('builtins.input', side_effect=['2']):
+                self.assertFalse(interface.ask_true_or_false('msg'))
+            with patch('builtins.input', side_effect=['a', '', '0', '-1', 'e3\n', '1']):
+                self.assertTrue((interface.ask_true_or_false('msg')))
+
     def test_select_stoploss_digit(self):
         with patch('models.interface.print'):
             with patch('models.interface.prompt_inputting_decimal', return_value=1):
