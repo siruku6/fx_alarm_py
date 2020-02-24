@@ -214,7 +214,9 @@ class RealTrader(Trader):
 
     def __since_last_loss(self):
         hist_df = self._client.request_transactions(80)
-        last_loss_time = hist_df[hist_df.pl < 0]['time'].iat[-1]
+        time_series = hist_df[hist_df.pl < 0]['time']
+        if len(time_series) == 0: return datetime.timedelta(hours=99)
+        last_loss_time = time_series.iat[-1]
         last_loss_datetime = datetime.datetime.strptime(last_loss_time.replace('T', ' ')[:16], '%Y-%m-%d %H:%M')
         time_since_loss = datetime.datetime.utcnow() - last_loss_datetime
         return time_since_loss
