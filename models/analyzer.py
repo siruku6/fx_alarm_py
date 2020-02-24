@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 # from scipy.stats import linregress
-from models.oanda_py_client import FXBase
+# from models.oanda_py_client import FXBase
 
 
 class Analyzer():
@@ -37,15 +37,19 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                       Driver                        #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def calc_indicators(self, candles):
+    def calc_indicators(self, candles, stoc_only=False):
         if candles is None:
             return {'error': '[ERROR] Analyzer: 分析対象データがありません'}
+
+        self.__indicators['stoD'] = self.__calc_STOD(candles=candles, window_size=5)
+        self.__indicators['stoSD'] = self.__calc_STOSD(candles=candles, window_size=5)
+        if stoc_only == True:
+            return
+
         self.__calc_sma(close_candles=candles.close)
         self.__calc_ema(close_candles=candles.close)
         self.__calc_bollinger_bands(close_candles=candles.close)
         self.__calc_parabolic(candles=candles)
-        self.__indicators['stoD'] = self.__calc_STOD(candles=candles, window_size=5)
-        self.__indicators['stoSD'] = self.__calc_STOSD(candles=candles, window_size=5)
         self.__indicators['regist'] = self.__calc_registance(high_candles=candles.high)
         self.__indicators['support'] = self.__calc_support(low_candles=candles.low)
         # result = self.__calc_trendlines()
