@@ -499,21 +499,20 @@ class OandaPyClient():
         ]
 
         hist_df = pd.DataFrame.from_dict(filtered_transactions).fillna({'pl': 0})
+        hist_columns = [
+            'id', 'batchID', 'tradeID',
+            'tradeOpened', 'tradesClosed', 'type',
+            'price', 'units', 'pl',
+            'time', 'reason', 'instrument'
+        ]
+
+        # INFO: supply the columns missing
+        for column_name in hist_columns:
+            if not column_name in hist_df.columns:
+                hist_df[column_name] = 0
+
         # INFO: filtering by column
-        hist_df = hist_df[[
-            'id',
-            'batchID',
-            'tradeID',
-            'tradeOpened',
-            'tradesClosed',
-            'type',
-            'price',
-            'units',
-            'pl',
-            'time',
-            'reason',
-            'instrument'
-        ]]
+        hist_df = hist_df.loc[:, hist_columns]
         hist_df['pl'] = hist_df['pl'].astype({'pl': 'float'}).astype({'pl': 'int'})
         hist_df['time'] = [row['time'][:19] for row in filtered_transactions]
 

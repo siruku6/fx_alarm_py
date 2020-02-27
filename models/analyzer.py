@@ -17,6 +17,7 @@ class Analyzer():
         self.__indicators = {
             '20SMA': None,
             '10EMA': None,
+            '60EMA': None,
             'SIGMA_BAND': None,
             'SIGMA*-1_BAND': None,
             'SIGMA*2_BAND': None,
