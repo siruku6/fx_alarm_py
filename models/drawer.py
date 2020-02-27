@@ -2,7 +2,7 @@ import datetime
 import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
-import mpl_finance
+import mplfinance.original_flavor as mpf
 from models.oanda_py_client import FXBase
 
 matplotlib.use('Agg')
@@ -95,14 +95,10 @@ class FigureDrawer():
             label = 'exit'
             mark = 'x'
 
+        # HACK: price に Nan が含まれているとエラーが発生していたので除去している
         drawing_targets = positions_df.dropna()
-        if plot_type == FigureDrawer.PLOT_TYPE['trail']:
-            prices = drawing_targets.stoploss
-        else:
-            prices = drawing_targets.price
-
         self.__axis1.scatter(
-            x=drawing_targets.sequence, y=prices,
+            x=drawing_targets.sequence, y=drawing_targets.price,
             marker=mark, edgecolors=edgecolors, label=nolabel or label,
             color=color, s=size, linewidths=0.7
         )
@@ -137,7 +133,7 @@ class FigureDrawer():
     def draw_candles(self, start=0, end=None):
         ''' 取得済みチャートを描画 '''
         target_candles = FXBase.get_candles(start=start, end=end)
-        mpl_finance.candlestick2_ohlc(
+        mpf.candlestick2_ohlc(
             self.__axis1,
             opens=target_candles.open.values,
             highs=target_candles.high.values,

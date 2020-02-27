@@ -272,7 +272,7 @@ class OandaPyClient():
         request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
         response = self.__api_client.request(request_obj)
 
-        # TODO: last_transactionID は 対象 instrument のlast transaction の ID が望ましい
+        # INFO: lastTransactionID は最後に行った売買のID
         self.__last_transaction_id = response['lastTransactionID']
         open_trades = response['trades']
 
@@ -326,15 +326,13 @@ class OandaPyClient():
         except V20Error as error:
             LOGGER.error('[request_market_ordering] V20Error: {}'.format(error))
 
-        response_for_display = response
-        # response_for_display = {
-        #     'instrument': response['instrument'],
-        #     # TODO: 復旧すべし 今は 'price' が見つからないらしいので処理しない
-        #     'price': ,  # response['price'],
-        #     'units': response['units'],
-        #     'time': response['time'],
-        #     'stoploss': response['stopLossOnFill']
-        # }
+        response_for_display = {
+            'instrument': response.get('instrument'),
+            # 'price': response.get('price'),  # market order に price はなかった
+            'units': response.get('units'),
+            'time': response.get('time'),
+            'stopLossOnFill': response.get('stopLossOnFill')
+        }
         LOGGER.info('[Client] market-order: %s', response_for_display)
         return response
 
@@ -375,11 +373,11 @@ class OandaPyClient():
         LOGGER.info('[Client] trail: %s', response)
         return response
 
-    def request_transactions(self):
+    def request_transactions(self, count=999):
         params = {
             # len(from ... to) <= 1000
             'to': int(self.__last_transaction_id),
-            'from': int(self.__last_transaction_id) - 999,
+            'from': int(self.__last_transaction_id) - count,
             'type': ['ORDER'],
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
@@ -449,12 +447,9 @@ class OandaPyClient():
         candle = pd.DataFrame.from_dict([row['mid'] for row in response['candles']])
         candle = candle.astype({
             # INFO: 'float32' の方が速度は早くなるが、不要な小数点4桁目以下が出現するので64を使用
-            'c': 'float64',
-            'l': 'float64',
-            'h': 'float64',
-            'o': 'float64'
+            'c': 'float64', 'h': 'float64', 'l': 'float64', 'o': 'float64'
         })
-        candle.columns = ['close', 'high', 'low', 'open']
+        candle.rename(columns={'c': 'close', 'h': 'high', 'l': 'low', 'o': 'open'}, inplace=True)
         candle['time'] = [row['time'] for row in response['candles']]
         # 冗長な日時データを短縮
         # https://note.nkmk.me/python-pandas-datetime-timestamp/
@@ -504,21 +499,20 @@ class OandaPyClient():
         ]
 
         hist_df = pd.DataFrame.from_dict(filtered_transactions).fillna({'pl': 0})
+        hist_columns = [
+            'id', 'batchID', 'tradeID',
+            'tradeOpened', 'tradesClosed', 'type',
+            'price', 'units', 'pl',
+            'time', 'reason', 'instrument'
+        ]
+
+        # INFO: supply the columns missing
+        for column_name in hist_columns:
+            if not column_name in hist_df.columns:
+                hist_df[column_name] = 0
+
         # INFO: filtering by column
-        hist_df = hist_df[[
-            'id',
-            'batchID',
-            'tradeID',
-            'tradeOpened',
-            'tradesClosed',
-            'type',
-            'price',
-            'units',
-            'pl',
-            'time',
-            'reason',
-            'instrument'
-        ]]
+        hist_df = hist_df.loc[:, hist_columns]
         hist_df['pl'] = hist_df['pl'].astype({'pl': 'float'}).astype({'pl': 'int'})
         hist_df['time'] = [row['time'][:19] for row in filtered_transactions]
 

@@ -1,3 +1,4 @@
+import datetime
 import os
 from models.oanda_py_client import FXBase
 from models.trader import Trader
@@ -27,10 +28,10 @@ class RealTrader(Trader):
         candles = FXBase.get_candles()
         if direction == 'long':
             sign = ''
-            stoploss = candles.low[index - 1]
+            stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
         elif direction == 'short':
             sign = '-'
-            stoploss = candles.high[index - 1] + self._stoploss_buffer_pips
+            stoploss = candles.high[index - 1] + self._stoploss_buffer_pips + self._static_spread
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
 
     def _trail_stoploss(self, new_stop):
@@ -47,7 +48,7 @@ class RealTrader(Trader):
         '''
         # TODO: 通信エラー以外の理由でtrailに失敗したら即closeするよう修正する
         result = self._client.request_trailing_stoploss(stoploss_price=new_stop)
-        print(result)
+        print('[Trader] Trailing-result: {}'.format(result))
 
     def __settle_position(self, reason=''):
         ''' ポジションをcloseする '''
@@ -110,20 +111,18 @@ class RealTrader(Trader):
 
         if position_type == 'long':
             possible_stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
-            if possible_stoploss > stoploss_price:  # and candles.high[index - 20:index].max() < candles.high[index]:
+            if possible_stoploss > stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(new_stop=possible_stoploss)
             elif parabolic[index] > c_price:
-                # exit_price = self._ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
                 self.__settle_position()
 
         elif position_type == 'short':
             possible_stoploss = candles.high[index - 1] + self._stoploss_buffer_pips + self._static_spread
-            if possible_stoploss < stoploss_price:  # and candles.low[index - 20:index].min() > candles.low[index]:
+            if possible_stoploss < stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(new_stop=possible_stoploss)
             elif parabolic[index] < c_price + self._static_spread:
-                # exit_price = self._ana.calc_next_parabolic(parabolic[index - 1], candles.low[index - 1])
                 self.__settle_position()
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
@@ -141,6 +140,9 @@ class RealTrader(Trader):
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
+            if self.__since_last_loss() < datetime.timedelta(hours=1):
+                print('[Trader] skip: An hour has not passed since last loss.')
+                return
             trend = self.__detect_latest_trend(index=last_index, c_price=close_price, time=last_time)
             if trend is None:
                 return
@@ -160,11 +162,22 @@ class RealTrader(Trader):
 
             self._create_position(last_index, direction)
         else:
-            new_stop = scalping.new_stoploss_price(
-                position_type=self._position['type'], old_stoploss=self._position['stoploss'],
-                current_sup=indicators.at[last_index, 'support'], current_regist=indicators.at[last_index, 'regist']
+            # INFO: stoploss設定が緩い
+            # new_stop = scalping.new_stoploss_price(
+            #     position_type=self._position['type'], old_stoploss=self._position['stoploss'],
+            #     current_sup=indicators.at[last_index, 'support'], current_regist=indicators.at[last_index, 'regist']
+            # )
+
+            # INFO: 厳しいstoploss設定
+            new_stop = rules.new_stoploss_price(
+                position_type=self._position['type'],
+                previous_low=candles.at[last_index - 1, 'low'],
+                previous_high=candles.at[last_index - 1, 'high'],
+                old_stoploss=self._position['stoploss'],
+                stoploss_buf=self._stoploss_buffer_pips,
+                static_spread=self._static_spread
             )
-            if new_stop is not None:
+            if new_stop != self._position['stoploss']:
                 self._trail_stoploss(new_stop=new_stop)
 
             plus_2sigma = indicators.at[last_index, 'band_+2σ']
@@ -175,7 +188,7 @@ class RealTrader(Trader):
                 ))
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
-            self._position['type'], new_stop, self._position['stoploss']
+            self._position['type'], new_stop if 'new_stop' in locals() else '-', self._position['stoploss']
         ))
 
         return None
@@ -198,6 +211,16 @@ class RealTrader(Trader):
 
         pos['stoploss'] = float(target['stopLossOrder']['price'])
         return pos
+
+    def __since_last_loss(self):
+        hist_df = self._client.request_transactions(100)
+        time_series = hist_df[hist_df.pl < 0]['time']
+        if time_series.empty: return datetime.timedelta(hours=99)
+
+        last_loss_time = time_series.iat[-1]
+        last_loss_datetime = datetime.datetime.strptime(last_loss_time.replace('T', ' ')[:16], '%Y-%m-%d %H:%M')
+        time_since_loss = datetime.datetime.utcnow() - last_loss_datetime
+        return time_since_loss
 
     #
     #  apply each rules

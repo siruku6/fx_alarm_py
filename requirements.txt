@@ -10,7 +10,7 @@ requests
 sendgrid
 
 # OandaAPIとの通信や、投資データ処理に必要
-mpl_finance
+mplfinance
 oandapyV20
 
 ###### Requirements with Version Specifiers ######

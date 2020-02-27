@@ -98,7 +98,7 @@ def __calc_performance_indicators(positions):
 
     return {
         'entry_count': entry_cnt,
-        'win_rate': round(len(win_positions) / entry_cnt * 100, 2),
+        'win_rate': round(len(win_positions) / entry_cnt * 100, 2) if entry_cnt > 0 else '-',
         'win_count': len(win_positions),
         'lose_count': len(lose_positions),
         'long_count': long_cnt,
@@ -109,8 +109,8 @@ def __calc_performance_indicators(positions):
         'max_profit': win_positions.profit.max(),
         'max_loss': lose_positions.profit.min(),
         'drawdown': max_drawdown,
-        'profit_factor': round(-gross_profit / gross_loss, 2),
-        'recovery_factor': round((gross_profit + gross_loss) / -max_drawdown, 2)
+        'profit_factor': round(-gross_profit / gross_loss, 2) if gross_loss != 0 else '-',
+        'recovery_factor': round((gross_profit + gross_loss) / -max_drawdown, 2) if max_drawdown != 0 else '-'
     }
 
 

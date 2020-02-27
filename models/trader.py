@@ -59,7 +59,7 @@ class Trader():
 
         self._client.request_current_price()
         self._ana = Analyzer()
-        result = self._ana.calc_indicators()
+        result = self._ana.calc_indicators(candles=FXBase.get_candles())
         if 'error' in result:
             self._log_skip_reason(result['error'])
             return
@@ -133,8 +133,8 @@ class Trader():
         if self.__static_options['be_drawn']:
             self.__drawer = FigureDrawer()
 
-        # TODO: 暫定でこれを使うことを推奨
-        # self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
+        # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
+        self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
 
         if rule == 'swing':
             if self.get_entry_filter() == []:
@@ -486,11 +486,16 @@ class Trader():
         long_direction_index = entry_direction == 'long'
         short_direction_index = entry_direction == 'short'
 
+        # TODO: 1. 厳し目のstoploss設定(どちらが良いか検討が必要)
         self.__set_stoploss_prices(
             candles,
             long_indexes=long_direction_index,
             short_indexes=short_direction_index
         )
+
+        # INFO: 2. stoplossの設定が緩いver
+        # candles.loc[:, 'possible_stoploss'] = scalping.set_stoploss_prices(candles.thrust.fillna(method='ffill'), self._indicators)
+
         scalping.commit_positions(
             candles,
             self._indicators['band_+2σ'],
@@ -600,7 +605,9 @@ class Trader():
             close_df = dfs_position[i][dfs_position[i].position.isin(['sell_exit', 'buy_exit'])] \
                                    .drop('price', axis=1) \
                                    .rename(columns={'exitable_price': 'price'})
-            trail_df = dfs_position[i][dfs_position[i].position != '-']
+            trail_df = dfs_position[i][dfs_position[i].position != '-'] \
+                                   .drop(['price', 'exitable_price'], axis=1) \
+                                   .rename(columns={'stoploss': 'price'})
 
             drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
             drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
