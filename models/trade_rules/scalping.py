@@ -62,23 +62,10 @@ def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss)
 # INFO: backtest用の処理
 def commit_positions(candles, plus2sigma, minus2sigma, long_indexes, short_indexes, spread):
     ''' set exit-timing, price '''
-    # TODO: long ポジションが残ったま short entry するバグが残っている stoploss_ver2 で発覚
     # bollinger_band に達したことによる exit
-    long_exits_by_plus_band = long_indexes & (plus2sigma < candles.high)
-    candles.loc[long_exits_by_plus_band, 'exitable'] = 'sell_exit'
-    candles.loc[long_exits_by_plus_band, 'exitable_price'] = plus2sigma[long_exits_by_plus_band]
-
-    long_exits_by_minus_band = long_indexes & (candles.low < minus2sigma)
-    candles.loc[long_exits_by_minus_band, 'exitable'] = 'sell_exit'
-    candles.loc[long_exits_by_minus_band, 'exitable_price'] = minus2sigma[long_exits_by_minus_band]
-
-    short_exits_by_plus_band = short_indexes & (plus2sigma < candles.high)
-    candles.loc[short_exits_by_plus_band, 'exitable'] = 'buy_exit'
-    candles.loc[short_exits_by_plus_band, 'exitable_price'] = plus2sigma[short_exits_by_plus_band]
-
-    short_exits_by_minus_band = short_indexes & (candles.low < minus2sigma)
-    candles.loc[short_exits_by_minus_band, 'exitable'] = 'buy_exit'
-    candles.loc[short_exits_by_minus_band, 'exitable_price'] = minus2sigma[short_exits_by_minus_band]
+    candles.loc[:, ['exitable', 'exitable_price']] = exits_by_bollinger(
+        candles, long_indexes, short_indexes, plus2sigma, minus2sigma
+    )
 
     # stoplossによるexit
     long_exits_by_sl = long_indexes & (candles.low < candles.possible_stoploss)
@@ -98,8 +85,28 @@ def commit_positions(candles, plus2sigma, minus2sigma, long_indexes, short_index
     candles['entry_price'] = candles.entryable_price
 
 
-def position_is_exitable(close, last_plus_2sigma, last_minus_2sigma):
-    if close < last_minus_2sigma or last_plus_2sigma < close:
+def exits_by_bollinger(candles, long_indexes, short_indexes, plus2sigma, minus2sigma):
+    # TODO: long ポジションが残ったま short entry するバグが残っている stoploss_ver2 で発覚
+    long_exits_by_plus_band = long_indexes & (plus2sigma < candles.high)
+    candles.loc[long_exits_by_plus_band, 'exitable'] = 'sell_exit'
+    candles.loc[long_exits_by_plus_band, 'exitable_price'] = plus2sigma[long_exits_by_plus_band]
+
+    long_exits_by_minus_band = long_indexes & (candles.low < minus2sigma)
+    candles.loc[long_exits_by_minus_band, 'exitable'] = 'sell_exit'
+    candles.loc[long_exits_by_minus_band, 'exitable_price'] = minus2sigma[long_exits_by_minus_band]
+
+    short_exits_by_plus_band = short_indexes & (plus2sigma < candles.high)
+    candles.loc[short_exits_by_plus_band, 'exitable'] = 'buy_exit'
+    candles.loc[short_exits_by_plus_band, 'exitable_price'] = plus2sigma[short_exits_by_plus_band]
+
+    short_exits_by_minus_band = short_indexes & (candles.low < minus2sigma)
+    candles.loc[short_exits_by_minus_band, 'exitable'] = 'buy_exit'
+    candles.loc[short_exits_by_minus_band, 'exitable_price'] = minus2sigma[short_exits_by_minus_band]
+    return candles[['exitable', 'exitable_price']]
+
+
+def position_is_exitable(spot_price, plus_2sigma, minus_2sigma):
+    if spot_price < minus_2sigma or plus_2sigma < spot_price:
         return True
     else:
         return False
