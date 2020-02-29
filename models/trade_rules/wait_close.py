@@ -28,3 +28,5 @@ def the_previous_satisfy_rules(candles, entry_filter):
     )
     candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
     candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
+    # INFO: sclping rule 用にのみ必要なデータ
+    candles.loc[:, 'exitable'] = candles.loc[:, 'position'].copy()

@@ -492,9 +492,10 @@ class Trader():
             long_indexes=long_direction_index,
             short_indexes=short_direction_index
         )
-
         # INFO: 2. stoplossの設定が緩いver
         # candles.loc[:, 'possible_stoploss'] = scalping.set_stoploss_prices(candles.thrust.fillna(method='ffill'), self._indicators)
+
+        # import pdb; pdb.set_trace()
 
         scalping.commit_positions(
             candles,
