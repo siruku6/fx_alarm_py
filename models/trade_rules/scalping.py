@@ -28,7 +28,7 @@ def repulsion_exist(trend, ema, two_before_high, previous_high, two_before_low, 
 
 
 # INFO: backtest用の処理
-# TODO: 使って無くない？ 2020/02/03
+# TODO: 使って無くない？ 2020/02/29 コメントアウト
 # def the_previous_satisfy_rules(candles):
 #     ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
 #     satisfy_preconditions = np.all(
@@ -63,9 +63,12 @@ def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss)
 def commit_positions(candles, plus2sigma, minus2sigma, long_indexes, short_indexes, spread):
     ''' set exit-timing, price '''
     # bollinger_band に達したことによる exit
-    candles.loc[:, ['exitable', 'exitable_price']] = exits_by_bollinger(
-        candles, long_indexes, short_indexes, plus2sigma, minus2sigma
-    )
+    (exitables, exitable_prices) = exits_by_bollinger(candles, long_indexes, short_indexes, plus2sigma, minus2sigma)
+    # TODO: この時点で既に candles に exitable 列があるが、本当に必要なのか確認が必要
+    #   参照: trader.__generate_entry_column_for_scalping -> wait_close.the_previous_satisfy_rules
+    bollinger_exitables = ~exitables.isna()
+    candles.loc[bollinger_exitables, 'exitable'] = exitables
+    candles.loc[bollinger_exitables, 'exitable_price'] = exitable_prices
 
     # stoplossによるexit
     long_exits_by_sl = long_indexes & (candles.low < candles.possible_stoploss)
@@ -87,22 +90,25 @@ def commit_positions(candles, plus2sigma, minus2sigma, long_indexes, short_index
 
 def exits_by_bollinger(candles, long_indexes, short_indexes, plus2sigma, minus2sigma):
     # TODO: long ポジションが残ったま short entry するバグが残っている stoploss_ver2 で発覚
-    long_exits_by_plus_band = long_indexes & (plus2sigma < candles.high)
-    candles.loc[long_exits_by_plus_band, 'exitable'] = 'sell_exit'
-    candles.loc[long_exits_by_plus_band, 'exitable_price'] = plus2sigma[long_exits_by_plus_band]
+    exitable_generator = np.frompyfunc(detect_exitable_by_bollinger, 6, 2)
+    result = exitable_generator(
+        long_indexes, short_indexes,
+        candles.high, candles.low,
+        plus2sigma, minus2sigma
+    )
+    return result
 
-    long_exits_by_minus_band = long_indexes & (candles.low < minus2sigma)
-    candles.loc[long_exits_by_minus_band, 'exitable'] = 'sell_exit'
-    candles.loc[long_exits_by_minus_band, 'exitable_price'] = minus2sigma[long_exits_by_minus_band]
 
-    short_exits_by_plus_band = short_indexes & (plus2sigma < candles.high)
-    candles.loc[short_exits_by_plus_band, 'exitable'] = 'buy_exit'
-    candles.loc[short_exits_by_plus_band, 'exitable_price'] = plus2sigma[short_exits_by_plus_band]
+def detect_exitable_by_bollinger(is_long, is_short, high, low, plus2sigma, minus2sigma):
+    if low < minus2sigma: exit_price = minus2sigma
+    elif plus2sigma < high: exit_price = plus2sigma
+    else: return np.nan, np.nan
 
-    short_exits_by_minus_band = short_indexes & (candles.low < minus2sigma)
-    candles.loc[short_exits_by_minus_band, 'exitable'] = 'buy_exit'
-    candles.loc[short_exits_by_minus_band, 'exitable_price'] = minus2sigma[short_exits_by_minus_band]
-    return candles[['exitable', 'exitable_price']]
+    if is_long: exitable = 'sell_exit'
+    elif is_short: exitable = 'buy_exit'
+    else: return np.nan, np.nan
+
+    return exitable, exit_price
 
 
 def position_is_exitable(spot_price, plus_2sigma, minus_2sigma):

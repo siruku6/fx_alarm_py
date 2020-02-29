@@ -499,8 +499,8 @@ class Trader():
 
         scalping.commit_positions(
             candles,
-            self._indicators['band_+2σ'],
-            self._indicators['band_-2σ'],
+            plus2sigma=self._indicators['band_+2σ'],
+            minus2sigma=self._indicators['band_-2σ'],
             long_indexes=long_direction_index,
             short_indexes=short_direction_index,
             spread=self._static_spread
