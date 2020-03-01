@@ -123,7 +123,7 @@ def detect_exitable_by_bollinger(is_long, is_short, high, low, plus2sigma, minus
     return exitable, exit_price
 
 
-def position_is_exitable(spot_price, plus_2sigma, minus_2sigma):
+def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
     if spot_price < minus_2sigma or plus_2sigma < spot_price:
         return True
     else:

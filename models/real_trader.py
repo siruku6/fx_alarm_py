@@ -46,7 +46,7 @@ class RealTrader(Trader):
         -------
         None
         '''
-        # TODO: 通信エラー以外の理由でtrailに失敗したら即closeするよう修正する
+        # INFO: trail先の価格を既に突破していたら自動でcloseしてくれた OandaAPI は優秀
         result = self._client.request_trailing_stoploss(stoploss_price=new_stop)
         print('[Trader] Trailing-result: {}'.format(result))
 
@@ -182,7 +182,7 @@ class RealTrader(Trader):
 
             plus_2sigma = indicators.at[last_index, 'band_+2σ']
             minus_2sigma = indicators.at[last_index, 'band_-2σ']
-            if scalping.position_is_exitable(close_price, plus_2sigma, minus_2sigma):
+            if scalping.is_exitable_by_bollinger(close_price, plus_2sigma, minus_2sigma):
                 self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
                     plus_2sigma, close_price, minus_2sigma
                 ))
