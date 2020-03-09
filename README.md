@@ -1,5 +1,6 @@
 # FX_Alarm_py
-Verifying one trade rule and Alarming trader (now being developed...)
+
+[![Maintainability](https://api.codeclimate.com/v1/badges/67acc571f4fe4e7f7959/maintainability)](https://codeclimate.com/github/siruku6/fx_alarm_py/maintainability)
 
 ## Overview
 FXの為替レートを自動取得し、
