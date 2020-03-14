@@ -6,6 +6,8 @@ import mplfinance.original_flavor as mpf
 from models.oanda_py_client import FXBase
 
 matplotlib.use('Agg')
+matplotlib.rcParams['axes.xmargin'] = 0
+# matplotlib.rcParams['figure.autolayout'] = False
 
 
 class FigureDrawer():
@@ -31,6 +33,11 @@ class FigureDrawer():
                 nrows=3, ncols=1, gridspec_kw={'height_ratios': [3, 1, 1]},
                 figsize=(8, 8), dpi=144
             )
+            self.__axis3.yaxis.tick_right()
+
+        self.__axis1.yaxis.tick_right()
+        self.__axis2.yaxis.tick_right()
+
         # INFO: https://zaburo-ch.github.io/post/20141217_0/
         self.__figure.subplots_adjust(left=0.05, right=0.90, bottom=0.18, top=0.92, hspace=0.05)
 
@@ -82,7 +89,7 @@ class FigureDrawer():
                 plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=size, alpha=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['bar']:
             for key, column in d_frame.iteritems():
-                plt_axis.bar(x=d_frame.index, height=column.values, label=nolabel or key, color=color, alpha=0.7)
+                plt_axis.bar(x=d_frame.index, height=column.values, label=nolabel or key, width=0.6, color=color, alpha=0.5)
 
         return {'success': 'd_frameを描画'}
 
@@ -169,15 +176,14 @@ class FigureDrawer():
         self.__axis1.set_title('{inst}-{granularity} candles (len={len})'.format(
             inst=instrument, granularity=granularity, len=len(FXBase.get_candles())
         ))
-        self.__axis1.yaxis.tick_right()
-        self.__axis2.yaxis.tick_right()
         self.__axis2.set_xlabel('Datetime (UTC+00:00)', fontsize=6)
-
-        # INFO: axis1
-        plt.sca(self.__axis1)
         xticks_number = int(len(sr_time) / num_break_xticks_into)
         if xticks_number > 0:
             xticks_index = range(0, len(sr_time), xticks_number)
+
+        # INFO: axis1
+        plt.sca(self.__axis1)
+        if xticks_number > 0:
             plt.xticks(xticks_index, [])
         plt.legend(loc='upper left', fontsize=8) # best だと結構右に来て邪魔
         plt.grid(which='major', linestyle='dashed', linewidth=0.5)
@@ -193,6 +199,13 @@ class FigureDrawer():
         plt.yticks([20, 80], [20, 80])
         plt.legend(loc='upper left', fontsize=8)
         plt.grid(linestyle='dashed', linewidth=0.5)
+
+        # INFO: axis2
+        if hasattr(self, '_FigureDrawer__axis3'):
+            plt.sca(self.__axis3)
+            if xticks_number > 0:
+                plt.xticks(xticks_index, [])
+            plt.grid(linestyle='dashed', linewidth=0.5)
 
         png_filename = filename or 'figure'
         plt.savefig('tmp/images/{filename}_{num}_{date}.png'.format(

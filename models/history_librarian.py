@@ -12,7 +12,7 @@ class Librarian():
         self.__instrument = inst['name']
         self.__client = OandaPyClient(instrument=self.__instrument)
         self.__ana = Analyzer()
-        self.__drawer = FigureDrawer()
+        self.__drawer = FigureDrawer(rows_num=3)
         self._indicators = None
 
     def merge_history_and_instruments(self, granularity='M10'):
@@ -34,32 +34,35 @@ class Librarian():
         # preapre history_df: trade-history
         history_df = self.__client.request_transactions()
         history_df.loc[:, 'price'] = history_df.price.astype('float32')
+
+        candles = self.__prepare_candles(log_oldest_time=history_df.iloc[0].time, granularity=granularity)
+        print('[Libra] candles are loaded')
+
+        # TODO: dict_dst_switches は H4 candles でのみしか使えない形になっている
+        dict_dst_switches = self.__detect_dst_switches(candles)
+        history_df = self.__append_dst_column(history_df, dst_switches=dict_dst_switches)
         history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
         print('[Libra] trade_log is loaded')
 
-        # prepare candles:
-        oldest_log_datetime = pd.to_datetime(history_df.iloc[0].time)
-        dt_a_month_ago = oldest_log_datetime - datetime.timedelta(days=1)
-        start_str = dt_a_month_ago.strftime('%Y-%m-%d %H:%M:%S')
-        candles = self.__prepare_candles(
-            starttime_str=start_str,
-            granularity=granularity
-        )
-        dict_summer_time_borders = self.__detect_summer_time_borders(candles)
-        print('[Libra] candles are loaded')
+        # prepare pl_and_gross
+        pl_and_gross_df = self.__calc_pl_gross(history_df[['time', 'pl', 'dst']])
+        history_df.drop('pl', axis=1, inplace=True)  # pl カラムは1つあれば十分
 
+        # make time smooth, adaptively to Daylight Saving Time
         if granularity == 'M10':
             history_df['time'] = [self.__convert_to_m10(time) for time in history_df.time]
         elif granularity == 'H4':
-            history_df['time'] = [self.__convert_to_h4(time, dict_summer_time_borders) for time in history_df.time]
+            history_df['time'] = [self.__convert_to_h4(time, dict_dst_switches) for time in history_df.time]
+
         entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
 
         # merge
         result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
         result = pd.merge(result, close_df, on='time', how='outer', right_index=True)
         result = pd.merge(result, trail_df, on='time', how='outer', right_index=True)
-        result = result.drop_duplicates(['time'])
+        result = pd.merge(result, pl_and_gross_df, on='time', how='left').drop_duplicates(['time'])
         result['units'] = result.units.fillna('0').astype(int)
+
         FXBase.set_candles(result)
         print('[Libra] candles and trade-history is merged')
 
@@ -73,16 +76,51 @@ class Librarian():
     #
     # Private
     #
-    def __prepare_candles(self, starttime_str, granularity):
+    def __prepare_candles(self, log_oldest_time, granularity):
+        oldest_log_datetime = pd.to_datetime(log_oldest_time)
+        dt_a_month_ago = oldest_log_datetime - datetime.timedelta(days=1)
+        starttime_str = dt_a_month_ago.strftime('%Y-%m-%d %H:%M:%S')
+
         today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
         start_dt = datetime.datetime.strptime(starttime_str, '%Y-%m-%d %H:%M:%S')
         days_wanted = (today_dt - start_dt).days + 1
         result = self.__client.load_long_chart(days=days_wanted, granularity=granularity)
         return result['candles']
 
-    def __detect_summer_time_borders(self, candles):
+    def __detect_dst_switches(self, candles):
+        '''
+        daylight saving time の切り替わりタイミングを見つける
+        '''
         candles['summer_time'] = pd.to_numeric(candles.time.str[12], downcast='signed') % 2 == 1
-        return candles[candles.summer_time != candles.summer_time.shift(1)][['time', 'summer_time']].to_dict('records')
+        switch_points = candles[candles.summer_time != candles.summer_time.shift(1)][['time', 'summer_time']]
+        return switch_points.to_dict('records')
+
+    def __append_dst_column(self, original_df, dst_switches):
+        '''
+        dst is Daylight Saving Time
+
+        Parameters
+        ----------
+        dst_switches : array of dict
+            sample: [
+                {'time': '2020-02-17 06:00:00', 'summer_time': False},
+                {'time': '2020-03-12 17:00:00', 'summer_time': True},
+                ...
+            ]
+        '''
+        hist_df = original_df.copy()
+        switch_count = len(dst_switches)
+
+        for i, dst_switching_point in enumerate(dst_switches):
+            is_dst = True if dst_switching_point['summer_time'] else False
+            if i == (switch_count - 1):
+                target_row_index = dst_switching_point['time'] <= hist_df['time']
+            else:
+                target_row_index = (dst_switching_point['time'] <= hist_df['time']) \
+                                 & (hist_df['time'] < dst_switches[i + 1]['time'])
+            hist_df.loc[target_row_index, 'dst'] = is_dst
+
+        return hist_df
 
     def __convert_to_m10(self, oanda_time):
         m1_pos = 15
@@ -90,13 +128,13 @@ class Librarian():
         m10_str = self.__truncate_sec(m10_str).replace('T', ' ')
         return m10_str
 
-    def __convert_to_h4(self, oanda_time, dict_summer_time_borders):
+    def __convert_to_h4(self, oanda_time, dict_dst_switches):
         time_str = oanda_time.replace('T', ' ')
 
         # INFO: 12文字目までで hour まで取得できる
         time = datetime.datetime.strptime(time_str[:13], '%Y-%m-%d %H')
 
-        if self.__is_summer_time(time_str, dict_summer_time_borders):
+        if self.__is_summer_time(time_str, dict_dst_switches):
             # INFO: OandaのH4は [1,5,9,13,17,21] を取り得るので、それをはみ出した時間を切り捨て
             minus = ((time.hour + 3) % 4)
         else:
@@ -106,12 +144,12 @@ class Librarian():
         h4_str = time.strftime('%Y-%m-%d %H:%M:%S')
         return h4_str
 
-    def __is_summer_time(self, time_str, dict_summer_time_borders):
-        for i, summertime_dict in enumerate(dict_summer_time_borders):
-            if dict_summer_time_borders[-1]['time'] < time_str:
-                return dict_summer_time_borders[-1]['summer_time']
-            elif summertime_dict['time'] < time_str and time_str < dict_summer_time_borders[i + 1]['time']:
-                return summertime_dict['summer_time']
+    def __is_summer_time(self, time_str, dict_dst_switches):
+        for i, switch_dict in enumerate(dict_dst_switches):
+            if dict_dst_switches[-1]['time'] < time_str:
+                return dict_dst_switches[-1]['summer_time']
+            elif switch_dict['time'] < time_str and time_str < dict_dst_switches[i + 1]['time']:
+                return switch_dict['summer_time']
 
     def __truncate_sec(self, oanda_time_str):
         sec_start = 17
@@ -122,12 +160,41 @@ class Librarian():
         entry_df = d_frame.dropna(subset=['tradeOpened'])[['price', 'time', 'units']]
         entry_df = entry_df.rename(columns={'price': 'entry_price'})
 
-        close_df = d_frame.dropna(subset=['tradesClosed'])[['price', 'time', 'pl']]
+        close_df = d_frame.dropna(subset=['tradesClosed'])[['price', 'time']]
         close_df = close_df.rename(columns={'price': 'close_price'})
 
         trail_df = d_frame[d_frame.type == 'STOP_LOSS_ORDER'][['price', 'time']]
         trail_df = trail_df.rename(columns={'price': 'stoploss'})
         return entry_df, close_df, trail_df
+
+    def __calc_pl_gross(self, original_df):
+        '''
+        Parameters
+        ----------
+        original_df : dataframe
+            .index -> name: time, type: datetime
+            .columns -> [
+                'pl', # integer
+                'dst' # boolean
+            ]
+        Returns
+        ----------
+        df : dataframe
+        '''
+        # time 列の調節と resampling
+        hist_dst_on = self.__resample_by_h4(original_df[original_df['dst']].copy(), base=1)
+        hist_dst_off = self.__resample_by_h4(original_df[original_df['dst'] != True].copy(), base=2)
+        pl_gross_hist = hist_dst_on.append(hist_dst_off).sort_index()
+        pl_gross_hist.reset_index(inplace=True)
+        pl_gross_hist.loc[:, 'time'] = pl_gross_hist['time'].astype({'time': str})
+
+        # gross 算出
+        pl_gross_hist.loc[:, 'gross'] = pl_gross_hist['pl'].cumsum()
+        return pl_gross_hist
+
+    def __resample_by_h4(self, target_df, base=0):
+        target_df.loc[:, 'time'] = pd.to_datetime(target_df['time'])
+        return target_df.resample('4H', on='time', base=base).sum()
 
     def __draw_history(self):
         DRAWABLE_ROWS = 200
@@ -148,7 +215,9 @@ class Librarian():
         self.__ana.calc_indicators(candles=d_frame)
         self._indicators = self.__ana.get_indicators()
 
-        # INFO: 描画
+        # - - - - - - - - - - - - - - - - - - - -
+        #                  描画
+        # - - - - - - - - - - - - - - - - - - - -
         drwr = self.__drawer
         drwr.draw_indicators(d_frame=self._indicators[-DRAWABLE_ROWS:None].reset_index(drop=True))
 
@@ -169,7 +238,12 @@ class Librarian():
             plot_type=drwr.PLOT_TYPE['trail']
         )
 
-        drwr.draw_candles(-DRAWABLE_ROWS, None)  # 200本より古い足は消している
+        # axis3
+        d_frame['gross'].fillna(method='ffill', inplace=True)
+        drwr.draw_df_on_plt(d_frame[['gross']], drwr.PLOT_TYPE['bar'], color='orange', plt_id=3)
+        drwr.draw_df_on_plt(d_frame[['pl']], drwr.PLOT_TYPE['bar'], color='yellow', plt_id=3)
+
+        drwr.draw_candles(start=-DRAWABLE_ROWS, end=None)  # 200本より古い足は消している
         result = drwr.create_png(
             instrument=self.__instrument, granularity='real-trade',
             sr_time=d_frame.time, num=0, filename='hist_figure'

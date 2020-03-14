@@ -13,7 +13,7 @@ class TestLibrarian(unittest.TestCase):
         print('\n[libra] setup')
         with patch('models.oanda_py_client.OandaPyClient.select_instrument',
                    return_value={ 'name': 'USD_JPY', 'spread': 0.0 }):
-            cls.__libra_instance = libra.Librarian()
+            cls.libra_instance = libra.Librarian()
 
     @classmethod
     def tearDownClass(cls):
@@ -26,7 +26,7 @@ class TestLibrarian(unittest.TestCase):
     #  - - - - - - - - - - -
     #    Private methods
     #  - - - - - - - - - - -
-    def test___detect_summer_time_borders(self):
+    def test___detect_dst_switches(self):
         time_df = pd.DataFrame({'time': [
             '2020-02-17 06:00:00',
             '2020-02-17 10:00:00',
@@ -36,7 +36,7 @@ class TestLibrarian(unittest.TestCase):
             '2020-03-13 01:00:00',
             '2020-03-13 05:00:00'
         ]})
-        switch_points = self.__libra_instance._Librarian__detect_summer_time_borders(time_df)
+        switch_points = self.libra_instance._Librarian__detect_dst_switches(time_df)
         self.assertEqual(switch_points, [
             {'time': '2020-02-17 06:00:00', 'summer_time': False},
             {'time': '2020-03-12 17:00:00', 'summer_time': True}
@@ -52,7 +52,7 @@ class TestLibrarian(unittest.TestCase):
             '2020-03-13 05:00:00',
             '2020-03-13 06:00:00',
         ]})
-        switch_points = self.__libra_instance._Librarian__detect_summer_time_borders(time_df)
+        switch_points = self.libra_instance._Librarian__detect_dst_switches(time_df)
         self.assertEqual(switch_points, [
             {'time': '2020-02-17 06:00:00', 'summer_time': False},
             {'time': '2020-03-12 17:00:00', 'summer_time': True},
