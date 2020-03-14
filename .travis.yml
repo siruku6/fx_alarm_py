@@ -3,7 +3,7 @@ python:
   - 3.8
 env:
   global:
-    - secure: "iFUrRGukb7wuSDJRx8ANmRm+YgbHyn8omZlYNTQm2t9oC60ITFD5YFA/qB09RaOHyuz1H1ZTFRgltX3dG6rc4/dQ97nNvxOZP4L1HqIB/DumbgtdoK59Os8kaT/BEMShonH4bDsm8gC3f7QiK0/V/w7R9mDSe21ZmOzOY4WpfL/Q86jRRuWU+nw9K1ECNYu3iZkasx9dYMY0xtNnPLlwyOGJd181vThekRhYpJ470CnxKFmjakUiScXPCCPvz3lb1mLQ0j35A23K/496MRaccyKUoBa5UZH7D6iCvOFiW+9C7NwTYI/9lhb5BNZ29O78ky169GmdJ8qUqLugZfn7fLvWiff4UTqHJYNupgYa4GFA47+if/xXB61HH+uIuDh/yvaChAiFVwMN90s7+oiXqx3ba0VOn2LC/uAl5gbbh1/D9w6s/dvfs3ij3YynTVTzme6RjURTEGR0BJCw9BI198NTzcv3vjfwbqtlxi4XacDHvsh14Dy6VpRQJwRCrEkYj5TJ+y8blI91LYWxDNMsz0VuZ1q33boKgfiucwXbFUHNx2fF/MWxTIhvKjAzFRpQTGUIUh0qu4XE7c7eXuhmnnovWBDdtD08z2nNw7Zz35v8PAvdBRRIm5nSmNki6vHxZHGywuaK+VYO+26QKc8IWfQRPS55eCO+mphV02ATakU="
+    - CC_TEST_REPORTER_ID=df0bec54ec6b21ab786dc05443fe9f52faa30df4b21c8fa2a2574b6bb47a1fb7
 install:
   - pip install -r requirements.txt
   - pip install coverage
