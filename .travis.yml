@@ -1,0 +1,18 @@
+language: python
+python:
+  - 3.8
+env:
+  global:
+    - secure: "QFiHHKA9CcysMWfRb6KImKtLSrMEsHiDJbFwhmtDfVLHyEhnCEh4nMa9CdPdBVaXg0XyMd3SQcN+wldTp63HMGlcLuWDP+28S+wlieU+8N/PLjElnzZ5GROEhY1jnOmaUGobacjPNnAZ84XR9UPT0W+FqyK2Qb7v0X+qjqBj3COM4zssg896pHOSYmLy+07Rw84biIz9V+axC4Oqd6zhIScu2WUWvZaLZTpQXlK0bGObaFe9DDuncmO+Cz13UcKUP9hxpFS8xP6VBNFNR56vdnLDZXJHU2Q1eBEsWOzHhINIznkpavujBYazc0tpj0HgVE+vkfGlMjp6gQCUHeNyOxp92wJMjKEy6SZigAi6nlh4eqx0BdJ5T8nY+69GziBDSYu9jkJhzn3uYmUxh9/GPcMNh6quW0amQ0Qj4v5E7hX5LkQO5qhToHt678Vyf2Xgt9ioBJ/kALXePusfV7NE0s3pXwmjUuGD27CGrdE72SB5OaSnsdTPalXHmBK9YnpH78Ub298EJ2Vp81dRmeJWGQiOcYRecc1oS46ASRQCUQ1ab+H2jboRa+mTCJBtMUIYSlke8wYEzEFuDu+Og8m30MZpvu9McdkMxDJTtbmkn+K98e92M1b0w3ue+ZE5YqsG8wwWkZa6YBhdPnjvNry4r7YPfrFmOw+6MQ2mJuC01ZU="
+install:
+  - pip install -r requirements.txt
+  - pip install coverage
+before_script:
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
+  - ./cc-test-reporter before-build
+script:
+  - coverage run -m unittest discover
+  - coverage xml
+after_script:
+  - ./cc-test-reporter after-build --coverage-input-type coverage.py --exit-code $TRAVIS_TEST_RESULT
