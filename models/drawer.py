@@ -82,7 +82,7 @@ class FigureDrawer():
                 plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=size, alpha=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['bar']:
             for key, column in d_frame.iteritems():
-                plt_axis.bar(x=d_frame.index, height=column.values, label=nolabel or key, color=color)
+                plt_axis.bar(x=d_frame.index, height=column.values, label=nolabel or key, color=color, alpha=0.7)
 
         return {'success': 'd_frameを描画'}
 
