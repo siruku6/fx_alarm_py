@@ -8,6 +8,7 @@ install:
   - pip install -r requirements.txt
   - pip install coverage
 before_script:
+  - cd /home/travis/build/siruku6/fx_alarm_py
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
   - chmod +x ./cc-test-reporter
   - ./cc-test-reporter before-build
