@@ -1,5 +1,6 @@
 # FX_Alarm_py
 
+[![Build Status](https://travis-ci.org/siruku6/fx_alarm_py.svg?branch=master)](https://travis-ci.org/siruku6/fx_alarm_py)
 [![Maintainability](https://api.codeclimate.com/v1/badges/67acc571f4fe4e7f7959/maintainability)](https://codeclimate.com/github/siruku6/fx_alarm_py/maintainability)
 
 ## Overview
