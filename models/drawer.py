@@ -21,7 +21,7 @@ class FigureDrawer():
     def __init__(self, rows_num=2):
         self.init_figure(rows_num)
 
-    def init_figure(self, rows_num):
+    def init_figure(self, rows_num=2):
         ''' 生成画像の初期設定 '''
         if rows_num == 2:
             self.__figure, (self.__axis1, self.__axis2) = plt.subplots(
