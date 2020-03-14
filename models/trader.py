@@ -20,7 +20,7 @@ class Trader():
         if operation in ['verification']:
             inst = OandaPyClient.select_instrument()
             self.__static_options = {}
-            self.__static_options['be_drawn'] = i_face.ask_true_or_false(msg='[Trader] 画像描画する？ [1]:Yes, [2]:No : ')
+            self.__static_options['figure_option'] = i_face.ask_true_or_false(msg='[Trader] 画像描画する？ [1]:Yes, [2]:No : ')
             self.__drawer = None
             self.__instrument = inst['name']
             self._static_spread = inst['spread']
@@ -130,7 +130,7 @@ class Trader():
 
     def auto_verify_trading_rule(self, rule='swing'):
         ''' tradeルールを自動検証 '''
-        if self.__static_options['be_drawn']:
+        if self.__static_options['figure_option']:
             self.__drawer = FigureDrawer()
 
         # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
