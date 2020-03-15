@@ -49,7 +49,7 @@ def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, 
     )
     # TODO: 要削除 一時的なコード
     positions.to_csv('./tmp/csvs/positions_dump.csv')
-
+    return positions[['time', 'profit', 'gross']].copy()
 
 def __filter_to_boolean(_filter):
     return [(elem in _filter) for elem in FILTER_ELEMENTS]
