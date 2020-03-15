@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/siruku6/fx_alarm_py.svg?branch=master)](https://travis-ci.org/siruku6/fx_alarm_py)
 [![Maintainability](https://api.codeclimate.com/v1/badges/67acc571f4fe4e7f7959/maintainability)](https://codeclimate.com/github/siruku6/fx_alarm_py/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/67acc571f4fe4e7f7959/test_coverage)](https://codeclimate.com/github/siruku6/fx_alarm_py/test_coverage)
 
 ## Overview
 FXの為替レートを自動取得し、
