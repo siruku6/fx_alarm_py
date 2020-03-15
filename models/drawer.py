@@ -200,7 +200,7 @@ class FigureDrawer():
         plt.legend(loc='upper left', fontsize=8)
         plt.grid(linestyle='dashed', linewidth=0.5)
 
-        # INFO: axis2
+        # INFO: axis3
         if hasattr(self, '_FigureDrawer__axis3'):
             plt.sca(self.__axis3)
             if xticks_number > 0:
