@@ -1,0 +1,7 @@
+[run]
+source = .
+
+[xml]
+package_depth = 1
+
+# https://coverage.readthedocs.io/en/v4.5.x/config.html#xml
