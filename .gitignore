@@ -5,4 +5,5 @@ test_cord.py
 log/*.log
 tmp/images/*.png
 tmp/*.txt
-
+.coverage
+coverage.xml

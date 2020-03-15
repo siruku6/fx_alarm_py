@@ -6,25 +6,38 @@ import mplfinance.original_flavor as mpf
 from models.oanda_py_client import FXBase
 
 matplotlib.use('Agg')
+matplotlib.rcParams['axes.xmargin'] = 0
+# matplotlib.rcParams['figure.autolayout'] = False
 
 
 class FigureDrawer():
 
     PLOT_TYPE = {
         'dot': 0, 'long': 1, 'short': 2, 'trail': 3, 'exit': 4, 'break': 5,
-        'simple-line': 11, 'dashed-line': 12
+        'simple-line': 11, 'dashed-line': 12, 'bar': 13
     }
     POS_TYPE = {'neutral': 0, 'over': 1, 'beneath': 2}
 
-    def __init__(self):
-        self.init_figure()
+    def __init__(self, rows_num=2):
+        self.init_figure(rows_num)
 
-    def init_figure(self):
+    def init_figure(self, rows_num=2):
         ''' 生成画像の初期設定 '''
-        self.__figure, (self.__axis1, self.__axis2) = plt.subplots(
-            nrows=2, ncols=1, gridspec_kw={'height_ratios': [3, 1]},
-            figsize=(8, 5), dpi=144
-        )
+        if rows_num == 2:
+            self.__figure, (self.__axis1, self.__axis2) = plt.subplots(
+                nrows=2, ncols=1, gridspec_kw={'height_ratios': [3, 1]},
+                figsize=(8, 5), dpi=144
+            )
+        else:
+            self.__figure, (self.__axis1, self.__axis2, self.__axis3) = plt.subplots(
+                nrows=3, ncols=1, gridspec_kw={'height_ratios': [3, 1, 1]},
+                figsize=(8, 8), dpi=144
+            )
+            self.__axis3.yaxis.tick_right()
+
+        self.__axis1.yaxis.tick_right()
+        self.__axis2.yaxis.tick_right()
+
         # INFO: https://zaburo-ch.github.io/post/20141217_0/
         self.__figure.subplots_adjust(left=0.05, right=0.90, bottom=0.18, top=0.92, hspace=0.05)
 
@@ -35,7 +48,7 @@ class FigureDrawer():
     # OPTIMIZE: Analyzerクラスと密結合なメソッドになってしまった
     def draw_indicators(self, d_frame):
         ''' DateFrameからindicatorを描画 '''
-        self.draw_df_on_plt(d_frame.loc[:, ['60EMA']], FigureDrawer.PLOT_TYPE['dashed-line'], color='lime')
+        # self.draw_df_on_plt(d_frame.loc[:, ['60EMA']], FigureDrawer.PLOT_TYPE['dashed-line'], color='lime')
         self.draw_df_on_plt(d_frame.loc[:, ['20SMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightskyblue')
         self.draw_df_on_plt(d_frame.loc[:, ['10EMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='cyan')
         self.draw_df_on_plt(d_frame.loc[:, ['band_+1σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='midnightblue')
@@ -45,8 +58,8 @@ class FigureDrawer():
         self.draw_df_on_plt(d_frame.loc[:, ['SAR']], FigureDrawer.PLOT_TYPE['dot'], color='purple')
         self.draw_df_on_plt(d_frame.loc[:, ['stoD:3']], FigureDrawer.PLOT_TYPE['simple-line'], color='turquoise', plt_id=2)
         self.draw_df_on_plt(d_frame.loc[:, ['stoSD:3']], FigureDrawer.PLOT_TYPE['simple-line'], color='orangered', plt_id=2)
-        self.draw_df_on_plt(d_frame.loc[:, ['regist']], FigureDrawer.PLOT_TYPE['dot'], color='orangered', size=0.5)
-        self.draw_df_on_plt(d_frame.loc[:, ['support']], FigureDrawer.PLOT_TYPE['dot'], color='blue', size=0.5)
+        # self.draw_df_on_plt(d_frame.loc[:, ['regist']], FigureDrawer.PLOT_TYPE['dot'], color='orangered', size=0.5)
+        # self.draw_df_on_plt(d_frame.loc[:, ['support']], FigureDrawer.PLOT_TYPE['dot'], color='blue', size=0.5)
 
     def draw_df_on_plt(self, d_frame, plot_type, color='black', size=1, nolabel=None, plt_id=1):
         ''' DataFrameを受け取って、各columnを描画 '''
@@ -56,7 +69,12 @@ class FigureDrawer():
         if type(d_frame) is not pd.core.frame.DataFrame:
             return {'error': '[Drawer] DataFrame型以外が渡されました'}
 
-        plt_axis = self.__axis1 if plt_id == 1 else self.__axis2
+        if plt_id == 1:
+            plt_axis = self.__axis1
+        elif plt_id == 2:
+            plt_axis = self.__axis2
+        else:
+            plt_axis = self.__axis3
 
         # 描画
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
@@ -69,6 +87,9 @@ class FigureDrawer():
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
             for key, column in d_frame.iteritems():
                 plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=size, alpha=0.5)
+        elif plot_type == FigureDrawer.PLOT_TYPE['bar']:
+            for key, column in d_frame.iteritems():
+                plt_axis.bar(x=d_frame.index, height=column.values, label=nolabel or key, width=0.6, color=color, alpha=0.5)
 
         return {'success': 'd_frameを描画'}
 
@@ -155,15 +176,14 @@ class FigureDrawer():
         self.__axis1.set_title('{inst}-{granularity} candles (len={len})'.format(
             inst=instrument, granularity=granularity, len=len(FXBase.get_candles())
         ))
-        self.__axis1.yaxis.tick_right()
-        self.__axis2.yaxis.tick_right()
         self.__axis2.set_xlabel('Datetime (UTC+00:00)', fontsize=6)
-
-        # INFO: axis1
-        plt.sca(self.__axis1)
         xticks_number = int(len(sr_time) / num_break_xticks_into)
         if xticks_number > 0:
             xticks_index = range(0, len(sr_time), xticks_number)
+
+        # INFO: axis1
+        plt.sca(self.__axis1)
+        if xticks_number > 0:
             plt.xticks(xticks_index, [])
         plt.legend(loc='upper left', fontsize=8) # best だと結構右に来て邪魔
         plt.grid(which='major', linestyle='dashed', linewidth=0.5)
@@ -179,6 +199,13 @@ class FigureDrawer():
         plt.yticks([20, 80], [20, 80])
         plt.legend(loc='upper left', fontsize=8)
         plt.grid(linestyle='dashed', linewidth=0.5)
+
+        # INFO: axis3
+        if hasattr(self, '_FigureDrawer__axis3'):
+            plt.sca(self.__axis3)
+            if xticks_number > 0:
+                plt.xticks(xticks_index, [])
+            plt.grid(linestyle='dashed', linewidth=0.5)
 
         png_filename = filename or 'figure'
         plt.savefig('tmp/images/{filename}_{num}_{date}.png'.format(

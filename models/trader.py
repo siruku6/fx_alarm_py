@@ -20,7 +20,7 @@ class Trader():
         if operation in ['verification']:
             inst = OandaPyClient.select_instrument()
             self.__static_options = {}
-            self.__static_options['be_drawn'] = i_face.ask_true_or_false(msg='[Trader] 画像描画する？ [1]:Yes, [2]:No : ')
+            self.__static_options['figure_option'] = i_face.ask_true_or_false(msg='[Trader] 画像描画する？ [1]:Yes, [2]:No : ')
             self.__drawer = None
             self.__instrument = inst['name']
             self._static_spread = inst['spread']
@@ -130,7 +130,7 @@ class Trader():
 
     def auto_verify_trading_rule(self, rule='swing'):
         ''' tradeルールを自動検証 '''
-        if self.__static_options['be_drawn']:
+        if self.__static_options['figure_option']:
             self.__drawer = FigureDrawer()
 
         # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
@@ -152,8 +152,12 @@ class Trader():
             print('Rule {} is not exist ...'.format(rule))
             exit()
 
-        print(result['success'])
-        df_positions = result['result'].loc[:, ['time', 'position', 'entry_price', 'exitable_price']]
+        print('{} ... (auto_verify_trading_rule)'.format(result['result']))
+        positions_columns = ['time', 'position', 'entry_price', 'exitable_price']
+        if result['result'] == 'no position':
+            return pd.DataFrame([], columns=positions_columns)
+
+        df_positions = result['candles'].loc[:, positions_columns]
         statistics.aggregate_backtest_result(
             rule=rule,
             df_positions=df_positions,
@@ -162,7 +166,7 @@ class Trader():
             spread=self._static_spread,
             entry_filter=self.get_entry_filter()
         )
-        df_positions = self.__wrangle_result_for_graph(result['result'][
+        df_positions = self.__wrangle_result_for_graph(result['candles'][
             ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
         ].copy())
         self.__draw_chart_vectorized_ver(df_positions)
@@ -391,10 +395,11 @@ class Trader():
         candles = FXBase.get_candles().copy()
         self.__prepare_trade_signs(candles)
         self.__generate_entry_column(candles=candles)
-        self.__slide_prices_to_really_possible(candles=candles)
+        sliding_result = self.__slide_prices_to_really_possible(candles=candles)
         candles.to_csv('./tmp/csvs/full_data_dump.csv')
 
-        return {'success': '[Trader] 売買判定終了', 'result': candles}
+        result = 'no position' if sliding_result['result'] == 'no position' else '[Trader] 売買判定終了'
+        return {'result': result, 'candles': candles}
 
     def __backtest_wait_close(self):
         ''' swingでH4 close直後のみにentryする場合のentry pointを検出 '''
@@ -402,11 +407,11 @@ class Trader():
         self.__prepare_trade_signs(candles)
         candles['thrust'] = wait_close.generate_thrust_column(candles)
         self.__generate_entry_column_for_wait_close(candles)
-        # close_candles = candles.close.values.tolist()
-        self.__slide_prices_to_really_possible(candles=candles)
-
+        sliding_result = self.__slide_prices_to_really_possible(candles=candles)
         candles.to_csv('./tmp/csvs/wait_close_data_dump.csv')
-        return {'success': '[Trader] 売買判定終了', 'result': candles}
+
+        result = 'no position' if sliding_result['result'] == 'no position' else '[Trader] 売買判定終了'
+        return {'result': result, 'candles': candles}
 
     def __backtest_scalping(self):
         ''' スキャルピングのentry pointを検出 '''
@@ -417,7 +422,7 @@ class Trader():
         # self.__slide_prices_to_really_possible(candles=candles)
 
         candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
-        return {'success': '[Trader] 売買判定終了', 'result': candles}
+        return {'result': '[Trader] 売買判定終了', 'candles': candles}
 
     def __prepare_trade_signs(self, candles):
         print('[Trader] preparing base-data for judging ...')
@@ -499,8 +504,8 @@ class Trader():
 
         scalping.commit_positions(
             candles,
-            self._indicators['band_+2σ'],
-            self._indicators['band_-2σ'],
+            plus2sigma=self._indicators['band_+2σ'],
+            minus2sigma=self._indicators['band_-2σ'],
             long_indexes=long_direction_index,
             short_indexes=short_direction_index,
             spread=self._static_spread
@@ -553,6 +558,10 @@ class Trader():
         position_rows = candles[position_index][[
             'time', 'entryable_price', 'position'
         ]].to_dict('records')
+        if position_rows == []:
+            print('[Trader] no positions ...')
+            return {'result': 'no position'}
+
         len_of_rows = len(position_rows)
         for i, row in enumerate(position_rows):
             print('[Trader] sliding price .. {}/{}'.format(i + 1, len_of_rows))
@@ -576,11 +585,11 @@ class Trader():
                 row['price'] = row['entryable_price']
 
         slided_positions = pd.DataFrame.from_dict(position_rows)
-        # TODO: price 列がないときにエラーになる（なぜかprice列がないことがある...candlesが異様に短いときに発生した）
         candles.loc[position_index, 'entry_price'] = slided_positions.price.to_numpy(copy=True)
         candles.loc[position_index, 'time'] = slided_positions.time.astype(str).to_numpy(copy=True)
 
         print('[Trader] finished sliding !')
+        return {'result': 'success'}
 
     def __draw_chart_vectorized_ver(self, df_positions):
         drwr = self.__drawer
