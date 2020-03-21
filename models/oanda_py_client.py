@@ -374,10 +374,13 @@ class OandaPyClient():
         return response
 
     def request_transactions(self, count=999):
+        start = int(self.__last_transaction_id) - count
+        if start < 1:
+            start = 1
         params = {
             # len(from ... to) <= 1000
             'to': int(self.__last_transaction_id),
-            'from': int(self.__last_transaction_id) - count,
+            'from': start,
             'type': ['ORDER'],
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
