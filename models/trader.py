@@ -232,7 +232,7 @@ class Trader():
         sma = self._indicators['20SMA']
         ema = self._indicators['10EMA']
         parabo = self._indicators['SAR']
-        method_trend_checker = np.frompyfunc(rules.detect_trend_type, 4, 1)
+        method_trend_checker = np.frompyfunc(rules.identify_trend_type, 4, 1)
 
         trend = method_trend_checker(c_prices, sma, ema, parabo)
         bull = np.where(trend == 'bull', True, False)
