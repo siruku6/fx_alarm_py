@@ -34,6 +34,7 @@ make_zip_for_lambda () {
   echo -e 'Input 1(copy only source) or 10(prepare source & modules):'
   read select
   DirName='fx_trading_on_lambda'
+  ModuleDirName='zip_dir_for_lambda/python'
   # Clean up directory
   if [ -e "../${DireName}/*" ]; then
     yes | rm -r "../${DirName}/models"
@@ -42,26 +43,39 @@ make_zip_for_lambda () {
 
   # Install modules
   if test $select = 10; then
-    yes | rm -r ../${DirName}/*
-    pip install -t ../${DirName} -r requirements.txt
+    if [ -e "../${ModuleDirName}/*" ]; then
+      yes | rm -r ../${ModuleDirName}/*
+    fi
+    pip install -t ../${ModuleDirName} -r requirements.txt
     # https://medium.com/@korniichuk/lambda-with-pandas-fd81aa2ff25e
-    rm -r ../${DirName}/*.dist-info ../${DirName}/__pycache__
+    rm -r ../${ModuleDirName}/*.dist-info ../${ModuleDirName}/__pycache__
   fi
   cp main.py ../${DirName}/
   cp -r models ../${DirName}/
 
   # Create Archive
   echo -e 'Make zip now? y(yes) n(no):'
-  read select
-  if test $select = 'y'; then
+  read select2
+  if test $select2 = 'y'; then
     cd ../${DirName}
-	# INFO: *.zip に合致するファイルがあれば削除
+    # INFO: *.zip に合致するファイルがあれば削除
     result=`find . -maxdepth 1 -name "*.zip" 2>/dev/null`
     if [ -n "$result" ]; then
       rm ./*.zip
     fi
     zip fx_archive -r ./*
     cd -
+
+    if test $select = 10; then
+      cd ../${ModuleDirName}
+      # INFO: *.zip に合致するファイルがあれば削除
+      result=`find . -maxdepth 1 -name "*.zip" 2>/dev/null`
+      if [ -n "$result" ]; then
+        rm ./*.zip
+      fi
+      zip fx_module_archive -r ./*
+      cd -
+    fi
   fi
 }
 
