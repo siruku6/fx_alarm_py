@@ -34,21 +34,26 @@ make_zip_for_lambda () {
   echo -e 'Input 1(copy only source) or 10(prepare source & modules):'
   read select
   DirName='fx_trading_on_lambda'
-  ModuleDirName='zip_dir_for_lambda/python'
+  ModuleDirName='zip_dir_for_lambda'
   # Clean up directory
-  if [ -e "../${DireName}/*" ]; then
-    yes | rm -r "../${DirName}/models"
-    yes | rm "../${DirName}/main.py"
+  result=`find ../${DirName} -maxdepth 1 -name "*.py" 2>/dev/null`
+  if [ -n "$result" ]; then
+    yes | rm -r ../${DirName}/models
+    yes | rm ../${DirName}/main.py
   fi
 
   # Install modules
   if test $select = 10; then
-    if [ -e "../${ModuleDirName}/*" ]; then
-      yes | rm -r ../${ModuleDirName}/*
+    result=`find ../${ModuleDirName}/python/ -maxdepth 1 -name "*.py" 2>/dev/null`
+    if [ -n "$result" ]; then
+      yes | rm -r ../${ModuleDirName}/python/*
     fi
-    pip install -t ../${ModuleDirName} -r requirements.txt
+    pip install -t ../${ModuleDirName}/python -r requirements.txt
+    # INFO: .dist-info, __pycache__ are unnecessary on Lambda
     # https://medium.com/@korniichuk/lambda-with-pandas-fd81aa2ff25e
-    rm -r ../${ModuleDirName}/*.dist-info ../${ModuleDirName}/__pycache__
+    rm -r ../${ModuleDirName}/python/*.dist-info
+	rm -r ../${ModuleDirName}/python/*/__pycache__
+	rm -r ../${ModuleDirName}/python/*/tests
   fi
   cp main.py ../${DirName}/
   cp -r models ../${DirName}/
@@ -73,7 +78,7 @@ make_zip_for_lambda () {
       if [ -n "$result" ]; then
         rm ./*.zip
       fi
-      zip fx_module_archive -r ./*
+      zip fx_module_archive -r ./python
       cd -
     fi
   fi
