@@ -1,9 +1,17 @@
+# ignoring target
 __pycache__/
 test_cord.py
+.coverage
+coverage.xml
 *.csv
 *.json
+*.zip
 log/*.log
 tmp/images/*.png
 tmp/*.txt
-.coverage
-coverage.xml
+tmp/zips/app/*
+tmp/zips/layer_module/python/*
+
+# force include
+!tmp/zips/app/.keep
+!tmp/zips/layer_module/python/.keep

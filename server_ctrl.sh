@@ -33,36 +33,36 @@ search_menu () {
 make_zip_for_lambda () {
   echo -e 'Input 1(copy only source) or 10(prepare source & modules):'
   read select
-  DirName='fx_trading_on_lambda'
-  ModuleDirName='zip_dir_for_lambda'
+  DirName='tmp/zips/app'
+  ModuleDirName='tmp/zips/layer_module'
   # Clean up directory
-  result=`find ../${DirName} -maxdepth 1 -name "*.py" 2>/dev/null`
+  result=`find ${DirName} -maxdepth 1 -name "*.py" 2>/dev/null`
   if [ -n "$result" ]; then
-    yes | rm -r ../${DirName}/models
-    yes | rm ../${DirName}/main.py
+    yes | rm -r ${DirName}/models
+    yes | rm ${DirName}/main.py
   fi
 
   # Install modules
   if test $select = 10; then
-    result=`find ../${ModuleDirName}/python/ -maxdepth 1 -name "*.py" 2>/dev/null`
+    result=`find ${ModuleDirName}/python/ -maxdepth 1 -name "*.py" 2>/dev/null`
     if [ -n "$result" ]; then
-      yes | rm -r ../${ModuleDirName}/python/*
+      yes | rm -r ${ModuleDirName}/python/*
     fi
-    pip install -t ../${ModuleDirName}/python -r requirements.txt
+    pip install -t ${ModuleDirName}/python -r requirements.txt
     # INFO: .dist-info, __pycache__ are unnecessary on Lambda
     # https://medium.com/@korniichuk/lambda-with-pandas-fd81aa2ff25e
-    rm -r ../${ModuleDirName}/python/*.dist-info
-	rm -r ../${ModuleDirName}/python/*/__pycache__
-	rm -r ../${ModuleDirName}/python/*/tests
+    rm -r ${ModuleDirName}/python/*.dist-info
+	rm -r ${ModuleDirName}/python/*/__pycache__
+	rm -r ${ModuleDirName}/python/*/tests
   fi
-  cp main.py ../${DirName}/
-  cp -r models ../${DirName}/
+  cp main.py ${DirName}/
+  cp -r models ${DirName}/
 
   # Create Archive
   echo -e 'Make zip now? y(yes) n(no):'
   read select2
   if test $select2 = 'y'; then
-    cd ../${DirName}
+    cd ${DirName}
     # INFO: *.zip に合致するファイルがあれば削除
     result=`find . -maxdepth 1 -name "*.zip" 2>/dev/null`
     if [ -n "$result" ]; then
@@ -72,7 +72,7 @@ make_zip_for_lambda () {
     cd -
 
     if test $select = 10; then
-      cd ../${ModuleDirName}
+      cd ${ModuleDirName}
       # INFO: *.zip に合致するファイルがあれば削除
       result=`find . -maxdepth 1 -name "*.zip" 2>/dev/null`
       if [ -n "$result" ]; then
