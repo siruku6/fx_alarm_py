@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - -
@@ -14,17 +15,6 @@ def generate_repulsion_column(candles, ema):
     return result
 
 
-# TODO: 使って無くない？ 2020/02/29 コメントアウト
-# def the_previous_satisfy_rules(candles):
-#     ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
-#     satisfy_preconditions = np.all(
-#         candles.shift(1)[['in_the_band', 'stoc_allows']],
-#         axis=1
-#     )
-#     candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
-#     candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
-
-
 def set_entryable_prices(candles, spread):
     ''' entry した場合の price を candles dataframe に設定 '''
     long_index = candles.entryable == 'long'
@@ -33,43 +23,46 @@ def set_entryable_prices(candles, spread):
     candles.loc[short_index, 'entryable_price'] = candles[short_index].open
 
 
-def commit_positions(candles, plus2sigma, minus2sigma, long_indexes, short_indexes, spread):
-    ''' set exit-timing, price '''
-    # bollinger_band に達したことによる exit
-    (exitables, exitable_prices) = exits_by_bollinger(candles, long_indexes, short_indexes, plus2sigma, minus2sigma)
-    # TODO: この時点で既に candles に exitable 列があるが、本当に必要なのか確認が必要
-    #   参照: trader.__generate_entry_column_for_scalping -> wait_close.the_previous_satisfy_rules
-    bollinger_exitables = ~exitables.isna()
-    candles.loc[bollinger_exitables, 'exitable'] = exitables
-    candles.loc[bollinger_exitables, 'exitable_price'] = exitable_prices
+def commit_positions_by_loop(factor_dicts):
+    # last_object = factor_dicts[-1]
+    loop_objects = factor_dicts[:-1]  # コピー変数: loop_objects への変更は factor_dicts にも及ぶ
+    last_index = len(loop_objects)
+    entry_direction = factor_dicts[0]['entryable']
 
-    # stoplossによるexit
-    long_exits_by_sl = long_indexes & (candles.low < candles.possible_stoploss)
-    candles.loc[long_exits_by_sl, 'exitable'] = 'sell_exit'
-    candles.loc[long_exits_by_sl, 'exitable_price'] = candles[long_exits_by_sl].possible_stoploss
+    for index, one_frame in enumerate(loop_objects):
+        # entry 中でなければ continue
+        if entry_direction == 'long':
+            edge_price = one_frame['high']
+            exit_type = 'sell_exit'
+        elif entry_direction == 'short':
+            edge_price = one_frame['low']
+            exit_type = 'buy_exit'
+        else:
+            factor_dicts[index + 1]['position'] = entry_direction = factor_dicts[index + 1]['entryable']
+            continue
 
-    short_exits_by_sl = short_indexes & (candles.high + spread > candles.possible_stoploss)
-    candles.loc[short_exits_by_sl, 'exitable'] = 'buy_exit'
-    candles.loc[short_exits_by_sl, 'exitable_price'] = candles[short_exits_by_sl].possible_stoploss
+        # exit する理由がなければ continue
+        if entry_direction == 'long' and one_frame['low'] < one_frame['possible_stoploss']:
+            one_frame['exitable_price'] = one_frame['possible_stoploss']
+        elif entry_direction == 'short' and one_frame['high'] > one_frame['possible_stoploss']:
+            # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
+            one_frame['exitable_price'] = one_frame['possible_stoploss']
+        elif is_exitable_by_bollinger(
+                edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
+                trend=None, stod=None, stosd=None
+            ):
+            if entry_direction == 'long':
+                one_frame['exitable_price'] = one_frame['band_+2σ']
+            else:
+                one_frame['exitable_price'] = one_frame['band_-2σ']
+        else:
+            continue
 
-    # INFO: exitable column から position を確定
-    candles['position'] = candles.exitable.fillna(method='ffill')
-    # INFO: 2連続entry, entryなしでのexitを除去
-    no_position_index = (candles.position == candles.position.shift(1)) \
-                        & (candles.entryable_price.isna() | candles.exitable_price.isna())
-    candles.loc[no_position_index, 'position'] = None
-    candles['entry_price'] = candles.entryable_price
+        # exit した場合のみここに到達する
+        one_frame['position'] = exit_type
+        factor_dicts[index + 1]['position'] = entry_direction = factor_dicts[index + 1]['entryable']
 
-
-def exits_by_bollinger(candles, long_indexes, short_indexes, plus2sigma, minus2sigma):
-    # TODO: long ポジションが残ったま short entry するバグが残っている stoploss_ver2 で発覚
-    exitable_generator = np.frompyfunc(detect_exitable_by_bollinger, 6, 2)
-    result = exitable_generator(
-        long_indexes, short_indexes,
-        candles.high, candles.low,
-        plus2sigma, minus2sigma
-    )
-    return result
+    return pd.DataFrame.from_dict(factor_dicts)[['position', 'exitable_price']]
 
 
 def set_stoploss_prices(types, indicators):
@@ -123,8 +116,12 @@ def detect_exitable_by_bollinger(is_long, is_short, high, low, plus2sigma, minus
     return exitable, exit_price
 
 
-def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
-    if spot_price < minus_2sigma or plus_2sigma < spot_price:
+def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma, trend=None, stod=None, stosd=None):
+    bollinger_is_touched = spot_price < minus_2sigma or plus_2sigma < spot_price
+    stoc_crossed = ((trend == 'xxxxxxxxxxx') and (stod < stosd)) \
+                 or ((trend == 'xxxxxxxxxxx') and (stod > stosd))
+
+    if bollinger_is_touched:
         return True
     else:
         return False

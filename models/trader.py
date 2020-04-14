@@ -12,6 +12,8 @@ import models.trade_rules.scalping as scalping
 import models.interface as i_face
 import models.statistics_module as statistics
 
+# pd.set_option('display.max_rows', 400)
+
 class Trader():
     MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
@@ -424,7 +426,6 @@ class Trader():
         self.__prepare_trade_signs(candles)
         candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
         self.__generate_entry_column_for_scalping(candles)
-        # self.__slide_prices_to_really_possible(candles=candles)
 
         candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
         return {'result': '[Trader] 売買判定終了', 'candles': candles}
@@ -505,16 +506,18 @@ class Trader():
         # INFO: 2. stoplossの設定が緩いver
         # candles.loc[:, 'possible_stoploss'] = scalping.set_stoploss_prices(candles.thrust.fillna(method='ffill'), self._indicators)
 
-        # import pdb; pdb.set_trace()
-
-        scalping.commit_positions(
-            candles,
-            plus2sigma=self._indicators['band_+2σ'],
-            minus2sigma=self._indicators['band_-2σ'],
-            long_indexes=long_direction_index,
-            short_indexes=short_direction_index,
-            spread=self._static_spread
+        # INFO: Entry / Exit のタイミングを確定
+        # TODO: この時点で既に candles に exitable 列があるが、本当に必要なのか確認が必要
+        commit_factors_df = pd.merge(
+            candles[['high', 'low', 'time', 'entryable', 'entryable_price', 'possible_stoploss']],
+            self._indicators[['band_+2σ' , 'band_-2σ', 'stoD:3', 'stoSD:3']],
+            left_index=True, right_index=True
         )
+        commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
+        candles.drop('position', axis='columns', inplace=True)
+        candles.loc[:, 'position'] = commited_df['position']
+        candles.loc[:, 'exitable_price'] = commited_df['exitable_price']
+        candles.loc[:, 'entry_price'] = candles['entryable_price']
 
     def __judge_entryable(self, candles):
         ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
