@@ -521,6 +521,8 @@ class OandaPyClient():
 
         # INFO: filtering by instrument
         hist_df = self.__fill_instrument_for_history(hist_df.copy())
+        # INFO: transaction が一切なかった場合の warning 回避のため
+        hist_df['instrument'] = hist_df['instrument'].astype(str, copy=False)
         hist_df = hist_df[
             (hist_df.instrument == self.__instrument)
             | (hist_df.instrument_parent == self.__instrument)

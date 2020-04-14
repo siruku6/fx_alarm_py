@@ -12,6 +12,8 @@ import models.trade_rules.scalping as scalping
 import models.interface as i_face
 import models.statistics_module as statistics
 
+# pd.set_option('display.max_rows', 400)
+
 class Trader():
     MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
@@ -20,7 +22,9 @@ class Trader():
         if operation in ['verification']:
             inst = OandaPyClient.select_instrument()
             self.__static_options = {}
-            self.__static_options['figure_option'] = i_face.ask_true_or_false(msg='[Trader] 画像描画する？ [1]:Yes, [2]:No : ')
+            self.__static_options['figure_option'] = i_face.ask_number(
+                msg='[Trader] 画像描画する？ [1]: No, [2]: Yes, [3]: with_P/L ', limit=3
+            )
             self.__drawer = None
             self.__instrument = inst['name']
             self._static_spread = inst['spread']
@@ -130,8 +134,8 @@ class Trader():
 
     def auto_verify_trading_rule(self, rule='swing'):
         ''' tradeルールを自動検証 '''
-        if self.__static_options['figure_option']:
-            self.__drawer = FigureDrawer()
+        if self.__static_options['figure_option'] > 1:
+            self.__drawer = FigureDrawer(rows_num=self.__static_options['figure_option'])
 
         # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
         self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
@@ -158,7 +162,7 @@ class Trader():
             return pd.DataFrame([], columns=positions_columns)
 
         df_positions = result['candles'].loc[:, positions_columns]
-        statistics.aggregate_backtest_result(
+        pl_gross_df = statistics.aggregate_backtest_result(
             rule=rule,
             df_positions=df_positions,
             granularity=self.get_granularity(),
@@ -169,7 +173,10 @@ class Trader():
         df_positions = self.__wrangle_result_for_graph(result['candles'][
             ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
         ].copy())
-        self.__draw_chart_vectorized_ver(df_positions)
+        df_positions = pd.merge(df_positions, pl_gross_df, on='time', how='left')
+        df_positions['gross'].fillna(method='ffill', inplace=True)
+
+        self.__draw_chart_vectorized_ver(df_positions=df_positions)
         return df_positions
 
     #
@@ -227,7 +234,7 @@ class Trader():
         sma = self._indicators['20SMA']
         ema = self._indicators['10EMA']
         parabo = self._indicators['SAR']
-        method_trend_checker = np.frompyfunc(rules.detect_trend_type, 4, 1)
+        method_trend_checker = np.frompyfunc(rules.identify_trend_type, 4, 1)
 
         trend = method_trend_checker(c_prices, sma, ema, parabo)
         bull = np.where(trend == 'bull', True, False)
@@ -419,7 +426,6 @@ class Trader():
         self.__prepare_trade_signs(candles)
         candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
         self.__generate_entry_column_for_scalping(candles)
-        # self.__slide_prices_to_really_possible(candles=candles)
 
         candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
         return {'result': '[Trader] 売買判定終了', 'candles': candles}
@@ -500,16 +506,18 @@ class Trader():
         # INFO: 2. stoplossの設定が緩いver
         # candles.loc[:, 'possible_stoploss'] = scalping.set_stoploss_prices(candles.thrust.fillna(method='ffill'), self._indicators)
 
-        # import pdb; pdb.set_trace()
-
-        scalping.commit_positions(
-            candles,
-            plus2sigma=self._indicators['band_+2σ'],
-            minus2sigma=self._indicators['band_-2σ'],
-            long_indexes=long_direction_index,
-            short_indexes=short_direction_index,
-            spread=self._static_spread
+        # INFO: Entry / Exit のタイミングを確定
+        # TODO: この時点で既に candles に exitable 列があるが、本当に必要なのか確認が必要
+        commit_factors_df = pd.merge(
+            candles[['high', 'low', 'time', 'entryable', 'entryable_price', 'possible_stoploss']],
+            self._indicators[['band_+2σ' , 'band_-2σ', 'stoD:3', 'stoSD:3']],
+            left_index=True, right_index=True
         )
+        commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
+        candles.drop('position', axis='columns', inplace=True)
+        candles.loc[:, 'position'] = commited_df['position']
+        candles.loc[:, 'exitable_price'] = commited_df['exitable_price']
+        candles.loc[:, 'entry_price'] = candles['entryable_price']
 
     def __judge_entryable(self, candles):
         ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
@@ -639,6 +647,11 @@ class Trader():
             end = df_len - Trader.MAX_ROWS_COUNT * i
             sr_time = drwr.draw_candles(start, end)['time']
 
+            # profit(pl) / gross
+            if self.__static_options['figure_option'] > 2:
+                drwr.draw_df_on_plt(dfs_position[i][['gross']], drwr.PLOT_TYPE['bar'], color='orange', plt_id=3)
+                drwr.draw_df_on_plt(dfs_position[i][['profit']], drwr.PLOT_TYPE['bar'], color='yellow', plt_id=3)
+
             result = drwr.create_png(
                 instrument=self.get_instrument(),
                 granularity=self.get_granularity(),
@@ -647,7 +660,7 @@ class Trader():
 
             drwr.close_all()
             if df_segments_count != i + 1:
-                drwr.init_figure()
+                drwr.init_figure(rows_num=self.__static_options['figure_option'])
             if 'success' in result:
                 print('{msg} / {count}'.format(msg=result['success'], count=df_segments_count))
 

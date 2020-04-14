@@ -8,60 +8,60 @@ class TestScalping(unittest.TestCase):
     DummyPlus2sigma = 116
     DummyMinus2sigma = 113
 
-    def test_exits_by_bollinger(self):
-        # test-data
-        test_df = pd.DataFrame.from_dict(
-            {
-                'long_over_the_band': [True, False, 116.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'sell_exit', TestScalping.DummyPlus2sigma],
-                'long_below_the_band': [True, False, 115.5, 112.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'sell_exit', TestScalping.DummyMinus2sigma],
-                'short_over_the_band': [False, True, 116.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'buy_exit', TestScalping.DummyPlus2sigma],
-                'short_below_the_band': [False, True, 115.5, 112.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'buy_exit', TestScalping.DummyMinus2sigma],
-            },
-            columns=[
-                'is_long', 'is_short', 'high', 'low', 'plus2sigma', 'minus2sigma',
-                'correct_exitable', 'correct_exitable_price'
-            ],
-            orient='index'
-        )
-        exitable, exitable_price = scalping.exits_by_bollinger(
-            candles=test_df[['high', 'low']],
-            long_indexes=test_df.is_long, short_indexes=test_df.is_short,
-            plus2sigma=test_df.plus2sigma, minus2sigma=test_df.minus2sigma
-        )
-        test_df['exitable'] = exitable
-        test_df['exitable_price'] = exitable_price
+    # def test_exits_by_bollinger(self):
+    #     # test-data
+    #     test_df = pd.DataFrame.from_dict(
+    #         {
+    #             'long_over_the_band': [True, False, 116.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'sell_exit', TestScalping.DummyPlus2sigma],
+    #             'long_below_the_band': [True, False, 115.5, 112.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'sell_exit', TestScalping.DummyMinus2sigma],
+    #             'short_over_the_band': [False, True, 116.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'buy_exit', TestScalping.DummyPlus2sigma],
+    #             'short_below_the_band': [False, True, 115.5, 112.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'buy_exit', TestScalping.DummyMinus2sigma],
+    #         },
+    #         columns=[
+    #             'is_long', 'is_short', 'high', 'low', 'plus2sigma', 'minus2sigma',
+    #             'correct_exitable', 'correct_exitable_price'
+    #         ],
+    #         orient='index'
+    #     )
+    #     exitable, exitable_price = scalping.exits_by_bollinger(
+    #         candles=test_df[['high', 'low']],
+    #         long_indexes=test_df.is_long, short_indexes=test_df.is_short,
+    #         plus2sigma=test_df.plus2sigma, minus2sigma=test_df.minus2sigma
+    #     )
+    #     test_df['exitable'] = exitable
+    #     test_df['exitable_price'] = exitable_price
 
-        for index, row in test_df.iterrows():
-            self.assertEqual(row['exitable'], row['correct_exitable'], index)
-            self.assertEqual(row['exitable_price'], row['correct_exitable_price'], index)
+    #     for index, row in test_df.iterrows():
+    #         self.assertEqual(row['exitable'], row['correct_exitable'], index)
+    #         self.assertEqual(row['exitable_price'], row['correct_exitable_price'], index)
 
-    def test_no_exits_by_bollinger(self):
-        # test-data
-        test_df = pd.DataFrame.from_dict(
-            {
-                'long_in_the_band': [True, False, 115.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, np.nan, np.nan],
-                'short_in_the_band': [False, True, 115.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, np.nan, np.nan],
-                'no_in_the_band': [False, False, 115.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, np.nan, np.nan],
-                'no_over_the_band': [False, False, 116.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, np.nan, np.nan],
-                'no_below_the_band': [False, False, 115.5, 112.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, np.nan, np.nan],
-            },
-            columns=[
-                'is_long', 'is_short', 'high', 'low', 'plus2sigma', 'minus2sigma',
-                'correct_exitable', 'correct_exitable_price'
-            ],
-            orient='index'
-        )
-        exitable, exitable_price = scalping.exits_by_bollinger(
-            candles=test_df[['high', 'low']],
-            long_indexes=test_df.is_long, short_indexes=test_df.is_short,
-            plus2sigma=test_df.plus2sigma, minus2sigma=test_df.minus2sigma
-        )
-        test_df['exitable'] = exitable
-        test_df['exitable_price'] = exitable_price
+    # def test_no_exits_by_bollinger(self):
+    #     # test-data
+    #     test_df = pd.DataFrame.from_dict(
+    #         {
+    #             'long_in_the_band': [True, False, 115.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, np.nan, np.nan],
+    #             'short_in_the_band': [False, True, 115.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, np.nan, np.nan],
+    #             'no_in_the_band': [False, False, 115.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, np.nan, np.nan],
+    #             'no_over_the_band': [False, False, 116.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, np.nan, np.nan],
+    #             'no_below_the_band': [False, False, 115.5, 112.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, np.nan, np.nan],
+    #         },
+    #         columns=[
+    #             'is_long', 'is_short', 'high', 'low', 'plus2sigma', 'minus2sigma',
+    #             'correct_exitable', 'correct_exitable_price'
+    #         ],
+    #         orient='index'
+    #     )
+    #     exitable, exitable_price = scalping.exits_by_bollinger(
+    #         candles=test_df[['high', 'low']],
+    #         long_indexes=test_df.is_long, short_indexes=test_df.is_short,
+    #         plus2sigma=test_df.plus2sigma, minus2sigma=test_df.minus2sigma
+    #     )
+    #     test_df['exitable'] = exitable
+    #     test_df['exitable_price'] = exitable_price
 
-        for index, row in test_df.iterrows():
-            self.assertTrue(np.isnan(row['exitable']), index)
-            self.assertTrue(np.isnan(row['exitable_price']), index)
+    #     for index, row in test_df.iterrows():
+    #         self.assertTrue(np.isnan(row['exitable']), index)
+    #         self.assertTrue(np.isnan(row['exitable_price']), index)
 
     def test_is_exitable_by_bollinger(self):
         test_dicts = [

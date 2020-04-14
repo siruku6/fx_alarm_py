@@ -1,7 +1,22 @@
 import numpy as np
 
 
-def detect_trend_type(c_price, sma, ema, parabo):
+def identify_trend_type(c_price, sma, ema, parabo):
+    '''
+    Identify whether the trend type is 'bull', 'bear' or None
+
+    Parameters
+    ----------
+    c_price : float
+        current close price
+    sma     : float
+    ema     : float
+    parabo  : float
+
+    Returns
+    -------
+    string or None
+    '''
     if sma < ema < c_price and parabo < c_price:
         return 'bull'
     elif sma > ema > c_price and parabo > c_price:

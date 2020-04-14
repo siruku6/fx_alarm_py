@@ -1,8 +1,9 @@
 import datetime
-import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 import mplfinance.original_flavor as mpf
+import numpy as np
+import pandas as pd
 from models.oanda_py_client import FXBase
 
 matplotlib.use('Agg')
@@ -89,7 +90,7 @@ class FigureDrawer():
                 plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=size, alpha=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['bar']:
             for key, column in d_frame.iteritems():
-                plt_axis.bar(x=d_frame.index, height=column.values, label=nolabel or key, width=0.6, color=color, alpha=0.5)
+                plt_axis.bar(x=np.arange(len(d_frame)), height=column.values, label=nolabel or key, width=0.6, color=color, alpha=0.5)
 
         return {'success': 'd_frameを描画'}
 

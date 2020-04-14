@@ -202,6 +202,7 @@ class RealTrader(Trader):
         # Open position の情報抽出
         target = open_trades[0]
         pos['price'] = float(target['price'])
+        pos['openTime'] = target['openTime']
         if target['currentUnits'][0] == '-':
             pos['type'] = 'short'
         else:
@@ -232,7 +233,7 @@ class RealTrader(Trader):
         sma = self._indicators['20SMA'][index]
         ema = self._indicators['10EMA'][index]
         parabo = self._indicators['SAR'][index]
-        trend = rules.detect_trend_type(c_price, sma, ema, parabo)
+        trend = rules.identify_trend_type(c_price, sma, ema, parabo)
 
         if trend is None:
             print('[Trader] Time: {}, 20SMA: {}, 10EMA: {}, close: {}'.format(
