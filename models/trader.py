@@ -613,18 +613,17 @@ class Trader():
             drwr.draw_indicators(d_frame=dfs_indicator[i])
 
             # positions
-            # INFO: exitable_price 列が残っていると、後 draw_positions_df の dropna で行が消される
+            # INFO: exitable_price などの列が残っていると、後 draw_positions_df の dropna で行が消される
             long_entry_df = dfs_position[i][
                 dfs_position[i].position.isin(['long', 'sell_exit']) & (~dfs_position[i].price.isna())
-            ].drop('exitable_price', axis=1)
+            ][['sequence', 'price']]
             short_entry_df = dfs_position[i][
                 dfs_position[i].position.isin(['short', 'buy_exit']) & (~dfs_position[i].price.isna())
-            ].drop('exitable_price', axis=1)
+            ][['sequence', 'price']]
             close_df = dfs_position[i][dfs_position[i].position.isin(['sell_exit', 'buy_exit'])] \
                                    .drop('price', axis=1) \
                                    .rename(columns={'exitable_price': 'price'})
-            trail_df = dfs_position[i][dfs_position[i].position != '-'] \
-                                   .drop(['price', 'exitable_price'], axis=1) \
+            trail_df = dfs_position[i][dfs_position[i].position != '-'][['sequence', 'stoploss']] \
                                    .rename(columns={'stoploss': 'price'})
 
             drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
