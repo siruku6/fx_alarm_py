@@ -27,7 +27,7 @@ def commit_positions_by_loop(factor_dicts):
     # last_object = factor_dicts[-1]
     loop_objects = factor_dicts[:-1]  # コピー変数: loop_objects への変更は factor_dicts にも及ぶ
     last_index = len(loop_objects)
-    entry_direction = factor_dicts[0]['entryable']
+    entry_direction = factor_dicts[0]['entryable']  # 'long', 'short' or nan
 
     for index, one_frame in enumerate(loop_objects):
         # entry 中でなければ continue
@@ -49,7 +49,7 @@ def commit_positions_by_loop(factor_dicts):
             one_frame['exitable_price'] = one_frame['possible_stoploss']
         elif is_exitable_by_bollinger(
                 edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
-                trend=None, stod=None, stosd=None
+                direction=entry_direction, stod=one_frame['stoD:3'], stosd=one_frame['stoSD:3']
             ):
             if entry_direction == 'long':
                 one_frame['exitable_price'] = one_frame['band_+2σ']
@@ -104,22 +104,22 @@ def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss)
     return np.nan
 
 
-def detect_exitable_by_bollinger(is_long, is_short, high, low, plus2sigma, minus2sigma):
-    if low < minus2sigma: exit_price = minus2sigma
-    elif plus2sigma < high: exit_price = plus2sigma
-    else: return np.nan, np.nan
+def is_exitable_by_stoc_cross(spot_price, plus_2sigma, minus_2sigma, direction=None, stod=None, stosd=None):
+    # bollinger_is_touched = spot_price < minus_2sigma or plus_2sigma < spot_price
+    stoc_crossed = ((direction == 'long') and (stod < stosd)) \
+                 or ((direction == 'short') and (stod > stosd))
 
-    if is_long: exitable = 'sell_exit'
-    elif is_short: exitable = 'buy_exit'
-    else: return np.nan, np.nan
+    # if bollinger_is_touched:
+    if stoc_crossed:
+        return True
+    else:
+        return False
 
-    return exitable, exit_price
 
-
-def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma, trend=None, stod=None, stosd=None):
+def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma, direction=None, stod=None, stosd=None):
     bollinger_is_touched = spot_price < minus_2sigma or plus_2sigma < spot_price
-    stoc_crossed = ((trend == 'xxxxxxxxxxx') and (stod < stosd)) \
-                 or ((trend == 'xxxxxxxxxxx') and (stod > stosd))
+    stoc_crossed = ((direction == 'long') and (stod < stosd)) \
+                 or ((direction == 'short') and (stod > stosd))
 
     if bollinger_is_touched:
         return True

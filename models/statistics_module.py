@@ -57,31 +57,27 @@ def __filter_to_boolean(_filter):
 
 def __calc_profit_2(copied_positions):
     # INFO: entry したその足で exit してしまった分の profit を計算
-    # 1本足内で2回のexitを認める場合は、上側の1行の処理が正しい
-    # is_soon_exit = copied_positions.exitable_price.notnull() & copied_positions.entry_price.notnull()
     is_soon_exit = \
-        copied_positions.exitable_price.notnull() & copied_positions.entry_price.notnull() \
-        & ~(copied_positions.shift(1).exitable_price.isna() & copied_positions.shift(1).position.isin(['long', 'short']))
+        copied_positions.exitable_price.notnull() \
+        & copied_positions.entry_price.notnull() \
+        & ~(copied_positions.shift(1).exitable_price.isna())
     soon_exit_positions = copied_positions[is_soon_exit]
-    copied_positions.loc[is_soon_exit, 'profit'] = \
-        np.where(
-            # INFO: long か short かで正負を逆にする
-            soon_exit_positions.position == 'sell_exit',
-            (soon_exit_positions.exitable_price - soon_exit_positions.entry_price).map(__round_really),
-            (soon_exit_positions.entry_price - soon_exit_positions.exitable_price).map(__round_really)
-        )
+    exit_entry_diffs = (soon_exit_positions.exitable_price - soon_exit_positions.entry_price).map(__round_really)
+    copied_positions.loc[is_soon_exit, 'profit'] = np.where(
+        # INFO: long か short かで正負を逆にする
+        soon_exit_positions.position == 'sell_exit', exit_entry_diffs, exit_entry_diffs * -1
+    )
 
     # INFO: entry 後、次の足までは position を持ち越した分の profit を計算
-    continued_index = copied_positions.position.isin(['long', 'short'])
+    continued_index = copied_positions.exitable_price.notnull() & ~is_soon_exit
     continued_positions = copied_positions[continued_index]
-    next_positions = copied_positions.shift(-1)
-    copied_positions.loc[continued_index, 'profit'] = \
-        np.where(
-            # INFO: sell_exit か buy_exit かで正負を逆にする
-            continued_positions.position == 'long',
-            (next_positions.exitable_price - copied_positions.entry_price).map(__round_really)[continued_index],
-            (copied_positions.entry_price - next_positions.exitable_price).map(__round_really)[continued_index]
-        )
+    previous_positions = copied_positions.shift(1)
+    exit_entry_diffs = \
+        (copied_positions.exitable_price - previous_positions.entry_price).map(__round_really)[continued_index]
+    copied_positions.loc[continued_index, 'profit'] = np.where(
+        # INFO: sell_exit か buy_exit かで正負を逆にする
+        continued_positions.position == 'sell_exit', exit_entry_diffs, exit_entry_diffs * -1
+    )
 
     return copied_positions
 
