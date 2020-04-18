@@ -31,8 +31,8 @@ class FigureDrawer():
             )
         else:
             self.__figure, (self.__axis1, self.__axis2, self.__axis3) = plt.subplots(
-                nrows=3, ncols=1, gridspec_kw={'height_ratios': [3, 1, 1]},
-                figsize=(8, 8), dpi=144
+                nrows=3, ncols=1, gridspec_kw={'height_ratios': [7, 2, 1]},
+                figsize=(8, 6), dpi=144
             )
             self.__axis3.yaxis.tick_right()
 
@@ -68,7 +68,9 @@ class FigureDrawer():
         if d_frame is None:
             return {'error': '[Drawer] データがありません'}
         if type(d_frame) is not pd.core.frame.DataFrame:
-            return {'error': '[Drawer] DataFrame型以外が渡されました'}
+            raise TypeError(
+                '[Drawer] draw_df_on_plt cannot draw from except DataFrame: {}'.format(type(d_frame))
+            )
 
         if plt_id == 1:
             plt_axis = self.__axis1
@@ -90,7 +92,7 @@ class FigureDrawer():
                 plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=size, alpha=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['bar']:
             for key, column in d_frame.iteritems():
-                plt_axis.bar(x=np.arange(len(d_frame)), height=column.values, label=nolabel or key, width=0.6, color=color, alpha=0.5)
+                plt_axis.bar(x=np.arange(len(d_frame)), height=column.values, label=nolabel or key, width=0.6, color=color)
 
         return {'success': 'd_frameを描画'}
 
@@ -171,45 +173,52 @@ class FigureDrawer():
 
     def create_png(self, instrument, granularity, sr_time, num=0, filename=None):
         ''' 描画済みイメージをpngファイルに書き出す '''
-        # OPTIMIZE: x軸目盛の分割数...今はこれでいいが、最適化する
-        num_break_xticks_into = 24
-
         self.__axis1.set_title('{inst}-{granularity} candles (len={len})'.format(
             inst=instrument, granularity=granularity, len=len(FXBase.get_candles())
         ))
-        self.__axis2.set_xlabel('Datetime (UTC+00:00)', fontsize=6)
-        xticks_number = int(len(sr_time) / num_break_xticks_into)
-        if xticks_number > 0:
-            xticks_index = range(0, len(sr_time), xticks_number)
+        xticks_number, xticks_index = self.__prepare_xticks(sr_time)
 
         # INFO: axis1
         plt.sca(self.__axis1)
-        if xticks_number > 0:
-            plt.xticks(xticks_index, [])
-        plt.legend(loc='upper left', fontsize=8) # best だと結構右に来て邪魔
-        plt.grid(which='major', linestyle='dashed', linewidth=0.5)
+        self.__apply_default_style(plt, xticks_number, indexes=xticks_index)
 
         # INFO: axis2
         plt.sca(self.__axis2)
+        self.__apply_default_style(plt, xticks_number, indexes=xticks_index)
         plt.hlines([20, 80], 0, len(sr_time), color='lightgray', linestyle='dashed', linewidth=0.5)
+        plt.yticks([20, 80], [20, 80])
+
+        if hasattr(self, '_FigureDrawer__axis3'):
+            # INFO: axis3
+            plt.sca(self.__axis3)
+            self.__apply_default_style(plt, xticks_number, indexes=xticks_index, legend=False)
+            self.__axis3.yaxis.set_major_locator(matplotlib.ticker.AutoLocator())
+            self.__axis3.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(1.0))
+
+        # INFO: x軸の目盛表示
         if xticks_number > 0:
             # INFO: 日付から表示するため、先頭12文字目から取る
             xticks_display = [sr_time.values[i][5:16] for i in xticks_index]
             plt.tick_params(top=False, bottom=True)
             plt.xticks(xticks_index, xticks_display, rotation=30, fontsize=6)
-        plt.yticks([20, 80], [20, 80])
-        plt.legend(loc='upper left', fontsize=8)
-        plt.grid(linestyle='dashed', linewidth=0.5)
-
-        # INFO: axis3
-        if hasattr(self, '_FigureDrawer__axis3'):
-            plt.sca(self.__axis3)
-            if xticks_number > 0:
-                plt.xticks(xticks_index, [])
-            plt.grid(linestyle='dashed', linewidth=0.5)
+            plt.xlabel('Datetime (UTC+00:00)', fontsize=6)
 
         png_filename = filename or 'figure'
         plt.savefig('tmp/images/{filename}_{num}_{date}.png'.format(
             filename=png_filename, num=num, date=datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d_%H%M%S')
         ))
         return {'success': '[Drawer] 描画済みイメージをpng化完了 {}'.format(num + 1)}
+
+    def __prepare_xticks(self, sr_time):
+        # OPTIMIZE: x軸目盛の分割数...今はこれでいいが、最適化する
+        num_break_xticks_into = 24
+        xticks_size = int(len(sr_time) / num_break_xticks_into)
+        xticks_index = range(0, len(sr_time), xticks_size) if xticks_size > 0 else []
+        return xticks_size, xticks_index
+
+    def __apply_default_style(self, plt, xticks_num, indexes, legend=True):
+        if xticks_num > 0:
+            plt.xticks(indexes, [])
+        if legend:
+            plt.legend(loc='upper left', fontsize=8) # best だと結構右に来て邪魔
+        plt.grid(which='major', linestyle='dashed', linewidth=0.5)
