@@ -1,5 +1,6 @@
 import datetime
 import os
+import numpy as np
 from models.oanda_py_client import FXBase
 from models.trader import Trader
 import models.trade_rules.base as rules
@@ -17,8 +18,12 @@ class RealTrader(Trader):
     # Public
     #
     def apply_trading_rule(self):
+        candles = FXBase.get_candles().copy()
+        self._prepare_trade_signs(candles)
+        candles['preconditions_allows'] = np.all(candles[self.get_entry_filter()], axis=1)
+
         # self.__play_swing_trade()
-        self.__play_scalping_trade()
+        self.__play_scalping_trade(candles)
 
     #
     # Override shared methods
@@ -124,10 +129,9 @@ class RealTrader(Trader):
         ))
 
     # TODO: 実装はいったん終わり、検証中
-    def __play_scalping_trade(self):
+    def __play_scalping_trade(self, candles):
         ''' 現在のレートにおいて、scalpingルールでトレード '''
         last_index = len(self._indicators) - 1
-        candles = FXBase.get_candles()
         close_price = candles.close.iat[-1]
         last_time = candles.time.iat[-1]
         indicators = self._indicators
@@ -137,10 +141,8 @@ class RealTrader(Trader):
             if self.__since_last_loss() < datetime.timedelta(hours=1):
                 print('[Trader] skip: An hour has not passed since last loss.')
                 return
-            trend = self.__detect_latest_trend(index=last_index, c_price=close_price, time=last_time)
-            if trend is None:
-                return
-            if self._over_2_sigma(last_index, price=close_price):
+            elif not candles['preconditions_allows'].iat[-1] or candles['trend'].iat[-1] is None:
+                self.__show_why_not_entry(candles)
                 return
 
             direction = scalping.repulsion_exist(
@@ -208,7 +210,8 @@ class RealTrader(Trader):
         return pos
 
     def __since_last_loss(self):
-        hist_df = self._client.request_transactions(100)
+        candle_size = 100
+        hist_df = self._client.request_transactions(candle_size)
         time_series = hist_df[hist_df.pl < 0]['time']
         if time_series.empty: return datetime.timedelta(hours=99)
 
@@ -216,6 +219,17 @@ class RealTrader(Trader):
         last_loss_datetime = datetime.datetime.strptime(last_loss_time.replace('T', ' ')[:16], '%Y-%m-%d %H:%M')
         time_since_loss = datetime.datetime.utcnow() - last_loss_datetime
         return time_since_loss
+
+    def __show_why_not_entry(self, conditions_df):
+        time = conditions_df.time.values[-1]
+        if conditions_df.trend.iat[-1] is None:
+            self._log_skip_reason('c. {}: "trend" is None !'.format(time))
+
+        columns = self.get_entry_filter()
+        vals = conditions_df[columns].iloc[-1].values
+        for reason, val in zip(columns, vals):
+            if not val:
+                self._log_skip_reason('c. {}: "{}" is not satisfied !'.format(time, reason))
 
     #
     #  apply each rules

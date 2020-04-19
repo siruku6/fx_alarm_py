@@ -31,6 +31,8 @@ class Trader():
             'granularity': os.environ.get('GRANULARITY') or 'M5',
             'entry_filter': []
         }
+        # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
+        self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
         self._position = None
 
         if operation in ['verification']:
@@ -135,11 +137,8 @@ class Trader():
         if self.__static_options['figure_option'] > 1:
             self.__drawer = FigureDrawer(rows_num=self.__static_options['figure_option'])
 
-        # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
-        self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
-
         candles = FXBase.get_candles().copy()
-        self.__prepare_trade_signs(candles)
+        self._prepare_trade_signs(candles)
         if rule == 'swing':
             if self.get_entry_filter() == []:
                 self.set_entry_filter(statistics.FILTER_ELEMENTS)
@@ -424,7 +423,7 @@ class Trader():
         candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
         return {'result': '[Trader] 売買判定終了', 'candles': candles}
 
-    def __prepare_trade_signs(self, candles):
+    def _prepare_trade_signs(self, candles):
         print('[Trader] preparing base-data for judging ...')
 
         indicators = self._indicators
