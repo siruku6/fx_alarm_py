@@ -21,21 +21,13 @@ class Trader():
     def __init__(self, operation='verification'):
         if operation in ['verification']:
             inst = OandaPyClient.select_instrument()
-            self.__static_options = {}
-            self.__static_options['figure_option'] = i_face.ask_number(
-                msg='[Trader] 画像描画する？ [1]: No, [2]: Yes, [3]: with_P/L ', limit=3
-            )
-            self.__drawer = None
-            self.__instrument = inst['name']
+            self._instrument = inst['name']
             self._static_spread = inst['spread']
-        else:
-            self.__instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
-            self._static_spread = 0.0
+            self.__set_drawing_option()
 
         self._operation = operation
         self._client = OandaPyClient(instrument=self.get_instrument())
-        self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
-        self.__entry_rules = {
+        self._entry_rules = {
             'granularity': os.environ.get('GRANULARITY') or 'M5',
             'entry_filter': []
         }
@@ -50,11 +42,10 @@ class Trader():
             last_time = self.__str_to_datetime(time_series.iat[-1][:19])
             # INFO: 実は、candlesのlastrow分のm10candlesがない
             self.__m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
-        elif operation == 'live':
+        elif operation in ['live', 'forward_test']:
             result = self._client.request_is_tradeable()
             self.tradeable = result['tradeable']
-            if not self.tradeable and operation != 'unittest':
-                self._log_skip_reason('1. market is not open')
+            if not self.tradeable and operation != 'unittest' and operation == 'live':
                 return
             self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
             self._client.specify_count_and_load_candles(count=70, granularity=self.get_granularity(), set_candles=True)
@@ -73,6 +64,13 @@ class Trader():
         self._indicators = self._ana.get_indicators()
         self.__initialize_position_variables()
 
+    def __set_drawing_option(self):
+        self.__static_options = {}
+        self.__static_options['figure_option'] = i_face.ask_number(
+            msg='[Trader] 画像描画する？ [1]: No, [2]: Yes, [3]: with_P/L ', limit=3
+        )
+        self.__drawer = None
+
     def __initialize_position_variables(self):
         self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
@@ -81,16 +79,16 @@ class Trader():
     # getter & setter
     #
     def set_entry_filter(self, entry_filter):
-        self.__entry_rules['entry_filter'] = entry_filter
+        self._entry_rules['entry_filter'] = entry_filter
 
     def get_instrument(self):
-        return self.__instrument
+        return self._instrument
 
     def get_granularity(self):
-        return self.__entry_rules['granularity']
+        return self._entry_rules['granularity']
 
     def get_entry_filter(self):
-        return self.__entry_rules['entry_filter']
+        return self._entry_rules['entry_filter']
 
     #
     # public
@@ -140,18 +138,20 @@ class Trader():
         # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
         self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
 
+        candles = FXBase.get_candles().copy()
+        self.__prepare_trade_signs(candles)
         if rule == 'swing':
             if self.get_entry_filter() == []:
                 self.set_entry_filter(statistics.FILTER_ELEMENTS)
-            result = self.__backtest_swing()
+            result = self.__backtest_swing(candles)
         elif rule == 'wait_close':
             if self.get_entry_filter() == []:
                 self.set_entry_filter(['in_the_band'])
-            result = self.__backtest_wait_close()
+            result = self.__backtest_wait_close(candles)
         elif rule == 'scalping':
             if self.get_entry_filter() == []:
                 self.set_entry_filter(['in_the_band'])
-            result = self.__backtest_scalping()
+            result = self.__backtest_scalping(candles)
         else:
             print('Rule {} is not exist ...'.format(rule))
             exit()
@@ -380,7 +380,7 @@ class Trader():
         while True:
             print('取得スパンは？(ex: M5): ', end='')
             granularity = str(input())
-            self.__entry_rules['granularity'] = granularity
+            self._entry_rules['granularity'] = granularity
             if granularity[0] in 'MH' and granularity[1:].isdecimal():
                 break
             elif granularity[0] in 'DW':
@@ -394,13 +394,11 @@ class Trader():
             exit()
         FXBase.set_candles(result['candles'])
 
-    def __backtest_swing(self):
+    def __backtest_swing(self, candles):
         ''' スイングトレードのentry pointを検出 '''
         # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする いらなくない？
         self.__initialize_position_variables()
 
-        candles = FXBase.get_candles().copy()
-        self.__prepare_trade_signs(candles)
         self.__generate_entry_column(candles=candles)
         sliding_result = self.__slide_prices_to_really_possible(candles=candles)
         candles.to_csv('./tmp/csvs/full_data_dump.csv')
@@ -408,10 +406,8 @@ class Trader():
         result = 'no position' if sliding_result['result'] == 'no position' else '[Trader] 売買判定終了'
         return {'result': result, 'candles': candles}
 
-    def __backtest_wait_close(self):
+    def __backtest_wait_close(self, candles):
         ''' swingでH4 close直後のみにentryする場合のentry pointを検出 '''
-        candles = FXBase.get_candles().copy()
-        self.__prepare_trade_signs(candles)
         candles['thrust'] = wait_close.generate_thrust_column(candles)
         self.__generate_entry_column_for_wait_close(candles)
         sliding_result = self.__slide_prices_to_really_possible(candles=candles)
@@ -420,10 +416,8 @@ class Trader():
         result = 'no position' if sliding_result['result'] == 'no position' else '[Trader] 売買判定終了'
         return {'result': result, 'candles': candles}
 
-    def __backtest_scalping(self):
+    def __backtest_scalping(self, candles):
         ''' スキャルピングのentry pointを検出 '''
-        candles = FXBase.get_candles().copy()
-        self.__prepare_trade_signs(candles)
         candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
         self.__generate_entry_column_for_scalping(candles)
 

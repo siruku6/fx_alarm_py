@@ -9,6 +9,8 @@ class RealTrader(Trader):
     ''' トレードルールに基づいてOandaへの発注を行うclass '''
     def __init__(self, operation='verification'):
         print('[Trader] -------- start --------')
+        self._instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
+        self._static_spread = 0.0
         super(RealTrader, self).__init__(operation=operation)
 
     #
@@ -71,26 +73,18 @@ class RealTrader(Trader):
             trend = self.__detect_latest_trend(index=last_index, c_price=close_price, time=last_time)
             if trend is None:
                 return
-
-            if os.environ.get('CUSTOM_RULE') == 'on':
+            elif os.environ.get('CUSTOM_RULE') == 'on':
+                bands_gap = indicators['band_+2σ'] - indicators['band_-2σ']
                 if not self._sma_run_along_trend(last_index, trend):
                     return
-                ema60 = indicators['60EMA'][last_index]
-                if not (trend == 'bull' and ema60 < close_price \
-                        or trend == 'bear' and ema60 > close_price):
-                    print('[Trader] c. 60EMA does not allow, c_price: {}, 60EMA: {}, trend: {}'.format(
-                        close_price, ema60, trend
-                    ))
-                    return
-                bands_gap = indicators['band_+2σ'] - indicators['band_-2σ']
-                if bands_gap[last_index - 3] > bands_gap[last_index]:
+                elif bands_gap[last_index - 3] > bands_gap[last_index]:
                     print('[Trader] c. band is shrinking...')
                     return
-                if self._over_2_sigma(last_index, price=close_price):
+                elif self._over_2_sigma(last_index, price=close_price):
                     return
-                if not self._expand_moving_average_gap(last_index, trend):
+                elif not self._expand_moving_average_gap(last_index, trend):
                     return
-                if not self._stochastic_allow_trade(last_index, trend):
+                elif not self._stochastic_allow_trade(last_index, trend):
                     return
 
             direction = self._find_thrust(last_index, candles, trend)

@@ -7,7 +7,7 @@ from models.real_trader import RealTrader
 def lambda_handler(event, context):
     tr = RealTrader(operation='live')
     if not tr.tradeable:
-        msg = 'lambda function is correctly finished, but now the market is closed.'
+        msg = '1. lambda function is correctly finished, but now the market is closed.'
         return {
             'statusCode': 204,
             'body': json.dumps(msg)

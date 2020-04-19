@@ -29,5 +29,5 @@ def the_previous_satisfy_rules(candles, entry_filter):
     candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
     # TODO: この position はいらないっぽい scalping では確認済み。 wait_close でも不要であれば消す
     candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
-    # INFO: sclping rule 用にのみ必要なデータ
-    candles.loc[:, 'exitable'] = candles.loc[:, 'position'].copy()
+    # INFO: sclping rule 用にのみ必要なデータ ではなく、そもそもいらないっぽい
+    # candles.loc[:, 'exitable'] = candles.loc[:, 'position'].copy()
