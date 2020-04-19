@@ -193,7 +193,8 @@ class FigureDrawer():
             plt.sca(self.__axis3)
             self.__apply_default_style(plt, xticks_number, indexes=xticks_index, legend=False)
             self.__axis3.yaxis.set_major_locator(matplotlib.ticker.AutoLocator())
-            self.__axis3.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(1.0))
+            # INFO: hist と backtest で桁が違うせいで問題になる, hist は pl が万単位
+            # self.__axis3.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(1.0))
 
         # INFO: x軸の目盛表示
         if xticks_number > 0:
