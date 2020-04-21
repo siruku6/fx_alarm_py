@@ -135,13 +135,14 @@ class RealTrader(Trader):
         close_price = candles.close.iat[-1]
         last_time = candles.time.iat[-1]
         indicators = self._indicators
+        trend = candles['trend'].iat[-1]
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
             if self.__since_last_loss() < datetime.timedelta(hours=1):
                 print('[Trader] skip: An hour has not passed since last loss.')
                 return
-            elif not candles['preconditions_allows'].iat[-1] or candles['trend'].iat[-1] is None:
+            elif not candles['preconditions_allows'].iat[-1] or trend is None:
                 self.__show_why_not_entry(candles)
                 return
 
