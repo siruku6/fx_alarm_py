@@ -490,19 +490,21 @@ class Trader():
         long_direction_index = entry_direction == 'long'
         short_direction_index = entry_direction == 'short'
 
-        # TODO: 1. 厳し目のstoploss設定(どちらが良いか検討が必要)
-        self.__set_stoploss_prices(
-            candles,
-            long_indexes=long_direction_index,
-            short_indexes=short_direction_index
+        # INFO: 1. 厳し目のstoploss設定: commit_positions_by_loop で is_exitable_by_bollinger を使うときはコチラが良い
+        # self.__set_stoploss_prices(
+        #     candles,
+        #     long_indexes=long_direction_index,
+        #     short_indexes=short_direction_index
+        # )
+        # INFO: 2. 緩いstoploss設定: is_exitable_by_stoc_cross 用
+        candles.loc[:, 'possible_stoploss'] = scalping.set_stoploss_prices(
+            candles.thrust.fillna(method='ffill'), self._indicators
         )
-        # INFO: 2. stoplossの設定が緩いver
-        # candles.loc[:, 'possible_stoploss'] = scalping.set_stoploss_prices(candles.thrust.fillna(method='ffill'), self._indicators)
 
         # INFO: Entry / Exit のタイミングを確定
         # TODO: この時点で既に candles に exitable 列があるが、本当に必要なのか確認が必要
         commit_factors_df = pd.merge(
-            candles[['high', 'low', 'time', 'entryable', 'entryable_price', 'possible_stoploss']],
+            candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price', 'possible_stoploss']],
             self._indicators[['band_+2σ' , 'band_-2σ', 'stoD:3', 'stoSD:3']],
             left_index=True, right_index=True
         )

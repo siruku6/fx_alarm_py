@@ -45,14 +45,19 @@ def commit_positions_by_loop(factor_dicts):
         elif entry_direction == 'short' and one_frame['high'] > one_frame['possible_stoploss']:
             # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
             one_frame['exitable_price'] = one_frame['possible_stoploss']
-        elif is_exitable_by_bollinger(
+        # elif is_exitable_by_bollinger(
+        #         edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
+        #         direction=entry_direction, stod=one_frame['stoD:3'], stosd=one_frame['stoSD:3']
+        #     ):
+        #     if entry_direction == 'long':
+        #         one_frame['exitable_price'] = one_frame['band_+2σ']
+        #     else:
+        #         one_frame['exitable_price'] = one_frame['band_-2σ']
+        elif is_exitable_by_stoc_cross(
                 edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
                 direction=entry_direction, stod=one_frame['stoD:3'], stosd=one_frame['stoSD:3']
             ):
-            if entry_direction == 'long':
-                one_frame['exitable_price'] = one_frame['band_+2σ']
-            else:
-                one_frame['exitable_price'] = one_frame['band_-2σ']
+            one_frame['exitable_price'] = one_frame['close']
         else:
             continue
 
