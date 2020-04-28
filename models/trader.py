@@ -501,7 +501,7 @@ class Trader():
         )
 
         # INFO: Entry / Exit のタイミングを確定
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         # TODO: この時点で既に candles に position 列があるが、本当に必要なのか確認が必要
         commit_factors_df = pd.merge(
             candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price', 'possible_stoploss']],

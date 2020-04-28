@@ -47,14 +47,12 @@ def commit_positions_by_loop(factor_dicts):
             one_frame['exitable_price'] = one_frame['possible_stoploss']
         # elif is_exitable_by_bollinger(
         #         edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
-        #         direction=entry_direction, stod=one_frame['stoD:3'], stosd=one_frame['stoSD:3']
         #     ):
         #     if entry_direction == 'long':
         #         one_frame['exitable_price'] = one_frame['band_+2σ']
         #     else:
         #         one_frame['exitable_price'] = one_frame['band_-2σ']
         elif is_exitable_by_stoc_cross(
-                edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
                 direction=entry_direction, stod=one_frame['stoD:3'], stosd=one_frame['stoSD:3']
             ):
             one_frame['exitable_price'] = one_frame['close']
@@ -109,7 +107,7 @@ def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss)
     return np.nan
 
 
-def is_exitable_by_stoc_cross(spot_price, plus_2sigma, minus_2sigma, direction=None, stod=None, stosd=None):
+def is_exitable_by_stoc_cross(direction=None, stod=None, stosd=None):
     stoc_crossed = ((direction == 'long') and (stod < stosd)) \
                  or ((direction == 'short') and (stod > stosd))
 
@@ -119,7 +117,7 @@ def is_exitable_by_stoc_cross(spot_price, plus_2sigma, minus_2sigma, direction=N
         return False
 
 
-def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma, direction=None, stod=None, stosd=None):
+def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
     bollinger_is_touched = spot_price < minus_2sigma or plus_2sigma < spot_price
 
     if bollinger_is_touched:
