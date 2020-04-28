@@ -5,9 +5,6 @@ import pandas as pd
 import models.trade_rules.scalping as scalping
 
 class TestScalping(unittest.TestCase):
-    DummyPlus2sigma = 116
-    DummyMinus2sigma = 113
-
     @classmethod
     def setUpClass(cls):
         print('\n[Scalping] setup')
@@ -16,32 +13,40 @@ class TestScalping(unittest.TestCase):
     def tearDownClass(cls):
         print('\n[Scalping] tearDown')
 
-    # def test_exits_by_bollinger(self):
-    #     # test-data
-    #     test_df = pd.DataFrame.from_dict(
-    #         {
-    #             'long_over_the_band': [True, False, 116.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'sell_exit', TestScalping.DummyPlus2sigma],
-    #             'long_below_the_band': [True, False, 115.5, 112.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'sell_exit', TestScalping.DummyMinus2sigma],
-    #             'short_over_the_band': [False, True, 116.5, 114.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'buy_exit', TestScalping.DummyPlus2sigma],
-    #             'short_below_the_band': [False, True, 115.5, 112.5, TestScalping.DummyPlus2sigma, TestScalping.DummyMinus2sigma, 'buy_exit', TestScalping.DummyMinus2sigma],
-    #         },
-    #         columns=[
-    #             'is_long', 'is_short', 'high', 'low', 'plus2sigma', 'minus2sigma',
-    #             'correct_exitable', 'correct_exitable_price'
-    #         ],
-    #         orient='index'
-    #     )
-    #     exitable, exitable_price = scalping.exits_by_bollinger(
-    #         candles=test_df[['high', 'low']],
-    #         long_indexes=test_df.is_long, short_indexes=test_df.is_short,
-    #         plus2sigma=test_df.plus2sigma, minus2sigma=test_df.minus2sigma
-    #     )
-    #     test_df['exitable'] = exitable
-    #     test_df['exitable_price'] = exitable_price
+    def test_generate_up_repulsion_column(self):
+        test_df = pd.DataFrame.from_dict(
+            {
+                'emaNone':      [None,   101.0, 100.0],
+                'fall':         [None,   101.5,  98.0],
+                'up_repulsion': ['bull', 102.0, 100.0]
+            },
+            columns=['trend', 'high', 'low'],
+            orient='index'
+        )
+        ema = np.array([None, 100.0, 101.0])
+        repulsion_series = scalping.generate_repulsion_column(candles=test_df, ema=ema)
 
-    #     for index, row in test_df.iterrows():
-    #         self.assertEqual(row['exitable'], row['correct_exitable'], index)
-    #         self.assertEqual(row['exitable_price'], row['correct_exitable_price'], index)
+        self.assertEqual(repulsion_series[0], None)
+        self.assertEqual(repulsion_series[1], None)
+        self.assertEqual(repulsion_series[2], 'long')
+
+    def test_generate_down_repulsion_column(self):
+        test_df = pd.DataFrame.from_dict(
+            {
+                'emaNone':        [None,   101.0, 101.2],
+                'rise':           [None,   101.6, 101.1],
+                'down_repulsion': ['bear', 100.0,  99.0]
+            },
+            columns=['trend', 'high', 'low'],
+            orient='index'
+        )
+        ema = np.array([None, 102.0, 101.5])
+        repulsion_series = scalping.generate_repulsion_column(candles=test_df, ema=ema)
+        # import pdb; pdb.set_trace()
+
+        self.assertEqual(repulsion_series[0], None)
+        self.assertEqual(repulsion_series[1], None)
+        self.assertEqual(repulsion_series[2], 'short')
 
     def test_is_exitable_by_stoc_cross(self):
         test_dicts = [
@@ -71,6 +76,7 @@ class TestScalping(unittest.TestCase):
                 row['spot_price'], row['plus_2sigma'], row['minus_2sigma']
             )
             self.assertEqual(is_exitable, row['exitable'])
+
 
 if __name__ == '__main__':
     unittest.main()
