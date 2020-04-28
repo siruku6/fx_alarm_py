@@ -3,6 +3,14 @@ from unittest.mock import patch
 import models.interface as interface
 
 class TestInterface(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        print('\n[Interface] setup')
+
+    @classmethod
+    def tearDownClass(cls):
+        print('\n[Interface] tearDown')
+
     def test_ask_true_or_false(self):
         with patch('builtins.print'):
             with patch('builtins.input', side_effect=['1']):

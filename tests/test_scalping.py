@@ -8,6 +8,14 @@ class TestScalping(unittest.TestCase):
     DummyPlus2sigma = 116
     DummyMinus2sigma = 113
 
+    @classmethod
+    def setUpClass(cls):
+        print('\n[Scalping] setup')
+
+    @classmethod
+    def tearDownClass(cls):
+        print('\n[Scalping] tearDown')
+
     # def test_exits_by_bollinger(self):
     #     # test-data
     #     test_df = pd.DataFrame.from_dict(
