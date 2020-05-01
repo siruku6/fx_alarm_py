@@ -50,16 +50,16 @@ class TestScalping(unittest.TestCase):
 
     def test_is_exitable_by_stoc_cross(self):
         test_dicts = [
-            {'direction': 'long', 'stod': 40, 'stosd': 90, 'exitable': True},
-            {'direction': 'long', 'stod': 70, 'stosd': 80, 'exitable': True},
-            {'direction': 'long', 'stod': 80, 'stosd': 70, 'exitable': False},
-            {'direction': 'short', 'stod': 90, 'stosd': 40, 'exitable': True},
-            {'direction': 'short', 'stod': 80, 'stosd': 70, 'exitable': True},
-            {'direction': 'short', 'stod': 70, 'stosd': 80, 'exitable': False}
+            {'position_type': 'long', 'stod': 40, 'stosd': 90, 'exitable': True},
+            {'position_type': 'long', 'stod': 70, 'stosd': 80, 'exitable': True},
+            {'position_type': 'long', 'stod': 80, 'stosd': 70, 'exitable': False},
+            {'position_type': 'short', 'stod': 90, 'stosd': 40, 'exitable': True},
+            {'position_type': 'short', 'stod': 80, 'stosd': 70, 'exitable': True},
+            {'position_type': 'short', 'stod': 70, 'stosd': 80, 'exitable': False}
         ]
         for row in test_dicts:
             is_exitable = scalping.is_exitable_by_stoc_cross(
-                direction=row['direction'],
+                position_type=row['position_type'],
                 stod=row['stod'],
                 stosd=row['stosd']
             )

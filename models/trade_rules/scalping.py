@@ -53,7 +53,7 @@ def commit_positions_by_loop(factor_dicts):
         #     else:
         #         one_frame['exitable_price'] = one_frame['band_-2σ']
         elif is_exitable_by_stoc_cross(
-                direction=entry_direction, stod=one_frame['stoD:3'], stosd=one_frame['stoSD:3']
+                position_type=entry_direction, stod=one_frame['stoD:3'], stosd=one_frame['stoSD:3']
             ):
             one_frame['exitable_price'] = one_frame['close']
         else:
@@ -107,9 +107,9 @@ def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss)
     return np.nan
 
 
-def is_exitable_by_stoc_cross(direction=None, stod=None, stosd=None):
-    stoc_crossed = ((direction == 'long') and (stod < stosd)) \
-                 or ((direction == 'short') and (stod > stosd))
+def is_exitable_by_stoc_cross(position_type=None, stod=None, stosd=None):
+    stoc_crossed = ((position_type == 'long') and (stod < stosd)) \
+                 or ((position_type == 'short') and (stod > stosd))
 
     if stoc_crossed:
         return True
