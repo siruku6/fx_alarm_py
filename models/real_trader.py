@@ -253,8 +253,8 @@ class RealTrader(Trader):
 
     def _stochastic_allow_trade(self, index, trend):
         ''' stocがtrendと一致した動きをしていれば true を返す '''
-        stod = self._indicators['stoD:3'][index]
-        stosd = self._indicators['stoSD:3'][index]
+        stod = self._indicators['stoD_3'][index]
+        stosd = self._indicators['stoSD_3'][index]
 
         result = rules.stoc_allows_entry(stod, stosd, trend)
         if result is False:

@@ -329,8 +329,8 @@ class Trader():
 
     def __generate_stoc_allows_column(self, sr_trend):
         ''' stocがtrendに沿う値を取っているか判定する列を返却 '''
-        stod = self._indicators['stoD:3']
-        stosd = self._indicators['stoSD:3']
+        stod = self._indicators['stoD_3']
+        stosd = self._indicators['stoSD_3']
         column_generator = np.frompyfunc(rules.stoc_allows_entry, 3, 1)
         return column_generator(stod, stosd, sr_trend)
 
@@ -505,7 +505,7 @@ class Trader():
         # TODO: この時点で既に candles に position 列があるが、本当に必要なのか確認が必要
         commit_factors_df = pd.merge(
             candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price', 'possible_stoploss']],
-            self._indicators[['band_+2σ' , 'band_-2σ', 'stoD:3', 'stoSD:3']],
+            self._indicators[['band_+2σ' , 'band_-2σ', 'stoD_3', 'stoSD_3']],
             left_index=True, right_index=True
         )
         commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
