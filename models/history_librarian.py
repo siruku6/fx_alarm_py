@@ -7,6 +7,8 @@ from models.drawer import FigureDrawer
 
 
 class Librarian():
+    DRAWABLE_ROWS = 200
+
     def __init__(self):
         inst = OandaPyClient.select_instrument()
         self.__instrument = inst['name']
@@ -54,15 +56,7 @@ class Librarian():
         elif granularity == 'H4':
             history_df['time'] = [self.__convert_to_h4(time, dict_dst_switches) for time in history_df.time]
 
-        entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
-
-        # merge
-        result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
-        result = pd.merge(result, close_df, on='time', how='outer', right_index=True)
-        result = pd.merge(result, trail_df, on='time', how='outer', right_index=True)
-        result = pd.merge(result, pl_and_gross_df, on='time', how='left').drop_duplicates(['time'])
-        result['units'] = result.units.fillna('0').astype(int)
-
+        result = self.__merge_hist_dfs(candles, history_df, pl_and_gross_df)
         FXBase.set_candles(result)
         print('[Libra] candles and trade-history is merged')
 
@@ -77,8 +71,7 @@ class Librarian():
     # Private
     #
     def __prepare_candles(self, log_oldest_time, granularity):
-        oldest_log_datetime = pd.to_datetime(log_oldest_time)
-        dt_a_month_ago = oldest_log_datetime - datetime.timedelta(days=1)
+        dt_a_month_ago = pd.to_datetime(log_oldest_time) - datetime.timedelta(days=30)
         starttime_str = dt_a_month_ago.strftime('%Y-%m-%d %H:%M:%S')
 
         today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
@@ -156,15 +149,23 @@ class Librarian():
         truncated_str = oanda_time_str[:sec_start] + '00'
         return truncated_str
 
+    def __merge_hist_dfs(self, candles, history_df, pl_and_gross_df):
+        entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
+
+        result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
+        result = pd.merge(result, close_df, on='time', how='outer', right_index=True)
+        result = pd.merge(result, trail_df, on='time', how='outer', right_index=True)
+        result = pd.merge(result, pl_and_gross_df, on='time', how='left').drop_duplicates(['time'])
+        result['units'] = result.units.fillna('0').astype(int)
+        return result
+
     def __divide_history_by_type(self, d_frame):
-        entry_df = d_frame.dropna(subset=['tradeOpened'])[['price', 'time', 'units']]
-        entry_df = entry_df.rename(columns={'price': 'entry_price'})
-
-        close_df = d_frame.dropna(subset=['tradesClosed'])[['price', 'time']]
-        close_df = close_df.rename(columns={'price': 'close_price'})
-
-        trail_df = d_frame[d_frame.type == 'STOP_LOSS_ORDER'][['price', 'time']]
-        trail_df = trail_df.rename(columns={'price': 'stoploss'})
+        entry_df = d_frame.dropna(subset=['tradeOpened'])[['price', 'time', 'units']] \
+                          .rename(columns={'price': 'entry_price'})
+        close_df = d_frame.dropna(subset=['tradesClosed'])[['price', 'time']] \
+                          .rename(columns={'price': 'close_price'})
+        trail_df = d_frame[d_frame.type == 'STOP_LOSS_ORDER'][['price', 'time']] \
+                          .rename(columns={'price': 'stoploss'})
         return entry_df, close_df, trail_df
 
     def __calc_pl_gross(self, original_df):
@@ -179,37 +180,33 @@ class Librarian():
             ]
         Returns
         ----------
-        df : dataframe
+        pl_gross_hist : dataframe
         '''
-        # time 列の調節と resampling
-        hist_dst_on = self.__resample_by_h4(original_df[original_df['dst']].copy(), base=1)
-        hist_dst_off = self.__resample_by_h4(original_df[original_df['dst'] != True].copy(), base=2)
-        pl_gross_hist = hist_dst_on.append(hist_dst_off).sort_index()
+        pl_gross_hist = self.__downsample_pl_df(pl_df=original_df)
         pl_gross_hist.reset_index(inplace=True)
         pl_gross_hist.loc[:, 'time'] = pl_gross_hist['time'].astype({'time': str})
-
-        # gross 算出
         pl_gross_hist.loc[:, 'gross'] = pl_gross_hist['pl'].cumsum()
         return pl_gross_hist
 
+    def __downsample_pl_df(self, pl_df):
+        # time 列の調節と resampling
+        hist_dst_on = self.__resample_by_h4(pl_df[pl_df['dst']].copy(), base=1)
+        hist_dst_off = self.__resample_by_h4(pl_df[pl_df['dst'] == False].copy(), base=2)
+        return hist_dst_on.append(hist_dst_off).sort_index()
+
     def __resample_by_h4(self, target_df, base=0):
         target_df.loc[:, 'time'] = pd.to_datetime(target_df['time'])
+        if target_df.empty:
+            return target_df[[]]
+
         return target_df.resample('4H', on='time', base=base).sum()
 
     def __draw_history(self):
-        DRAWABLE_ROWS = 200
-
         # INFO: データ準備
-        d_frame = FXBase.get_candles(start=-DRAWABLE_ROWS, end=None) \
+        d_frame = FXBase.get_candles(start=-Librarian.DRAWABLE_ROWS, end=None) \
                         .copy().reset_index(drop=True)
         d_frame['sequence'] = d_frame.index
-        entry_df = d_frame[['sequence', 'entry_price', 'units']].rename(columns={'entry_price': 'price'})
-        close_df = d_frame[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
-
-        long_df, short_df = entry_df.copy(), entry_df.copy()
-        # INFO: Nan は描画されないが None も描画されない
-        long_df.loc[long_df.units <= 0, 'price'] = None
-        short_df.loc[short_df.units >= 0, 'price'] = None
+        long_df, short_df, close_df = self.__prepare_position_dfs(d_frame)
 
         # prepare indicators
         self.__ana.calc_indicators(candles=d_frame)
@@ -219,7 +216,7 @@ class Librarian():
         #                  描画
         # - - - - - - - - - - - - - - - - - - - -
         drwr = self.__drawer
-        drwr.draw_indicators(d_frame=self._indicators[-DRAWABLE_ROWS:None].reset_index(drop=True))
+        drwr.draw_indicators(d_frame=self._indicators[-Librarian.DRAWABLE_ROWS:None].reset_index(drop=True))
 
         drwr.draw_vertical_lines(
             indexes=np.concatenate([
@@ -243,9 +240,19 @@ class Librarian():
         drwr.draw_df_on_plt(d_frame[['gross']], drwr.PLOT_TYPE['bar'], color='orange', plt_id=3)
         drwr.draw_df_on_plt(d_frame[['pl']], drwr.PLOT_TYPE['bar'], color='yellow', plt_id=3)
 
-        drwr.draw_candles(start=-DRAWABLE_ROWS, end=None)  # 200本より古い足は消している
+        drwr.draw_candles(start=-Librarian.DRAWABLE_ROWS, end=None)  # 200本より古い足は消している
         result = drwr.create_png(
             instrument=self.__instrument, granularity='real-trade',
             sr_time=d_frame.time, num=0, filename='hist_figure'
         )
         print(result['success'])
+
+    def __prepare_position_dfs(self, df):
+        entry_df = df[['sequence', 'entry_price', 'units']].rename(columns={'entry_price': 'price'})
+        close_df = df[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
+
+        long_df, short_df = entry_df.copy(), entry_df.copy()
+        # INFO: Nan は描画されないが None も描画されない
+        long_df.loc[long_df.units <= 0, 'price'] = None
+        short_df.loc[short_df.units >= 0, 'price'] = None
+        return long_df, short_df, close_df

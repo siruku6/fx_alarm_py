@@ -9,16 +9,16 @@ class TestTrader(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        # print('\n[Trader] setup')
+        print('\n[Trader] setup')
         # TODO: TEST用のデータを用意しないとテストもできない
-        with patch('models.oanda_py_client.OandaPyClient.select_instrument',
-                   return_value={ 'name': 'USD_JPY', 'spread': 0.0 }):
-            cls.__trader = trader.Trader(operation='unittest')
-            cls.__real_trader = real.RealTrader(operation='unittest')
+        with patch('builtins.print'):
+            with patch('models.trader.Trader.get_instrument', return_value='USD_JPY'):
+                cls.__trader = trader.Trader(operation='unittest')
+                cls.__real_trader = real.RealTrader(operation='unittest')
 
     @classmethod
     def tearDownClass(cls):
-        # print('\n[Trader] tearDown')
+        print('\n[Trader] tearDown')
         cls.__trader._client._OandaPyClient__api_client.client.close()
         cls.__real_trader._client._OandaPyClient__api_client.client.close()
 
@@ -35,42 +35,6 @@ class TestTrader(unittest.TestCase):
         self.assertTrue('price' in  pos)
         self.assertTrue('stoploss' in  pos)
 
-    # TODO: 処理を大幅に変えたので今は動かない
-    # def test__calc_profit(self):
-    #     self.set_hist_positions()
-    #     profits = self.__trader._Trader__calc_profit()
-
-    #     # TODO: もうちょい複雑な内容にする
-    #     self.assertEqual(type(profits), list)
-    #     self.assertEqual(sum(profits), 20)
-
-    def set_hist_positions(self):
-        self.__trader._Trader__hist_positions = {
-            'long': [
-                {
-                    'sequence': 1, 'price': 90,
-                    'stoploss': 0.0, 'type': 'long', 'time': '-'
-                }, {
-                    'sequence': 2, 'price': 90,
-                    'stoploss': 80, 'type': 'trail', 'time': '-'
-                }, {
-                    'sequence': 3, 'price': 100,
-                    'stoploss': 80, 'type': 'close', 'time': '-'
-                }
-            ],
-            'short': [
-                {
-                    'sequence': 1, 'price': 110,
-                    'stoploss': 0.0, 'type': 'short', 'time': '-'
-                }, {
-                    'sequence': 2, 'price': 110,
-                    'stoploss': 120, 'type': 'trail', 'time': '-'
-                }, {
-                    'sequence': 3, 'price': 100,
-                    'stoploss': 120, 'type': 'close', 'time': '-'
-                }
-            ]
-        }
 
 if __name__ == '__main__':
     unittest.main()

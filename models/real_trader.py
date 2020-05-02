@@ -1,5 +1,6 @@
 import datetime
 import os
+import numpy as np
 from models.oanda_py_client import FXBase
 from models.trader import Trader
 import models.trade_rules.base as rules
@@ -9,14 +10,20 @@ class RealTrader(Trader):
     ''' トレードルールに基づいてOandaへの発注を行うclass '''
     def __init__(self, operation='verification'):
         print('[Trader] -------- start --------')
+        self._instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
+        self._static_spread = 0.0
         super(RealTrader, self).__init__(operation=operation)
 
     #
     # Public
     #
     def apply_trading_rule(self):
+        candles = FXBase.get_candles().copy()
+        self._prepare_trade_signs(candles)
+        candles['preconditions_allows'] = np.all(candles[self.get_entry_filter()], axis=1)
+
         # self.__play_swing_trade()
-        self.__play_scalping_trade()
+        self.__play_scalping_trade(candles)
 
     #
     # Override shared methods
@@ -71,26 +78,18 @@ class RealTrader(Trader):
             trend = self.__detect_latest_trend(index=last_index, c_price=close_price, time=last_time)
             if trend is None:
                 return
-
-            if os.environ.get('CUSTOM_RULE') == 'on':
+            elif os.environ.get('CUSTOM_RULE') == 'on':
+                bands_gap = indicators['band_+2σ'] - indicators['band_-2σ']
                 if not self._sma_run_along_trend(last_index, trend):
                     return
-                ema60 = indicators['60EMA'][last_index]
-                if not (trend == 'bull' and ema60 < close_price \
-                        or trend == 'bear' and ema60 > close_price):
-                    print('[Trader] c. 60EMA does not allow, c_price: {}, 60EMA: {}, trend: {}'.format(
-                        close_price, ema60, trend
-                    ))
-                    return
-                bands_gap = indicators['band_+2σ'] - indicators['band_-2σ']
-                if bands_gap[last_index - 3] > bands_gap[last_index]:
+                elif bands_gap[last_index - 3] > bands_gap[last_index]:
                     print('[Trader] c. band is shrinking...')
                     return
-                if self._over_2_sigma(last_index, price=close_price):
+                elif self._over_2_sigma(last_index, price=close_price):
                     return
-                if not self._expand_moving_average_gap(last_index, trend):
+                elif not self._expand_moving_average_gap(last_index, trend):
                     return
-                if not self._stochastic_allow_trade(last_index, trend):
+                elif not self._stochastic_allow_trade(last_index, trend):
                     return
 
             direction = self._find_thrust(last_index, candles, trend)
@@ -130,23 +129,21 @@ class RealTrader(Trader):
         ))
 
     # TODO: 実装はいったん終わり、検証中
-    def __play_scalping_trade(self):
+    def __play_scalping_trade(self, candles):
         ''' 現在のレートにおいて、scalpingルールでトレード '''
         last_index = len(self._indicators) - 1
-        candles = FXBase.get_candles()
         close_price = candles.close.iat[-1]
         last_time = candles.time.iat[-1]
         indicators = self._indicators
+        trend = candles['trend'].iat[-1]
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
             if self.__since_last_loss() < datetime.timedelta(hours=1):
                 print('[Trader] skip: An hour has not passed since last loss.')
                 return
-            trend = self.__detect_latest_trend(index=last_index, c_price=close_price, time=last_time)
-            if trend is None:
-                return
-            if self._over_2_sigma(last_index, price=close_price):
+            elif not candles['preconditions_allows'].iat[-1] or trend is None:
+                self.__show_why_not_entry(candles)
                 return
 
             direction = scalping.repulsion_exist(
@@ -214,7 +211,8 @@ class RealTrader(Trader):
         return pos
 
     def __since_last_loss(self):
-        hist_df = self._client.request_transactions(100)
+        candle_size = 100
+        hist_df = self._client.request_transactions(candle_size)
         time_series = hist_df[hist_df.pl < 0]['time']
         if time_series.empty: return datetime.timedelta(hours=99)
 
@@ -222,6 +220,17 @@ class RealTrader(Trader):
         last_loss_datetime = datetime.datetime.strptime(last_loss_time.replace('T', ' ')[:16], '%Y-%m-%d %H:%M')
         time_since_loss = datetime.datetime.utcnow() - last_loss_datetime
         return time_since_loss
+
+    def __show_why_not_entry(self, conditions_df):
+        time = conditions_df.time.values[-1]
+        if conditions_df.trend.iat[-1] is None:
+            self._log_skip_reason('c. {}: "trend" is None !'.format(time))
+
+        columns = self.get_entry_filter()
+        vals = conditions_df[columns].iloc[-1].values
+        for reason, val in zip(columns, vals):
+            if not val:
+                self._log_skip_reason('c. {}: "{}" is not satisfied !'.format(time, reason))
 
     #
     #  apply each rules
@@ -244,8 +253,8 @@ class RealTrader(Trader):
 
     def _stochastic_allow_trade(self, index, trend):
         ''' stocがtrendと一致した動きをしていれば true を返す '''
-        stod = self._indicators['stoD:3'][index]
-        stosd = self._indicators['stoSD:3'][index]
+        stod = self._indicators['stoD_3'][index]
+        stosd = self._indicators['stoSD_3'][index]
 
         result = rules.stoc_allows_entry(stod, stosd, trend)
         if result is False:

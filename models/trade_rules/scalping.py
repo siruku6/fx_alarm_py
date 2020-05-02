@@ -24,9 +24,7 @@ def set_entryable_prices(candles, spread):
 
 
 def commit_positions_by_loop(factor_dicts):
-    # last_object = factor_dicts[-1]
     loop_objects = factor_dicts[:-1]  # コピー変数: loop_objects への変更は factor_dicts にも及ぶ
-    last_index = len(loop_objects)
     entry_direction = factor_dicts[0]['entryable']  # 'long', 'short' or nan
 
     for index, one_frame in enumerate(loop_objects):
@@ -47,14 +45,17 @@ def commit_positions_by_loop(factor_dicts):
         elif entry_direction == 'short' and one_frame['high'] > one_frame['possible_stoploss']:
             # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
             one_frame['exitable_price'] = one_frame['possible_stoploss']
-        elif is_exitable_by_bollinger(
-                edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
-                direction=entry_direction, stod=one_frame['stoD:3'], stosd=one_frame['stoSD:3']
+        # elif is_exitable_by_bollinger(
+        #         edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
+        #     ):
+        #     if entry_direction == 'long':
+        #         one_frame['exitable_price'] = one_frame['band_+2σ']
+        #     else:
+        #         one_frame['exitable_price'] = one_frame['band_-2σ']
+        elif is_exitable_by_stoc_cross(
+                position_type=entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']
             ):
-            if entry_direction == 'long':
-                one_frame['exitable_price'] = one_frame['band_+2σ']
-            else:
-                one_frame['exitable_price'] = one_frame['band_-2σ']
+            one_frame['exitable_price'] = one_frame['close']
         else:
             continue
 
@@ -80,16 +81,18 @@ def set_stoploss_prices(types, indicators):
 # - - - - - - - - - - - - - - - - - - - - - - - -
 def repulsion_exist(trend, ema, two_before_high, previous_high, two_before_low, previous_low):
     ''' 1, 2本前の足から見て、trend方向にcrossしていればentry可のsignを出す '''
-    if trend == 'bull' \
-        and two_before_high < previous_high \
-        and ema < previous_high \
-        and (two_before_low < ema or previous_low < ema):
-        return 'long'
-    elif trend == 'bear' \
-        and two_before_low > previous_low \
-        and previous_low < ema \
-        and (ema < two_before_high or ema < previous_high):
-        return 'short'
+    if trend == 'bull':
+        rising = two_before_high < previous_high
+        over_ema = ema < previous_high
+        under_ema_before = two_before_low < ema or previous_low < ema
+        if rising and over_ema and under_ema_before:
+            return 'long'
+    elif trend == 'bear':
+        falling = two_before_low > previous_low
+        under_ema = previous_low < ema
+        over_ema_before = ema < two_before_high or ema < previous_high
+        if falling and under_ema and over_ema_before:
+            return 'short'
     return None
 
 
@@ -104,22 +107,18 @@ def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss)
     return np.nan
 
 
-def is_exitable_by_stoc_cross(spot_price, plus_2sigma, minus_2sigma, direction=None, stod=None, stosd=None):
-    # bollinger_is_touched = spot_price < minus_2sigma or plus_2sigma < spot_price
-    stoc_crossed = ((direction == 'long') and (stod < stosd)) \
-                 or ((direction == 'short') and (stod > stosd))
+def is_exitable_by_stoc_cross(position_type, stod, stosd):
+    stoc_crossed = ((position_type == 'long') and (stod < stosd)) \
+                 or ((position_type == 'short') and (stod > stosd))
 
-    # if bollinger_is_touched:
     if stoc_crossed:
         return True
     else:
         return False
 
 
-def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma, direction=None, stod=None, stosd=None):
+def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
     bollinger_is_touched = spot_price < minus_2sigma or plus_2sigma < spot_price
-    stoc_crossed = ((direction == 'long') and (stod < stosd)) \
-                 or ((direction == 'short') and (stod > stosd))
 
     if bollinger_is_touched:
         return True

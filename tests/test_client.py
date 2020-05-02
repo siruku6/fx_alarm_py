@@ -68,7 +68,9 @@ class TestClient(unittest.TestCase):
     def test_request_open_trades(self):
         self.assertIsNone(self.__watcher_instance._OandaPyClient__last_transaction_id)
 
-        result = self.__watcher_instance.request_open_trades()
+        with patch('builtins.print'):
+            with patch('pprint.pprint'):
+                result = self.__watcher_instance.request_open_trades()
         self.assertIsInstance(int(self.__watcher_instance._OandaPyClient__last_transaction_id), int)
 
     def test_request_market_ordering(self):
@@ -104,11 +106,11 @@ class TestClient(unittest.TestCase):
     #         self.assertNotEqual(trade['state'], 'OPEN', 'OPENではない履歴だけを抽出')
     #         self.assertTrue((trade.index.values == expected_columns).all(), '列名が正しい')
 
-    def test_request_transactions(self):
-        self.__watcher_instance._OandaPyClient__last_transaction_id = 1000
-        result = self.__watcher_instance.request_transactions()
-        # import pdb; pdb.set_trace()
-        # TODO: testcord がない
+    # def test_request_transactions(self):
+    #     self.__watcher_instance._OandaPyClient__last_transaction_id = 1000
+    #     result = self.__watcher_instance.request_transactions()
+    #     # import pdb; pdb.set_trace()
+    #     # TODO: testcord がない
 
     #  - - - - - - - - - - -
     #    Private methods

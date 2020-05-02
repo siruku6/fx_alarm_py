@@ -57,8 +57,8 @@ class FigureDrawer():
         self.draw_df_on_plt(d_frame.loc[:, ['band_+2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue')
         self.draw_df_on_plt(d_frame.loc[:, ['band_-2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
         self.draw_df_on_plt(d_frame.loc[:, ['SAR']], FigureDrawer.PLOT_TYPE['dot'], color='purple')
-        self.draw_df_on_plt(d_frame.loc[:, ['stoD:3']], FigureDrawer.PLOT_TYPE['simple-line'], color='turquoise', plt_id=2)
-        self.draw_df_on_plt(d_frame.loc[:, ['stoSD:3']], FigureDrawer.PLOT_TYPE['simple-line'], color='orangered', plt_id=2)
+        self.draw_df_on_plt(d_frame.loc[:, ['stoD_3']], FigureDrawer.PLOT_TYPE['simple-line'], color='turquoise', plt_id=2)
+        self.draw_df_on_plt(d_frame.loc[:, ['stoSD_3']], FigureDrawer.PLOT_TYPE['simple-line'], color='orangered', plt_id=2)
         # self.draw_df_on_plt(d_frame.loc[:, ['regist']], FigureDrawer.PLOT_TYPE['dot'], color='orangered', size=0.5)
         # self.draw_df_on_plt(d_frame.loc[:, ['support']], FigureDrawer.PLOT_TYPE['dot'], color='blue', size=0.5)
 
@@ -193,7 +193,8 @@ class FigureDrawer():
             plt.sca(self.__axis3)
             self.__apply_default_style(plt, xticks_number, indexes=xticks_index, legend=False)
             self.__axis3.yaxis.set_major_locator(matplotlib.ticker.AutoLocator())
-            self.__axis3.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(1.0))
+            # INFO: hist と backtest で桁が違うせいで問題になる, hist は pl が万単位
+            # self.__axis3.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(1.0))
 
         # INFO: x軸の目盛表示
         if xticks_number > 0:
