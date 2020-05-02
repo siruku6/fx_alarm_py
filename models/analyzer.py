@@ -42,9 +42,9 @@ class Analyzer():
         if candles is None:
             return {'error': '[ERROR] Analyzer: 分析対象データがありません'}
 
-        self.__indicators['stoD'] = self.__calc_STOD(candles=candles, window_size=5)
-        self.__indicators['stoSD'] = self.__calc_STOSD(candles=candles, window_size=5)
-        if stoc_only == True:
+        self.__indicators['stoD'] = self.__calc_stod(candles=candles, window_size=5)
+        self.__indicators['stoSD'] = self.__calc_stosd(candles=candles, window_size=5)
+        if stoc_only is True:
             return
 
         self.__calc_sma(close_candles=candles.close)
@@ -288,7 +288,7 @@ class Analyzer():
     #                    Stochastic                       #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # http://www.algo-fx-blog.com/stochastics-python/
-    def __calc_STOK(self, candles, window_size=5):
+    def __calc_stok(self, candles, window_size=5):
         ''' ストキャスの%Kを計算 '''
         stok = ((candles.close - candles.low.rolling(window=window_size, center=False).min()) / (
             candles.high.rolling(window=window_size, center=False).max()
@@ -296,18 +296,18 @@ class Analyzer():
         )) * 100
         return stok
 
-    def __calc_STOD(self, candles, window_size):
+    def __calc_stod(self, candles, window_size):
         ''' ストキャスの%Dを計算（%Kの3日SMA） '''
-        stok = self.__calc_STOK(candles=candles, window_size=window_size)
+        stok = self.__calc_stok(candles=candles, window_size=window_size)
         stod = stok.rolling(window=3, center=False).mean()
-        stod.name = 'stoD:3'
+        stod.name = 'stoD_3'
         return stod
 
-    def __calc_STOSD(self, candles, window_size):
+    def __calc_stosd(self, candles, window_size):
         ''' ストキャスの%SDを計算（%Dの3日SMA） '''
-        stod = self.__calc_STOD(candles=candles, window_size=window_size)
+        stod = self.__calc_stod(candles=candles, window_size=window_size)
         stosd = stod.rolling(window=3, center=False).mean()
-        stosd.name = 'stoSD:3'
+        stosd.name = 'stoSD_3'
         return stosd
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
