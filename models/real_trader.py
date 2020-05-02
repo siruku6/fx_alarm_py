@@ -180,13 +180,15 @@ class RealTrader(Trader):
             # plus_2sigma = last_indicators['band_+2σ']
             # minus_2sigma = last_indicators['band_-2σ']
             # if scalping.is_exitable_by_bollinger(close_price, plus_2sigma, minus_2sigma):
-            stod = last_indicators['stoD:3']
-            stosd = last_indicators['stoSD:3']
+            stod = last_indicators['stoD_3']
+            stosd = last_indicators['stoSD_3']
             if scalping.is_exitable_by_stoc_cross(self._position['type'], stod, stosd):
                 # self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
                 #     plus_2sigma, close_price, minus_2sigma
                 # ))
-                self.__settle_position(reason='stoc crossed: {}, stod: {}, stosd:{}'.format(plus_2sigma, stod, stosd))
+                self.__settle_position(reason='stoc crossed ! position_type: {}, stod: {}, stosd:{}'.format(
+                    self._position['type'], stod, stosd
+                )
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
             self._position['type'], new_stop if 'new_stop' in locals() else '-', self._position.get('stoploss', None)
