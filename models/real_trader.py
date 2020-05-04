@@ -9,7 +9,7 @@ import models.trade_rules.scalping as scalping
 
 class RealTrader(Trader):
     ''' トレードルールに基づいてOandaへの発注を行うclass '''
-    def __init__(self, operation='verification'):
+    def __init__(self, operation):
         print('[Trader] -------- start --------')
         self._instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
         self._static_spread = 0.0

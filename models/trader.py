@@ -19,8 +19,8 @@ class Trader():
     MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
-    def __init__(self, operation='verification'):
-        if operation in ['verification']:
+    def __init__(self, operation='backtest'):
+        if operation in ['backtest']:
             result = OandaPyClient.select_instrument()
             self._instrument = result[0]
             self._static_spread = result[1]['spread']
@@ -36,7 +36,7 @@ class Trader():
         self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
         self._position = None
 
-        if operation in ['verification']:
+        if operation in ['backtest']:
             self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
             self.__request_custom_candles()
 
