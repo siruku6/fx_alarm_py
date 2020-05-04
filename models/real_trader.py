@@ -149,8 +149,8 @@ class RealTrader(Trader):
 
             direction = scalping.repulsion_exist(
                 trend=trend, ema=last_indicators['10EMA'],
-                two_before_high=candles.high.values[-3], previous_high=candles.high.values[-2],
-                two_before_low=candles.low.values[-3], previous_low=candles.low.values[-2]
+                two_before_high=candles.high.iat[-3], previous_high=candles.high.iat[-2],
+                two_before_low=candles.low.iat[-3], previous_low=candles.low.iat[-2]
             )
             if direction is None:
                 print('[Trader] repulsion is not exist Time: {}, 10EMA: {}'.format(
