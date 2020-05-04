@@ -25,6 +25,7 @@ class Trader():
             self._instrument = result[0]
             self._static_spread = result[1]['spread']
             self.__set_drawing_option()
+            self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
 
         self._operation = operation
         self._client = OandaPyClient(instrument=self.get_instrument())
@@ -34,34 +35,20 @@ class Trader():
         }
         # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
         self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
-        self._position = None
 
-        if operation in ['backtest']:
-            self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
-            self.__request_custom_candles()
-
-            time_series = FXBase.get_candles().time
-            first_time = self.__str_to_datetime(time_series.iat[0][:19])
-            last_time = self.__str_to_datetime(time_series.iat[-1][:19])
-            # INFO: 実は、candlesのlastrow分のm10candlesがない
-            self.__m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
-        elif operation in ['live', 'forward_test']:
-            result = self._client.request_is_tradeable()
-            self.tradeable = result['tradeable']
-            if not self.tradeable and operation != 'unittest' and operation == 'live':
-                return
-            self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
-            self._client.specify_count_and_load_candles(count=70, granularity=self.get_granularity(), set_candles=True)
-        else:
+        if self.__prepare_candles(operation).get('info') is not None:
             return
 
+        self.__prepare_candles(operation)
         self._client.request_current_price()
         self._ana = Analyzer()
         result = self._ana.calc_indicators(candles=FXBase.get_candles())
         if 'error' in result:
             self._log_skip_reason(result['error'])
             return
-        elif operation != 'live':
+        elif operation in ['live']:
+            self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
+        else:
             print(result['success'])
 
         self._indicators = self._ana.get_indicators()
@@ -73,6 +60,31 @@ class Trader():
             msg='[Trader] 画像描画する？ [1]: No, [2]: Yes, [3]: with_P/L ', limit=3
         )
         self.__drawer = None
+
+    def __prepare_candles(self, operation):
+        if operation in ['backtest']:
+            candles = self.__request_custom_candles()
+            self.__m10_candles = self.__load_m10_candles(candles.time)
+        elif operation in ['live', 'forward_test']:
+            self.tradeable = self._client.request_is_tradeable()['tradeable']
+            if not self.tradeable and operation != 'unittest' and operation == 'live':
+                return
+
+            candles = self._client.load_specify_length_candles(
+                length=70, granularity=self.get_granularity()
+            )['candles']
+            # TODO: D1 candles をとってくる
+            # self._client.load_long_chart(days=10, granularity='D')
+        else:
+            return {'info': 'exit at once'}
+
+        FXBase.set_candles(candles)
+
+    def __load_m10_candles(self, time_series):
+        first_time = self.__str_to_datetime(time_series.iat[0][:19])
+        last_time = self.__str_to_datetime(time_series.iat[-1][:19])
+        # INFO: 実は、candlesのlastrow分のm10candlesがない
+        return self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
 
     def __initialize_position_variables(self):
         self._set_position({'type': 'none'})
@@ -392,7 +404,7 @@ class Trader():
         if 'error' in result:
             print(result['error'])
             exit()
-        FXBase.set_candles(result['candles'])
+        return result['candles']
 
     def __backtest_swing(self, candles):
         ''' スイングトレードのentry pointを検出 '''

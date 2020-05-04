@@ -99,18 +99,14 @@ class OandaPyClient():
     #
 
     # INFO: request-candles
-    def specify_count_and_load_candles(self, count=60, granularity='M5', set_candles=False):
+    def load_specify_length_candles(self, length=60, granularity='M5'):
         ''' チャート情報を更新 '''
         response = self.__request_oanda_instruments(
-            candles_count=count,
+            candles_count=length,
             granularity=granularity
         )
 
         candles = self.__transform_to_candle_chart(response)
-        if set_candles:
-            FXBase.set_candles(
-                candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
-            )
         return {'success': '[Watcher] Oandaからのレート取得に成功', 'candles': candles}
 
     def load_long_chart(self, days=0, granularity='M5'):
@@ -248,7 +244,7 @@ class OandaPyClient():
         最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き
         '''
         # INFO: .to_dictは、単にコンソールログの見やすさ向上のために使用中
-        latest_candle = self.specify_count_and_load_candles(count=1, granularity='M1')['candles'] \
+        latest_candle = self.load_specify_length_candles(length=1, granularity='M1')['candles'] \
                             .iloc[-1].to_dict()
 
         candle_dict = FXBase.get_candles().iloc[-1].to_dict()
