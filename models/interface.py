@@ -38,21 +38,20 @@ def select_stoploss_digit():
 
 def select_from_dict(dictionary, menumsg='選択して下さい'):
     menu = '[interface] {}'.format(menumsg)
-    min_num = min(dictionary.keys())
-    max_num = max(dictionary.keys())
-    # dict_len = len(dictionary)
     for i, (key, val) in enumerate(dictionary.items()):
-        menu = '{menu} [{key}]:{val},'.format(menu=menu, key=key, val=val)
-
+        menu = '{menu} [{i}]: {key},'.format(menu=menu, i=i, key=key)
     menu = menu[0:-1] + ': '
 
+    dict_len = len(dictionary)
+    keys = list(dictionary.keys())
     while True:
         print(menu, end='')
         digit_id = prompt_inputting_decimal()
-        if digit_id in dictionary:
-            return dictionary[digit_id]
+        if digit_id < dict_len:
+            key = keys[digit_id]
+            return key
         else:
-            print('[interface] please input {} - {} ! >д<;'.format(min_num, max_num))
+            print('[interface] please input {} - {} ! >д<;'.format(1, dict_len))
 
 
 def prompt_inputting_decimal():

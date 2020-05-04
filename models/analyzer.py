@@ -39,7 +39,7 @@ class Analyzer():
     #                       Driver                        #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def calc_indicators(self, candles, stoc_only=False):
-        if candles is None:
+        if candles is None or candles.empty:
             return {'error': '[ERROR] Analyzer: 分析対象データがありません'}
 
         self.__indicators['stoD'] = self.__calc_stod(candles=candles, window_size=5)

@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import pprint
 import requests
+from collections import OrderedDict
 
 # For trading
 from oandapyV20 import API
@@ -15,7 +16,7 @@ import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
 
-from models.interface import prompt_inputting_decimal
+from models.interface import select_from_dict
 # from models.candles_csv_accessor import CandlesCsvAccessor
 from models.mongodb_accessor import MongodbAccessor
 
@@ -67,27 +68,19 @@ class OandaPyClient():
     REQUESTABLE_COUNT = 5000
 
     @classmethod
-    def select_instrument(cls, inst_id=None):
+    def select_instrument(cls, instrument=None):
         # TODO: 正しいspreadを後で確認して設定する
-        instruments = [
-            {'name': 'USD_JPY', 'spread': 0.004},
-            {'name': 'EUR_USD', 'spread': 0.00014},
-            {'name': 'GBP_JPY', 'spread': 0.014},
-            {'name': 'USD_CHF', 'spread': 0.00014}
-        ]
-        if inst_id is not None:
-            return instruments[inst_id]
+        instruments = OrderedDict(
+            USD_JPY={'spread': 0.004},
+            EUR_USD={'spread': 0.00014},
+            GBP_JPY={'spread': 0.014},
+            USD_CHF={'spread': 0.00014}
+        )
+        if instrument is not None:
+            return instrument, instruments[instrument]
 
-        while True:
-            print('通貨ペアは？')
-            prompt_message = ''
-            for i, inst in enumerate(instruments):
-                prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst['name'])
-            print(prompt_message + '(半角数字): ', end='')
-
-            inst_id = prompt_inputting_decimal()
-            if inst_id < len(instruments):
-                return instruments[inst_id]
+        instrument = select_from_dict(instruments, menumsg='通貨ペアは？\n')
+        return instrument, instruments[instrument]
 
     def __init__(self, instrument=None, environment=None):
         ''' 固定パラメータの設定 '''
@@ -106,18 +99,14 @@ class OandaPyClient():
     #
 
     # INFO: request-candles
-    def specify_count_and_load_candles(self, count=60, granularity='M5', set_candles=False):
+    def load_specify_length_candles(self, length=60, granularity='M5'):
         ''' チャート情報を更新 '''
         response = self.__request_oanda_instruments(
-            candles_count=count,
+            candles_count=length,
             granularity=granularity
         )
 
         candles = self.__transform_to_candle_chart(response)
-        if set_candles:
-            FXBase.set_candles(
-                candles=FXBase.union_candles_distinct(FXBase.get_candles(), candles)
-            )
         return {'success': '[Watcher] Oandaからのレート取得に成功', 'candles': candles}
 
     def load_long_chart(self, days=0, granularity='M5'):
@@ -255,7 +244,7 @@ class OandaPyClient():
         最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き
         '''
         # INFO: .to_dictは、単にコンソールログの見やすさ向上のために使用中
-        latest_candle = self.specify_count_and_load_candles(count=1, granularity='M1')['candles'] \
+        latest_candle = self.load_specify_length_candles(length=1, granularity='M1')['candles'] \
                             .iloc[-1].to_dict()
 
         candle_dict = FXBase.get_candles().iloc[-1].to_dict()

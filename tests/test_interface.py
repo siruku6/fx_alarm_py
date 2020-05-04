@@ -1,6 +1,8 @@
+from collections import OrderedDict
 import unittest
 from unittest.mock import patch
 import models.interface as interface
+
 
 class TestInterface(unittest.TestCase):
     @classmethod
@@ -38,12 +40,17 @@ class TestInterface(unittest.TestCase):
             self.assertEqual(0.00001, stoploss_digit)
 
     def test_select_from_dict(self):
-        dict_for_testcase = {1: 'swing', 2: 'scalping', 3: 'other'}
+        dict_for_testcase = OrderedDict(
+            USD_JPY={'spread': 0.004},
+            EUR_USD={'spread': 0.00014},
+            GBP_JPY={'spread': 0.014},
+            USD_CHF={'spread': 0.00014}
+        )
         with patch('models.interface.print'):
-            for key, val in dict_for_testcase.items():
-                with patch('models.interface.prompt_inputting_decimal', return_value=key):
+            for i, (key, val) in enumerate(dict_for_testcase.items()):
+                with patch('models.interface.prompt_inputting_decimal', return_value=i):
                     result = interface.select_from_dict(dict_for_testcase)
-                    self.assertEqual(result, val, '選択したkeyに対応するvalを得る')
+                    self.assertEqual(result, key, '選択に対応するkeyを得る')
 
 
 if __name__ == '__main__':

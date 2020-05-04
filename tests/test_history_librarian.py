@@ -4,6 +4,7 @@ import pandas as pd
 
 import models.history_librarian as libra
 
+
 class TestLibrarian(unittest.TestCase):
     #  - - - - - - - - - - - - - -
     #     Preparing & Clearing
@@ -12,7 +13,7 @@ class TestLibrarian(unittest.TestCase):
     def setUpClass(cls):
         print('\n[libra] setup')
         with patch('models.oanda_py_client.OandaPyClient.select_instrument',
-                   return_value={ 'name': 'USD_JPY', 'spread': 0.0 }):
+                   return_value=['USD_JPY', {'spread': 0.0}]):
             cls.libra_instance = libra.Librarian()
 
     @classmethod
