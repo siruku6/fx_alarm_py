@@ -428,12 +428,17 @@ class Trader():
     def _prepare_trade_signs(self, candles):
         print('[Trader] preparing base-data for judging ...')
 
+        if self._operation in ['live', 'forward_test']:
+            comparison_prices_with_bands = candles.close
+        else:
+            comparison_prices_with_bands = candles.open
+
         indicators = self._indicators
         candles['trend'], candles['bull'], candles['bear'] \
             = self.__generate_trend_column(c_prices=candles.close)
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
         candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
-        candles['in_the_band'] = self.__generate_in_the_band_column(price_series=candles.open)
+        candles['in_the_band'] = self.__generate_in_the_band_column(price_series=comparison_prices_with_bands)
         candles['band_expansion'] = self.__generate_band_expansion_column(
             df_bands=indicators[['band_+2σ', 'band_-2σ']]
         )
