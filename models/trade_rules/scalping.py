@@ -43,31 +43,38 @@ def commit_positions_by_loop(factor_dicts):
             entry_direction = reset_next_position(index)
             continue
 
+        exit_price = __decide_exit_price(entry_direction, one_frame, edge_price)
         # exit する理由がなければ continue
-        if entry_direction == 'long' and one_frame['low'] < one_frame['possible_stoploss']:
-            one_frame['exitable_price'] = one_frame['possible_stoploss']
-        elif entry_direction == 'short' and one_frame['high'] > one_frame['possible_stoploss']:
-            # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
-            one_frame['exitable_price'] = one_frame['possible_stoploss']
-        # elif is_exitable_by_bollinger(
-        #         edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
-        #     ):
-        #     if entry_direction == 'long':
-        #         one_frame['exitable_price'] = one_frame['band_+2σ']
-        #     else:
-        #         one_frame['exitable_price'] = one_frame['band_-2σ']
-        elif is_exitable_by_stoc_cross(
-            position_type=entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']
-        ):
-            one_frame['exitable_price'] = one_frame['close']
-        else:
+        if exit_price is None:
             continue
 
         # exit した場合のみここに到達する
+        one_frame['exitable_price'] = exit_price
         one_frame['position'] = exit_type
         entry_direction = reset_next_position(index)
 
     return pd.DataFrame.from_dict(factor_dicts)[['position', 'exitable_price']]
+
+
+def __decide_exit_price(entry_direction, one_frame, edge_price=None):
+    exit_price = None
+    if entry_direction == 'long' and one_frame['low'] < one_frame['possible_stoploss']:
+        exit_price = one_frame['possible_stoploss']
+    elif entry_direction == 'short' and one_frame['high'] > one_frame['possible_stoploss']:
+        # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
+        exit_price = one_frame['possible_stoploss']
+    # elif is_exitable_by_bollinger(
+    #         edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
+    #     ):
+    #     if entry_direction == 'long':
+    #         exit_price = one_frame['band_+2σ']
+    #     else:
+    #         exit_price = one_frame['band_-2σ']
+    elif is_exitable_by_stoc_cross(
+        position_type=entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']
+    ):
+        exit_price = one_frame['close']
+    return exit_price
 
 
 def set_stoploss_prices(types, indicators):

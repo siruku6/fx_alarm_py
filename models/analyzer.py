@@ -265,7 +265,8 @@ class Analyzer():
                         Analyzer.MAX_AF
                     )
 
-                # SARの調整
+                # SARの調整 値が更新されすぎないように抑える
+                # 極値(extreme_price)の更新
                 if bull:
                     temp_sar = min(
                         temp_sar, candles_array[i - 1]['low'], candles_array[i - 2]['low']
