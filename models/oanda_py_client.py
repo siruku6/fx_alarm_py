@@ -462,7 +462,7 @@ class OandaPyClient():
         days = hours = minutes = 0
 
         def max_multiply(number):
-            int(OandaPyClient.REQUESTABLE_COUNT * int(number)) - 1
+            return int(OandaPyClient.REQUESTABLE_COUNT * int(number)) - 1
 
         time_unit = granularity[0]
         if time_unit == 'M':
