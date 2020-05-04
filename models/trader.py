@@ -39,7 +39,7 @@ class Trader():
         if self.__prepare_candles(operation).get('info') is not None:
             return
 
-        self.__prepare_candles(operation)
+        self.__m10_candles = None
         self._client.request_current_price()
         self._ana = Analyzer()
         result = self._ana.calc_indicators(candles=FXBase.get_candles())
@@ -54,6 +54,14 @@ class Trader():
         self._indicators = self._ana.get_indicators()
         self.__initialize_position_variables()
 
+    @property
+    def m10_candles(self):
+        return self.__m10_candles
+
+    @m10_candles.setter
+    def m10_candles(self, arg):
+        self.__m10_candles = arg
+
     def __set_drawing_option(self):
         self.__static_options = {}
         self.__static_options['figure_option'] = i_face.ask_number(
@@ -64,11 +72,10 @@ class Trader():
     def __prepare_candles(self, operation):
         if operation in ['backtest']:
             candles = self.__request_custom_candles()
-            self.__m10_candles = self.__load_m10_candles(candles.time)
         elif operation in ['live', 'forward_test']:
             self.tradeable = self._client.request_is_tradeable()['tradeable']
             if not self.tradeable and operation != 'unittest' and operation == 'live':
-                return
+                return {}
 
             candles = self._client.load_specify_length_candles(
                 length=70, granularity=self.get_granularity()
@@ -79,6 +86,7 @@ class Trader():
             return {'info': 'exit at once'}
 
         FXBase.set_candles(candles)
+        return {}
 
     def __load_m10_candles(self, time_series):
         first_time = self.__str_to_datetime(time_series.iat[0][:19])
@@ -571,7 +579,10 @@ class Trader():
 
     def __slide_prices_to_really_possible(self, candles):
         print('[Trader] start sliding ...')
-        m10_candles = self.__m10_candles
+        if self.m10_candles is None:
+            self.m10_candles = self.__load_m10_candles(candles.time)
+
+        m10_candles = self.m10_candles
         m10_candles['time'] = m10_candles.index
         spread = self._static_spread
 
