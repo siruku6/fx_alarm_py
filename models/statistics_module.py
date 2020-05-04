@@ -1,5 +1,5 @@
 from datetime import datetime
-from decimal import Decimal, ROUND_HALF_UP  #, ROUND_HALF_EVEN
+from decimal import Decimal, ROUND_HALF_UP  # , ROUND_HALF_EVEN
 import numpy as np
 from pandas import DataFrame
 
@@ -50,6 +50,7 @@ def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, 
     # TODO: 要削除 一時的なコード
     positions.to_csv('./tmp/csvs/positions_dump.csv')
     return positions[['time', 'profit', 'gross']].copy()
+
 
 def __filter_to_boolean(_filter):
     return [(elem in _filter) for elem in FILTER_ELEMENTS]

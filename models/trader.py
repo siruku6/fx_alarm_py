@@ -14,6 +14,7 @@ import models.statistics_module as statistics
 
 # pd.set_option('display.max_rows', 400)
 
+
 class Trader():
     MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
@@ -433,7 +434,7 @@ class Trader():
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
         candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=candles.open)
-        candles['band_expansion'] =  self.__generate_band_expansion_column(
+        candles['band_expansion'] = self.__generate_band_expansion_column(
             df_bands=indicators[['band_+2σ', 'band_-2σ']]
         )
         candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=candles[['bull', 'bear']])
@@ -505,7 +506,7 @@ class Trader():
         # TODO: この時点で既に candles に position 列があるが、本当に必要なのか確認が必要
         commit_factors_df = pd.merge(
             candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price', 'possible_stoploss']],
-            self._indicators[['band_+2σ' , 'band_-2σ', 'stoD_3', 'stoSD_3']],
+            self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3']],
             left_index=True, right_index=True
         )
         commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
@@ -546,8 +547,8 @@ class Trader():
 
         # INFO: short-stoploss
         short_stoploss_prices = candles.shift(1)[short_indexes].high \
-                              + self._stoploss_buffer_pips \
-                              + self._static_spread
+            + self._stoploss_buffer_pips \
+            + self._static_spread
         candles.loc[short_indexes, 'possible_stoploss'] = short_stoploss_prices
 
     def __slide_prices_to_really_possible(self, candles):
@@ -557,7 +558,7 @@ class Trader():
         spread = self._static_spread
 
         position_index = candles.position.isin(['long', 'short']) \
-                         | (candles.position.isin(['sell_exit', 'buy_exit']) & ~candles.entryable_price.isna())
+            | (candles.position.isin(['sell_exit', 'buy_exit']) & ~candles.entryable_price.isna())
         position_rows = candles[position_index][[
             'time', 'entryable_price', 'position'
         ]].to_dict('records')
@@ -584,7 +585,7 @@ class Trader():
                         row['price'] = m10_candle['low']
                         row['time'] = m10_candle['time']
                         break
-            if not 'price' in row:
+            if 'price' not in row:
                 row['price'] = row['entryable_price']
 
         slided_positions = pd.DataFrame.from_dict(position_rows)
@@ -616,10 +617,10 @@ class Trader():
                 dfs_position[i].position.isin(['short', 'buy_exit']) & (~dfs_position[i].price.isna())
             ][['sequence', 'price']]
             close_df = dfs_position[i][dfs_position[i].position.isin(['sell_exit', 'buy_exit'])] \
-                                   .drop('price', axis=1) \
-                                   .rename(columns={'exitable_price': 'price'})
+                .drop('price', axis=1) \
+                .rename(columns={'exitable_price': 'price'})
             trail_df = dfs_position[i][dfs_position[i].position != '-'][['sequence', 'stoploss']] \
-                                   .rename(columns={'stoploss': 'price'})
+                .rename(columns={'stoploss': 'price'})
 
             drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
             drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
@@ -663,16 +664,16 @@ class Trader():
         positions_df['sequence'] = positions_df.index
         # INFO: exit直後のrowで、かつposition列が空
         positions_df.loc[
-            ((positions_df.shift(1).position.isin(['sell_exit', 'buy_exit'])) \
-            | ((positions_df.shift(1).position.isin(['long', 'short'])) \
-            & (~positions_df.shift(1).exitable_price.isna()))) \
+            ((positions_df.shift(1).position.isin(['sell_exit', 'buy_exit']))
+             | ((positions_df.shift(1).position.isin(['long', 'short']))
+                & (~positions_df.shift(1).exitable_price.isna())))
             & (positions_df.position.isna()), 'position'
         ] = '-'
         # INFO: entry直後のrowで、かつexit-rowではない
         positions_df.loc[
-            (positions_df.shift(1).position.isin(['long', 'short'])) \
-            & (positions_df.shift(1).exitable_price.isna()) \
-            & (~positions_df.position.isin(['sell_exit', 'buy_exit'])),'position'
+            (positions_df.shift(1).position.isin(['long', 'short']))
+            & (positions_df.shift(1).exitable_price.isna())
+            & (~positions_df.position.isin(['sell_exit', 'buy_exit'])), 'position'
         ] = '|'
         positions_df.position.fillna(method='ffill', inplace=True)
 

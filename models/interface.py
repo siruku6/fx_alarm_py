@@ -40,7 +40,7 @@ def select_from_dict(dictionary, menumsg='選択して下さい'):
     menu = '[interface] {}'.format(menumsg)
     min_num = min(dictionary.keys())
     max_num = max(dictionary.keys())
-    dict_len = len(dictionary)
+    # dict_len = len(dictionary)
     for i, (key, val) in enumerate(dictionary.items()):
         menu = '{menu} [{key}]:{val},'.format(menu=menu, key=key, val=val)
 

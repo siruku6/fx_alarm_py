@@ -6,6 +6,7 @@ from models.trader import Trader
 import models.trade_rules.base as rules
 import models.trade_rules.scalping as scalping
 
+
 class RealTrader(Trader):
     ''' トレードルールに基づいてOandaへの発注を行うclass '''
     def __init__(self, operation='verification'):
