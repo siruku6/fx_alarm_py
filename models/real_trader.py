@@ -188,7 +188,7 @@ class RealTrader(Trader):
                 # ))
                 self.__settle_position(reason='stoc crossed ! position_type: {}, stod: {}, stosd:{}'.format(
                     self._position['type'], stod, stosd
-                )
+                ))
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
             self._position['type'], new_stop if 'new_stop' in locals() else '-', self._position.get('stoploss', None)
