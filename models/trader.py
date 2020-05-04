@@ -419,7 +419,9 @@ class Trader():
     def __backtest_scalping(self, candles):
         ''' スキャルピングのentry pointを検出 '''
         candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
-        wait_close.the_previous_satisfy_rules(candles, entry_filter=self.get_entry_filter())
+        entryable = np.all(candles[self.get_entry_filter()], axis=1)
+        candles.loc[entryable, 'entryable'] = candles[entryable].thrust
+
         self.__generate_entry_column_for_scalping(candles)
 
         candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
@@ -469,7 +471,8 @@ class Trader():
 
     def __generate_entry_column_for_wait_close(self, candles):
         print('[Trader] judging entryable or not ...')
-        wait_close.the_previous_satisfy_rules(candles, entry_filter=self.get_entry_filter())
+        entryable = np.all(candles[self.get_entry_filter()], axis=1)
+        candles.loc[entryable, 'entryable'] = candles[entryable].thrust
         self.__set_entryable_prices(candles)
 
         entry_direction = candles.entryable.fillna(method='ffill')
@@ -508,14 +511,12 @@ class Trader():
 
         # INFO: Entry / Exit のタイミングを確定
         # import pdb; pdb.set_trace()
-        # TODO: この時点で既に candles に position 列があるが、本当に必要なのか確認が必要
         commit_factors_df = pd.merge(
             candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price', 'possible_stoploss']],
             self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3']],
             left_index=True, right_index=True
         )
         commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
-        candles.drop('position', axis='columns', inplace=True)
         candles.loc[:, 'position'] = commited_df['position']
         candles.loc[:, 'exitable_price'] = commited_df['exitable_price']
         candles.loc[:, 'entry_price'] = candles['entryable_price']
