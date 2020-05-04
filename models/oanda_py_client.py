@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import pprint
 import requests
+from collections import OrderedDict
 
 # For trading
 from oandapyV20 import API
@@ -15,7 +16,7 @@ import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
 
-from models.interface import prompt_inputting_decimal
+from models.interface import select_from_dict
 # from models.candles_csv_accessor import CandlesCsvAccessor
 from models.mongodb_accessor import MongodbAccessor
 
@@ -67,27 +68,19 @@ class OandaPyClient():
     REQUESTABLE_COUNT = 5000
 
     @classmethod
-    def select_instrument(cls, inst_id=None):
+    def select_instrument(cls, instrument=None):
         # TODO: 正しいspreadを後で確認して設定する
-        instruments = [
-            {'name': 'USD_JPY', 'spread': 0.004},
-            {'name': 'EUR_USD', 'spread': 0.00014},
-            {'name': 'GBP_JPY', 'spread': 0.014},
-            {'name': 'USD_CHF', 'spread': 0.00014}
-        ]
-        if inst_id is not None:
-            return instruments[inst_id]
+        instruments = OrderedDict(
+            USD_JPY={'spread': 0.004},
+            EUR_USD={'spread': 0.00014},
+            GBP_JPY={'spread': 0.014},
+            USD_CHF={'spread': 0.00014}
+        )
+        if instrument is not None:
+            return instrument, instruments[instrument]
 
-        while True:
-            print('通貨ペアは？')
-            prompt_message = ''
-            for i, inst in enumerate(instruments):
-                prompt_message += '[{i}]:{inst} '.format(i=i, inst=inst['name'])
-            print(prompt_message + '(半角数字): ', end='')
-
-            inst_id = prompt_inputting_decimal()
-            if inst_id < len(instruments):
-                return instruments[inst_id]
+        instrument = select_from_dict(instruments, menumsg='通貨ペアは？\n')
+        return instrument, instruments[instrument]
 
     def __init__(self, instrument=None, environment=None):
         ''' 固定パラメータの設定 '''

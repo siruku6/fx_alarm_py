@@ -21,9 +21,9 @@ class Trader():
 
     def __init__(self, operation='verification'):
         if operation in ['verification']:
-            inst = OandaPyClient.select_instrument()
-            self._instrument = inst['name']
-            self._static_spread = inst['spread']
+            result = OandaPyClient.select_instrument()
+            self._instrument = result[0]
+            self._static_spread = result[1]['spread']
             self.__set_drawing_option()
 
         self._operation = operation

@@ -10,8 +10,7 @@ class Librarian():
     DRAWABLE_ROWS = 200
 
     def __init__(self):
-        inst = OandaPyClient.select_instrument()
-        self.__instrument = inst['name']
+        self.__instrument, _ = OandaPyClient.select_instrument()
         self.__client = OandaPyClient(instrument=self.__instrument)
         self.__ana = Analyzer()
         self.__drawer = FigureDrawer(rows_num=3)
