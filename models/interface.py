@@ -23,17 +23,17 @@ def ask_number(msg, limit):
 
 
 def select_stoploss_digit():
-    while True:
-        print('[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', end='')
-        digit_id = prompt_inputting_decimal()
-        if digit_id == 1:
-            return 0.01
-        elif digit_id == 2:
-            return 0.0001
-        elif digit_id == 3:
-            return 0.00001
-        else:
-            print('[Trader] please input 1 - 3 ! >д<;')
+    # print('[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', end='')
+    digit_id = ask_number('[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', 3)
+
+    if digit_id == 1:
+        return 0.01
+
+    if digit_id == 2:
+        return 0.0001
+
+    if digit_id == 3:
+        return 0.00001
 
 
 def select_from_dict(dictionary, menumsg='選択して下さい'):
