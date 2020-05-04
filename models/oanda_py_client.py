@@ -459,18 +459,20 @@ class OandaPyClient():
         return max_days
 
     def __calc_requestable_time_duration(self, granularity):
+        days = hours = minutes = 0
+
+        def max_multiply(number):
+            return int(OandaPyClient.REQUESTABLE_COUNT * int(number)) - 1
+
         time_unit = granularity[0]
         if time_unit == 'M':
-            minutes = int(OandaPyClient.REQUESTABLE_COUNT * int(granularity[1:])) - 1
-            requestable_duration = datetime.timedelta(minutes=minutes)
+            minutes = max_multiply(granularity[1:])
         elif time_unit == 'H':
-            hours = int(OandaPyClient.REQUESTABLE_COUNT * int(granularity[1:])) - 1
-            requestable_duration = datetime.timedelta(hours=hours)
+            hours = max_multiply(granularity[1:])
         elif time_unit == 'D':
             days = OandaPyClient.REQUESTABLE_COUNT
-            requestable_duration = datetime.timedelta(days=days)
 
-        return requestable_duration
+        return datetime.timedelta(days=days, hours=hours, minutes=minutes)
 
     def __str_to_datetime(self, time_string):
         result_dt = datetime.datetime.strptime(time_string, '%Y-%m-%d %H:%M:%S')

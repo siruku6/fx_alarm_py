@@ -34,12 +34,12 @@ class Trader():
             'entry_filter': []
         }
         # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
-        self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
+        self.set_entry_rules('entry_filter', value=['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
 
         if self.__prepare_candles(operation).get('info') is not None:
             return
 
-        self.__prepare_candles(operation)
+        self.__m10_candles = None
         self._client.request_current_price()
         self._ana = Analyzer()
         result = self._ana.calc_indicators(candles=FXBase.get_candles())
@@ -54,6 +54,14 @@ class Trader():
         self._indicators = self._ana.get_indicators()
         self.__initialize_position_variables()
 
+    @property
+    def m10_candles(self):
+        return self.__m10_candles
+
+    @m10_candles.setter
+    def m10_candles(self, arg):
+        self.__m10_candles = arg
+
     def __set_drawing_option(self):
         self.__static_options = {}
         self.__static_options['figure_option'] = i_face.ask_number(
@@ -64,21 +72,19 @@ class Trader():
     def __prepare_candles(self, operation):
         if operation in ['backtest']:
             candles = self.__request_custom_candles()
-            self.__m10_candles = self.__load_m10_candles(candles.time)
         elif operation in ['live', 'forward_test']:
             self.tradeable = self._client.request_is_tradeable()['tradeable']
             if not self.tradeable and operation != 'unittest' and operation == 'live':
-                return
+                return {}
 
             candles = self._client.load_specify_length_candles(
                 length=70, granularity=self.get_granularity()
             )['candles']
-            # TODO: D1 candles をとってくる
-            # self._client.load_long_chart(days=10, granularity='D')
         else:
             return {'info': 'exit at once'}
 
         FXBase.set_candles(candles)
+        return {}
 
     def __load_m10_candles(self, time_series):
         first_time = self.__str_to_datetime(time_series.iat[0][:19])
@@ -93,8 +99,8 @@ class Trader():
     #
     # getter & setter
     #
-    def set_entry_filter(self, entry_filter):
-        self._entry_rules['entry_filter'] = entry_filter
+    def set_entry_rules(self, rule_property, value):
+        self._entry_rules[rule_property] = value
 
     def get_instrument(self):
         return self._instrument
@@ -123,7 +129,7 @@ class Trader():
         filters.sort()
         for _filter in filters:
             print('[Trader] ** Now trying filter -> {} **', _filter)
-            self.set_entry_filter(_filter)
+            self.set_entry_rules('entry_filter', value=_filter)
             self.verify_various_stoploss(rule=rule)
 
     def verify_various_stoploss(self, rule):
@@ -154,15 +160,15 @@ class Trader():
         self._prepare_trade_signs(candles)
         if rule == 'swing':
             if self.get_entry_filter() == []:
-                self.set_entry_filter(statistics.FILTER_ELEMENTS)
+                self.set_entry_rules('entry_filter', value=statistics.FILTER_ELEMENTS)
             result = self.__backtest_swing(candles)
         elif rule == 'wait_close':
             if self.get_entry_filter() == []:
-                self.set_entry_filter(['in_the_band'])
+                self.set_entry_rules('entry_filter', value=['in_the_band'])
             result = self.__backtest_wait_close(candles)
         elif rule == 'scalping':
             if self.get_entry_filter() == []:
-                self.set_entry_filter(['in_the_band'])
+                self.set_entry_rules('entry_filter', value=['in_the_band'])
             result = self.__backtest_scalping(candles)
         else:
             print('Rule {} is not exist ...'.format(rule))
@@ -571,7 +577,10 @@ class Trader():
 
     def __slide_prices_to_really_possible(self, candles):
         print('[Trader] start sliding ...')
-        m10_candles = self.__m10_candles
+        if self.m10_candles is None:
+            self.m10_candles = self.__load_m10_candles(candles.time)
+
+        m10_candles = self.m10_candles
         m10_candles['time'] = m10_candles.index
         spread = self._static_spread
 
