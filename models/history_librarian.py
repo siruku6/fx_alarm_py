@@ -110,7 +110,7 @@ class Librarian():
                 target_row_index = dst_switching_point['time'] <= hist_df['time']
             else:
                 target_row_index = (dst_switching_point['time'] <= hist_df['time']) \
-                                 & (hist_df['time'] < dst_switches[i + 1]['time'])
+                    & (hist_df['time'] < dst_switches[i + 1]['time'])
             hist_df.loc[target_row_index, 'dst'] = is_dst
 
         return hist_df
@@ -165,7 +165,7 @@ class Librarian():
         close_df = d_frame.dropna(subset=['tradesClosed'])[['price', 'time']] \
                           .rename(columns={'price': 'close_price'})
         trail_df = d_frame[d_frame.type == 'STOP_LOSS_ORDER'][['price', 'time']] \
-                          .rename(columns={'price': 'stoploss'})
+            .rename(columns={'price': 'stoploss'})
         return entry_df, close_df, trail_df
 
     def __calc_pl_gross(self, original_df):

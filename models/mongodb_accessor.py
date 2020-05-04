@@ -4,6 +4,7 @@ import pandas as pd
 import pymongo.errors
 from pymongo import MongoClient, DESCENDING, ASCENDING
 
+
 class MongodbAccessor():
     def __init__(self, db_name):
         self.client = MongoClient()
@@ -95,6 +96,7 @@ class MongodbAccessor():
         )
         # INFO: <pymongo.cursor.Cursor object at xxxxxxxxxxxxxxxx> を dict に変換
         return [record for record in records]
+
 
 def main():
     accessor = MongodbAccessor(db_name='candles')

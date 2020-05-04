@@ -27,6 +27,10 @@ def commit_positions_by_loop(factor_dicts):
     loop_objects = factor_dicts[:-1]  # コピー変数: loop_objects への変更は factor_dicts にも及ぶ
     entry_direction = factor_dicts[0]['entryable']  # 'long', 'short' or nan
 
+    def reset_next_position(index):
+        factor_dicts[index + 1]['position'] = entry_direction = factor_dicts[index + 1]['entryable']
+        return entry_direction
+
     for index, one_frame in enumerate(loop_objects):
         # entry 中でなければ continue
         if entry_direction == 'long':
@@ -36,7 +40,7 @@ def commit_positions_by_loop(factor_dicts):
             edge_price = one_frame['low']
             exit_type = 'buy_exit'
         else:
-            factor_dicts[index + 1]['position'] = entry_direction = factor_dicts[index + 1]['entryable']
+            entry_direction = reset_next_position(index)
             continue
 
         # exit する理由がなければ continue
@@ -53,15 +57,15 @@ def commit_positions_by_loop(factor_dicts):
         #     else:
         #         one_frame['exitable_price'] = one_frame['band_-2σ']
         elif is_exitable_by_stoc_cross(
-                position_type=entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']
-            ):
+            position_type=entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']
+        ):
             one_frame['exitable_price'] = one_frame['close']
         else:
             continue
 
         # exit した場合のみここに到達する
         one_frame['position'] = exit_type
-        factor_dicts[index + 1]['position'] = entry_direction = factor_dicts[index + 1]['entryable']
+        entry_direction = reset_next_position(index)
 
     return pd.DataFrame.from_dict(factor_dicts)[['position', 'exitable_price']]
 
@@ -109,7 +113,7 @@ def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss)
 
 def is_exitable_by_stoc_cross(position_type, stod, stosd):
     stoc_crossed = ((position_type == 'long') and (stod < stosd)) \
-                 or ((position_type == 'short') and (stod > stosd))
+        or ((position_type == 'short') and (stod > stosd))
 
     if stoc_crossed:
         return True

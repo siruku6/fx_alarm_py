@@ -239,10 +239,10 @@ class Analyzer():
 
             # レートがparabolicに触れたときの処理
             if self.__parabolic_is_touched(
-                    bull=bull,
-                    current_parabo=last_sar,
-                    current_h=current_high, current_l=current_low
-                ):
+                bull=bull,
+                current_parabo=last_sar,
+                current_h=current_high, current_l=current_low
+            ):
                 temp_sar = extreme_price
                 acceleration_factor = Analyzer.INITIAL_AF
                 if bull:
@@ -259,8 +259,7 @@ class Analyzer():
                 )
 
                 # AFの更新
-                if (bull and extreme_price < current_high) \
-                    or not bull and extreme_price > current_low:
+                if (bull and extreme_price < current_high) or not bull and (extreme_price > current_low):
                     acceleration_factor = min(
                         acceleration_factor + Analyzer.INITIAL_AF,
                         Analyzer.MAX_AF
@@ -269,12 +268,12 @@ class Analyzer():
                 # SARの調整
                 if bull:
                     temp_sar = min(
-                        temp_sar, candles_array[i-1]['low'], candles_array[i-2]['low']
+                        temp_sar, candles_array[i - 1]['low'], candles_array[i - 2]['low']
                     )
                     extreme_price = max(extreme_price, current_high)
                 else:
                     temp_sar = max(
-                        temp_sar, candles_array[i-1]['high'], candles_array[i-2]['high']
+                        temp_sar, candles_array[i - 1]['high'], candles_array[i - 2]['high']
                     )
                     extreme_price = min(extreme_price, current_low)
 

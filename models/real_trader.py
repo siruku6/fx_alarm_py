@@ -6,6 +6,7 @@ from models.trader import Trader
 import models.trade_rules.base as rules
 import models.trade_rules.scalping as scalping
 
+
 class RealTrader(Trader):
     ''' トレードルールに基づいてOandaへの発注を行うclass '''
     def __init__(self, operation='verification'):
@@ -134,7 +135,7 @@ class RealTrader(Trader):
         last_index = len(self._indicators) - 1
         close_price = candles.close.iat[-1]
         last_time = candles.time.iat[-1]
-        indicators = self._indicators
+        last_indicators = self._indicators.iloc[-1]
         trend = candles['trend'].iat[-1]
 
         self._set_position(self.__load_position())
@@ -147,41 +148,47 @@ class RealTrader(Trader):
                 return
 
             direction = scalping.repulsion_exist(
-                trend=trend, ema=indicators['10EMA'].values[-1],
-                two_before_high=candles.high.values[-3], previous_high=candles.high.values[-2],
-                two_before_low=candles.low.values[-3], previous_low=candles.low.values[-2]
+                trend=trend, ema=last_indicators['10EMA'],
+                two_before_high=candles.high.iat[-3], previous_high=candles.high.iat[-2],
+                two_before_low=candles.low.iat[-3], previous_low=candles.low.iat[-2]
             )
             if direction is None:
                 print('[Trader] repulsion is not exist Time: {}, 10EMA: {}'.format(
-                    last_time, indicators['10EMA'].values[-1]
+                    last_time, last_indicators['10EMA']
                 ))
                 return
 
             self._create_position(last_index, direction)
         else:
-            # INFO: stoploss設定が緩い
-            # new_stop = scalping.new_stoploss_price(
-            #     position_type=self._position['type'], old_stoploss=self._position['stoploss'],
-            #     current_sup=indicators.at[last_index, 'support'], current_regist=indicators.at[last_index, 'regist']
+            # # INFO: 1.厳しいstoploss設定: is_exitable_by_bollinger 用
+            # new_stop = rules.new_stoploss_price(
+            #     position_type=self._position['type'],
+            #     previous_low=candles.at[last_index - 1, 'low'],
+            #     previous_high=candles.at[last_index - 1, 'high'],
+            #     old_stoploss=self._position['stoploss'],
+            #     stoploss_buf=self._stoploss_buffer_pips,
+            #     static_spread=self._static_spread
             # )
-
-            # INFO: 厳しいstoploss設定
-            new_stop = rules.new_stoploss_price(
-                position_type=self._position['type'],
-                previous_low=candles.at[last_index - 1, 'low'],
-                previous_high=candles.at[last_index - 1, 'high'],
-                old_stoploss=self._position['stoploss'],
-                stoploss_buf=self._stoploss_buffer_pips,
-                static_spread=self._static_spread
+            # INFO: 2. 緩いstoploss設定: is_exitable_by_stoc_cross 用
+            new_stop = scalping.new_stoploss_price(
+                position_type=self._position['type'], old_stoploss=self._position['stoploss'],
+                current_sup=last_indicators['support'], current_regist=last_indicators['regist']
             )
+
             if new_stop != self._position['stoploss']:
                 self._trail_stoploss(new_stop=new_stop)
 
-            plus_2sigma = indicators.at[last_index, 'band_+2σ']
-            minus_2sigma = indicators.at[last_index, 'band_-2σ']
-            if scalping.is_exitable_by_bollinger(close_price, plus_2sigma, minus_2sigma):
-                self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
-                    plus_2sigma, close_price, minus_2sigma
+            # plus_2sigma = last_indicators['band_+2σ']
+            # minus_2sigma = last_indicators['band_-2σ']
+            # if scalping.is_exitable_by_bollinger(close_price, plus_2sigma, minus_2sigma):
+            stod = last_indicators['stoD_3']
+            stosd = last_indicators['stoSD_3']
+            if scalping.is_exitable_by_stoc_cross(self._position['type'], stod, stosd):
+                # self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
+                #     plus_2sigma, close_price, minus_2sigma
+                # ))
+                self.__settle_position(reason='stoc crossed ! position_type: {}, stod: {}, stosd:{}'.format(
+                    self._position['type'], stod, stosd
                 ))
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(

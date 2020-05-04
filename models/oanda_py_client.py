@@ -511,7 +511,7 @@ class OandaPyClient():
 
         # INFO: supply the columns missing
         for column_name in hist_columns:
-            if not column_name in hist_df.columns:
+            if column_name not in hist_df.columns:
                 hist_df[column_name] = 0
 
         # INFO: filtering by column

@@ -19,13 +19,10 @@ def generate_thrust_column(candles):
     return result
 
 
-def the_previous_satisfy_rules(candles, entry_filter):
-    ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
-    satisfy_preconditions = np.all(
-        # candles.shift(1)[['in_the_band', 'ma_gap_expanding', 'sma_follow_trend', 'stoc_allows', 'ema60_allows', 'band_expansion']],
-        candles[entry_filter],
-        axis=1
-    )
-    candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
-    # TODO: この position はいらないっぽい scalping では確認済み。 wait_close でも不要であれば消す
-    candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
+# def the_previous_satisfy_rules(preconditions):
+#     ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
+#     satisfy_preconditions = np.all(preconditions, axis=1)
+#     return satisfy_preconditions
+
+#     # TODO: この position はいらないっぽい scalping swing では確認済み。 wait_close でも不要であれば消す
+#     # candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()

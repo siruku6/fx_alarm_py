@@ -221,5 +221,5 @@ class FigureDrawer():
         if xticks_num > 0:
             plt.xticks(indexes, [])
         if legend:
-            plt.legend(loc='upper left', fontsize=8) # best だと結構右に来て邪魔
+            plt.legend(loc='upper left', fontsize=8)  # best だと結構右に来て邪魔
         plt.grid(which='major', linestyle='dashed', linewidth=0.5)
