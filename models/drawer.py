@@ -25,19 +25,19 @@ class FigureDrawer():
     def init_figure(self, rows_num=2):
         ''' 生成画像の初期設定 '''
         if rows_num == 2:
-            self.__figure, (self.__axis1, self.__axis2) = plt.subplots(
+            self.__figure, self.__axes = plt.subplots(
                 nrows=2, ncols=1, gridspec_kw={'height_ratios': [3, 1]},
                 figsize=(8, 5), dpi=144
             )
         else:
-            self.__figure, (self.__axis1, self.__axis2, self.__axis3) = plt.subplots(
+            self.__figure, self.__axes = plt.subplots(
                 nrows=3, ncols=1, gridspec_kw={'height_ratios': [7, 2, 1]},
                 figsize=(8, 6), dpi=144
             )
-            self.__axis3.yaxis.tick_right()
+            self.__axes[2].yaxis.tick_right()
 
-        self.__axis1.yaxis.tick_right()
-        self.__axis2.yaxis.tick_right()
+        self.__axes[0].yaxis.tick_right()
+        self.__axes[1].yaxis.tick_right()
 
         # INFO: https://zaburo-ch.github.io/post/20141217_0/
         self.__figure.subplots_adjust(left=0.05, right=0.90, bottom=0.18, top=0.92, hspace=0.05)
@@ -65,20 +65,12 @@ class FigureDrawer():
     def draw_df_on_plt(self, d_frame, plot_type, color='black', size=1, nolabel=None, plt_id=1):
         ''' DataFrameを受け取って、各columnを描画 '''
         # エラー防止処理
-        if d_frame is None:
-            return {'error': '[Drawer] データがありません'}
         if type(d_frame) is not pd.core.frame.DataFrame:
             raise TypeError(
                 '[Drawer] draw_df_on_plt cannot draw from except DataFrame: {}'.format(type(d_frame))
             )
 
-        if plt_id == 1:
-            plt_axis = self.__axis1
-        elif plt_id == 2:
-            plt_axis = self.__axis2
-        else:
-            plt_axis = self.__axis3
-
+        plt_axis = self.__axes[plt_id - 1]
         # 描画
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
         if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
@@ -121,7 +113,7 @@ class FigureDrawer():
 
         # HACK: price に Nan が含まれているとエラーが発生していたので除去している
         drawing_targets = positions_df.dropna()
-        self.__axis1.scatter(
+        self.__axes[0].scatter(
             x=drawing_targets.sequence, y=drawing_targets.price,
             marker=mark, edgecolors=edgecolors, label=nolabel or label,
             color=color, s=size, linewidths=0.7
@@ -147,7 +139,7 @@ class FigureDrawer():
     #     else :
     #         gap = 1.0
     #
-    #     self.__axis1.scatter(
+    #     self.__axes[0].scatter(
     #         x=index_array,
     #         y=FXBase.get_candles().close[index_array] * gap,
     #         marker=mark, color=color, edgecolors=edgecolors,
@@ -158,7 +150,7 @@ class FigureDrawer():
         ''' 取得済みチャートを描画 '''
         target_candles = FXBase.get_candles(start=start, end=end)
         mpf.candlestick2_ohlc(
-            self.__axis1,
+            self.__axes[0],
             opens=target_candles.open.values,
             highs=target_candles.high.values,
             lows=target_candles.low.values,
@@ -168,33 +160,33 @@ class FigureDrawer():
         return {'success': 'チャートを描画', 'time': target_candles.time}
 
     def draw_vertical_lines(self, indexes, vmin, vmax):
-        self.__axis1.vlines(indexes, vmin, vmax, color='yellow', linewidth=0.5)
-        self.__axis2.vlines(indexes, 0, 100, color='yellow', linewidth=0.5)
+        self.__axes[0].vlines(indexes, vmin, vmax, color='yellow', linewidth=0.5)
+        self.__axes[1].vlines(indexes, 0, 100, color='yellow', linewidth=0.5)
 
     def create_png(self, instrument, granularity, sr_time, num=0, filename=None):
         ''' 描画済みイメージをpngファイルに書き出す '''
-        self.__axis1.set_title('{inst}-{granularity} candles (len={len})'.format(
+        self.__axes[0].set_title('{inst}-{granularity} candles (len={len})'.format(
             inst=instrument, granularity=granularity, len=len(FXBase.get_candles())
         ))
         xticks_number, xticks_index = self.__prepare_xticks(sr_time)
 
         # INFO: axis1
-        plt.sca(self.__axis1)
+        plt.sca(self.__axes[0])
         self.__apply_default_style(plt, xticks_number, indexes=xticks_index)
 
         # INFO: axis2
-        plt.sca(self.__axis2)
+        plt.sca(self.__axes[1])
         self.__apply_default_style(plt, xticks_number, indexes=xticks_index)
         plt.hlines([20, 80], 0, len(sr_time), color='lightgray', linestyle='dashed', linewidth=0.5)
         plt.yticks([20, 80], [20, 80])
 
-        if hasattr(self, '_FigureDrawer__axis3'):
+        if len(self.__axes) == 3:
             # INFO: axis3
-            plt.sca(self.__axis3)
+            plt.sca(self.__axes[2])
             self.__apply_default_style(plt, xticks_number, indexes=xticks_index, legend=False)
-            self.__axis3.yaxis.set_major_locator(matplotlib.ticker.AutoLocator())
+            self.__axes[2].yaxis.set_major_locator(matplotlib.ticker.AutoLocator())
             # INFO: hist と backtest で桁が違うせいで問題になる, hist は pl が万単位
-            # self.__axis3.yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(1.0))
+            # self.__axes[2].yaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(1.0))
 
         # INFO: x軸の目盛表示
         if xticks_number > 0:
