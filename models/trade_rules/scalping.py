@@ -20,6 +20,7 @@ def set_entryable_prices(candles, spread):
     long_index = candles.entryable == 'long'
     short_index = candles.entryable == 'short'
     candles.loc[long_index, 'entryable_price'] = candles[long_index].open + spread
+    # TODO: 実際には open で entry することはなかなかできない
     candles.loc[short_index, 'entryable_price'] = candles[short_index].open
 
 
