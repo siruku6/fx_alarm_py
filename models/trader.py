@@ -34,7 +34,7 @@ class Trader():
             'entry_filter': []
         }
         # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
-        self.set_entry_filter(['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
+        self.set_entry_rules('entry_filter', value=['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
 
         if self.__prepare_candles(operation).get('info') is not None:
             return
@@ -80,8 +80,6 @@ class Trader():
             candles = self._client.load_specify_length_candles(
                 length=70, granularity=self.get_granularity()
             )['candles']
-            # TODO: D1 candles をとってくる
-            # self._client.load_long_chart(days=10, granularity='D')
         else:
             return {'info': 'exit at once'}
 
@@ -101,8 +99,8 @@ class Trader():
     #
     # getter & setter
     #
-    def set_entry_filter(self, entry_filter):
-        self._entry_rules['entry_filter'] = entry_filter
+    def set_entry_rules(self, rule_property, value):
+        self._entry_rules[rule_property] = value
 
     def get_instrument(self):
         return self._instrument
@@ -131,7 +129,7 @@ class Trader():
         filters.sort()
         for _filter in filters:
             print('[Trader] ** Now trying filter -> {} **', _filter)
-            self.set_entry_filter(_filter)
+            self.set_entry_rules('entry_filter', value=_filter)
             self.verify_various_stoploss(rule=rule)
 
     def verify_various_stoploss(self, rule):
@@ -162,15 +160,15 @@ class Trader():
         self._prepare_trade_signs(candles)
         if rule == 'swing':
             if self.get_entry_filter() == []:
-                self.set_entry_filter(statistics.FILTER_ELEMENTS)
+                self.set_entry_rules('entry_filter', value=statistics.FILTER_ELEMENTS)
             result = self.__backtest_swing(candles)
         elif rule == 'wait_close':
             if self.get_entry_filter() == []:
-                self.set_entry_filter(['in_the_band'])
+                self.set_entry_rules('entry_filter', value=['in_the_band'])
             result = self.__backtest_wait_close(candles)
         elif rule == 'scalping':
             if self.get_entry_filter() == []:
-                self.set_entry_filter(['in_the_band'])
+                self.set_entry_rules('entry_filter', value=['in_the_band'])
             result = self.__backtest_scalping(candles)
         else:
             print('Rule {} is not exist ...'.format(rule))
