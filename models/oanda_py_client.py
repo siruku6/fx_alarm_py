@@ -16,6 +16,7 @@ import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
 
+import models.tools.format_converter as converter
 from models.interface import select_from_dict
 # from models.candles_csv_accessor import CandlesCsvAccessor
 from models.mongodb_accessor import MongodbAccessor
@@ -123,8 +124,8 @@ class OandaPyClient():
             end_datetime = last_datetime - datetime.timedelta(days=remaining_days)
 
             response = self.__request_oanda_instruments(
-                start=self.__convert_datetime_into_oanda_format(start_datetime),
-                end=self.__convert_datetime_into_oanda_format(end_datetime),
+                start=converter.to_oanda_format(start_datetime),
+                end=converter.to_oanda_format(end_datetime),
                 granularity=granularity
             )
             tmp_candles = self.__transform_to_candle_chart(response)
@@ -180,8 +181,8 @@ class OandaPyClient():
             now = datetime.datetime.now() - datetime.timedelta(hours=9, minutes=1)
             if now < next_endtime: next_endtime = now
             response = self.__request_oanda_instruments(
-                start=self.__convert_datetime_into_oanda_format(next_starttime),
-                end=self.__convert_datetime_into_oanda_format(next_endtime),
+                start=converter.to_oanda_format(next_starttime),
+                end=converter.to_oanda_format(next_endtime),
                 granularity=granularity
             )
             tmp_candles = self.__transform_to_candle_chart(response)
@@ -194,37 +195,37 @@ class OandaPyClient():
 
         return {'success': '[Client] APIリクエスト成功', 'candles': candles}
 
-    def request_latest_candles(self, target_datetime, granularity='M10', period_of_time='D'):
-        end_datetime = self.__str_to_datetime(target_datetime)
-        time_unit = period_of_time[0]
-        if time_unit == 'M':
-            start_datetime = end_datetime - datetime.timedelta(minutes=int(period_of_time[1:]))
-        elif time_unit == 'H':
-            start_datetime = end_datetime - datetime.timedelta(hours=int(period_of_time[1:]))
-        elif time_unit == 'D':
-            start_datetime = end_datetime - datetime.timedelta(days=1)
+    # def request_latest_candles(self, target_datetime, granularity='M10', period_of_time='D'):
+    #     end_datetime = converter.str_to_datetime(target_datetime)
+    #     time_unit = period_of_time[0]
+    #     if time_unit == 'M':
+    #         start_datetime = end_datetime - datetime.timedelta(minutes=int(period_of_time[1:]))
+    #     elif time_unit == 'H':
+    #         start_datetime = end_datetime - datetime.timedelta(hours=int(period_of_time[1:]))
+    #     elif time_unit == 'D':
+    #         start_datetime = end_datetime - datetime.timedelta(days=1)
 
-        try:
-            response = self.__request_oanda_instruments(
-                start=self.__convert_datetime_into_oanda_format(start_datetime),
-                end=self.__convert_datetime_into_oanda_format(end_datetime),
-                granularity=granularity
-            )
-        except V20Error as error:
-            print('[request_latest_candles] V20Error: {},\nstart: {},\nend: {}'.format(
-                error, start_datetime, end_datetime
-            ))
-            # INFO: 保険として、1分前のデータの再取得を試みる
-            start_datetime -= datetime.timedelta(minutes=1)
-            end_datetime -= datetime.timedelta(minutes=1)
-            response = self.__request_oanda_instruments(
-                start=self.__convert_datetime_into_oanda_format(start_datetime),
-                end=self.__convert_datetime_into_oanda_format(end_datetime),
-                granularity=granularity
-            )
+    #     try:
+    #         response = self.__request_oanda_instruments(
+    #             start=converter.to_oanda_format(start_datetime),
+    #             end=converter.to_oanda_format(end_datetime),
+    #             granularity=granularity
+    #         )
+    #     except V20Error as error:
+    #         print('[request_latest_candles] V20Error: {},\nstart: {},\nend: {}'.format(
+    #             error, start_datetime, end_datetime
+    #         ))
+    #         # INFO: 保険として、1分前のデータの再取得を試みる
+    #         start_datetime -= datetime.timedelta(minutes=1)
+    #         end_datetime -= datetime.timedelta(minutes=1)
+    #         response = self.__request_oanda_instruments(
+    #             start=converter.to_oanda_format(start_datetime),
+    #             end=converter.to_oanda_format(end_datetime),
+    #             granularity=granularity
+    #         )
 
-        candles = self.__transform_to_candle_chart(response)
-        return candles
+    #     candles = self.__transform_to_candle_chart(response)
+    #     return candles
 
     # INFO: request-something (excluding candles)
     def request_is_tradeable(self):
@@ -473,13 +474,6 @@ class OandaPyClient():
             days = OandaPyClient.REQUESTABLE_COUNT
 
         return datetime.timedelta(days=days, hours=hours, minutes=minutes)
-
-    def __str_to_datetime(self, time_string):
-        result_dt = datetime.datetime.strptime(time_string, '%Y-%m-%d %H:%M:%S')
-        return result_dt
-
-    def __convert_datetime_into_oanda_format(self, target_datetime):
-        return target_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
 
     def __filter_and_make_df(self, response_transactions):
         ''' 必要なrecordのみ残してdataframeに変換する '''
