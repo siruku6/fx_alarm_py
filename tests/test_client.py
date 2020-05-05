@@ -30,40 +30,40 @@ class TestClient(unittest.TestCase):
     #  - - - - - - - - - - -
     #    Public methods
     #  - - - - - - - - - - -
-    def test_request_latest_candles(self):
-        # Case1
-        result = self.__watcher_instance.request_latest_candles(
-            target_datetime='2018-07-12 21:00:00',
-            granularity='M10',
-            period_of_time='D'
-        )
-        result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S')
-        result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S')
-        result_size  = len(result)
+    # def test_request_latest_candles(self):
+    #     # Case1
+    #     result = self.__watcher_instance.request_latest_candles(
+    #         target_datetime='2018-07-12 21:00:00',
+    #         granularity='M10',
+    #         period_of_time='D'
+    #     )
+    #     result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S')
+    #     result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S')
+    #     result_size  = len(result)
 
-        expected_start = datetime(2018, 7, 11, 21)
-        expected_end   = datetime(2018, 7, 12, 20, 50)
-        expected_size  = 144
-        self.assertEqual(result_start, expected_start, '[request_latest_candles] １行目のtime')
-        self.assertEqual(result_end,   expected_end,   '[request_latest_candles] 最終行のtime')
-        self.assertEqual(result_size,  expected_size,  '[request_latest_candles] 戻り値のサイズ')
+    #     expected_start = datetime(2018, 7, 11, 21)
+    #     expected_end   = datetime(2018, 7, 12, 20, 50)
+    #     expected_size  = 144
+    #     self.assertEqual(result_start, expected_start, '[request_latest_candles] １行目のtime')
+    #     self.assertEqual(result_end,   expected_end,   '[request_latest_candles] 最終行のtime')
+    #     self.assertEqual(result_size,  expected_size,  '[request_latest_candles] 戻り値のサイズ')
 
-        # Case2
-        result = self.__watcher_instance.request_latest_candles(
-            target_datetime='2017-06-29 21:00:00',
-            granularity='M30',
-            period_of_time='H4'
-        )
-        result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S')
-        result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S')
-        result_size  = len(result)
+    #     # Case2
+    #     result = self.__watcher_instance.request_latest_candles(
+    #         target_datetime='2017-06-29 21:00:00',
+    #         granularity='M30',
+    #         period_of_time='H4'
+    #     )
+    #     result_start = datetime.strptime(result['time'][0], '%Y-%m-%d %H:%M:%S')
+    #     result_end   = datetime.strptime(result['time'].values[-1], '%Y-%m-%d %H:%M:%S')
+    #     result_size  = len(result)
 
-        expected_start = datetime(2017, 6, 29, 17)
-        expected_end   = datetime(2017, 6, 29, 20, 30)
-        expected_size  = 8
-        self.assertEqual(result_start, expected_start, '[request_latest_candles] １行目のtime')
-        self.assertEqual(result_end,   expected_end,   '[request_latest_candles] 最終行のtime')
-        self.assertEqual(result_size,  expected_size,  '[request_latest_candles] 戻り値のサイズ')
+    #     expected_start = datetime(2017, 6, 29, 17)
+    #     expected_end   = datetime(2017, 6, 29, 20, 30)
+    #     expected_size  = 8
+    #     self.assertEqual(result_start, expected_start, '[request_latest_candles] １行目のtime')
+    #     self.assertEqual(result_end,   expected_end,   '[request_latest_candles] 最終行のtime')
+    #     self.assertEqual(result_size,  expected_size,  '[request_latest_candles] 戻り値のサイズ')
 
     def test_request_open_trades(self):
         self.assertIsNone(self.__watcher_instance._OandaPyClient__last_transaction_id)
