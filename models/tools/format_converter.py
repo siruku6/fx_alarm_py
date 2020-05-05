@@ -1,8 +1,11 @@
 import datetime
 
 
+TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
+
+
 def str_to_datetime(time_string):
-    result_dt = datetime.datetime.strptime(time_string, '%Y-%m-%d %H:%M:%S')
+    result_dt = datetime.datetime.strptime(time_string, TIME_STRING_FMT)
     return result_dt
 
 
