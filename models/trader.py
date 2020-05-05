@@ -585,12 +585,6 @@ class Trader():
 
     def __slide_prices_to_really_possible(self, candles):
         print('[Trader] start sliding ...')
-        if self.m10_candles is None:
-            self.m10_candles = self.__load_m10_candles(candles.time)
-
-        m10_candles = self.m10_candles
-        m10_candles['time'] = m10_candles.index
-        spread = self._static_spread
 
         position_index = candles.position.isin(['long', 'short']) \
             | (candles.position.isin(['sell_exit', 'buy_exit']) & ~candles.entryable_price.isna())
@@ -600,6 +594,22 @@ class Trader():
         if position_rows == []:
             print('[Trader] no positions ...')
             return {'result': 'no position'}
+
+        position_rows = self.__slide_prices_in_dicts(time_series=candles['time'], position_rows=position_rows)
+        slided_positions = pd.DataFrame.from_dict(position_rows)
+        candles.loc[position_index, 'entry_price'] = slided_positions.price.to_numpy(copy=True)
+        candles.loc[position_index, 'time'] = slided_positions.time.astype(str).to_numpy(copy=True)
+
+        print('[Trader] finished sliding !')
+        return {'result': 'success'}
+
+    def __slide_prices_in_dicts(self, time_series, position_rows):
+        if self.m10_candles is None:
+            self.m10_candles = self.__load_m10_candles(time_series)
+
+        m10_candles = self.m10_candles
+        m10_candles['time'] = m10_candles.index
+        spread = self._static_spread
 
         len_of_rows = len(position_rows)
         for i, row in enumerate(position_rows):
@@ -622,13 +632,7 @@ class Trader():
                         break
             if 'price' not in row:
                 row['price'] = row['entryable_price']
-
-        slided_positions = pd.DataFrame.from_dict(position_rows)
-        candles.loc[position_index, 'entry_price'] = slided_positions.price.to_numpy(copy=True)
-        candles.loc[position_index, 'time'] = slided_positions.time.astype(str).to_numpy(copy=True)
-
-        print('[Trader] finished sliding !')
-        return {'result': 'success'}
+        return position_rows
 
     def __draw_chart_vectorized_ver(self, df_positions):
         drwr = self.__drawer
