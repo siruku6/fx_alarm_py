@@ -27,14 +27,7 @@ class Trader():
             self.__set_drawing_option()
             self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
 
-        self._operation = operation
-        self._client = OandaPyClient(instrument=self.get_instrument())
-        self._entry_rules = {
-            'granularity': os.environ.get('GRANULARITY') or 'M5',
-            'entry_filter': []
-        }
-        # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
-        self.set_entry_rules('entry_filter', value=['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
+        self.__init_common_params(operation)
 
         if self.__prepare_candles(operation).get('info') is not None:
             return
@@ -68,6 +61,16 @@ class Trader():
             msg='[Trader] 画像描画する？ [1]: No, [2]: Yes, [3]: with_P/L ', limit=3
         )
         self.__drawer = None
+
+    def __init_common_params(self, operation):
+        self._operation = operation
+        self._client = OandaPyClient(instrument=self.get_instrument())
+        self._entry_rules = {
+            'granularity': os.environ.get('GRANULARITY') or 'M5',
+            'entry_filter': []
+        }
+        # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
+        self.set_entry_rules('entry_filter', value=['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
 
     def __prepare_candles(self, operation):
         if operation in ['backtest']:
