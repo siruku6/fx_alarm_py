@@ -38,10 +38,10 @@ class Trader():
             return
 
         self.__m10_candles = None
-        # self.__request_d1_candles(days=days)
+        self.__prepare_d1_candles(days=days)
         self._client.request_current_price()
         self._ana = Analyzer()
-        result = self._ana.calc_indicators(candles=FXBase.get_candles())
+        result = self._ana.calc_indicators(FXBase.get_candles(), d1_candles=FXBase.get_d1_candles())
         if 'error' in result:
             self._log_skip_reason(result['error'])
             return
@@ -412,12 +412,13 @@ class Trader():
             exit()
         return result['candles']
 
-    def __request_d1_candles(self, days):
-        FXBase.set_d1_candles(self._client.load_long_chart(days=days, granularity='D'))
-        result = FXBase.get_d1_candles()['candles']
+    def __prepare_d1_candles(self, days):
+        if not isinstance(days, int):
+            return
+        result = self._client.load_long_chart(days=days, granularity='D')['candles']
         result['time'] = pd.to_datetime(result['time'])
         result.set_index('time', inplace=True)
-
+        FXBase.set_d1_candles(result)
         # result.resample('4H').ffill() # upsamplingしようとしたがいらなかった。
 
     def __backtest_swing(self, candles):
