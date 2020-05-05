@@ -175,7 +175,7 @@ class RealTrader(Trader):
                 current_sup=last_indicators['support'], current_regist=last_indicators['regist']
             )
 
-            if new_stop != self._position['stoploss']:
+            if new_stop != self._position['stoploss'] and new_stop is not np.nan:
                 self._trail_stoploss(new_stop=new_stop)
 
             # plus_2sigma = last_indicators['band_+2σ']
@@ -183,6 +183,7 @@ class RealTrader(Trader):
             # if scalping.is_exitable_by_bollinger(close_price, plus_2sigma, minus_2sigma):
             stod = last_indicators['stoD_3']
             stosd = last_indicators['stoSD_3']
+
             if scalping.is_exitable_by_stoc_cross(self._position['type'], stod, stosd):
                 # self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
                 #     plus_2sigma, close_price, minus_2sigma
