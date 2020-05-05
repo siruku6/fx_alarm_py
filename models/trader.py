@@ -9,6 +9,7 @@ from models.mathematics import range_2nd_decimal
 import models.trade_rules.base as rules
 import models.trade_rules.wait_close as wait_close
 import models.trade_rules.scalping as scalping
+import models.tools.format_converter as converter
 import models.interface as i_face
 import models.statistics_module as statistics
 
@@ -88,8 +89,8 @@ class Trader():
         return {}
 
     def __load_m10_candles(self, time_series):
-        first_time = self.__str_to_datetime(time_series.iat[0][:19])
-        last_time = self.__str_to_datetime(time_series.iat[-1][:19])
+        first_time = converter.str_to_datetime(time_series.iat[0][:19])
+        last_time = converter.str_to_datetime(time_series.iat[-1][:19])
         # INFO: 実は、candlesのlastrow分のm10candlesがない
         return self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
 
@@ -717,7 +718,7 @@ class Trader():
         print('[Trader] skip: {}'.format(reason))
 
     def __add_candle_duration(self, start_string):
-        start_time = self.__str_to_datetime(start_string)
+        start_time = converter.str_to_datetime(start_string)
         granularity = self.get_granularity()
         time_unit = granularity[0]
         if time_unit == 'M':
@@ -730,10 +731,6 @@ class Trader():
         a_minute = datetime.timedelta(minutes=1)
         result = (start_time + candle_duration - a_minute).strftime(Trader.TIME_STRING_FMT)
         return result
-
-    def __str_to_datetime(self, time_string):
-        result_dt = datetime.datetime.strptime(time_string, Trader.TIME_STRING_FMT)
-        return result_dt
 
     def __split_df_by_200rows(self, d_frame):
         dfs = []
