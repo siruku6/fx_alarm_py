@@ -13,7 +13,7 @@ class RealTrader(Trader):
         print('[Trader] -------- start --------')
         self._instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
         self._static_spread = 0.0
-        super(RealTrader, self).__init__(operation=operation)
+        super(RealTrader, self).__init__(operation=operation, days=None)
 
     #
     # Public
@@ -21,7 +21,7 @@ class RealTrader(Trader):
     def apply_trading_rule(self):
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
-        candles['preconditions_allows'] = np.all(candles[self.get_entry_filter()], axis=1)
+        candles['preconditions_allows'] = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
 
         # self.__play_swing_trade()
         self.__play_scalping_trade(candles)
@@ -234,7 +234,7 @@ class RealTrader(Trader):
         if conditions_df.trend.iat[-1] is None:
             self._log_skip_reason('c. {}: "trend" is None !'.format(time))
 
-        columns = self.get_entry_filter()
+        columns = self.get_entry_rules('entry_filter')
         vals = conditions_df[columns].iloc[-1].values
         for reason, val in zip(columns, vals):
             if not val:
