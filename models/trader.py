@@ -67,7 +67,7 @@ class Trader():
         self._entry_rules = {
             'granularity': os.environ.get('GRANULARITY') or 'M5',
             # default-filter: かなりhigh performance
-            'entry_filter': ('in_the_band', 'stoc_allows', 'band_expansion')
+            'entry_filter': ['in_the_band', 'stoc_allows', 'band_expansion']
         }
 
     def __prepare_candles(self, operation):
