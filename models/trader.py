@@ -305,8 +305,11 @@ class Trader():
 
     def __generate_band_expansion_column(self, df_bands, shift_size=3):
         ''' band が拡張していれば True を格納して numpy配列 を生成 '''
-        bands_gap = df_bands['band_+2σ'] - df_bands['band_-2σ']
-        return bands_gap.shift(shift_size) < bands_gap
+        # OPTIMIZE: bandについては、1足前(shift(1))に広がっていることを条件にしてもよさそう
+        #   その場合、広がっていることの確定を待つことになるので、条件としては厳しくなる
+        bands_gap = (df_bands['band_+2σ'] - df_bands['band_-2σ'])  # .shift(1).fillna(0.0)
+        return bands_gap.rolling(window=shift_size).max() == bands_gap
+        # return bands_gap.shift(shift_size) < bands_gap
 
     def __generate_getting_steeper_column(self, df_trend):
         ''' 移動平均が勢いづいているか否かを判定 '''
