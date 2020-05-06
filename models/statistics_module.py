@@ -10,7 +10,12 @@ TRADE_RESULT_ITEMS = [
     'MaxDrawdown', 'Profit Factor', 'Recovery Factor'
 ]
 FILTER_ELEMENTS = [
-    'in_the_band', 'ma_gap_expanding', 'sma_follow_trend', 'stoc_allows', 'ema60_allows', 'band_expansion'
+    'in_the_band',
+    'ma_gap_expanding',
+    'sma_follow_trend',
+    'stoc_allows',
+    'ema60_allows',
+    'band_expansion'
 ]
 
 
