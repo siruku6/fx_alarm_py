@@ -13,6 +13,8 @@ class RealTrader(Trader):
         print('[Trader] -------- start --------')
         self._instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
         self._static_spread = 0.0
+        self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
+
         super(RealTrader, self).__init__(operation=operation, days=None)
 
     #
@@ -132,29 +134,28 @@ class RealTrader(Trader):
     # TODO: 実装はいったん終わり、検証中
     def __play_scalping_trade(self, candles):
         ''' 現在のレートにおいて、scalpingルールでトレード '''
-        last_index = len(self._indicators) - 1
-        close_price = candles.close.iat[-1]
-        last_time = candles.time.iat[-1]
-        last_indicators = self._indicators.iloc[-1]
-        trend = candles['trend'].iat[-1]
+        indicators = self._indicators
+        last_index = len(indicators) - 1
+        last_candle = candles.iloc[-1]
+        last_indicators = indicators.iloc[-1]
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
             if self.__since_last_loss() < datetime.timedelta(hours=1):
                 print('[Trader] skip: An hour has not passed since last loss.')
                 return
-            elif not candles['preconditions_allows'].iat[-1] or trend is None:
+            elif not candles['preconditions_allows'].iat[-1] or last_candle.trend is None:
                 self.__show_why_not_entry(candles)
                 return
 
             direction = scalping.repulsion_exist(
-                trend=trend, ema=last_indicators['10EMA'],
+                trend=last_candle.trend, previous_ema=indicators['10EMA'].iat[-2],
                 two_before_high=candles.high.iat[-3], previous_high=candles.high.iat[-2],
                 two_before_low=candles.low.iat[-3], previous_low=candles.low.iat[-2]
             )
             if direction is None:
                 print('[Trader] repulsion is not exist Time: {}, 10EMA: {}'.format(
-                    last_time, last_indicators['10EMA']
+                    last_candle.time, last_indicators['10EMA']
                 ))
                 return
 
@@ -180,13 +181,13 @@ class RealTrader(Trader):
 
             # plus_2sigma = last_indicators['band_+2σ']
             # minus_2sigma = last_indicators['band_-2σ']
-            # if scalping.is_exitable_by_bollinger(close_price, plus_2sigma, minus_2sigma):
+            # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
             stod = last_indicators['stoD_3']
             stosd = last_indicators['stoSD_3']
 
             if scalping.is_exitable_by_stoc_cross(self._position['type'], stod, stosd):
                 # self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
-                #     plus_2sigma, close_price, minus_2sigma
+                #     plus_2sigma, last_candle.close, minus_2sigma
                 # ))
                 self.__settle_position(reason='stoc crossed ! position_type: {}, stod: {}, stosd:{}'.format(
                     self._position['type'], stod, stosd

@@ -8,7 +8,7 @@ import pandas as pd
 def generate_repulsion_column(candles, ema):
     method_thrust_checker = np.frompyfunc(repulsion_exist, 6, 1)
     result = method_thrust_checker(
-        candles.trend, ema,
+        candles.trend, ema.shift(1),
         candles.high.shift(2), candles.high.shift(1),
         candles.low.shift(2), candles.low.shift(1)
     )
@@ -91,19 +91,19 @@ def set_stoploss_prices(types, indicators):
 # - - - - - - - - - - - - - - - - - - - - - - - -
 #                  Trade Logics
 # - - - - - - - - - - - - - - - - - - - - - - - -
-def repulsion_exist(trend, ema, two_before_high, previous_high, two_before_low, previous_low):
+def repulsion_exist(trend, previous_ema, two_before_high, previous_high, two_before_low, previous_low):
     ''' 1, 2本前の足から見て、trend方向にcrossしていればentry可のsignを出す '''
     if trend == 'bull':
         rising = two_before_high < previous_high
-        over_ema = ema < previous_high
-        under_ema_before = two_before_low < ema or previous_low < ema
-        if rising and over_ema and under_ema_before:
+        touch_ema = two_before_low < previous_ema or previous_low < previous_ema
+        leave_from_ema = previous_ema < previous_high
+        if rising and leave_from_ema and touch_ema:
             return 'long'
     elif trend == 'bear':
         falling = two_before_low > previous_low
-        under_ema = previous_low < ema
-        over_ema_before = ema < two_before_high or ema < previous_high
-        if falling and under_ema and over_ema_before:
+        touch_ema = previous_ema < two_before_high or previous_ema < previous_high
+        leave_from_ema = previous_ema > previous_low
+        if falling and leave_from_ema and touch_ema:
             return 'short'
     return None
 

@@ -1,5 +1,8 @@
 import unittest
 from unittest.mock import patch
+
+import pandas as pd
+
 import models
 import models.trader as trader
 import models.real_trader as real
@@ -46,6 +49,17 @@ class TestTrader(unittest.TestCase):
         with patch('models.trader.Trader.get_granularity', return_value='D'):
             result = self.__trader._Trader__add_candle_duration('2020-04-10 10:10:18')
             self.assertEqual(result, '2020-04-11 10:09:18')
+
+    def test__generate_band_expansion_column(self):
+        test_df = pd.DataFrame.from_dict([
+            {'band_+2σ': 110.0, 'band_-2σ': 108.5},
+            {'band_+2σ': 110.1, 'band_-2σ': 108.6},
+            {'band_+2σ': 110.0, 'band_-2σ': 108.3},
+            {'band_+2σ': 110.1, 'band_-2σ': 108.6}
+        ], orient='columns')
+        result = self.__real_trader._Trader__generate_band_expansion_column(df_bands=test_df)
+        self.assertTrue(result.iat[-2])
+        self.assertFalse(result.iat[-1])
 
 
 if __name__ == '__main__':
