@@ -149,7 +149,7 @@ class RealTrader(Trader):
                 return
 
             direction = scalping.repulsion_exist(
-                trend=last_candle.trend, ema=last_indicators['10EMA'],
+                trend=last_candle.trend, previous_ema=indicators['10EMA'].iat[-2],
                 two_before_high=candles.high.iat[-3], previous_high=candles.high.iat[-2],
                 two_before_low=candles.low.iat[-3], previous_low=candles.low.iat[-2]
             )
