@@ -26,7 +26,8 @@ class Analyzer():
             'stoD': None,
             'stoSD': None,
             'support': None,
-            'regist': None
+            'regist': None,
+            'D1stoc': None,
         }
 
         # Trendline
@@ -38,12 +39,13 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                       Driver                        #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def calc_indicators(self, candles, stoc_only=False):
+    def calc_indicators(self, candles, d1_candles=None, stoc_only=False):
         if candles is None or candles.empty:
             return {'error': '[ERROR] Analyzer: 分析対象データがありません'}
 
         self.__indicators['stoD'] = self.__calc_stod(candles=candles, window_size=5)
         self.__indicators['stoSD'] = self.__calc_stosd(candles=candles, window_size=5)
+        self.__prepare_d1_stoc(d1_candles)
         if stoc_only is True:
             return
 
@@ -78,6 +80,9 @@ class Analyzer():
             axis=1
         )
         return indicators
+
+    def get_d1_stoc(self):
+        return self.__indicators['D1stoc']
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Moving Average                     #
@@ -287,6 +292,14 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                    Stochastic                       #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def __prepare_d1_stoc(self, d1_candles):
+        tmp_df = d1_candles.copy()
+        tmp_df['D1stoD'] = self.__calc_stod(candles=d1_candles, window_size=5)
+        tmp_df['D1stoSD'] = self.__calc_stosd(candles=d1_candles, window_size=5)
+        tmp_df['stoD_over_stoSD'] = tmp_df['D1stoD'] > tmp_df['D1stoSD']
+
+        self.__indicators['D1stoc'] = tmp_df[['D1stoD', 'D1stoSD', 'stoD_over_stoSD']]
+
     # http://www.algo-fx-blog.com/stochastics-python/
     def __calc_stok(self, candles, window_size=5):
         ''' ストキャスの%Kを計算 '''

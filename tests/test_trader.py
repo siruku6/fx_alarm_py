@@ -8,6 +8,7 @@ import models.trader as trader
 import models.real_trader as real
 from tests.oanda_dummy_responses import dummy_open_trades
 
+
 class TestTrader(unittest.TestCase):
 
     @classmethod
@@ -34,9 +35,20 @@ class TestTrader(unittest.TestCase):
             pos = self.__real_trader._RealTrader__load_position()
 
         self.assertEqual(type(pos), dict, '戻り値は辞書型')
-        self.assertTrue('type' in  pos)
-        self.assertTrue('price' in  pos)
-        self.assertTrue('stoploss' in  pos)
+        self.assertTrue('type' in pos)
+        self.assertTrue('price' in pos)
+        self.assertTrue('stoploss' in pos)
+
+    def test__add_candle_duration(self):
+        with patch('models.trader.Trader.get_granularity', return_value='M5'):
+            result = self.__trader._Trader__add_candle_duration('2020-04-10 10:10:18')
+            self.assertEqual(result, '2020-04-10 10:14:18')
+        with patch('models.trader.Trader.get_granularity', return_value='H4'):
+            result = self.__trader._Trader__add_candle_duration('2020-04-10 10:10:18')
+            self.assertEqual(result, '2020-04-10 14:09:18')
+        with patch('models.trader.Trader.get_granularity', return_value='D'):
+            result = self.__trader._Trader__add_candle_duration('2020-04-10 10:10:18')
+            self.assertEqual(result, '2020-04-11 10:09:18')
 
     def test__generate_band_expansion_column(self):
         test_df = pd.DataFrame.from_dict([
