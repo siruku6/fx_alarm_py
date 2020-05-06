@@ -67,14 +67,11 @@ def __decide_exit_price(entry_direction, one_frame, edge_price=None):
     # elif is_exitable_by_bollinger(
     #         edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
     #     ):
-    #     if entry_direction == 'long':
-    #         exit_price = one_frame['band_+2σ']
-    #     else:
-    #         exit_price = one_frame['band_-2σ']
+    #     exit_price = one_frame['band_+2σ'] if entry_direction == 'long' else one_frame['band_-2σ']
     elif is_exitable_by_stoc_cross(
         position_type=entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']
     ):
-        exit_price = one_frame['close']
+        exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
     return exit_price
 
 
