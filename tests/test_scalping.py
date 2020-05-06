@@ -4,6 +4,7 @@ import pandas as pd
 # from unittest.mock import patch
 import models.trade_rules.scalping as scalping
 
+
 class TestScalping(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -16,37 +17,39 @@ class TestScalping(unittest.TestCase):
     def test_generate_up_repulsion_column(self):
         test_df = pd.DataFrame.from_dict(
             {
-                'emaNone':      [None,   101.0, 100.0],
-                'fall':         [None,   101.5,  98.0],
-                'up_repulsion': ['bull', 102.0, 100.0]
+                'emaNone': [None, 101.8, 100.0, None],
+                'fall': [None, 101.5, 98.0, 100.0],
+                'up_repulsion': ['bull', 102.0, 100.0, 101.0],
+                'current': ['bull', 102.1, 100.5, 101.5]
             },
-            columns=['trend', 'high', 'low'],
+            columns=['trend', 'high', 'low', 'ema'],
             orient='index'
         )
-        ema = np.array([None, 100.0, 101.0])
-        repulsion_series = scalping.generate_repulsion_column(candles=test_df, ema=ema)
+        repulsion_series = scalping.generate_repulsion_column(candles=test_df, ema=test_df.ema)
 
         self.assertEqual(repulsion_series[0], None)
         self.assertEqual(repulsion_series[1], None)
-        self.assertEqual(repulsion_series[2], 'long')
+        self.assertEqual(repulsion_series[2], None)
+        self.assertEqual(repulsion_series[3], 'long')
 
     def test_generate_down_repulsion_column(self):
         test_df = pd.DataFrame.from_dict(
             {
-                'emaNone':        [None,   101.0, 101.2],
-                'rise':           [None,   101.6, 101.1],
-                'down_repulsion': ['bear', 100.0,  99.0]
+                'emaNone': [None, 101.5, 101.2, None],
+                'rise': [None, 101.6, 101.4, 102.0],
+                'down_repulsion': ['bear', 101.3, 101.1, 101.5],
+                'current': ['bear', 101.0, 101.1, 101.3]
             },
-            columns=['trend', 'high', 'low'],
+            columns=['trend', 'high', 'low', 'ema'],
             orient='index'
         )
-        ema = np.array([None, 102.0, 101.5])
-        repulsion_series = scalping.generate_repulsion_column(candles=test_df, ema=ema)
+        repulsion_series = scalping.generate_repulsion_column(candles=test_df, ema=test_df.ema)
         # import pdb; pdb.set_trace()
 
         self.assertEqual(repulsion_series[0], None)
         self.assertEqual(repulsion_series[1], None)
-        self.assertEqual(repulsion_series[2], 'short')
+        self.assertEqual(repulsion_series[2], None)
+        self.assertEqual(repulsion_series[3], 'short')
 
     def test_is_exitable_by_stoc_cross(self):
         test_dicts = [
