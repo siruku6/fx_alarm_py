@@ -95,15 +95,15 @@ def repulsion_exist(trend, previous_ema, two_before_high, previous_high, two_bef
     ''' 1, 2本前の足から見て、trend方向にcrossしていればentry可のsignを出す '''
     if trend == 'bull':
         rising = two_before_high < previous_high
-        over_ema = previous_ema < previous_high
-        under_ema_before = two_before_low < previous_ema or previous_low < previous_ema
-        if rising and over_ema and under_ema_before:
+        touch_ema = two_before_low < previous_ema or previous_low < previous_ema
+        leave_from_ema = previous_ema < previous_high
+        if rising and leave_from_ema and touch_ema:
             return 'long'
     elif trend == 'bear':
         falling = two_before_low > previous_low
-        under_ema = previous_low < previous_ema
-        over_ema_before = previous_ema < two_before_high or previous_ema < previous_high
-        if falling and under_ema and over_ema_before:
+        touch_ema = previous_ema < two_before_high or previous_ema < previous_high
+        leave_from_ema = previous_ema > previous_low
+        if falling and leave_from_ema and touch_ema:
             return 'short'
     return None
 
