@@ -40,9 +40,7 @@ class Trader():
         if 'error' in result:
             self._log_skip_reason(result['error'])
             return
-        elif operation in ['live']:
-            self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
-        else:
+        elif operation not in ['live']:
             print(result['success'])
 
         self._indicators = self._ana.get_indicators()
@@ -68,10 +66,9 @@ class Trader():
         self._client = OandaPyClient(instrument=self.get_instrument())
         self._entry_rules = {
             'granularity': os.environ.get('GRANULARITY') or 'M5',
-            'entry_filter': []
+            # default-filter: かなりhigh performance
+            'entry_filter': ('in_the_band', 'stoc_allows', 'band_expansion')
         }
-        # TODO: 暫定でこれを使うことを推奨(コメントアウトすればdefault設定に戻る)
-        self.set_entry_rules('entry_filter', value=['in_the_band', 'stoc_allows', 'band_expansion'])  # かなりhigh performance
 
     def __prepare_candles(self, operation):
         if operation in ['backtest']:
@@ -167,12 +164,8 @@ class Trader():
                 self.set_entry_rules('entry_filter', value=statistics.FILTER_ELEMENTS)
             result = self.__backtest_swing(candles)
         elif rule == 'wait_close':
-            if self.get_entry_filter() == []:
-                self.set_entry_rules('entry_filter', value=['in_the_band'])
             result = self.__backtest_wait_close(candles)
         elif rule == 'scalping':
-            if self.get_entry_filter() == []:
-                self.set_entry_rules('entry_filter', value=['in_the_band'])
             result = self.__backtest_scalping(candles)
         else:
             print('Rule {} is not exist ...'.format(rule))

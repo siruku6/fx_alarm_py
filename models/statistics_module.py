@@ -9,9 +9,14 @@ TRADE_RESULT_ITEMS = [
     'Gross', 'GrossProfit', 'GrossLoss', 'MaxProfit', 'MaxLoss',
     'MaxDrawdown', 'Profit Factor', 'Recovery Factor'
 ]
-FILTER_ELEMENTS = [
-    'in_the_band', 'ma_gap_expanding', 'sma_follow_trend', 'stoc_allows', 'ema60_allows', 'band_expansion'
-]
+FILTER_ELEMENTS = (
+    'in_the_band',
+    'ma_gap_expanding',
+    'sma_follow_trend',
+    'stoc_allows',
+    'ema60_allows',
+    'band_expansion'
+)
 
 
 def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, spread, entry_filter):
