@@ -64,13 +64,11 @@ def __decide_exit_price(entry_direction, one_frame, edge_price=None):
     elif entry_direction == 'short' and one_frame['high'] > one_frame['possible_stoploss']:
         # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
         exit_price = one_frame['possible_stoploss']
-    # elif is_exitable_by_bollinger(
-    #         edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
-    #     ):
+    # elif is_exitable_by_bollinger(edge_price, one_frame['band_+2σ'], one_frame['band_-2σ']):
     #     exit_price = one_frame['band_+2σ'] if entry_direction == 'long' else one_frame['band_-2σ']
-    elif is_exitable_by_stoc_cross(
-        position_type=entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']
-    ):
+    # elif is_exitable_by_stoc_cross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
+    #     exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
+    elif is_exitable_by_d1_stoc_cross(entry_direction, d1_stod_greater=one_frame['stoD_over_stoSD']):
         exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
     return exit_price
 
@@ -116,6 +114,15 @@ def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss)
     return np.nan
 
 
+def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
+    bollinger_is_touched = spot_price < minus_2sigma or plus_2sigma < spot_price
+
+    if bollinger_is_touched:
+        return True
+    else:
+        return False
+
+
 def is_exitable_by_stoc_cross(position_type, stod, stosd):
     stoc_crossed = ((position_type == 'long') and (stod < stosd)) \
         or ((position_type == 'short') and (stod > stosd))
@@ -126,10 +133,11 @@ def is_exitable_by_stoc_cross(position_type, stod, stosd):
         return False
 
 
-def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
-    bollinger_is_touched = spot_price < minus_2sigma or plus_2sigma < spot_price
+def is_exitable_by_d1_stoc_cross(entry_direction, d1_stod_greater):
+    stoc_crossed = ((entry_direction == 'long') and not d1_stod_greater) \
+        or ((entry_direction == 'short') and d1_stod_greater)
 
-    if bollinger_is_touched:
+    if stoc_crossed:
         return True
     else:
         return False

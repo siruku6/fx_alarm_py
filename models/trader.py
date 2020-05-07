@@ -73,7 +73,7 @@ class Trader():
             candles = self.__request_custom_candles(days=self.get_entry_rules('days'))
         elif operation in ['live', 'forward_test']:
             self.tradeable = self._client.request_is_tradeable()['tradeable']
-            if not self.tradeable and operation != 'unittest' and operation == 'live':
+            if not self.tradeable and operation == 'live':
                 return {}
 
             candles = self._client.load_specify_length_candles(
@@ -533,12 +533,14 @@ class Trader():
         )
 
         # INFO: Entry / Exit のタイミングを確定
-        # import pdb; pdb.set_trace()
-        commit_factors_df = pd.merge(
+        base_df = pd.merge(
             candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price', 'possible_stoploss']],
             self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3']],
             left_index=True, right_index=True
         )
+        commit_factors_df = base_df.merge(self._ana.get_d1_stoc(), on='time', how='left')
+        commit_factors_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
+
         commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
         candles.loc[:, 'position'] = commited_df['position']
         candles.loc[:, 'exitable_price'] = commited_df['exitable_price']

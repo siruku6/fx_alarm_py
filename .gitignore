@@ -6,6 +6,7 @@ coverage.xml
 *.csv
 *.json
 *.zip
+htmlcov/*
 log/*.log
 tmp/images/*.png
 tmp/*.txt
