@@ -1,8 +1,8 @@
 def range_2nd_decimal(begin, end, step):
-    return list(calc(begin, end, step))
+    return list(__calc(begin, end, step))
 
 
-def calc(begin, end, step):
+def __calc(begin, end, step):
     decimal_num = begin
 
     while decimal_num < end:

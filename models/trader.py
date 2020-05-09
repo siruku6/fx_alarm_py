@@ -5,13 +5,13 @@ import pandas as pd
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
-from models.mathematics import range_2nd_decimal
+from models.tools.mathematics import range_2nd_decimal
 import models.trade_rules.base as rules
 import models.trade_rules.wait_close as wait_close
 import models.trade_rules.scalping as scalping
 import models.tools.format_converter as converter
-import models.interface as i_face
-import models.statistics_module as statistics
+import models.tools.interface as i_face
+import models.tools.statistics_module as statistics
 
 # pd.set_option('display.max_rows', 400)
 
