@@ -17,7 +17,7 @@ import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
 
 import models.tools.format_converter as converter
-from models.interface import select_from_dict
+from models.tools.interface import select_from_dict
 # from models.candles_csv_accessor import CandlesCsvAccessor
 from models.mongodb_accessor import MongodbAccessor
 
