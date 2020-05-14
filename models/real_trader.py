@@ -141,25 +141,11 @@ class RealTrader(Trader):
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
-            if self.__since_last_loss() < datetime.timedelta(hours=1):
-                print('[Trader] skip: An hour has not passed since last loss.')
-                return
-            elif not candles['preconditions_allows'].iat[-1] or last_candle.trend is None:
-                self.__show_why_not_entry(candles)
+            entryable_direction = self.__is_entryable(candles, last_candle, indicators, last_indicators)
+            if entryable_direction is False:
                 return
 
-            direction = scalping.repulsion_exist(
-                trend=last_candle.trend, previous_ema=indicators['10EMA'].iat[-2],
-                two_before_high=candles.high.iat[-3], previous_high=candles.high.iat[-2],
-                two_before_low=candles.low.iat[-3], previous_low=candles.low.iat[-2]
-            )
-            if direction is None:
-                print('[Trader] repulsion is not exist Time: {}, 10EMA: {}'.format(
-                    last_candle.time, last_indicators['10EMA']
-                ))
-                return
-
-            self._create_position(last_index, direction)
+            self._create_position(last_index, entryable_direction)
         else:
             # # INFO: 1.厳しいstoploss設定: is_exitable_by_bollinger 用
             # new_stop = rules.new_stoploss_price(
@@ -198,6 +184,27 @@ class RealTrader(Trader):
         ))
 
         return None
+
+    def __is_entryable(self, candles, last_candle, indicators, last_indicators):
+        if self.__since_last_loss() < datetime.timedelta(hours=1):
+            print('[Trader] skip: An hour has not passed since last loss.')
+            return False
+        elif not candles['preconditions_allows'].iat[-1] or last_candle.trend is None:
+            self.__show_why_not_entry(candles)
+            return False
+
+        direction = scalping.repulsion_exist(
+            trend=last_candle.trend, previous_ema=indicators['10EMA'].iat[-2],
+            two_before_high=candles.high.iat[-3], previous_high=candles.high.iat[-2],
+            two_before_low=candles.low.iat[-3], previous_low=candles.low.iat[-2]
+        )
+        if direction is None:
+            print('[Trader] repulsion is not exist Time: {}, 10EMA: {}'.format(
+                last_candle.time, last_indicators['10EMA']
+            ))
+            return False
+
+        return direction
 
     def __load_position(self):
         pos = {'type': 'none'}
