@@ -1,19 +1,15 @@
-from unittest import mock
-
 dummy_instruments = {
     'candles': [{
         'complete': True,
         'mid': {'c': '111.576', 'h': '111.576', 'l': '111.566', 'o': '111.573'},
         'time': '2019-04-28T21:00:00.000000000Z',
         'volume': 5
-    },
-    {
+    }, {
         'complete': True,
         'mid': {'c': '111.571', 'h': '111.571', 'l': '111.571', 'o': '111.571'},
         'time': '2019-04-28T21:05:00.000000000Z',
         'volume': 1
-    },
-    {
+    }, {
         'complete': True,
         'mid': {'c': '111.568', 'h': '111.590', 'l': '111.568', 'o': '111.574'},
         'time': '2019-04-28T21:10:00.000000000Z',
@@ -22,6 +18,7 @@ dummy_instruments = {
     'granularity': 'M5',
     'instrument': 'USD_JPY'
 }
+
 
 dummy_open_trades = [{
     'currentUnits': '-1',
@@ -47,7 +44,7 @@ dummy_open_trades = [{
         'type': 'STOP_LOSS'
     },
     'unrealizedPL': '-0.0090'
-},{
+}, {
     'clientExtensions': {'id': '200092793', 'tag': '0'},
     'currentUnits': '-100000',
     'financing': '0.0000',
@@ -85,6 +82,18 @@ dummy_open_trades = [{
     'unrealizedPL': '-5146.6640'
 }]
 
+
+def dummy_market_order_response(stoploss_price):
+    return {
+        'orderCreateTransaction': {
+            'instrument': 'dummy_instrument',
+            'units': '1000',
+            'time': '2020-01-13T12:34:56.912794035Z',  # 2019-04-18T14:05:59.912794035Z
+            'stopLossOnFill': str(stoploss_price)
+        }
+    }
+
+
 dummy_trades_list = {
     'lastTransactionID': '700',
     'trades': [{
@@ -111,8 +120,7 @@ dummy_trades_list = {
             'type': 'STOP_LOSS'
         },
         'unrealizedPL': '-0.0090'
-    },
-    {
+    }, {
         'averageClosePrice': '1.13024',
         'closeTime': '2019-04-16T14:28:10.296990535Z',
         'closingTransactionIDs': ['669'],
@@ -126,19 +134,20 @@ dummy_trades_list = {
         'price': '1.13025',
         'realizedPL': '-0.0011',
         'state': 'CLOSED',
-        'stopLossOrder': {'cancelledTime': '2019-04-16T14:28:10.296990535Z',
-        'cancellingTransactionID': '670',
-        'createTime': '2019-04-16T14:25:32.494525071Z',
-        'guaranteed': False,
-        'id': '666',
-        'price': '1.11000',
-        'state': 'CANCELLED',
-        'timeInForce': 'GTC',
-        'tradeID': '665',
-        'triggerCondition': 'DEFAULT',
-        'type': 'STOP_LOSS'}
-    },
-    {
+        'stopLossOrder': {
+            'cancelledTime': '2019-04-16T14:28:10.296990535Z',
+            'cancellingTransactionID': '670',
+            'createTime': '2019-04-16T14:25:32.494525071Z',
+            'guaranteed': False,
+            'id': '666',
+            'price': '1.11000',
+            'state': 'CANCELLED',
+            'timeInForce': 'GTC',
+            'tradeID': '665',
+            'triggerCondition': 'DEFAULT',
+            'type': 'STOP_LOSS'
+        }
+    }, {
         'averageClosePrice': '1.12448',
         'clientExtensions': {'id': '199996501', 'tag': '0'},
         'closeTime': '2019-04-18T13:27:37.640052514Z',
@@ -153,8 +162,7 @@ dummy_trades_list = {
         'price': '1.12237',
         'realizedPL': '2361.6386',
         'state': 'CLOSED'
-    },
-    {
+    }, {
         'averageClosePrice': '1.12490',
         'closeTime': '2019-04-18T14:00:48.397205325Z',
         'closingTransactionIDs': ['693'],
@@ -168,31 +176,34 @@ dummy_trades_list = {
         'price': '1.12237',
         'realizedPL': '0.2830',
         'state': 'CLOSED',
-        'stopLossOrder': {'cancelledTime': '2019-04-18T14:00:48.397205325Z',
-        'cancellingTransactionID': '695',
-        'createTime': '2019-04-18T13:44:14.358586969Z',
-        'guaranteed': False,
-        'id': '691',
-        'price': '1.11000',
-        'replacesOrderID': '675',
-        'state': 'CANCELLED',
-        'timeInForce': 'GTC',
-        'tradeID': '640',
-        'triggerCondition': 'DEFAULT',
-        'type': 'STOP_LOSS'},
-        'takeProfitOrder': {'cancelledTime': '2019-04-18T14:00:48.397205325Z',
-        'cancellingTransactionID': '694',
-        'createTime': '2019-04-18T13:44:14.358586969Z',
-        'id': '689',
-        'price': '1.30000',
-        'replacesOrderID': '673',
-        'state': 'CANCELLED',
-        'timeInForce': 'GTC',
-        'tradeID': '640',
-        'triggerCondition': 'DEFAULT',
-        'type': 'TAKE_PROFIT'}
-    },
-    {
+        'stopLossOrder': {
+            'cancelledTime': '2019-04-18T14:00:48.397205325Z',
+            'cancellingTransactionID': '695',
+            'createTime': '2019-04-18T13:44:14.358586969Z',
+            'guaranteed': False,
+            'id': '691',
+            'price': '1.11000',
+            'replacesOrderID': '675',
+            'state': 'CANCELLED',
+            'timeInForce': 'GTC',
+            'tradeID': '640',
+            'triggerCondition': 'DEFAULT',
+            'type': 'STOP_LOSS'
+        },
+        'takeProfitOrder': {
+            'cancelledTime': '2019-04-18T14:00:48.397205325Z',
+            'cancellingTransactionID': '694',
+            'createTime': '2019-04-18T13:44:14.358586969Z',
+            'id': '689',
+            'price': '1.30000',
+            'replacesOrderID': '673',
+            'state': 'CANCELLED',
+            'timeInForce': 'GTC',
+            'tradeID': '640',
+            'triggerCondition': 'DEFAULT',
+            'type': 'TAKE_PROFIT'
+        }
+    }, {
         'averageClosePrice': '1.14645',
         'clientExtensions': {'id': '199364199', 'tag': '0'},
         'closeTime': '2019-02-01T12:15:02.436718568Z',
