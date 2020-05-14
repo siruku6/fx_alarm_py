@@ -15,7 +15,7 @@ class RealTrader(Trader):
         self._static_spread = 0.0
         self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
 
-        super(RealTrader, self).__init__(operation=operation, days=None)
+        super(RealTrader, self).__init__(operation=operation, days=60)
 
     #
     # Public
