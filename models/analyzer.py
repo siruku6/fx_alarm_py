@@ -45,7 +45,8 @@ class Analyzer():
 
         self.__indicators['stoD'] = self.__calc_stod(candles=candles, window_size=5)
         self.__indicators['stoSD'] = self.__calc_stosd(candles=candles, window_size=5)
-        self.__indicators['D1stoc'] = self.__prepare_d1_stoc(d1_candles)
+        if d1_candles is not None:
+            self.__indicators['D1stoc'] = self.__prepare_d1_stoc(d1_candles)
         if stoc_only is True:
             return
 
