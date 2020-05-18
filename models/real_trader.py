@@ -24,7 +24,7 @@ class RealTrader(Trader):
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
         candles['preconditions_allows'] = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
-
+        candles = self._merge_d1_stoc(candles)
         # self.__play_swing_trade()
         self.__play_scalping_trade(candles)
 
@@ -140,6 +140,7 @@ class RealTrader(Trader):
         last_indicators = indicators.iloc[-1]
 
         self._set_position(self.__load_position())
+
         if self._position['type'] == 'none':
             self.__drive_entry_process(candles, last_candle, indicators, last_indicators)
         else:
@@ -200,8 +201,10 @@ class RealTrader(Trader):
         # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
         stod = last_indicators['stoD_3']
         stosd = last_indicators['stoSD_3']
+        stod_over_stosd_on_d1 = last_candle['stoD_over_stoSD']
 
-        if scalping.is_exitable_by_stoc_cross(self._position['type'], stod, stosd):
+        # if scalping.is_exitable_by_stoc_cross(self._position['type'], stod, stosd):
+        if scalping.is_exitable_by_d1_stoc_cross(self._position['type'], stod_over_stosd_on_d1):
             # self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
             #     plus_2sigma, last_candle.close, minus_2sigma
             # ))

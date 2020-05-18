@@ -206,6 +206,13 @@ class Trader():
     def _set_position(self, position_dict):
         self._position = position_dict
 
+    def _merge_d1_stoc(self, candles):
+        tmp_df = candles.merge(self._ana.get_d1_stoc(), on='time', how='left')
+        # tmp_df['D1stoD'].fillna(method='ffill', inplace=True)
+        # tmp_df['D1stoSD'].fillna(method='ffill', inplace=True)
+        tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
+        return tmp_df
+
     def _sma_run_along_trend(self, index, trend):
         sma = self._indicators['20SMA']
         if trend == 'bull' and sma[index - 1] < sma[index]:
@@ -538,8 +545,7 @@ class Trader():
             self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3']],
             left_index=True, right_index=True
         )
-        commit_factors_df = base_df.merge(self._ana.get_d1_stoc(), on='time', how='left')
-        commit_factors_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
+        commit_factors_df = self._merge_d1_stoc(base_df)
 
         commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
         candles.loc[:, 'position'] = commited_df['position']
