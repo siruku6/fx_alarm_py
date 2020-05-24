@@ -30,7 +30,9 @@ class Trader():
 
         self.__init_common_params(operation)
 
-        if self.__prepare_candles(operation).get('info') is not None:
+        result = self.__prepare_candles(operation).get('info')
+        if result is not None:
+            print(result)
             return
 
         self.__m10_candles = None
@@ -75,8 +77,8 @@ class Trader():
             candles = self.__request_custom_candles()
         elif operation in ['live', 'forward_test']:
             self.tradeable = self._client.request_is_tradeable()['tradeable']
-            if not self.tradeable and operation != 'unittest' and operation == 'live':
-                return {}
+            if not self.tradeable and operation == 'live':
+                return {'info': 'exit at once'}
 
             candles = self._client.load_specify_length_candles(
                 length=70, granularity=self.get_granularity()
