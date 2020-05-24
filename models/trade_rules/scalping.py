@@ -90,17 +90,21 @@ def set_stoploss_prices(types, indicators):
 # - - - - - - - - - - - - - - - - - - - - - - - -
 def repulsion_exist(trend, previous_ema, two_before_high, previous_high, two_before_low, previous_low):
     ''' 1, 2本前の足から見て、trend方向にcrossしていればentry可のsignを出す '''
+    # OPTIMIZE: rising, falling は試験的に削除したが、検証が必要
+    #   => 他の条件が整っていさえすれば、早いタイミングでエントリーするようになった
     if trend == 'bull':
-        rising = two_before_high < previous_high
+        # rising = two_before_high < previous_high
         touch_ema = two_before_low < previous_ema or previous_low < previous_ema
         leave_from_ema = previous_ema < previous_high
-        if rising and leave_from_ema and touch_ema:
+        # if rising and leave_from_ema and touch_ema:
+        if leave_from_ema and touch_ema:
             return 'long'
     elif trend == 'bear':
-        falling = two_before_low > previous_low
+        # falling = two_before_low > previous_low
         touch_ema = previous_ema < two_before_high or previous_ema < previous_high
         leave_from_ema = previous_ema > previous_low
-        if falling and leave_from_ema and touch_ema:
+        # if falling and leave_from_ema and touch_ema:
+        if leave_from_ema and touch_ema:
             return 'short'
     return None
 
