@@ -196,7 +196,7 @@ class FigureDrawer():
             plt.xticks(xticks_index, xticks_display, rotation=30, fontsize=6)
             plt.xlabel('Datetime (UTC+00:00)', fontsize=6)
 
-        png_filename = filename or 'figure'
+        png_filename = '{}_{}'.format(filename or 'figure', instrument)
         plt.savefig('tmp/images/{filename}_{num}_{date}.png'.format(
             filename=png_filename, num=num, date=datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d_%H%M%S')
         ))
