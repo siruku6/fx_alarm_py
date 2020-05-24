@@ -1,6 +1,8 @@
 import datetime
 import os
+from pprint import pprint
 import numpy as np
+
 from models.oanda_py_client import FXBase
 from models.trader import Trader
 import models.trade_rules.base as rules
@@ -62,7 +64,6 @@ class RealTrader(Trader):
 
     def __settle_position(self, reason=''):
         ''' ポジションをcloseする '''
-        from pprint import pprint
         pprint(self._client.request_closing_position(reason))
 
     #
@@ -135,7 +136,6 @@ class RealTrader(Trader):
     def __play_scalping_trade(self, candles):
         ''' 現在のレートにおいて、scalpingルールでトレード '''
         indicators = self._indicators
-        last_index = len(indicators) - 1
         last_candle = candles.iloc[-1]
         last_indicators = indicators.iloc[-1]
 
@@ -233,7 +233,8 @@ class RealTrader(Trader):
         candle_size = 100
         hist_df = self._client.request_transactions(candle_size)
         time_series = hist_df[hist_df.pl < 0]['time']
-        if time_series.empty: return datetime.timedelta(hours=99)
+        if time_series.empty:
+            return datetime.timedelta(hours=99)
 
         last_loss_time = time_series.iat[-1]
         last_loss_datetime = datetime.datetime.strptime(last_loss_time.replace('T', ' ')[:16], '%Y-%m-%d %H:%M')
