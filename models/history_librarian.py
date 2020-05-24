@@ -35,25 +35,14 @@ class Librarian():
         # preapre history_df: trade-history
         history_df = self.__client.request_transactions()
         history_df.loc[:, 'price'] = history_df.price.astype('float32')
-
         candles = self.__prepare_candles(log_oldest_time=history_df.iloc[0].time, granularity=granularity)
         print('[Libra] candles are loaded')
 
-        # TODO: dict_dst_switches は H4 candles でのみしか使えない形になっている
-        dict_dst_switches = self.__detect_dst_switches(candles)
-        history_df = self.__append_dst_column(history_df, dst_switches=dict_dst_switches)
-        history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
-        print('[Libra] trade_log is loaded')
+        history_df = self.__apply_dst_to_hist(candles, history_df, granularity)
 
         # prepare pl_and_gross
         pl_and_gross_df = self.__calc_pl_gross(history_df[['time', 'pl', 'dst']])
         history_df.drop('pl', axis=1, inplace=True)  # pl カラムは1つあれば十分
-
-        # make time smooth, adaptively to Daylight Saving Time
-        if granularity == 'M10':
-            history_df['time'] = [self.__convert_to_m10(time) for time in history_df.time]
-        elif granularity == 'H4':
-            history_df['time'] = [self.__convert_to_h4(time, dict_dst_switches) for time in history_df.time]
 
         result = self.__merge_hist_dfs(candles, history_df, pl_and_gross_df)
         FXBase.set_candles(result)
@@ -78,6 +67,20 @@ class Librarian():
         days_wanted = (today_dt - start_dt).days + 1
         result = self.__client.load_long_chart(days=days_wanted, granularity=granularity)
         return result['candles']
+
+    def __apply_dst_to_hist(self, candles, history_df, granularity):
+        # TODO: dict_dst_switches は H4 candles でのみしか使えない形になっている
+        dict_dst_switches = self.__detect_dst_switches(candles)
+        history_df = self.__append_dst_column(history_df, dst_switches=dict_dst_switches)
+        history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
+        print('[Libra] trade_log is loaded')
+
+        # make time smooth, adaptively to Daylight Saving Time
+        if granularity == 'M10':
+            history_df['time'] = [self.__convert_to_m10(time) for time in history_df.time]
+        elif granularity == 'H4':
+            history_df['time'] = [self.__convert_to_h4(time, dict_dst_switches) for time in history_df.time]
+        return history_df
 
     def __detect_dst_switches(self, candles):
         '''
