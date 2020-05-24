@@ -681,7 +681,7 @@ class Trader():
             result = drwr.create_png(
                 instrument=self.get_instrument(),
                 granularity=self.get_granularity(),
-                sr_time=sr_time, num=i
+                sr_time=sr_time, num=i, filename='test'
             )
 
             drwr.close_all()

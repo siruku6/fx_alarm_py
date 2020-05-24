@@ -242,7 +242,7 @@ class Librarian():
         drwr.draw_candles(start=-Librarian.DRAWABLE_ROWS, end=None)  # 200本より古い足は消している
         result = drwr.create_png(
             instrument=self.__instrument, granularity='real-trade',
-            sr_time=d_frame.time, num=0, filename='hist_figure'
+            sr_time=d_frame.time, num=0, filename='hist'
         )
         print(result['success'])
 
