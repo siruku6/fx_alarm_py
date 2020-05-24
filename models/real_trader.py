@@ -1,6 +1,8 @@
 import datetime
 import os
+from pprint import pprint
 import numpy as np
+
 from models.oanda_py_client import FXBase
 from models.trader import Trader
 import models.trade_rules.base as rules
@@ -62,7 +64,6 @@ class RealTrader(Trader):
 
     def __settle_position(self, reason=''):
         ''' ポジションをcloseする '''
-        from pprint import pprint
         pprint(self._client.request_closing_position(reason))
 
     #
@@ -135,57 +136,22 @@ class RealTrader(Trader):
     def __play_scalping_trade(self, candles):
         ''' 現在のレートにおいて、scalpingルールでトレード '''
         indicators = self._indicators
-        last_index = len(indicators) - 1
         last_candle = candles.iloc[-1]
         last_indicators = indicators.iloc[-1]
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
-            entryable_direction = self.__is_entryable(candles, last_candle, indicators, last_indicators)
-            if entryable_direction is False:
-                return
-
-            self._create_position(last_index, entryable_direction)
+            self.__drive_entry_process(candles, last_candle, indicators, last_indicators)
         else:
-            # # INFO: 1.厳しいstoploss設定: is_exitable_by_bollinger 用
-            # new_stop = rules.new_stoploss_price(
-            #     position_type=self._position['type'],
-            #     previous_low=candles.at[last_index - 1, 'low'],
-            #     previous_high=candles.at[last_index - 1, 'high'],
-            #     old_stoploss=self._position['stoploss'],
-            #     stoploss_buf=self._stoploss_buffer_pips,
-            #     static_spread=self._static_spread
-            # )
-            # INFO: 2. 緩いstoploss設定: is_exitable_by_stoc_cross 用
-            new_stop = scalping.new_stoploss_price(
-                position_type=self._position['type'], old_stoploss=self._position['stoploss'],
-                current_sup=last_indicators['support'], current_regist=last_indicators['regist']
-            )
-
-            if new_stop != self._position['stoploss'] and new_stop is not np.nan:
-                self._trail_stoploss(new_stop=new_stop)
-
-            # plus_2sigma = last_indicators['band_+2σ']
-            # minus_2sigma = last_indicators['band_-2σ']
-            # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
-            stod = last_indicators['stoD_3']
-            stosd = last_indicators['stoSD_3']
-
-            if scalping.is_exitable_by_stoc_cross(self._position['type'], stod, stosd):
-                # self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
-                #     plus_2sigma, last_candle.close, minus_2sigma
-                # ))
-                self.__settle_position(reason='stoc crossed ! position_type: {}, stod: {}, stosd:{}'.format(
-                    self._position['type'], stod, stosd
-                ))
+            new_stop = self.__drive_trail_process(candles, last_indicators)
+            self.__drive_exit_process(last_indicators, last_candle)
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
             self._position['type'], new_stop if 'new_stop' in locals() else '-', self._position.get('stoploss', None)
         ))
-
         return None
 
-    def __is_entryable(self, candles, last_candle, indicators, last_indicators):
+    def __drive_entry_process(self, candles, last_candle, indicators, last_indicators):
         if self.__since_last_loss() < datetime.timedelta(hours=1):
             print('[Trader] skip: An hour has not passed since last loss.')
             return False
@@ -204,7 +170,44 @@ class RealTrader(Trader):
             ))
             return False
 
+        last_index = len(indicators) - 1
+        self._create_position(last_index, direction)
         return direction
+
+    def __drive_trail_process(self, candles, last_indicators):
+        # # INFO: 1.厳しいstoploss設定: is_exitable_by_bollinger 用
+        # new_stop = rules.new_stoploss_price(
+        #     position_type=self._position['type'],
+        #     previous_low=candles.at[last_index - 1, 'low'],
+        #     previous_high=candles.at[last_index - 1, 'high'],
+        #     old_stoploss=self._position['stoploss'],
+        #     stoploss_buf=self._stoploss_buffer_pips,
+        #     static_spread=self._static_spread
+        # )
+        # INFO: 2. 緩いstoploss設定: is_exitable_by_stoc_cross 用
+        new_stop = scalping.new_stoploss_price(
+            position_type=self._position['type'], old_stoploss=self._position['stoploss'],
+            current_sup=last_indicators['support'], current_regist=last_indicators['regist']
+        )
+        if new_stop != self._position['stoploss'] and new_stop is not np.nan:
+            self._trail_stoploss(new_stop=new_stop)
+
+        return new_stop
+
+    def __drive_exit_process(self, last_indicators, last_candle):
+        # plus_2sigma = last_indicators['band_+2σ']
+        # minus_2sigma = last_indicators['band_-2σ']
+        # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
+        stod = last_indicators['stoD_3']
+        stosd = last_indicators['stoSD_3']
+
+        if scalping.is_exitable_by_stoc_cross(self._position['type'], stod, stosd):
+            # self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
+            #     plus_2sigma, last_candle.close, minus_2sigma
+            # ))
+            self.__settle_position(reason='stoc crossed ! position_type: {}, stod: {}, stosd:{}'.format(
+                self._position['type'], stod, stosd
+            ))
 
     def __load_position(self):
         pos = {'type': 'none'}
@@ -230,7 +233,8 @@ class RealTrader(Trader):
         candle_size = 100
         hist_df = self._client.request_transactions(candle_size)
         time_series = hist_df[hist_df.pl < 0]['time']
-        if time_series.empty: return datetime.timedelta(hours=99)
+        if time_series.empty:
+            return datetime.timedelta(hours=99)
 
         last_loss_time = time_series.iat[-1]
         last_loss_datetime = datetime.datetime.strptime(last_loss_time.replace('T', ' ')[:16], '%Y-%m-%d %H:%M')

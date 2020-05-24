@@ -337,6 +337,11 @@ class OandaPyClient():
         )
         response = self.__api_client.request(request_obj)
         LOGGER.info('[Client] close-position: %s \n REASON: %s', response, reason)
+        if response.get('orderFillTransaction') is None and response.get('orderCancelTransaction') is not None:
+            return 'The exit order was canceled because of {}'.format(
+                response.get('orderCancelTransaction').get('reason')
+            )
+
         response_for_display = {
             'price': response['orderFillTransaction'].get('price'),
             'profit': response['orderFillTransaction'].get('pl'),
