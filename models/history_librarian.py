@@ -36,12 +36,13 @@ class Librarian():
         history_df = self.__client.request_transactions()
         history_df.loc[:, 'price'] = history_df.price.astype('float32')
         candles = self.__prepare_candles(log_oldest_time=history_df.iloc[0].time, granularity=granularity)
-        print('[Libra] candles are loaded')
+        print('[Libra] candles and trade-logs are loaded')
 
-        history_df = self.__apply_dst_to_hist(candles, history_df, granularity)
+        history_df = self.__adjust_time_for_merging(candles, history_df, granularity)
+        history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
 
         # prepare pl_and_gross
-        pl_and_gross_df = self.__calc_pl_gross(history_df[['time', 'pl', 'dst']])
+        pl_and_gross_df = self.__calc_pl_gross(granularity, history_df[['time', 'pl', 'dst']])
         history_df.drop('pl', axis=1, inplace=True)  # pl カラムは1つあれば十分
 
         result = self.__merge_hist_dfs(candles, history_df, pl_and_gross_df)
@@ -66,18 +67,20 @@ class Librarian():
         result = self.__client.load_long_chart(days=days, granularity=granularity)
         return result['candles']
 
-    def __apply_dst_to_hist(self, candles, history_df, granularity):
-        # TODO: dict_dst_switches は H4 candles でのみしか使えない形になっている
-        dict_dst_switches = self.__detect_dst_switches(candles)
-        history_df = self.__append_dst_column(history_df, dst_switches=dict_dst_switches)
-        history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
-        print('[Libra] trade_log is loaded')
+    def __adjust_time_for_merging(self, candles, history_df, granularity):
+        dict_dst_switches = None
+        if granularity in ('H4'):
+            # TODO: dict_dst_switches は H4 candles でのみしか使えない形になっている
+            dict_dst_switches = self.__detect_dst_switches(candles)
+            history_df = self.__append_dst_column(history_df, dst_switches=dict_dst_switches)
+        else:
+            history_df.loc[:, 'dst'] = None
 
         # make time smooth, adaptively to Daylight Saving Time
-        if granularity == 'M10':
+        if granularity == 'M10':  # TODO: M15, 30 も対応できるようにする
             history_df['time'] = [self.__convert_to_m10(time) for time in history_df.time]
-        elif granularity == 'H4':
-            history_df['time'] = [self.__convert_to_h4(time, dict_dst_switches) for time in history_df.time]
+        elif granularity in ('H1', 'H4'):
+            history_df['time'] = [self.__convert_to(granularity, time, dict_dst_switches) for time in history_df.time]
         return history_df
 
     def __detect_dst_switches(self, candles):
@@ -121,21 +124,22 @@ class Librarian():
         m10_str = self.__truncate_sec(m10_str).replace('T', ' ')
         return m10_str
 
-    def __convert_to_h4(self, oanda_time, dict_dst_switches):
+    def __convert_to(self, granularity, oanda_time, dict_dst_switches=None):
         time_str = oanda_time.replace('T', ' ')
-
         # INFO: 12文字目までで hour まで取得できる
         time = datetime.datetime.strptime(time_str[:13], '%Y-%m-%d %H')
 
-        if self.__is_summer_time(time_str, dict_dst_switches):
-            # INFO: OandaのH4は [1,5,9,13,17,21] を取り得るので、それをはみ出した時間を切り捨て
-            minus = ((time.hour + 3) % 4)
-        else:
-            minus = ((time.hour + 2) % 4)
+        # INFO: adjust according to day light saving time
+        if granularity in ('H4'):
+            if self.__is_summer_time(time_str, dict_dst_switches):
+                # INFO: OandaのH4は [1,5,9,13,17,21] を取り得るので、それをはみ出した時間を切り捨て
+                minus = ((time.hour + 3) % 4)
+            else:
+                minus = ((time.hour + 2) % 4)
+            time -= datetime.timedelta(hours=minus)
 
-        time -= datetime.timedelta(hours=minus)
-        h4_str = time.strftime('%Y-%m-%d %H:%M:%S')
-        return h4_str
+        hour_str = time.strftime('%Y-%m-%d %H:%M:%S')
+        return hour_str
 
     def __is_summer_time(self, time_str, dict_dst_switches):
         for i, switch_dict in enumerate(dict_dst_switches):
@@ -168,21 +172,26 @@ class Librarian():
             .rename(columns={'price': 'stoploss'})
         return entry_df, close_df, trail_df
 
-    def __calc_pl_gross(self, original_df):
+    def __calc_pl_gross(self, granularity, original_df):
         '''
         Parameters
         ----------
+        granularity : string
         original_df : dataframe
             .index -> name: time, type: datetime
             .columns -> [
                 'pl', # integer
                 'dst' # boolean
             ]
+
         Returns
         ----------
         pl_gross_hist : dataframe
         '''
-        pl_gross_hist = self.__downsample_pl_df(pl_df=original_df)
+        if granularity in ('H4'):
+            pl_gross_hist = self.__downsample_pl_df(pl_df=original_df)
+        else:
+            pl_gross_hist = original_df.copy()
         pl_gross_hist.reset_index(inplace=True)
         pl_gross_hist.loc[:, 'time'] = pl_gross_hist['time'].astype({'time': str})
         pl_gross_hist.loc[:, 'gross'] = pl_gross_hist['pl'].cumsum()
