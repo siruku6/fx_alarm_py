@@ -59,13 +59,11 @@ class Librarian():
     # Private
     #
     def __prepare_candles(self, log_oldest_time, granularity):
-        dt_a_month_ago = pd.to_datetime(log_oldest_time) - datetime.timedelta(days=30)
-        starttime_str = dt_a_month_ago.strftime('%Y-%m-%d %H:%M:%S')
-
         today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
-        start_dt = datetime.datetime.strptime(starttime_str, '%Y-%m-%d %H:%M:%S')
-        days_wanted = (today_dt - start_dt).days + 1
-        result = self.__client.load_long_chart(days=days_wanted, granularity=granularity)
+        start_dt = pd.to_datetime(log_oldest_time) - datetime.timedelta(days=30)
+        days = (today_dt - start_dt).days + 1
+
+        result = self.__client.load_long_chart(days=days, granularity=granularity)
         return result['candles']
 
     def __apply_dst_to_hist(self, candles, history_df, granularity):
