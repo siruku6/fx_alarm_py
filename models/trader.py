@@ -42,7 +42,6 @@ class Trader():
         self.__m10_candles = None
         self.__prepare_d1_candles(days=days)
         self._client.request_current_price()
-        self._ana = Analyzer()
         result = self._ana.calc_indicators(FXBase.get_candles(), d1_candles=FXBase.get_d1_candles())
         if 'error' in result:
             self._log_skip_reason(result['error'])
@@ -62,6 +61,7 @@ class Trader():
 
     def __init_common_params(self, operation, days):
         self._operation = operation
+        self._ana = Analyzer()
         self._client = OandaPyClient(instrument=self.get_instrument())
         self._entry_rules = {
             'days': days,
