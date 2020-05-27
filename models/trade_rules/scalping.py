@@ -58,10 +58,13 @@ def commit_positions_by_loop(factor_dicts):
 
 
 def __decide_exit_price(entry_direction, one_frame, edge_price=None):
+    def stoploss_in_the_candle(candle):
+        return candle['low'] < candle['possible_stoploss'] < candle['high']
+
     exit_price = None
-    if entry_direction == 'long' and one_frame['low'] < one_frame['possible_stoploss']:
+    if entry_direction == 'long' and stoploss_in_the_candle(one_frame):
         exit_price = one_frame['possible_stoploss']
-    elif entry_direction == 'short' and one_frame['high'] > one_frame['possible_stoploss']:
+    elif entry_direction == 'short' and stoploss_in_the_candle(one_frame):
         # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
         exit_price = one_frame['possible_stoploss']
     # elif is_exitable_by_bollinger(
