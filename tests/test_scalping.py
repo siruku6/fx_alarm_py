@@ -81,5 +81,60 @@ class TestScalping(unittest.TestCase):
             self.assertEqual(is_exitable, row['exitable'])
 
 
+def test___decide_exit_price():
+    # - - - - - - - - - - - - - - - - - - - -
+    #             long entry
+    # - - - - - - - - - - - - - - - - - - - -
+    # 上昇中
+    entry_direction = 'long'
+    one_frame = {
+        'open': 100.0, 'high': 130.0, 'low': 90.0, 'close': 120.0,
+        'possible_stoploss': 80, 'band_+2σ': 140, 'band_-2σ': 85, 'stoD_3': 60, 'stoSD_3': 50
+    }
+    exit_price = scalping.__decide_exit_price(entry_direction, one_frame)
+    assert exit_price is None
+
+    # # 下降中
+    # one_frame = {
+    #     'open': 100.0, 'high': 130.0, 'low': 90.0, 'close': 120.0,
+    #     'possible_stoploss': 80, 'band_+2σ': 140, 'band_-2σ': 85, 'stoD_3': 60, 'stoSD_3': 50
+    # }
+    # exit_price = scalping.__decide_exit_price(entry_direction, one_frame)
+    # assert exit_price is None
+
+    # - - - - - - - - - - - - - - - - - - - -
+    #             short entry
+    # - - - - - - - - - - - - - - - - - - - -
+    # 下降中
+    entry_direction = 'short'
+    one_frame = {
+        'open': 100.0, 'high': 110.0, 'low': 80.0, 'close': 90.0,
+        'possible_stoploss': 120, 'band_+2σ': 130, 'band_-2σ': 70, 'stoD_3': 40, 'stoSD_3': 50
+    }
+    exit_price = scalping.__decide_exit_price(entry_direction, one_frame)
+    assert exit_price is None
+
+def test_new_stoploss_price():
+    case_dicts = [
+        {'position_type': 'long', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': np.nan},
+        {'position_type': 'long', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': 110.0},
+        {'position_type': 'long', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': 130.0},
+        {'position_type': 'short', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': np.nan},
+        {'position_type': 'short', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': 150.0},
+        {'position_type': 'short', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': 130.0}
+    ]
+    results = [
+        case_dicts[0]['current_sup'],
+        case_dicts[1]['current_sup'],
+        np.nan,
+        case_dicts[3]['current_regist'],
+        case_dicts[4]['current_regist'],
+        np.nan
+    ]
+    for case_dict, result in zip(case_dicts, results):
+        stoploss = scalping.new_stoploss_price(**case_dict)
+        assert stoploss == result or stoploss is result
+
+
 if __name__ == '__main__':
     unittest.main()
