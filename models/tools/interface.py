@@ -1,3 +1,16 @@
+def ask_granularity():
+    while True:
+        print('取得スパンは？(ex: M5): ', end='')
+        granularity = str(input())
+        if granularity[0] in 'MH' and granularity[1:].isdecimal():
+            break
+        elif granularity[0] in 'DW':
+            break
+        else:
+            print('Invalid granularity !\n')
+    return granularity
+
+
 def ask_true_or_false(msg):
     ''' True か False を選択させる '''
     while True:
@@ -38,7 +51,7 @@ def select_stoploss_digit():
 
 def select_from_dict(dictionary, menumsg='選択して下さい'):
     menu = '[interface] {}'.format(menumsg)
-    for i, (key, val) in enumerate(dictionary.items()):
+    for i, (key, _val) in enumerate(dictionary.items()):
         menu = '{menu} [{i}]: {key},'.format(menu=menu, i=i, key=key)
     menu = menu[0:-1] + ': '
 
