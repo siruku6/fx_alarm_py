@@ -50,11 +50,11 @@ class FigureDrawer():
     def draw_indicators(self, d_frame):
         ''' DateFrameからindicatorを描画 '''
         # self.draw_df_on_plt(d_frame.loc[:, ['60EMA']], FigureDrawer.PLOT_TYPE['dashed-line'], color='lime')
-        self.draw_df_on_plt(d_frame.loc[:, ['20SMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightskyblue')
-        self.draw_df_on_plt(d_frame.loc[:, ['10EMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='cyan')
-        self.draw_df_on_plt(d_frame.loc[:, ['band_+1σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='midnightblue')
+
+        simple_lines_df = d_frame[['20SMA', '10EMA', 'band_+1σ', 'band_+2σ']]
+        colors = ('lightskyblue', 'cyan', 'midnightblue', 'royalblue')
+        self.draw_df_on_plt(simple_lines_df, FigureDrawer.PLOT_TYPE['simple-line'], colors=colors)
         self.draw_df_on_plt(d_frame.loc[:, ['band_-1σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='midnightblue', nolabel='_nolegend_')
-        self.draw_df_on_plt(d_frame.loc[:, ['band_+2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue')
         self.draw_df_on_plt(d_frame.loc[:, ['band_-2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
         self.draw_df_on_plt(d_frame.loc[:, ['SAR']], FigureDrawer.PLOT_TYPE['dot'], color='purple')
         self.draw_df_on_plt(d_frame.loc[:, ['stoD_3']], FigureDrawer.PLOT_TYPE['simple-line'], color='turquoise', plt_id=2)
@@ -62,7 +62,7 @@ class FigureDrawer():
         # self.draw_df_on_plt(d_frame.loc[:, ['regist']], FigureDrawer.PLOT_TYPE['dot'], color='orangered', size=0.5)
         # self.draw_df_on_plt(d_frame.loc[:, ['support']], FigureDrawer.PLOT_TYPE['dot'], color='blue', size=0.5)
 
-    def draw_df_on_plt(self, d_frame, plot_type, color='black', size=1, nolabel=None, plt_id=1):
+    def draw_df_on_plt(self, d_frame, plot_type, color='black', colors=None, size=1, nolabel=None, plt_id=1):
         ''' DataFrameを受け取って、各columnを描画 '''
         # エラー防止処理
         if type(d_frame) is not pd.core.frame.DataFrame:
@@ -70,21 +70,23 @@ class FigureDrawer():
                 '[Drawer] draw_df_on_plt cannot draw from except DataFrame: {}'.format(type(d_frame))
             )
 
+        if colors is None:
+            colors = [color] * len(d_frame.columns)
         plt_axis = self.__axes[plt_id - 1]
         # 描画
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
         if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
-            for key, column in d_frame.iteritems():
-                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linewidth=0.5)
+            for (key, column), c in zip(d_frame.iteritems(), colors):
+                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=c, linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
-            for key, column in d_frame.iteritems():
-                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linestyle='dashed', linewidth=0.5)
+            for (key, column), c in zip(d_frame.iteritems(), colors):
+                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=c, linestyle='dashed', linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
-            for key, column in d_frame.iteritems():
-                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=size, alpha=0.5)
+            for (key, column), c in zip(d_frame.iteritems(), colors):
+                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=c, marker='d', s=size, alpha=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['bar']:
-            for key, column in d_frame.iteritems():
-                plt_axis.bar(x=np.arange(len(d_frame)), height=column.values, label=nolabel or key, width=0.6, color=color)
+            for (key, column), c in zip(d_frame.iteritems(), colors):
+                plt_axis.bar(x=np.arange(len(d_frame)), height=column.values, label=nolabel or key, width=0.6, color=c)
 
         return {'success': 'd_frameを描画'}
 
