@@ -552,6 +552,7 @@ class Trader():
         commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
         candles.loc[:, 'position'] = commited_df['position']
         candles.loc[:, 'exitable_price'] = commited_df['exitable_price']
+        candles.loc[:, 'exit_reason'] = commited_df['exit_reason']
         candles.loc[:, 'entry_price'] = candles['entryable_price']
 
     def __judge_entryable(self, candles):

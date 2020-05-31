@@ -44,7 +44,7 @@ def commit_positions_by_loop(factor_dicts):
             entry_direction = reset_next_position(index)
             continue
 
-        exit_price = __decide_exit_price(entry_direction, one_frame, edge_price)
+        exit_price, exit_reason = __decide_exit_price(entry_direction, one_frame, edge_price)
         # exit する理由がなければ continue
         if exit_price is None:
             continue
@@ -52,9 +52,10 @@ def commit_positions_by_loop(factor_dicts):
         # exit した場合のみここに到達する
         one_frame['exitable_price'] = exit_price
         one_frame['position'] = exit_type
+        one_frame['exit_reason'] = exit_reason
         entry_direction = reset_next_position(index)
 
-    return pd.DataFrame.from_dict(factor_dicts)[['position', 'exitable_price']]
+    return pd.DataFrame.from_dict(factor_dicts)[['position', 'exitable_price', 'exit_reason']]
 
 
 def __decide_exit_price(entry_direction, one_frame, edge_price=None):
@@ -62,11 +63,14 @@ def __decide_exit_price(entry_direction, one_frame, edge_price=None):
         return candle['low'] < candle['possible_stoploss'] < candle['high']
 
     exit_price = None
+    exit_reason = None
     if entry_direction == 'long' and stoploss_in_the_candle(one_frame):
         exit_price = one_frame['possible_stoploss']
+        exit_reason = 'Hit stoploss'
     elif entry_direction == 'short' and stoploss_in_the_candle(one_frame):
         # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
         exit_price = one_frame['possible_stoploss']
+        exit_reason = 'Hit stoploss'
     # elif is_exitable_by_bollinger(edge_price, one_frame['band_+2σ'], one_frame['band_-2σ']):
     #     exit_price = one_frame['band_+2σ'] if entry_direction == 'long' else one_frame['band_-2σ']
     # elif is_exitable_by_stoc_cross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
@@ -74,7 +78,8 @@ def __decide_exit_price(entry_direction, one_frame, edge_price=None):
     elif is_exitable_by_d1_stoc_cross(entry_direction, d1_stod_greater=one_frame['stoD_over_stoSD']) \
             and is_exitable_by_stoc_cross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
         exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
-    return exit_price
+        exit_reason = 'Stochastics of D1 and H4 are crossed'
+    return exit_price, exit_reason
 
 
 def set_stoploss_prices(types, indicators):

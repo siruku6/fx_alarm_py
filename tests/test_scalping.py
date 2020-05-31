@@ -92,7 +92,7 @@ def test___decide_exit_price():
         'possible_stoploss': 80, 'band_+2σ': 140, 'band_-2σ': 85,
         'stoD_3': 60, 'stoSD_3': 50, 'stoD_over_stoSD': True
     }
-    exit_price = scalping.__decide_exit_price(entry_direction, one_frame)
+    exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame)
     assert exit_price is None
 
     # # 下降中
@@ -100,7 +100,7 @@ def test___decide_exit_price():
     #     'open': 100.0, 'high': 130.0, 'low': 90.0, 'close': 120.0,
     #     'possible_stoploss': 80, 'band_+2σ': 140, 'band_-2σ': 85, 'stoD_3': 60, 'stoSD_3': 50
     # }
-    # exit_price = scalping.__decide_exit_price(entry_direction, one_frame)
+    # exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame)
     # assert exit_price is None
 
     # - - - - - - - - - - - - - - - - - - - -
@@ -113,7 +113,7 @@ def test___decide_exit_price():
         'possible_stoploss': 120, 'band_+2σ': 130, 'band_-2σ': 70,
         'stoD_3': 40, 'stoSD_3': 50, 'stoD_over_stoSD': False
     }
-    exit_price = scalping.__decide_exit_price(entry_direction, one_frame)
+    exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame)
     assert exit_price is None
 
 def test_new_stoploss_price():
