@@ -190,6 +190,8 @@ class Librarian():
         '''
         if granularity in ('H4'):
             pl_gross_hist = self.__downsample_pl_df(pl_df=original_df)
+        elif granularity in ('H1'):
+            pl_gross_hist = self.__resample_by('1H', original_df.copy())
         else:
             pl_gross_hist = original_df.copy()
         pl_gross_hist.reset_index(inplace=True)
@@ -199,16 +201,16 @@ class Librarian():
 
     def __downsample_pl_df(self, pl_df):
         # time 列の調節と resampling
-        hist_dst_on = self.__resample_by_h4(pl_df[pl_df['dst']].copy(), base=1)
-        hist_dst_off = self.__resample_by_h4(pl_df[pl_df['dst'] == False].copy(), base=2)
+        hist_dst_on = self.__resample_by('4H', pl_df[pl_df['dst']].copy(), base=1)
+        hist_dst_off = self.__resample_by('4H', pl_df[~pl_df['dst']].copy(), base=2)
         return hist_dst_on.append(hist_dst_off).sort_index()
 
-    def __resample_by_h4(self, target_df, base=0):
+    def __resample_by(self, rule, target_df, base=0):
         target_df.loc[:, 'time'] = pd.to_datetime(target_df['time'])
         if target_df.empty:
             return target_df[[]]
 
-        return target_df.resample('4H', on='time', base=base).sum()
+        return target_df.resample(rule, on='time', base=base).sum()
 
     def __draw_history(self):
         # INFO: データ準備
