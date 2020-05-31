@@ -246,8 +246,7 @@ class Librarian():
 
         # axis3
         d_frame['gross'].fillna(method='ffill', inplace=True)
-        drwr.draw_df_on_plt(d_frame[['gross']], drwr.PLOT_TYPE['bar'], color='orange', plt_id=3)
-        drwr.draw_df_on_plt(d_frame[['pl']], drwr.PLOT_TYPE['bar'], color='yellow', plt_id=3)
+        drwr.draw_df_on_plt(d_frame[['gross', 'pl']], drwr.PLOT_TYPE['bar'], colors=['orange', 'yellow'], plt_id=3)
 
         drwr.draw_candles(start=-Librarian.DRAWABLE_ROWS, end=None)  # 200本より古い足は消している
         result = drwr.create_png(
