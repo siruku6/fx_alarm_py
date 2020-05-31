@@ -209,9 +209,9 @@ class FigureDrawer():
         xticks_index = range(0, len(sr_time), xticks_size) if xticks_size > 0 else []
         return xticks_size, xticks_index
 
-    def __apply_default_style(self, plt, xticks_num, indexes, legend=True):
+    def __apply_default_style(self, plt_module, xticks_num, indexes, legend=True):
         if xticks_num > 0:
-            plt.xticks(indexes, [])
+            plt_module.xticks(indexes, [])
         if legend:
-            plt.legend(loc='upper left', fontsize=8)  # best だと結構右に来て邪魔
-        plt.grid(which='major', linestyle='dashed', linewidth=0.5)
+            plt_module.legend(loc='upper left', fontsize=8)  # best だと結構右に来て邪魔
+        plt_module.grid(which='major', linestyle='dashed', linewidth=0.5)
