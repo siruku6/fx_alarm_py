@@ -239,10 +239,10 @@ class Analyzer():
 
             # レートがparabolicに触れたときの処理
             if self.__parabolic_is_touched(
-                bull=bull,
-                current_parabo=last_sar,
-                current_h=current_high, current_l=current_low
-            ):
+                    bull=bull,
+                    current_parabo=last_sar,
+                    current_h=current_high, current_l=current_low
+                ):
                 temp_sar = extreme_price
                 acceleration_factor = Analyzer.INITIAL_AF
                 if bull:
