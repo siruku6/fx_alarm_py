@@ -43,8 +43,11 @@ class RealTrader(Trader):
             stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
         elif direction == 'short':
             sign = '-'
-            stoploss = candles.high[index - 1] + self._stoploss_buffer_pips + self._static_spread
+            stoploss = self.__stoploss_in_short(previous_high=candles.high[index - 1])
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
+
+    def __stoploss_in_short(self, previous_high):
+        return previous_high + self._stoploss_buffer_pips + self._static_spread
 
     def _trail_stoploss(self, new_stop):
         '''
@@ -121,7 +124,7 @@ class RealTrader(Trader):
                 self.__settle_position()
 
         elif position_type == 'short':
-            possible_stoploss = candles.high[index - 1] + self._stoploss_buffer_pips + self._static_spread
+            possible_stoploss = self.__stoploss_in_short(previous_high=candles.high[index - 1])
             if possible_stoploss < stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(new_stop=possible_stoploss)
