@@ -51,7 +51,7 @@ def select_stoploss_digit():
 
 def select_from_dict(dictionary, menumsg='選択して下さい'):
     menu = '[interface] {}'.format(menumsg)
-    for i, (key, val) in enumerate(dictionary.items()):
+    for i, (key, _val) in enumerate(dictionary.items()):
         menu = '{menu} [{i}]: {key},'.format(menu=menu, i=i, key=key)
     menu = menu[0:-1] + ': '
 

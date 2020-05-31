@@ -24,7 +24,7 @@ class Trader():
     #                 Constructor
     # - - - - - - - - - - - - - - - - - - - - - - - -
     def __init__(self, operation='backtest', days=None):
-        if operation in ['backtest']:
+        if operation in ('backtest'):
             result = OandaPyClient.select_instrument()
             self._instrument = result[0]
             self._static_spread = result[1]['spread']
@@ -46,7 +46,7 @@ class Trader():
         if 'error' in result:
             self._log_skip_reason(result['error'])
             return
-        elif operation not in ['live']:
+        elif operation not in ('live'):
             print(result['success'])
 
         self._indicators = self._ana.get_indicators()
@@ -71,9 +71,9 @@ class Trader():
         }
 
     def __prepare_candles(self, operation):
-        if operation in ['backtest']:
+        if operation in ('backtest'):
             candles = self.__request_custom_candles(days=self.get_entry_rules('days'))
-        elif operation in ['live', 'forward_test']:
+        elif operation in ('live', 'forward_test'):
             self.tradeable = self._client.request_is_tradeable()['tradeable']
             if not self.tradeable and operation == 'live':
                 return {'info': 'exit at once'}
