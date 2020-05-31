@@ -115,6 +115,7 @@ class Librarian():
                 target_row_index = (dst_switching_point['time'] <= hist_df['time']) \
                     & (hist_df['time'] < dst_switches[i + 1]['time'])
             hist_df.loc[target_row_index, 'dst'] = is_dst
+            hist_df['dst'] = hist_df['dst'].astype(bool)
 
         return hist_df
 
@@ -161,7 +162,17 @@ class Librarian():
         result = pd.merge(result, trail_df, on='time', how='outer', right_index=True)
         result = pd.merge(result, pl_and_gross_df, on='time', how='left').drop_duplicates(['time'])
         result['units'] = result.units.fillna('0').astype(int)
+        result['stoploss'] = self.__fill_stoploss(result[['entry_price', 'close_price', 'stoploss']].copy())
         return result
+
+    def __fill_stoploss(self, hist_df):
+        ''' entry ~ close の間の stoploss を補完 '''
+        hist_df.loc[pd.notna(hist_df['close_price'].shift(1)), 'entried'] = False
+        hist_df.loc[pd.notna(hist_df['entry_price']), 'entried'] = True
+        hist_df['entried'] = hist_df['entried'].fillna(method='ffill') \
+                                               .fillna(False)
+        hist_df['stoploss'] = hist_df.loc[hist_df['entried'], 'stoploss'].fillna(method='ffill')
+        return hist_df.loc[:, 'stoploss']
 
     def __divide_history_by_type(self, d_frame):
         entry_df = d_frame.dropna(subset=['tradeOpened'])[['price', 'time', 'units']] \
