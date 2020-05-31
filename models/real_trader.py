@@ -173,8 +173,9 @@ class RealTrader(Trader):
                 last_candle.time, last_indicators['10EMA']
             ))
             return False
-        if self.__drive_exit_process(direction, last_indicators, last_candle, preliminary=True):
-            return False
+        # INFO: exitサインが出ているときにエントリーさせない場合はコメントインする
+        # if self.__drive_exit_process(direction, last_indicators, last_candle, preliminary=True):
+        #     return False
 
         last_index = len(indicators) - 1
         self._create_position(last_index, direction)
@@ -209,7 +210,8 @@ class RealTrader(Trader):
         stod_over_stosd_on_d1 = last_candle['stoD_over_stoSD']
 
         # if scalping.is_exitable_by_stoc_cross(position_type, stod, stosd):
-        if scalping.is_exitable_by_d1_stoc_cross(position_type, stod_over_stosd_on_d1):
+        if scalping.is_exitable_by_d1_stoc_cross(position_type, stod_over_stosd_on_d1) \
+                and scalping.is_exitable_by_stoc_cross(position_type, stod, stosd):
             # self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
             #     plus_2sigma, last_candle.close, minus_2sigma
             # ))

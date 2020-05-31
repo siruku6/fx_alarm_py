@@ -71,7 +71,8 @@ def __decide_exit_price(entry_direction, one_frame, edge_price=None):
     #     exit_price = one_frame['band_+2σ'] if entry_direction == 'long' else one_frame['band_-2σ']
     # elif is_exitable_by_stoc_cross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
     #     exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
-    elif is_exitable_by_d1_stoc_cross(entry_direction, d1_stod_greater=one_frame['stoD_over_stoSD']):
+    elif is_exitable_by_d1_stoc_cross(entry_direction, d1_stod_greater=one_frame['stoD_over_stoSD']) \
+            and is_exitable_by_stoc_cross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
         exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
     return exit_price
 
