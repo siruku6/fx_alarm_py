@@ -93,7 +93,7 @@ class OandaPyClient():
         instrument = select_from_dict(instruments, menumsg='通貨ペアは？\n')
         return instrument, instruments[instrument]
 
-    def __init__(self, instrument=None, environment=None):
+    def __init__(self, instrument=None, environment=None, test=False):
         ''' 固定パラメータの設定 '''
         self.__api_client = API(
             access_token=os.environ['OANDA_ACCESS_TOKEN'],
@@ -104,6 +104,7 @@ class OandaPyClient():
         self.__units = os.environ.get('UNITS') or '1'
         self.__trade_ids = []
         self.__last_transaction_id = None
+        self.__test = test
 
     #
     # Public
@@ -146,6 +147,7 @@ class OandaPyClient():
         return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
 
     def load_or_query_candles(self, start_time, end_time, granularity):
+        ''' (10分足用) 取得済みであれば mongodb から candles を取得してくれる '''
         # candles_accessor = CandlesCsvAccessor(granularity=granularity, currency_pare=self.__instrument)
         candles_accessor = MongodbAccessor(db_name='candles')
         stocked_first_time, stocked_last_time = candles_accessor.edge_datetimes_of(currency_pare=self.__instrument)
@@ -204,38 +206,6 @@ class OandaPyClient():
             next_endtime += requestable_duration
 
         return {'success': '[Client] APIリクエスト成功', 'candles': candles}
-
-    # def request_latest_candles(self, target_datetime, granularity='M10', period_of_time='D'):
-    #     end_datetime = converter.str_to_datetime(target_datetime)
-    #     time_unit = period_of_time[0]
-    #     if time_unit == 'M':
-    #         start_datetime = end_datetime - datetime.timedelta(minutes=int(period_of_time[1:]))
-    #     elif time_unit == 'H':
-    #         start_datetime = end_datetime - datetime.timedelta(hours=int(period_of_time[1:]))
-    #     elif time_unit == 'D':
-    #         start_datetime = end_datetime - datetime.timedelta(days=1)
-
-    #     try:
-    #         response = self.__request_oanda_instruments(
-    #             start=converter.to_oanda_format(start_datetime),
-    #             end=converter.to_oanda_format(end_datetime),
-    #             granularity=granularity
-    #         )
-    #     except V20Error as error:
-    #         print('[request_latest_candles] V20Error: {},\nstart: {},\nend: {}'.format(
-    #             error, start_datetime, end_datetime
-    #         ))
-    #         # INFO: 保険として、1分前のデータの再取得を試みる
-    #         start_datetime -= datetime.timedelta(minutes=1)
-    #         end_datetime -= datetime.timedelta(minutes=1)
-    #         response = self.__request_oanda_instruments(
-    #             start=converter.to_oanda_format(start_datetime),
-    #             end=converter.to_oanda_format(end_datetime),
-    #             granularity=granularity
-    #         )
-
-    #     candles = self.__transform_to_candle_chart(response)
-    #     return candles
 
     # INFO: request-something (excluding candles)
     def request_is_tradeable(self):
@@ -318,6 +288,10 @@ class OandaPyClient():
             }
         }
 
+        if self.__test:
+            print('[Test] market_order: {}'.format(data))
+            return data
+
         request_obj = orders.OrderCreate(
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
@@ -339,6 +313,9 @@ class OandaPyClient():
     def request_closing_position(self, reason=''):
         ''' ポジションをclose '''
         if self.__trade_ids == []: return {'error': '[Client] closeすべきポジションが見つかりませんでした。'}
+        if self.__test:
+            print('[Test] close_order')
+            return
 
         target_trade_id = self.__trade_ids[0]
         # data = {'units': self.__units}
@@ -369,6 +346,10 @@ class OandaPyClient():
             # 'takeProfit': {'timeInForce': 'GTC', 'price': '1.3'},
             'stopLoss': {'timeInForce': 'GTC', 'price': str(stoploss_price)[:7]}
         }
+        if self.__test:
+            print('[Test] trailing: {}'.format(data))
+            return
+
         request_obj = trades.TradeCRCDO(
             accountID=os.environ['OANDA_ACCOUNT_ID'],
             tradeID=self.__trade_ids[0],

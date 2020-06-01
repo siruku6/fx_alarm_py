@@ -20,21 +20,32 @@ class Trader():
     MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
-    # - - - - - - - - - - - - - - - - - - - - - - - -
-    #                 Constructor
-    # - - - - - - - - - - - - - - - - - - - - - - - -
     def __init__(self, operation='backtest', days=None):
-        if operation in ('backtest',):
+        '''
+        Parameters
+        ----------
+        operation : str
+            'backtest', 'forward_test' or 'live'
+
+        Returns
+        -------
+        None
+        '''
+        need_request = True
+        if operation in ('backtest', 'forward_test'):
             result = OandaPyClient.select_instrument()
             self._instrument = result[0]
             self._static_spread = result[1]['spread']
             self.__set_drawing_option()
             self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
             days = i_face.ask_number(msg='何日分のデータを取得する？(半角数字): ', limit=365)
+            need_request = i_face.ask_true_or_false(
+                msg='[Trader] Which do you use ?  [1]: current_candles, [2]: static_candles :'
+            )
 
         self.__init_common_params(operation, days=days)
 
-        result = self.__prepare_candles(operation).get('info')
+        result = self.__prepare_candles(operation, need_request).get('info')
         if result is not None:
             print(result)
             return
@@ -62,7 +73,7 @@ class Trader():
     def __init_common_params(self, operation, days):
         self._operation = operation
         self._ana = Analyzer()
-        self._client = OandaPyClient(instrument=self.get_instrument())
+        self._client = OandaPyClient(instrument=self.get_instrument(), test=operation in ('backtest', 'forward_test'))
         self._entry_rules = {
             'days': days,
             'granularity': os.environ.get('GRANULARITY') or 'M5',
@@ -70,8 +81,10 @@ class Trader():
             'entry_filter': ['in_the_band', 'stoc_allows', 'band_expansion']
         }
 
-    def __prepare_candles(self, operation):
-        if operation in ('backtest',):
+    def __prepare_candles(self, operation, need_request=True):
+        if need_request is False:
+            candles = pd.read_csv('./tmp/csvs/h4_candles_for_test.csv')
+        elif operation in ('backtest',):
             candles = self.__request_custom_candles(days=self.get_entry_rules('days'))
         elif operation in ('live', 'forward_test'):
             self.tradeable = self._client.request_is_tradeable()['tradeable']
