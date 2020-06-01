@@ -3,7 +3,6 @@ from unittest.mock import patch
 
 import pandas as pd
 
-import models
 import models.trader as trader
 import models.real_trader as real
 from tests.oanda_dummy_responses import dummy_open_trades
@@ -40,13 +39,13 @@ class TestTrader(unittest.TestCase):
         self.assertTrue('stoploss' in pos)
 
     def test__add_candle_duration(self):
-        with patch('models.trader.Trader.get_granularity', return_value='M5'):
+        with patch('models.trader.Trader.get_entry_rules', return_value='M5'):
             result = self.__trader._Trader__add_candle_duration('2020-04-10 10:10:18')
             self.assertEqual(result, '2020-04-10 10:14:18')
-        with patch('models.trader.Trader.get_granularity', return_value='H4'):
+        with patch('models.trader.Trader.get_entry_rules', return_value='H4'):
             result = self.__trader._Trader__add_candle_duration('2020-04-10 10:10:18')
             self.assertEqual(result, '2020-04-10 14:09:18')
-        with patch('models.trader.Trader.get_granularity', return_value='D'):
+        with patch('models.trader.Trader.get_entry_rules', return_value='D'):
             result = self.__trader._Trader__add_candle_duration('2020-04-10 10:10:18')
             self.assertEqual(result, '2020-04-11 10:09:18')
 

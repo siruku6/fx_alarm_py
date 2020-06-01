@@ -53,7 +53,7 @@ class Trader():
         self.__m10_candles = None
         self.__prepare_long_span_candles(days=days)
         self._client.request_current_price()
-        result = self._ana.calc_indicators(FXBase.get_candles(), d1_candles=FXBase.get_d1_candles())
+        result = self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
         if 'error' in result:
             self._log_skip_reason(result['error'])
             return
@@ -218,10 +218,10 @@ class Trader():
     def _set_position(self, position_dict):
         self._position = position_dict
 
-    def _merge_d1_stoc(self, candles):
-        tmp_df = candles.merge(self._ana.get_d1_stoc(), on='time', how='left')
-        # tmp_df['D1stoD'].fillna(method='ffill', inplace=True)
-        # tmp_df['D1stoSD'].fillna(method='ffill', inplace=True)
+    def _merge_long_stoc(self, candles):
+        tmp_df = candles.merge(self._ana.get_long_stoc(), on='time', how='left')
+        # tmp_df['long_stoD'].fillna(method='ffill', inplace=True)
+        # tmp_df['long_stoSD'].fillna(method='ffill', inplace=True)
         tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
         return tmp_df
 
@@ -433,7 +433,7 @@ class Trader():
         result = self._client.load_long_chart(days=days, granularity='D')['candles']
         result['time'] = pd.to_datetime(result['time'])
         result.set_index('time', inplace=True)
-        FXBase.set_d1_candles(result)
+        FXBase.set_long_span_candles(result)
         # result.resample('4H').ffill() # upsamplingしようとしたがいらなかった。
 
     def __backtest_swing(self, candles):
@@ -546,7 +546,7 @@ class Trader():
         #     long_indexes=long_direction_index,
         #     short_indexes=short_direction_index
         # )
-        # INFO: 2. 緩いstoploss設定: is_exitable_by_stoc_cross 用
+        # INFO: 2. 緩いstoploss設定: exitable_by_stoccross 用
         candles.loc[:, 'possible_stoploss'] = scalping.set_stoploss_prices(
             candles.thrust.fillna(method='ffill'), self._indicators
         )
@@ -557,7 +557,7 @@ class Trader():
             self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3']],
             left_index=True, right_index=True
         )
-        commit_factors_df = self._merge_d1_stoc(base_df)
+        commit_factors_df = self._merge_long_stoc(base_df)
 
         commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
         candles.loc[:, 'position'] = commited_df['position']

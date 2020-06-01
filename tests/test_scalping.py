@@ -51,7 +51,7 @@ class TestScalping(unittest.TestCase):
         self.assertEqual(repulsion_series[2], None)
         self.assertEqual(repulsion_series[3], 'short')
 
-    def test_is_exitable_by_stoc_cross(self):
+    def test_exitable_by_stoccross(self):
         test_dicts = [
             {'position_type': 'long', 'stod': 40, 'stosd': 90, 'exitable': True},
             {'position_type': 'long', 'stod': 70, 'stosd': 80, 'exitable': True},
@@ -61,7 +61,7 @@ class TestScalping(unittest.TestCase):
             {'position_type': 'short', 'stod': 70, 'stosd': 80, 'exitable': False}
         ]
         for row in test_dicts:
-            is_exitable = scalping.is_exitable_by_stoc_cross(
+            is_exitable = scalping.exitable_by_stoccross(
                 position_type=row['position_type'],
                 stod=row['stod'],
                 stosd=row['stosd']

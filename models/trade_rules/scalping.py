@@ -73,12 +73,12 @@ def __decide_exit_price(entry_direction, one_frame, edge_price=None):
         exit_reason = 'Hit stoploss'
     # elif is_exitable_by_bollinger(edge_price, one_frame['band_+2σ'], one_frame['band_-2σ']):
     #     exit_price = one_frame['band_+2σ'] if entry_direction == 'long' else one_frame['band_-2σ']
-    # elif is_exitable_by_stoc_cross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
+    # elif exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
     #     exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
-    elif is_exitable_by_d1_stoc_cross(entry_direction, d1_stod_greater=one_frame['stoD_over_stoSD']) \
-            and is_exitable_by_stoc_cross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
+    elif exitable_by_long_stoccross(entry_direction, long_stod_greater=one_frame['stoD_over_stoSD']) \
+            and exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
         exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
-        exit_reason = 'Stochastics of D1 and H4 are crossed'
+        exit_reason = 'Stochastics of both long and target-span are crossed'
     return exit_price, exit_reason
 
 
@@ -136,7 +136,7 @@ def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
         return False
 
 
-def is_exitable_by_stoc_cross(position_type, stod, stosd):
+def exitable_by_stoccross(position_type, stod, stosd):
     stoc_crossed = ((position_type == 'long') and (stod < stosd)) \
         or ((position_type == 'short') and (stod > stosd))
 
@@ -146,9 +146,9 @@ def is_exitable_by_stoc_cross(position_type, stod, stosd):
         return False
 
 
-def is_exitable_by_d1_stoc_cross(entry_direction, d1_stod_greater):
-    stoc_crossed = ((entry_direction == 'long') and not d1_stod_greater) \
-        or ((entry_direction == 'short') and d1_stod_greater)
+def exitable_by_long_stoccross(entry_direction, long_stod_greater):
+    stoc_crossed = ((entry_direction == 'long') and not long_stod_greater) \
+        or ((entry_direction == 'short') and long_stod_greater)
 
     if stoc_crossed:
         return True

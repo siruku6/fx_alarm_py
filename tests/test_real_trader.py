@@ -23,7 +23,7 @@ def dummy_candles():
 
 
 def test_not_entry(real_trader_client, dummy_candles):
-    real_trader_client._ana.calc_indicators(dummy_candles, d1_candles=dummy_candles)
+    real_trader_client._ana.calc_indicators(dummy_candles, long_span_candles=dummy_candles)
     indicators = real_trader_client._ana.get_indicators()
     no_time_since_lastloss = datetime.timedelta(hours=0)
     two_hours_since_lastloss = datetime.timedelta(hours=2)

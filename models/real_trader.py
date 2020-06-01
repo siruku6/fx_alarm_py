@@ -26,7 +26,7 @@ class RealTrader(Trader):
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
         candles['preconditions_allows'] = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
-        candles = self._merge_d1_stoc(candles)
+        candles = self._merge_long_stoc(candles)
         # self.__play_swing_trade()
         self.__play_scalping_trade(candles)
 
@@ -191,7 +191,7 @@ class RealTrader(Trader):
         #     stoploss_buf=self._stoploss_buffer_pips,
         #     static_spread=self._static_spread
         # )
-        # INFO: 2. 緩いstoploss設定: is_exitable_by_stoc_cross 用
+        # INFO: 2. 緩いstoploss設定: exitable_by_stoccross 用
         new_stop = scalping.new_stoploss_price(
             position_type=self._position['type'], old_stoploss=self._position.get('stoploss', np.nan),
             current_sup=last_indicators['support'], current_regist=last_indicators['regist']
@@ -207,11 +207,11 @@ class RealTrader(Trader):
         # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
         stod = last_indicators['stoD_3']
         stosd = last_indicators['stoSD_3']
-        stod_over_stosd_on_d1 = last_candle['stoD_over_stoSD']
+        stod_over_stosd_on_long = last_candle['stoD_over_stoSD']
 
-        # if scalping.is_exitable_by_stoc_cross(position_type, stod, stosd):
-        if scalping.is_exitable_by_d1_stoc_cross(position_type, stod_over_stosd_on_d1) \
-                and scalping.is_exitable_by_stoc_cross(position_type, stod, stosd):
+        # if scalping.exitable_by_stoccross(position_type, stod, stosd):
+        if scalping.exitable_by_long_stoccross(position_type, stod_over_stosd_on_long) \
+                and scalping.exitable_by_stoccross(position_type, stod, stosd):
             # self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
             #     plus_2sigma, last_candle.close, minus_2sigma
             # ))
