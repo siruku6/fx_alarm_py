@@ -51,7 +51,7 @@ class Trader():
             return
 
         self.__m10_candles = None
-        self.__prepare_d1_candles(days=days)
+        self.__prepare_long_span_candles(days=days)
         self._client.request_current_price()
         result = self._ana.calc_indicators(FXBase.get_candles(), d1_candles=FXBase.get_d1_candles())
         if 'error' in result:
@@ -92,7 +92,7 @@ class Trader():
                 return {'info': 'exit at once'}
 
             candles = self._client.load_specify_length_candles(
-                length=70, granularity=self.get_granularity()
+                length=70, granularity=self.get_entry_rules('granularity')
             )['candles']
         else:
             return {'info': 'exit at once'}
@@ -115,9 +115,6 @@ class Trader():
     # - - - - - - - - - - - - - - - - - - - - - - - -
     def get_instrument(self):
         return self._instrument
-
-    def get_granularity(self):
-        return self._entry_rules['granularity']
 
     def get_entry_rules(self, rule_property):
         return self._entry_rules[rule_property]
@@ -201,7 +198,7 @@ class Trader():
         pl_gross_df = statistics.aggregate_backtest_result(
             rule=rule,
             df_positions=df_positions,
-            granularity=self.get_granularity(),
+            granularity=self.get_entry_rules('granularity'),
             stoploss_buffer=self._stoploss_buffer_pips,
             spread=self._static_spread,
             entry_filter=self.get_entry_rules('entry_filter')
@@ -430,7 +427,7 @@ class Trader():
             exit()
         return result['candles']
 
-    def __prepare_d1_candles(self, days):
+    def __prepare_long_span_candles(self, days):
         if not isinstance(days, int):
             return
         result = self._client.load_long_chart(days=days, granularity='D')['candles']
@@ -709,7 +706,7 @@ class Trader():
 
             result = drwr.create_png(
                 instrument=self.get_instrument(),
-                granularity=self.get_granularity(),
+                granularity=self.get_entry_rules('granularity'),
                 sr_time=sr_time, num=i, filename='test'
             )
 
@@ -744,7 +741,7 @@ class Trader():
 
     def __add_candle_duration(self, start_string):
         start_time = converter.str_to_datetime(start_string)
-        granularity = self.get_granularity()
+        granularity = self.get_entry_rules('granularity')
         time_unit = granularity[0]
         if time_unit == 'M':
             candle_duration = datetime.timedelta(minutes=int(granularity[1:]))
