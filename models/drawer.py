@@ -19,8 +19,9 @@ class FigureDrawer():
     }
     POS_TYPE = {'neutral': 0, 'over': 1, 'beneath': 2}
 
-    def __init__(self, rows_num=2):
+    def __init__(self, rows_num, instrument):
         self.init_figure(rows_num)
+        self._instrument = instrument
 
     def init_figure(self, rows_num=2):
         ''' 生成画像の初期設定 '''
@@ -165,10 +166,10 @@ class FigureDrawer():
         self.__axes[0].vlines(indexes, vmin, vmax, color='yellow', linewidth=0.5)
         self.__axes[1].vlines(indexes, 0, 100, color='yellow', linewidth=0.5)
 
-    def create_png(self, instrument, granularity, sr_time, num=0, filename=None):
+    def create_png(self, granularity, sr_time, num=0, filename=None):
         ''' 描画済みイメージをpngファイルに書き出す '''
         self.__axes[0].set_title('{inst}-{granularity} candles (len={len})'.format(
-            inst=instrument, granularity=granularity, len=len(FXBase.get_candles())
+            inst=self._instrument, granularity=granularity, len=len(FXBase.get_candles())
         ))
         xticks_number, xticks_index = self.__prepare_xticks(sr_time)
 
@@ -198,7 +199,7 @@ class FigureDrawer():
             plt.xticks(xticks_index, xticks_display, rotation=30, fontsize=6)
             plt.xlabel('Datetime (UTC+00:00)', fontsize=6)
 
-        png_filename = '{}_{}'.format(filename or 'figure', instrument)
+        png_filename = '{}_{}'.format(filename or 'figure', self._instrument)
         plt.savefig('tmp/images/{filename}_{num}_{date}.png'.format(
             filename=png_filename, num=num, date=datetime.datetime.strftime(datetime.datetime.now(), '%Y%m%d_%H%M%S')
         ))

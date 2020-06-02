@@ -173,7 +173,9 @@ class Trader():
     def auto_verify_trading_rule(self, rule='swing'):
         ''' tradeルールを自動検証 '''
         if self.__static_options['figure_option'] > 1:
-            self.__drawer = FigureDrawer(rows_num=self.__static_options['figure_option'])
+            self.__drawer = FigureDrawer(
+                rows_num=self.__static_options['figure_option'], instrument=self.get_instrument()
+            )
 
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
@@ -705,7 +707,6 @@ class Trader():
                 drwr.draw_df_on_plt(dfs_position[i][['profit']], drwr.PLOT_TYPE['bar'], color='yellow', plt_id=3)
 
             result = drwr.create_png(
-                instrument=self.get_instrument(),
                 granularity=self.get_entry_rules('granularity'),
                 sr_time=sr_time, num=i, filename='test'
             )
