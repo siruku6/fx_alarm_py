@@ -13,7 +13,7 @@ class Librarian():
         self.__instrument, _ = OandaPyClient.select_instrument()
         self.__client = OandaPyClient(instrument=self.__instrument)
         self.__ana = Analyzer()
-        self.__drawer = FigureDrawer(rows_num=3)
+        self.__drawer = FigureDrawer(rows_num=3, instrument=self.__instrument)
         self._indicators = None
 
     def merge_history_and_instruments(self, granularity='M10'):
@@ -263,7 +263,7 @@ class Librarian():
 
         drwr.draw_candles(start=-Librarian.DRAWABLE_ROWS, end=None)  # 200本より古い足は消している
         result = drwr.create_png(
-            instrument=self.__instrument, granularity='real-trade',
+            granularity='real-trade',
             sr_time=d_frame.time, num=0, filename='hist'
         )
         print(result['success'])
