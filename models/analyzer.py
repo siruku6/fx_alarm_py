@@ -333,15 +333,18 @@ class Analyzer():
             (pd.Series.rolling(high_candles, window=7).max() == high_candles) \
             & (high_candles.shift(1) < high_candles) \
             & (high_candles > high_candles.shift(-1))
-        return pd.Series(np.where(regist_points, high_candles, None)) \
-                 .fillna(method='ffill') \
-                 .rename('regist', inplace=True)
+        regist_plots = self.__generate_sup_regi_plots('regist', regist_points, high_candles)
+        return regist_plots
 
     def __calc_support(self, low_candles):
         support_points = \
             (pd.Series.rolling(low_candles, window=7).min() == low_candles) \
             & (low_candles.shift(1) > low_candles) \
             & (low_candles < low_candles.shift(-1))
-        return pd.Series(np.where(support_points, low_candles, None)) \
+        support_plots = self.__generate_sup_regi_plots('support', support_points, low_candles)
+        return support_plots
+
+    def __generate_sup_regi_plots(self, name, target_points, high_or_low_candles):
+        return pd.Series(np.where(target_points, high_or_low_candles, None)) \
                  .fillna(method='ffill') \
-                 .rename('support', inplace=True)
+                 .rename(name, inplace=True)
