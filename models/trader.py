@@ -549,14 +549,12 @@ class Trader():
         #     short_indexes=short_direction_index
         # )
         # INFO: 2. 緩いstoploss設定: exitable_by_stoccross 用
-        candles.loc[:, 'possible_stoploss'] = scalping.set_stoploss_prices(
-            candles.thrust.fillna(method='ffill'), self._indicators
-        )
+        #   廃止 -> scalping.__decide_exit_price 内で計算している
 
         # INFO: Entry / Exit のタイミングを確定
         base_df = pd.merge(
-            candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price', 'possible_stoploss']],
-            self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3']],
+            candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price']],  # , 'possible_stoploss'
+            self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3', 'support', 'regist']],
             left_index=True, right_index=True
         )
         commit_factors_df = self._merge_long_stoc(base_df)
@@ -566,6 +564,7 @@ class Trader():
         candles.loc[:, 'exitable_price'] = commited_df['exitable_price']
         candles.loc[:, 'exit_reason'] = commited_df['exit_reason']
         candles.loc[:, 'entry_price'] = candles['entryable_price']
+        candles.loc[:, 'possible_stoploss'] = commited_df['possible_stoploss']
 
     def __judge_entryable(self, candles):
         ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''

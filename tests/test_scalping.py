@@ -92,7 +92,8 @@ def test___decide_exit_price():
         'possible_stoploss': 80, 'band_+2σ': 140, 'band_-2σ': 85,
         'stoD_3': 60, 'stoSD_3': 50, 'stoD_over_stoSD': True
     }
-    exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame)
+    previous_frame = {'support': 80.0, 'regist': 120.0}
+    exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame, previous_frame)
     assert exit_price is None
 
     # # 下降中
@@ -113,8 +114,10 @@ def test___decide_exit_price():
         'possible_stoploss': 120, 'band_+2σ': 130, 'band_-2σ': 70,
         'stoD_3': 40, 'stoSD_3': 50, 'stoD_over_stoSD': False
     }
-    exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame)
+    previous_frame = {'support': 90.0, 'regist': 120.0}
+    exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame, previous_frame)
     assert exit_price is None
+
 
 def test_new_stoploss_price():
     case_dicts = [
