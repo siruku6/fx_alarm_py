@@ -6,7 +6,7 @@ from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 from models.tools.mathematics import range_2nd_decimal
-import models.trade_rules.base as rules
+import models.trade_rules.base as base_rules
 import models.trade_rules.wait_close as wait_close
 import models.trade_rules.scalping as scalping
 import models.tools.format_converter as converter
@@ -276,7 +276,7 @@ class Trader():
         sma = self._indicators['20SMA']
         ema = self._indicators['10EMA']
         parabo = self._indicators['SAR']
-        method_trend_checker = np.frompyfunc(rules.identify_trend_type, 4, 1)
+        method_trend_checker = np.frompyfunc(base_rules.identify_trend_type, 4, 1)
 
         trend = method_trend_checker(c_prices, sma, ema, parabo)
         bull = np.where(trend == 'bull', True, False)
@@ -295,26 +295,18 @@ class Trader():
             pd.DataFrame({'lowest': sr_lowest_in_10candles, 'bear': candles.bear}),
             axis=1
         )
-        method_thrust_checker = np.frompyfunc(self._detect_thrust2, 2, 1)
+        method_thrust_checker = np.frompyfunc(base_rules.detect_thrust2, 2, 1)
         result = method_thrust_checker(sr_up_thrust, sr_down_thrust)
         return result
 
         # INFO: shift(1)との比較のみでthrustを判定する場合
-        # method_thrust_checker = np.frompyfunc(rules.detect_thrust, 5, 1)
+        # method_thrust_checker = np.frompyfunc(base_rules.detect_thrust, 5, 1)
         # result = method_thrust_checker(
         #     candles.trend,
         #     candles.high.shift(1), candles.high,
         #     candles.low.shift(1), candles.low
         # )
         # return result
-
-    def _detect_thrust2(self, up_thrust, down_thrust):
-        if up_thrust:
-            return 'long'
-        elif down_thrust:
-            return 'short'
-        else:
-            return None
 
     def __generate_ema_allows_column(self, candles):
         ema60 = self._indicators['60EMA']
@@ -377,7 +369,7 @@ class Trader():
         ''' stocがtrendに沿う値を取っているか判定する列を返却 '''
         stod = self._indicators['stoD_3']
         stosd = self._indicators['stoSD_3']
-        column_generator = np.frompyfunc(rules.stoc_allows_entry, 3, 1)
+        column_generator = np.frompyfunc(base_rules.stoc_allows_entry, 3, 1)
         return column_generator(stod, stosd, sr_trend)
 
     def _find_thrust(self, index, candles, trend):
@@ -404,7 +396,7 @@ class Trader():
         # INFO: shift(1)との比較だけでthrust判定したい場合はこちら
         # candles_h = candles.high
         # candles_l = candles.low
-        # direction = rules.detect_thrust(
+        # direction = base_rules.detect_thrust(
         #     trend,
         #     previous_high=candles_h[index - 1], high=candles_h[index],
         #     previous_low=candles_l[index - 1], low=candles_l[index]
@@ -498,7 +490,7 @@ class Trader():
     def __generate_entry_column(self, candles):
         print('[Trader] judging entryable or not ...')
         self.__judge_entryable(candles)
-        self.__set_entryable_prices(candles)
+        base_rules.set_entryable_prices(candles, self._static_spread)
 
         entry_direction = candles.entryable.fillna(method='ffill')
         long_direction_index = entry_direction == 'long'
@@ -509,7 +501,7 @@ class Trader():
             long_indexes=long_direction_index,
             short_indexes=short_direction_index
         )
-        rules.commit_positions(
+        base_rules.commit_positions(
             candles,
             long_indexes=long_direction_index,
             short_indexes=short_direction_index,
@@ -520,7 +512,7 @@ class Trader():
         print('[Trader] judging entryable or not ...')
         entryable = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
         candles.loc[entryable, 'entryable'] = candles[entryable].thrust
-        self.__set_entryable_prices(candles)
+        base_rules.set_entryable_prices(candles, self._static_spread)
 
         entry_direction = candles.entryable.fillna(method='ffill')
         long_direction_index = entry_direction == 'long'
@@ -531,7 +523,7 @@ class Trader():
             long_indexes=long_direction_index,
             short_indexes=short_direction_index
         )
-        rules.commit_positions(
+        base_rules.commit_positions(
             candles,
             long_indexes=long_direction_index,
             short_indexes=short_direction_index,
@@ -574,24 +566,6 @@ class Trader():
         satisfy_preconditions = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
         candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
         candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
-
-    def __set_entryable_prices(self, candles):
-        ''' entry した場合の price を candles dataframe に設定 '''
-        # INFO: long-entry
-        long_index = candles.entryable == 'long'
-        long_entry_prices = pd.DataFrame({
-            'previous_high': candles.shift(1)[long_index].high,
-            'current_open': candles[long_index].open
-        }).max(axis=1) + self._static_spread
-        candles.loc[long_index, 'entryable_price'] = long_entry_prices
-
-        # INFO: short-entry
-        short_index = candles.entryable == 'short'
-        short_entry_prices = pd.DataFrame({
-            'previous_low': candles.shift(1)[short_index].low,
-            'current_open': candles[short_index].open
-        }).min(axis=1)
-        candles.loc[short_index, 'entryable_price'] = short_entry_prices
 
     def __set_stoploss_prices(self, candles, long_indexes, short_indexes):
         ''' trail した場合の stoploss 価格を candles dataframe に設定 '''
