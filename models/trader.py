@@ -211,7 +211,7 @@ class Trader():
         df_positions = pd.merge(df_positions, pl_gross_df, on='time', how='left')
         df_positions['gross'].fillna(method='ffill', inplace=True)
 
-        self.__draw_chart_vectorized_ver(df_positions=df_positions)
+        self.__drive_drawing_charts(df_positions=df_positions)
         return df_positions
 
     #
@@ -384,19 +384,22 @@ class Trader():
         '''
         thrust発生の有無と方向を判定して返却する
         '''
+        direction = None
         if trend == 'bull' and candles[:index + 1].tail(10).high.idxmax() == index:
             direction = 'long'
         elif trend == 'bear' and candles[:index + 1].tail(10).low.idxmin() == index:
             direction = 'short'
-        else:
-            direction = None
-            if self._operation == 'live':
-                print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
-                    trend,
-                    candles.high[index - 1], candles.high[index],
-                    candles.low[index - 1], candles.low[index]
-                ))
-                self._log_skip_reason('3. There isn`t thrust')
+
+        if direction is not None:
+            return direction
+
+        if self._operation == 'live':
+            print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
+                trend,
+                candles.high[index - 1], candles.high[index],
+                candles.low[index - 1], candles.low[index]
+            ))
+            self._log_skip_reason('3. There isn`t thrust')
 
         # INFO: shift(1)との比較だけでthrust判定したい場合はこちら
         # candles_h = candles.high
@@ -412,7 +415,7 @@ class Trader():
         #         trend, candles_h[index - 1], candles_h[index], candles_l[index - 1], candles_l[index]
         #     ))
         #     self._log_skip_reason('3. There isn`t thrust')
-        return direction
+        # return direction
 
     #
     # private
@@ -653,7 +656,7 @@ class Trader():
                 row['price'] = row['entryable_price']
         return position_rows
 
-    def __draw_chart_vectorized_ver(self, df_positions):
+    def __drive_drawing_charts(self, df_positions):
         drwr = self.__drawer
         if drwr is None: return
 
@@ -663,58 +666,66 @@ class Trader():
 
         df_segments_count = len(dfs_indicator)
         for i in range(0, df_segments_count):
-            # indicators
-            drwr.draw_indicators(d_frame=dfs_indicator[i])
-
-            # positions
-            # INFO: exitable_price などの列が残っていると、後 draw_positions_df の dropna で行が消される
-            long_entry_df = dfs_position[i][
-                dfs_position[i].position.isin(['long', 'sell_exit']) & (~dfs_position[i].price.isna())
-            ][['sequence', 'price']]
-            short_entry_df = dfs_position[i][
-                dfs_position[i].position.isin(['short', 'buy_exit']) & (~dfs_position[i].price.isna())
-            ][['sequence', 'price']]
-            close_df = dfs_position[i][dfs_position[i].position.isin(['sell_exit', 'buy_exit'])] \
-                .drop('price', axis=1) \
-                .rename(columns={'exitable_price': 'price'})
-            trail_df = dfs_position[i][dfs_position[i].position != '-'][['sequence', 'stoploss']] \
-                .rename(columns={'stoploss': 'price'})
-
-            drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
-            drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
-            drwr.draw_positions_df(positions_df=close_df, plot_type=drwr.PLOT_TYPE['exit'])
-            # drwr.draw_positions_df(positions_df=short_close_df, plot_type=drwr.PLOT_TYPE['exit'], nolabel='_nolegend_')
-            drwr.draw_positions_df(positions_df=trail_df, plot_type=drwr.PLOT_TYPE['trail'])
-
-            drwr.draw_vertical_lines(
-                indexes=np.concatenate(
-                    [long_entry_df.sequence.values, short_entry_df.sequence.values]
-                ),
-                vmin=dfs_indicator[i]['band_-2σ'].min(skipna=True),
-                vmax=dfs_indicator[i]['band_+2σ'].max(skipna=True)
+            self.__draw_one_chart(
+                drwr, df_segments_count, df_len, i, indicators=dfs_indicator[i], positions_df=dfs_position[i]
             )
 
-            # candles
-            start = df_len - Trader.MAX_ROWS_COUNT * (i + 1)
-            if start < 0: start = 0
-            end = df_len - Trader.MAX_ROWS_COUNT * i
-            sr_time = drwr.draw_candles(start, end)['time']
+    def __draw_one_chart(self, drwr, df_segments_count, df_len, df_index, indicators, positions_df):
+        def query_entry_rows(position_df, position_type, exit_type):
+            entry_rows = position_df[
+                position_df.position.isin([position_type, exit_type]) & (~position_df.price.isna())
+            ][['sequence', 'price']]
+            return entry_rows
 
-            # profit(pl) / gross
-            if self.__static_options['figure_option'] > 2:
-                drwr.draw_df_on_plt(dfs_position[i][['gross']], drwr.PLOT_TYPE['bar'], color='orange', plt_id=3)
-                drwr.draw_df_on_plt(dfs_position[i][['profit']], drwr.PLOT_TYPE['bar'], color='yellow', plt_id=3)
+        # indicators
+        drwr.draw_indicators(d_frame=indicators)
 
-            result = drwr.create_png(
-                granularity=self.get_entry_rules('granularity'),
-                sr_time=sr_time, num=i, filename='test'
-            )
+        # positions
+        # INFO: exitable_price などの列が残っていると、後 draw_positions_df の dropna で行が消される
+        long_entry_df = query_entry_rows(positions_df, position_type='long', exit_type='sell_exit')
+        short_entry_df = query_entry_rows(positions_df, position_type='short', exit_type='buy_exit')
+        close_df = positions_df[positions_df.position.isin(['sell_exit', 'buy_exit'])] \
+            .drop('price', axis=1) \
+            .rename(columns={'exitable_price': 'price'})
+        trail_df = positions_df[positions_df.position != '-'][['sequence', 'stoploss']] \
+            .rename(columns={'stoploss': 'price'})
 
-            drwr.close_all()
-            if df_segments_count != i + 1:
-                drwr.init_figure(rows_num=self.__static_options['figure_option'])
-            if 'success' in result:
-                print('{msg} / {count}'.format(msg=result['success'], count=df_segments_count))
+        drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
+        drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
+        drwr.draw_positions_df(positions_df=close_df, plot_type=drwr.PLOT_TYPE['exit'])
+        # drwr.draw_positions_df(positions_df=short_close_df, plot_type=drwr.PLOT_TYPE['exit'], nolabel='_nolegend_')
+        drwr.draw_positions_df(positions_df=trail_df, plot_type=drwr.PLOT_TYPE['trail'])
+
+        drwr.draw_vertical_lines(
+            indexes=np.concatenate(
+                [long_entry_df.sequence.values, short_entry_df.sequence.values]
+            ),
+            vmin=indicators['band_-2σ'].min(skipna=True),
+            vmax=indicators['band_+2σ'].max(skipna=True)
+        )
+
+        # candles
+        start = df_len - Trader.MAX_ROWS_COUNT * (df_index + 1)
+        if start < 0:
+            start = 0
+        end = df_len - Trader.MAX_ROWS_COUNT * df_index
+        sr_time = drwr.draw_candles(start, end)['time']
+
+        # profit(pl) / gross
+        if self.__static_options['figure_option'] > 2:
+            drwr.draw_df_on_plt(positions_df[['gross']], drwr.PLOT_TYPE['bar'], color='orange', plt_id=3)
+            drwr.draw_df_on_plt(positions_df[['profit']], drwr.PLOT_TYPE['bar'], color='yellow', plt_id=3)
+
+        result = drwr.create_png(
+            granularity=self.get_entry_rules('granularity'),
+            sr_time=sr_time, num=df_index, filename='test'
+        )
+
+        drwr.close_all()
+        if df_index + 1 != df_segments_count:
+            drwr.init_figure(rows_num=self.__static_options['figure_option'])
+        if 'success' in result:
+            print('{msg} / {count}'.format(msg=result['success'], count=df_segments_count))
 
     def __wrangle_result_for_graph(self, result):
         positions_df = result.rename(columns={'entry_price': 'price', 'possible_stoploss': 'stoploss'})
