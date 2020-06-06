@@ -20,7 +20,7 @@ class Trader():
     MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
-    def __init__(self, operation='backtest'):
+    def __init__(self, operation='backtest', days=None):
         '''
         Parameters
         ----------
@@ -38,11 +38,12 @@ class Trader():
             self._static_spread = result[1]['spread']
             self.__set_drawing_option()
             self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
+            days = i_face.ask_number(msg='何日分のデータを取得する？(半角数字): ', limit=365)
             need_request = i_face.ask_true_or_false(
                 msg='[Trader] Which do you use ?  [1]: current_candles, [2]: static_candles :'
             )
 
-        self.__init_common_params(operation)
+        self.__init_common_params(operation, days=days)
 
         result = self.__prepare_candles(operation, need_request).get('info')
         if result is not None:
@@ -50,9 +51,9 @@ class Trader():
             return
 
         self.__m10_candles = None
+        self.__prepare_long_span_candles(days=days)
         self._client.request_current_price()
-        self._ana = Analyzer()
-        result = self._ana.calc_indicators(candles=FXBase.get_candles())
+        result = self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
         if 'error' in result:
             self._log_skip_reason(result['error'])
             return
@@ -62,14 +63,6 @@ class Trader():
         self._indicators = self._ana.get_indicators()
         self.__initialize_position_variables()
 
-    @property
-    def m10_candles(self):
-        return self.__m10_candles
-
-    @m10_candles.setter
-    def m10_candles(self, arg):
-        self.__m10_candles = arg
-
     def __set_drawing_option(self):
         self.__static_options = {}
         self.__static_options['figure_option'] = i_face.ask_number(
@@ -77,10 +70,12 @@ class Trader():
         )
         self.__drawer = None
 
-    def __init_common_params(self, operation):
+    def __init_common_params(self, operation, days):
         self._operation = operation
+        self._ana = Analyzer()
         self._client = OandaPyClient(instrument=self.get_instrument(), test=operation in ('backtest', 'forward_test'))
         self._entry_rules = {
+            'days': days,
             'granularity': os.environ.get('GRANULARITY') or 'M5',
             # default-filter: かなりhigh performance
             'entry_filter': ['in_the_band', 'stoc_allows', 'band_expansion']
@@ -90,14 +85,14 @@ class Trader():
         if need_request is False:
             candles = pd.read_csv('./tmp/csvs/h4_candles_for_test.csv')
         elif operation in ('backtest',):
-            candles = self.__request_custom_candles()
+            candles = self.__request_custom_candles(days=self.get_entry_rules('days'))
         elif operation in ('live', 'forward_test'):
             self.tradeable = self._client.request_is_tradeable()['tradeable']
             if not self.tradeable and operation == 'live':
                 return {'info': 'exit at once'}
 
             candles = self._client.load_specify_length_candles(
-                length=70, granularity=self.get_granularity()
+                length=70, granularity=self.get_entry_rules('granularity')
             )['candles']
         else:
             return {'info': 'exit at once'}
@@ -115,20 +110,25 @@ class Trader():
         self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
 
-    #
-    # getter & setter
-    #
-    def set_entry_rules(self, rule_property, value):
-        self._entry_rules[rule_property] = value
-
+    # - - - - - - - - - - - - - - - - - - - - - - - -
+    #                getter & setter
+    # - - - - - - - - - - - - - - - - - - - - - - - -
     def get_instrument(self):
         return self._instrument
 
-    def get_granularity(self):
-        return self._entry_rules['granularity']
+    def get_entry_rules(self, rule_property):
+        return self._entry_rules[rule_property]
 
-    def get_entry_filter(self):
-        return self._entry_rules['entry_filter']
+    def set_entry_rules(self, rule_property, value):
+        self._entry_rules[rule_property] = value
+
+    @property
+    def m10_candles(self):
+        return self.__m10_candles
+
+    @m10_candles.setter
+    def m10_candles(self, arg):
+        self.__m10_candles = arg
 
     #
     # public
@@ -180,7 +180,7 @@ class Trader():
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
         if rule == 'swing':
-            if self.get_entry_filter() == []:
+            if self.get_entry_rules('entry_filter') == []:
                 self.set_entry_rules('entry_filter', value=statistics.FILTER_ELEMENTS)
             result = self.__backtest_swing(candles)
         elif rule == 'wait_close':
@@ -200,10 +200,10 @@ class Trader():
         pl_gross_df = statistics.aggregate_backtest_result(
             rule=rule,
             df_positions=df_positions,
-            granularity=self.get_granularity(),
+            granularity=self.get_entry_rules('granularity'),
             stoploss_buffer=self._stoploss_buffer_pips,
             spread=self._static_spread,
-            entry_filter=self.get_entry_filter()
+            entry_filter=self.get_entry_rules('entry_filter')
         )
         df_positions = self.__wrangle_result_for_graph(result['candles'][
             ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
@@ -219,6 +219,13 @@ class Trader():
     #
     def _set_position(self, position_dict):
         self._position = position_dict
+
+    def _merge_long_stoc(self, candles):
+        tmp_df = candles.merge(self._ana.get_long_stoc(), on='time', how='left')
+        # tmp_df['long_stoD'].fillna(method='ffill', inplace=True)
+        # tmp_df['long_stoSD'].fillna(method='ffill', inplace=True)
+        tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
+        return tmp_df
 
     def _sma_run_along_trend(self, index, trend):
         sma = self._indicators['20SMA']
@@ -411,26 +418,25 @@ class Trader():
     # private
     #
 
-    def __request_custom_candles(self):
+    def __request_custom_candles(self, days):
         # Custom request
-        days = i_face.ask_number(msg='何日分のデータを取得する？(半角数字): ', limit=365)
-
-        while True:
-            print('取得スパンは？(ex: M5): ', end='')
-            granularity = str(input())
-            self._entry_rules['granularity'] = granularity
-            if granularity[0] in 'MH' and granularity[1:].isdecimal():
-                break
-            elif granularity[0] in 'DW':
-                break
-            else:
-                print('Invalid granularity !\n')
+        granularity = i_face.ask_granularity()
+        self._entry_rules['granularity'] = granularity
 
         result = self._client.load_long_chart(days=days, granularity=granularity)
         if 'error' in result:
             print(result['error'])
             exit()
         return result['candles']
+
+    def __prepare_long_span_candles(self, days):
+        if not isinstance(days, int):
+            return
+        result = self._client.load_long_chart(days=days, granularity='D')['candles']
+        result['time'] = pd.to_datetime(result['time'])
+        result.set_index('time', inplace=True)
+        FXBase.set_long_span_candles(result)
+        # result.resample('4H').ffill() # upsamplingしようとしたがいらなかった。
 
     def __backtest_swing(self, candles):
         ''' スイングトレードのentry pointを検出 '''
@@ -457,7 +463,7 @@ class Trader():
     def __backtest_scalping(self, candles):
         ''' スキャルピングのentry pointを検出 '''
         candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
-        entryable = np.all(candles[self.get_entry_filter()], axis=1)
+        entryable = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
         candles.loc[entryable, 'entryable'] = candles[entryable].thrust
 
         self.__generate_entry_column_for_scalping(candles)
@@ -509,7 +515,7 @@ class Trader():
 
     def __generate_entry_column_for_wait_close(self, candles):
         print('[Trader] judging entryable or not ...')
-        entryable = np.all(candles[self.get_entry_filter()], axis=1)
+        entryable = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
         candles.loc[entryable, 'entryable'] = candles[entryable].thrust
         self.__set_entryable_prices(candles)
 
@@ -542,26 +548,27 @@ class Trader():
         #     long_indexes=long_direction_index,
         #     short_indexes=short_direction_index
         # )
-        # INFO: 2. 緩いstoploss設定: is_exitable_by_stoc_cross 用
-        candles.loc[:, 'possible_stoploss'] = scalping.set_stoploss_prices(
-            candles.thrust.fillna(method='ffill'), self._indicators
-        )
+        # INFO: 2. 緩いstoploss設定: exitable_by_stoccross 用
+        #   廃止 -> scalping.__decide_exit_price 内で計算している
 
         # INFO: Entry / Exit のタイミングを確定
-        # import pdb; pdb.set_trace()
-        commit_factors_df = pd.merge(
-            candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price', 'possible_stoploss']],
-            self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3']],
+        base_df = pd.merge(
+            candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price']],  # , 'possible_stoploss'
+            self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3', 'support', 'regist']],
             left_index=True, right_index=True
         )
+        commit_factors_df = self._merge_long_stoc(base_df)
+
         commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
         candles.loc[:, 'position'] = commited_df['position']
         candles.loc[:, 'exitable_price'] = commited_df['exitable_price']
+        candles.loc[:, 'exit_reason'] = commited_df['exit_reason']
         candles.loc[:, 'entry_price'] = candles['entryable_price']
+        candles.loc[:, 'possible_stoploss'] = commited_df['possible_stoploss']
 
     def __judge_entryable(self, candles):
         ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
-        satisfy_preconditions = np.all(candles[self.get_entry_filter()], axis=1)
+        satisfy_preconditions = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
         candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
         candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
 
@@ -699,7 +706,7 @@ class Trader():
                 drwr.draw_df_on_plt(dfs_position[i][['profit']], drwr.PLOT_TYPE['bar'], color='yellow', plt_id=3)
 
             result = drwr.create_png(
-                granularity=self.get_granularity(),
+                granularity=self.get_entry_rules('granularity'),
                 sr_time=sr_time, num=i, filename='test'
             )
 
@@ -734,7 +741,7 @@ class Trader():
 
     def __add_candle_duration(self, start_string):
         start_time = converter.str_to_datetime(start_string)
-        granularity = self.get_granularity()
+        granularity = self.get_entry_rules('granularity')
         time_unit = granularity[0]
         if time_unit == 'M':
             candle_duration = datetime.timedelta(minutes=int(granularity[1:]))

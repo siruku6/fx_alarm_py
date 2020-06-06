@@ -28,8 +28,9 @@ LOGGER.setLevel(logging.INFO)
 
 class FXBase():
     __candles = None
-    __latest_candle = None
+    __long_span_candles = None
 
+    # candles
     @classmethod
     def get_candles(cls, start=0, end=None):
         if cls.__candles is None:
@@ -61,6 +62,15 @@ class FXBase():
     @classmethod
     def write_candles_on_csv(cls, filename='./tmp/candles.csv'):
         cls.__candles.to_csv(filename)
+
+    # D1 or H4 candles
+    @classmethod
+    def get_long_span_candles(cls):
+        return cls.__long_span_candles
+
+    @classmethod
+    def set_long_span_candles(cls, long_span_candles):
+        cls.__long_span_candles = long_span_candles
 
 
 # granularity list

@@ -51,7 +51,7 @@ class TestScalping(unittest.TestCase):
         self.assertEqual(repulsion_series[2], None)
         self.assertEqual(repulsion_series[3], 'short')
 
-    def test_is_exitable_by_stoc_cross(self):
+    def test_exitable_by_stoccross(self):
         test_dicts = [
             {'position_type': 'long', 'stod': 40, 'stosd': 90, 'exitable': True},
             {'position_type': 'long', 'stod': 70, 'stosd': 80, 'exitable': True},
@@ -61,7 +61,7 @@ class TestScalping(unittest.TestCase):
             {'position_type': 'short', 'stod': 70, 'stosd': 80, 'exitable': False}
         ]
         for row in test_dicts:
-            is_exitable = scalping.is_exitable_by_stoc_cross(
+            is_exitable = scalping.exitable_by_stoccross(
                 position_type=row['position_type'],
                 stod=row['stod'],
                 stosd=row['stosd']
@@ -89,9 +89,11 @@ def test___decide_exit_price():
     entry_direction = 'long'
     one_frame = {
         'open': 100.0, 'high': 130.0, 'low': 90.0, 'close': 120.0,
-        'possible_stoploss': 80, 'band_+2σ': 140, 'band_-2σ': 85, 'stoD_3': 60, 'stoSD_3': 50
+        'possible_stoploss': 80, 'band_+2σ': 140, 'band_-2σ': 85,
+        'stoD_3': 60, 'stoSD_3': 50, 'stoD_over_stoSD': True
     }
-    exit_price = scalping.__decide_exit_price(entry_direction, one_frame)
+    previous_frame = {'support': 80.0, 'regist': 120.0}
+    exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame, previous_frame)
     assert exit_price is None
 
     # # 下降中
@@ -99,7 +101,7 @@ def test___decide_exit_price():
     #     'open': 100.0, 'high': 130.0, 'low': 90.0, 'close': 120.0,
     #     'possible_stoploss': 80, 'band_+2σ': 140, 'band_-2σ': 85, 'stoD_3': 60, 'stoSD_3': 50
     # }
-    # exit_price = scalping.__decide_exit_price(entry_direction, one_frame)
+    # exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame)
     # assert exit_price is None
 
     # - - - - - - - - - - - - - - - - - - - -
@@ -109,10 +111,13 @@ def test___decide_exit_price():
     entry_direction = 'short'
     one_frame = {
         'open': 100.0, 'high': 110.0, 'low': 80.0, 'close': 90.0,
-        'possible_stoploss': 120, 'band_+2σ': 130, 'band_-2σ': 70, 'stoD_3': 40, 'stoSD_3': 50
+        'possible_stoploss': 120, 'band_+2σ': 130, 'band_-2σ': 70,
+        'stoD_3': 40, 'stoSD_3': 50, 'stoD_over_stoSD': False
     }
-    exit_price = scalping.__decide_exit_price(entry_direction, one_frame)
+    previous_frame = {'support': 90.0, 'regist': 120.0}
+    exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame, previous_frame)
     assert exit_price is None
+
 
 def test_new_stoploss_price():
     case_dicts = [

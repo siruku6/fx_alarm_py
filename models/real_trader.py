@@ -17,7 +17,7 @@ class RealTrader(Trader):
         self._static_spread = 0.0
         self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
 
-        super(RealTrader, self).__init__(operation=operation)
+        super(RealTrader, self).__init__(operation=operation, days=60)
 
     #
     # Public
@@ -25,8 +25,8 @@ class RealTrader(Trader):
     def apply_trading_rule(self):
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
-        candles['preconditions_allows'] = np.all(candles[self.get_entry_filter()], axis=1)
-
+        candles['preconditions_allows'] = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
+        candles = self._merge_long_stoc(candles)
         # self.__play_swing_trade()
         self.__play_scalping_trade(candles)
 
@@ -143,11 +143,12 @@ class RealTrader(Trader):
         last_indicators = indicators.iloc[-1]
 
         self._set_position(self.__load_position())
+
         if self._position['type'] == 'none':
             self.__drive_entry_process(candles, last_candle, indicators, last_indicators)
         else:
             new_stop = self.__drive_trail_process(candles, last_indicators)
-            self.__drive_exit_process(last_indicators, last_candle)
+            self.__drive_exit_process(self._position['type'], last_indicators, last_candle)
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
             self._position['type'], new_stop if 'new_stop' in locals() else '-', self._position.get('stoploss', None)
@@ -172,6 +173,9 @@ class RealTrader(Trader):
                 last_candle.time, last_indicators['10EMA']
             ))
             return False
+        # INFO: exitサインが出ているときにエントリーさせない場合はコメントインする
+        # if self.__drive_exit_process(direction, last_indicators, last_candle, preliminary=True):
+        #     return False
 
         last_index = len(indicators) - 1
         self._create_position(last_index, direction)
@@ -183,33 +187,38 @@ class RealTrader(Trader):
         #     position_type=self._position['type'],
         #     previous_low=candles.at[last_index - 1, 'low'],
         #     previous_high=candles.at[last_index - 1, 'high'],
-        #     old_stoploss=self._position['stoploss'],
+        #     old_stoploss=self._position.get('stoploss', np.nan),
         #     stoploss_buf=self._stoploss_buffer_pips,
         #     static_spread=self._static_spread
         # )
-        # INFO: 2. 緩いstoploss設定: is_exitable_by_stoc_cross 用
+        # INFO: 2. 緩いstoploss設定: exitable_by_stoccross 用
         new_stop = scalping.new_stoploss_price(
-            position_type=self._position['type'], old_stoploss=self._position['stoploss'],
+            position_type=self._position['type'], old_stoploss=self._position.get('stoploss', np.nan),
             current_sup=last_indicators['support'], current_regist=last_indicators['regist']
         )
-        if new_stop != self._position['stoploss'] and new_stop is not np.nan:
+        if new_stop != self._position.get('stoploss', np.nan) and new_stop is not np.nan:
             self._trail_stoploss(new_stop=new_stop)
 
         return new_stop
 
-    def __drive_exit_process(self, last_indicators, last_candle):
+    def __drive_exit_process(self, position_type, last_indicators, last_candle, preliminary=False):
         # plus_2sigma = last_indicators['band_+2σ']
         # minus_2sigma = last_indicators['band_-2σ']
         # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
         stod = last_indicators['stoD_3']
         stosd = last_indicators['stoSD_3']
+        stod_over_stosd_on_long = last_candle['stoD_over_stoSD']
 
-        if scalping.is_exitable_by_stoc_cross(self._position['type'], stod, stosd):
+        # if scalping.exitable_by_stoccross(position_type, stod, stosd):
+        if scalping.exitable_by_long_stoccross(position_type, stod_over_stosd_on_long) \
+                and scalping.exitable_by_stoccross(position_type, stod, stosd):
             # self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
             #     plus_2sigma, last_candle.close, minus_2sigma
             # ))
+            if preliminary: return True
+
             self.__settle_position(reason='stoc crossed ! position_type: {}, stod: {}, stosd:{}'.format(
-                self._position['type'], stod, stosd
+                position_type, stod, stosd
             ))
 
     def __load_position(self):
@@ -249,7 +258,7 @@ class RealTrader(Trader):
         if conditions_df.trend.iat[-1] is None:
             self._log_skip_reason('c. {}: "trend" is None !'.format(time))
 
-        columns = self.get_entry_filter()
+        columns = self.get_entry_rules('entry_filter')
         vals = conditions_df[columns].iloc[-1].values
         for reason, val in zip(columns, vals):
             if not val:

@@ -26,7 +26,8 @@ class Analyzer():
             'stoD': None,
             'stoSD': None,
             'support': None,
-            'regist': None
+            'regist': None,
+            'long_stoc': None,
         }
 
         # Trendline
@@ -38,12 +39,14 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                       Driver                        #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def calc_indicators(self, candles, stoc_only=False):
+    def calc_indicators(self, candles, long_span_candles=None, stoc_only=False):
         if candles is None or candles.empty:
             return {'error': '[ERROR] Analyzer: 分析対象データがありません'}
 
         self.__indicators['stoD'] = self.__calc_stod(candles=candles, window_size=5)
         self.__indicators['stoSD'] = self.__calc_stosd(candles=candles, window_size=5)
+        if long_span_candles is not None:
+            self.__indicators['long_stoc'] = self.__prepare_long_stoc(long_span_candles)
         if stoc_only is True:
             return
 
@@ -78,6 +81,9 @@ class Analyzer():
             axis=1
         )
         return indicators
+
+    def get_long_stoc(self):
+        return self.__indicators['long_stoc']
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Moving Average                     #
@@ -287,6 +293,15 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                    Stochastic                       #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def __prepare_long_stoc(self, long_span_candles):
+        tmp_df = long_span_candles.copy().reset_index()
+        tmp_df['time'] = tmp_df['time'].map(str)
+        tmp_df['long_stoD'] = self.__calc_stod(candles=tmp_df, window_size=5)
+        tmp_df['long_stoSD'] = self.__calc_stosd(candles=tmp_df, window_size=5)
+        tmp_df['stoD_over_stoSD'] = tmp_df['long_stoD'] > tmp_df['long_stoSD']
+
+        return tmp_df[['long_stoD', 'long_stoSD', 'stoD_over_stoSD', 'time']]
+
     # http://www.algo-fx-blog.com/stochastics-python/
     def __calc_stok(self, candles, window_size=5):
         ''' ストキャスの%Kを計算 '''
@@ -318,15 +333,18 @@ class Analyzer():
             (pd.Series.rolling(high_candles, window=7).max() == high_candles) \
             & (high_candles.shift(1) < high_candles) \
             & (high_candles > high_candles.shift(-1))
-        return pd.Series(np.where(regist_points, high_candles, None)) \
-                 .fillna(method='ffill') \
-                 .rename('regist', inplace=True)
+        regist_plots = self.__generate_sup_regi_plots('regist', regist_points, high_candles)
+        return regist_plots
 
     def __calc_support(self, low_candles):
         support_points = \
             (pd.Series.rolling(low_candles, window=7).min() == low_candles) \
             & (low_candles.shift(1) > low_candles) \
             & (low_candles < low_candles.shift(-1))
-        return pd.Series(np.where(support_points, low_candles, None)) \
+        support_plots = self.__generate_sup_regi_plots('support', support_points, low_candles)
+        return support_plots
+
+    def __generate_sup_regi_plots(self, name, target_points, high_or_low_candles):
+        return pd.Series(np.where(target_points, high_or_low_candles, None)) \
                  .fillna(method='ffill') \
-                 .rename('support', inplace=True)
+                 .rename(name, inplace=True)

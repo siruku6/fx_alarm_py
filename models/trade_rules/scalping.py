@@ -44,7 +44,9 @@ def commit_positions_by_loop(factor_dicts):
             entry_direction = reset_next_position(index)
             continue
 
-        exit_price = __decide_exit_price(entry_direction, one_frame, edge_price)
+        exit_price, exit_reason = __decide_exit_price(
+            entry_direction, one_frame, previous_frame=factor_dicts[index - 1], edge_price=edge_price
+        )
         # exit する理由がなければ continue
         if exit_price is None:
             continue
@@ -52,40 +54,38 @@ def commit_positions_by_loop(factor_dicts):
         # exit した場合のみここに到達する
         one_frame['exitable_price'] = exit_price
         one_frame['position'] = exit_type
+        one_frame['exit_reason'] = exit_reason
         entry_direction = reset_next_position(index)
 
-    return pd.DataFrame.from_dict(factor_dicts)[['position', 'exitable_price']]
+    return pd.DataFrame.from_dict(factor_dicts)[['position', 'exitable_price', 'exit_reason', 'possible_stoploss']]
 
 
-def __decide_exit_price(entry_direction, one_frame, edge_price=None):
-    def stoploss_in_the_candle(candle):
-        return candle['low'] < candle['possible_stoploss'] < candle['high']
+def __decide_exit_price(entry_direction, one_frame, previous_frame, edge_price=None):
 
     exit_price = None
-    if entry_direction == 'long' and stoploss_in_the_candle(one_frame):
+    exit_reason = None
+
+    # INFO: stoploss による exit の判定
+    if 'possible_stoploss' not in one_frame:
+        one_frame['possible_stoploss'] = np.nan
+        if entry_direction == 'long':
+            one_frame['possible_stoploss'] = previous_frame['support']
+        elif entry_direction == 'short':
+            # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
+            one_frame['possible_stoploss'] = previous_frame['regist']
+    if one_frame['low'] < one_frame['possible_stoploss'] < one_frame['high']:
         exit_price = one_frame['possible_stoploss']
-    elif entry_direction == 'short' and stoploss_in_the_candle(one_frame):
-        # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
-        exit_price = one_frame['possible_stoploss']
-    # elif is_exitable_by_bollinger(
-    #         edge_price, one_frame['band_+2σ'], one_frame['band_-2σ'],
-    #     ):
+        exit_reason = 'Hit stoploss'
+
+    # elif is_exitable_by_bollinger(edge_price, one_frame['band_+2σ'], one_frame['band_-2σ']):
     #     exit_price = one_frame['band_+2σ'] if entry_direction == 'long' else one_frame['band_-2σ']
-    elif is_exitable_by_stoc_cross(
-        position_type=entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']
-    ):
+    # elif exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
+    #     exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
+    elif exitable_by_long_stoccross(entry_direction, long_stod_greater=one_frame['stoD_over_stoSD']) \
+            and exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
         exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
-    return exit_price
-
-
-def set_stoploss_prices(types, indicators):
-    method_stoploss_generator = np.frompyfunc(new_stoploss_price, 4, 1)
-    return method_stoploss_generator(
-        types,
-        indicators.support,
-        indicators.regist,
-        np.full(len(types), np.nan)
-    )
+        exit_reason = 'Stochastics of both long and target-span are crossed'
+    return exit_price, exit_reason
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - -
@@ -123,7 +123,16 @@ def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss)
     return np.nan
 
 
-def is_exitable_by_stoc_cross(position_type, stod, stosd):
+def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
+    bollinger_is_touched = spot_price < minus_2sigma or plus_2sigma < spot_price
+
+    if bollinger_is_touched:
+        return True
+    else:
+        return False
+
+
+def exitable_by_stoccross(position_type, stod, stosd):
     stoc_crossed = ((position_type == 'long') and (stod < stosd)) \
         or ((position_type == 'short') and (stod > stosd))
 
@@ -133,10 +142,11 @@ def is_exitable_by_stoc_cross(position_type, stod, stosd):
         return False
 
 
-def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
-    bollinger_is_touched = spot_price < minus_2sigma or plus_2sigma < spot_price
+def exitable_by_long_stoccross(entry_direction, long_stod_greater):
+    stoc_crossed = ((entry_direction == 'long') and not long_stod_greater) \
+        or ((entry_direction == 'short') and long_stod_greater)
 
-    if bollinger_is_touched:
+    if stoc_crossed:
         return True
     else:
         return False

@@ -1,9 +1,11 @@
 import datetime
 import numpy as np
 import pandas as pd
+
 from models.oanda_py_client import FXBase, OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
+import models.tools.format_converter as converter
 
 
 class Librarian():
@@ -69,7 +71,7 @@ class Librarian():
 
     def __adjust_time_for_merging(self, candles, history_df, granularity):
         dict_dst_switches = None
-        if granularity in ('H4'):
+        if granularity in ('H4',):
             # TODO: dict_dst_switches は H4 candles でのみしか使えない形になっている
             dict_dst_switches = self.__detect_dst_switches(candles)
             history_df = self.__append_dst_column(history_df, dst_switches=dict_dst_switches)
@@ -78,7 +80,7 @@ class Librarian():
 
         # make time smooth, adaptively to Daylight Saving Time
         if granularity == 'M10':  # TODO: M15, 30 も対応できるようにする
-            history_df['time'] = [self.__convert_to_m10(time) for time in history_df.time]
+            history_df['time'] = [converter.convert_to_m10(time) for time in history_df.time]
         elif granularity in ('H1', 'H4'):
             history_df['time'] = [self.__convert_to(granularity, time, dict_dst_switches) for time in history_df.time]
         return history_df
@@ -119,12 +121,6 @@ class Librarian():
 
         return hist_df
 
-    def __convert_to_m10(self, oanda_time):
-        m1_pos = 15
-        m10_str = oanda_time[:m1_pos] + '0' + oanda_time[m1_pos + 1:]
-        m10_str = self.__truncate_sec(m10_str).replace('T', ' ')
-        return m10_str
-
     def __convert_to(self, granularity, oanda_time, dict_dst_switches=None):
         time_str = oanda_time.replace('T', ' ')
         # INFO: 12文字目までで hour まで取得できる
@@ -148,11 +144,6 @@ class Librarian():
                 return dict_dst_switches[-1]['summer_time']
             elif switch_dict['time'] < time_str and time_str < dict_dst_switches[i + 1]['time']:
                 return switch_dict['summer_time']
-
-    def __truncate_sec(self, oanda_time_str):
-        sec_start = 17
-        truncated_str = oanda_time_str[:sec_start] + '00'
-        return truncated_str
 
     def __merge_hist_dfs(self, candles, history_df, pl_and_gross_df):
         entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
@@ -199,9 +190,9 @@ class Librarian():
         ----------
         pl_gross_hist : dataframe
         '''
-        if granularity in ('H4'):
+        if granularity in ('H4',):
             pl_gross_hist = self.__downsample_pl_df(pl_df=original_df)
-        elif granularity in ('H1'):
+        elif granularity in ('H1',):
             pl_gross_hist = self.__resample_by('1H', original_df.copy())
         else:
             pl_gross_hist = original_df.copy()
