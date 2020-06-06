@@ -143,6 +143,7 @@ def test_new_stoploss_price():
     for case_dict, result in zip(case_dicts, results):
         stoploss = scalping.new_stoploss_price(**case_dict)
         assert stoploss == result or stoploss is result
+        assert exit_reason is None
 
 
 if __name__ == '__main__':
