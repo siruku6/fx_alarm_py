@@ -93,15 +93,16 @@ def test___decide_exit_price():
         'stoD_3': 60, 'stoSD_3': 50, 'stoD_over_stoSD': True
     }
     previous_frame = {'support': 80.0, 'regist': 120.0}
-    exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame, previous_frame)
+    exit_price, exit_type, exit_reason = scalping.__decide_exit_price(entry_direction, one_frame, previous_frame)
     assert exit_price is None
+    assert exit_type == 'sell_exit'
 
     # # 下降中
     # one_frame = {
     #     'open': 100.0, 'high': 130.0, 'low': 90.0, 'close': 120.0,
     #     'possible_stoploss': 80, 'band_+2σ': 140, 'band_-2σ': 85, 'stoD_3': 60, 'stoSD_3': 50
     # }
-    # exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame)
+    # exit_price, exit_reason = scalping.__decide_exit_price(entry_direction, one_frame)
     # assert exit_price is None
 
     # - - - - - - - - - - - - - - - - - - - -
@@ -115,8 +116,10 @@ def test___decide_exit_price():
         'stoD_3': 40, 'stoSD_3': 50, 'stoD_over_stoSD': False
     }
     previous_frame = {'support': 90.0, 'regist': 120.0}
-    exit_price, _ = scalping.__decide_exit_price(entry_direction, one_frame, previous_frame)
+    exit_price, exit_type, exit_reason = scalping.__decide_exit_price(entry_direction, one_frame, previous_frame)
     assert exit_price is None
+    assert exit_type == 'buy_exit'
+    assert exit_reason is None
 
 
 def test_new_stoploss_price():
@@ -139,6 +142,7 @@ def test_new_stoploss_price():
     for case_dict, result in zip(case_dicts, results):
         stoploss = scalping.new_stoploss_price(**case_dict)
         assert stoploss == result or stoploss is result
+        assert exit_reason is None
 
 
 if __name__ == '__main__':
