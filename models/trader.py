@@ -8,7 +8,6 @@ from models.drawer import FigureDrawer
 from models.tools.mathematics import range_2nd_decimal
 import models.trade_rules.base as base_rules
 import models.trade_rules.wait_close as wait_close
-import models.trade_rules.scalping as scalping
 import models.tools.format_converter as converter
 import models.tools.interface as i_face
 import models.tools.statistics_module as statistics
@@ -68,7 +67,7 @@ class Trader():
         self.__static_options['figure_option'] = i_face.ask_number(
             msg='[Trader] 画像描画する？ [1]: No, [2]: Yes, [3]: with_P/L ', limit=3
         )
-        self.__drawer = None
+        self._drawer = None
 
     def __init_common_params(self, operation, days):
         self._operation = operation
@@ -172,10 +171,7 @@ class Trader():
 
     def auto_verify_trading_rule(self, rule='swing'):
         ''' tradeルールを自動検証 '''
-        if self.__static_options['figure_option'] > 1:
-            self.__drawer = FigureDrawer(
-                rows_num=self.__static_options['figure_option'], instrument=self.get_instrument()
-            )
+        self._reset_drawer()
 
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
@@ -185,8 +181,6 @@ class Trader():
             result = self.__backtest_swing(candles)
         elif rule == 'wait_close':
             result = self.__backtest_wait_close(candles)
-        elif rule == 'scalping':
-            result = self.__backtest_scalping(candles)
         else:
             print('Rule {} is not exist ...'.format(rule))
             exit()
@@ -205,13 +199,13 @@ class Trader():
             spread=self._static_spread,
             entry_filter=self.get_entry_rules('entry_filter')
         )
-        df_positions = self.__wrangle_result_for_graph(result['candles'][
+        df_positions = self._wrangle_result_for_graph(result['candles'][
             ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
         ].copy())
         df_positions = pd.merge(df_positions, pl_gross_df, on='time', how='left')
         df_positions['gross'].fillna(method='ffill', inplace=True)
 
-        self.__drive_drawing_charts(df_positions=df_positions)
+        self._drive_drawing_charts(df_positions=df_positions)
         return df_positions
 
     #
@@ -412,6 +406,11 @@ class Trader():
     #
     # private
     #
+    def _reset_drawer(self):
+        if self.__static_options['figure_option'] > 1:
+            self._drawer = FigureDrawer(
+                rows_num=self.__static_options['figure_option'], instrument=self.get_instrument()
+            )
 
     def __request_custom_candles(self, days):
         # Custom request
@@ -454,17 +453,6 @@ class Trader():
 
         result = 'no position' if sliding_result['result'] == 'no position' else '[Trader] 売買判定終了'
         return {'result': result, 'candles': candles}
-
-    def __backtest_scalping(self, candles):
-        ''' スキャルピングのentry pointを検出 '''
-        candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
-        entryable = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
-        candles.loc[entryable, 'entryable'] = candles[entryable].thrust
-
-        self.__generate_entry_column_for_scalping(candles)
-
-        candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
-        return {'result': '[Trader] 売買判定終了', 'candles': candles}
 
     def _prepare_trade_signs(self, candles):
         print('[Trader] preparing base-data for judging ...')
@@ -529,37 +517,6 @@ class Trader():
             short_indexes=short_direction_index,
             spread=self._static_spread
         )
-
-    def __generate_entry_column_for_scalping(self, candles):
-        print('[Trader] judging entryable or not ...')
-        scalping.set_entryable_prices(candles, self._static_spread)
-
-        # INFO: 1. 厳し目のstoploss設定: commit_positions_by_loop で is_exitable_by_bollinger を使うときはコチラが良い
-        # entry_direction = candles.entryable.fillna(method='ffill')
-        # long_direction_index = entry_direction == 'long'
-        # short_direction_index = entry_direction == 'short'
-        # self.__set_stoploss_prices(
-        #     candles,
-        #     long_indexes=long_direction_index,
-        #     short_indexes=short_direction_index
-        # )
-        # INFO: 2. 緩いstoploss設定: exitable_by_stoccross 用
-        #   廃止 -> scalping.__decide_exit_price 内で計算している
-
-        # INFO: Entry / Exit のタイミングを確定
-        base_df = pd.merge(
-            candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price']],  # , 'possible_stoploss'
-            self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3', 'support', 'regist']],
-            left_index=True, right_index=True
-        )
-        commit_factors_df = self._merge_long_stoc(base_df)
-
-        commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
-        candles.loc[:, 'position'] = commited_df['position']
-        candles.loc[:, 'exitable_price'] = commited_df['exitable_price']
-        candles.loc[:, 'exit_reason'] = commited_df['exit_reason']
-        candles.loc[:, 'entry_price'] = candles['entryable_price']
-        candles.loc[:, 'possible_stoploss'] = commited_df['possible_stoploss']
 
     def __judge_entryable(self, candles):
         ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
@@ -630,8 +587,8 @@ class Trader():
                 row['price'] = row['entryable_price']
         return position_rows
 
-    def __drive_drawing_charts(self, df_positions):
-        drwr = self.__drawer
+    def _drive_drawing_charts(self, df_positions):
+        drwr = self._drawer
         if drwr is None: return
 
         df_len = len(df_positions)
@@ -701,7 +658,7 @@ class Trader():
         if 'success' in result:
             print('{msg} / {count}'.format(msg=result['success'], count=df_segments_count))
 
-    def __wrangle_result_for_graph(self, result):
+    def _wrangle_result_for_graph(self, result):
         positions_df = result.rename(columns={'entry_price': 'price', 'possible_stoploss': 'stoploss'})
         positions_df['sequence'] = positions_df.index
         # INFO: exit直後のrowで、かつposition列が空
