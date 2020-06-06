@@ -24,25 +24,8 @@ class AlphaTrader(Trader):
         result = self.__backtest_scalping(candles)
 
         print('{} ... (auto_verify_trading_rule)'.format(result['result']))
-        positions_columns = ['time', 'position', 'entry_price', 'exitable_price']
-        if result['result'] == 'no position':
-            return pd.DataFrame([], columns=positions_columns)
 
-        df_positions = result['candles'].loc[:, positions_columns]
-        pl_gross_df = statistics.aggregate_backtest_result(
-            rule=rule,
-            df_positions=df_positions,
-            granularity=self.get_entry_rules('granularity'),
-            stoploss_buffer=self._stoploss_buffer_pips,
-            spread=self._static_spread,
-            entry_filter=self.get_entry_rules('entry_filter')
-        )
-        df_positions = self._wrangle_result_for_graph(result['candles'][
-            ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
-        ].copy())
-        df_positions = pd.merge(df_positions, pl_gross_df, on='time', how='left')
-        df_positions['gross'].fillna(method='ffill', inplace=True)
-
+        df_positions = self._preprocess_backtest_result(rule, result)
         self._drive_drawing_charts(df_positions=df_positions)
         return df_positions
 
