@@ -41,24 +41,14 @@ class Trader():
             need_request = i_face.ask_true_or_false(
                 msg='[Trader] Which do you use ?  [1]: current_candles, [2]: static_candles :'
             )
-
         self.__init_common_params(operation, days=days)
 
-        result = self.__prepare_candles(operation, need_request).get('info')
+        result = self.__prepare_candles(operation, need_request, days).get('info')
         if result is not None:
             print(result)
             return
 
-        self.__m10_candles = None
-        self.__prepare_long_span_candles(days=days)
-        self._client.request_current_price()
-        result = self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
-        if 'error' in result:
-            self._log_skip_reason(result['error'])
-            return
-        elif operation not in ('live',):
-            print(result['success'])
-
+        self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
         self._indicators = self._ana.get_indicators()
         self.__initialize_position_variables()
 
@@ -80,7 +70,7 @@ class Trader():
             'entry_filter': ['in_the_band', 'stoc_allows', 'band_expansion']
         }
 
-    def __prepare_candles(self, operation, need_request=True):
+    def __prepare_candles(self, operation, need_request=True, days=None):
         if need_request is False:
             candles = pd.read_csv('./tmp/csvs/h4_candles_for_test.csv')
         elif operation in ('backtest',):
@@ -97,6 +87,10 @@ class Trader():
             return {'info': 'exit at once'}
 
         FXBase.set_candles(candles)
+        self.__m10_candles = None
+        self.__prepare_long_span_candles(days=days)
+        self._client.request_current_price()
+
         return {}
 
     def __load_m10_candles(self, time_series):
