@@ -8,7 +8,6 @@ from models.drawer import FigureDrawer
 from models.tools.mathematics import range_2nd_decimal
 import models.trade_rules.base as base_rules
 import models.trade_rules.wait_close as wait_close
-import models.trade_rules.scalping as scalping
 import models.tools.format_converter as converter
 import models.tools.interface as i_face
 import models.tools.statistics_module as statistics
@@ -182,8 +181,6 @@ class Trader():
             result = self.__backtest_swing(candles)
         elif rule == 'wait_close':
             result = self.__backtest_wait_close(candles)
-        # elif rule == 'scalping':
-        #     result = self.__backtest_scalping(candles)
         else:
             print('Rule {} is not exist ...'.format(rule))
             exit()
