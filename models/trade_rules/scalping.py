@@ -34,18 +34,12 @@ def commit_positions_by_loop(factor_dicts):
 
     for index, one_frame in enumerate(loop_objects):
         # entry 中でなければ continue
-        if entry_direction == 'long':
-            edge_price = one_frame['high']
-            exit_type = 'sell_exit'
-        elif entry_direction == 'short':
-            edge_price = one_frame['low']
-            exit_type = 'buy_exit'
-        else:
+        if entry_direction not in ('long', 'short'):
             entry_direction = reset_next_position(index)
             continue
 
-        exit_price, exit_reason = __decide_exit_price(
-            entry_direction, one_frame, previous_frame=factor_dicts[index - 1], edge_price=edge_price
+        exit_price, exit_type, exit_reason = __decide_exit_price(
+            entry_direction, one_frame, previous_frame=factor_dicts[index - 1]
         )
         # exit する理由がなければ continue
         if exit_price is None:
@@ -60,12 +54,33 @@ def commit_positions_by_loop(factor_dicts):
     return pd.DataFrame.from_dict(factor_dicts)[['position', 'exitable_price', 'exit_reason', 'possible_stoploss']]
 
 
-def __decide_exit_price(entry_direction, one_frame, previous_frame, edge_price=None):
+def __decide_exit_price(entry_direction, one_frame, previous_frame):
+    if entry_direction == 'long':
+        edge_price = one_frame['high']
+        exit_type = 'sell_exit'
+    elif entry_direction == 'short':
+        edge_price = one_frame['low']
+        exit_type = 'buy_exit'
+    exit_price, exit_reason = __exit_by_stoploss(entry_direction, one_frame, previous_frame)
+    if exit_price is not None:
+        return exit_price, exit_type, exit_reason
 
+    # if is_exitable_by_bollinger(edge_price, one_frame['band_+2σ'], one_frame['band_-2σ']):
+    #     exit_price = one_frame['band_+2σ'] if entry_direction == 'long' else one_frame['band_-2σ']
+    # elif exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
+    #     exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
+    elif exitable_by_long_stoccross(entry_direction, long_stod_greater=one_frame['stoD_over_stoSD']) \
+            and exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
+        exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
+        exit_reason = 'Stochastics of both long and target-span are crossed'
+    return exit_price, exit_type, exit_reason
+
+
+def __exit_by_stoploss(entry_direction, one_frame, previous_frame):
+    ''' stoploss による exit の判定 '''
     exit_price = None
     exit_reason = None
 
-    # INFO: stoploss による exit の判定
     if 'possible_stoploss' not in one_frame:
         one_frame['possible_stoploss'] = np.nan
         if entry_direction == 'long':
@@ -76,15 +91,6 @@ def __decide_exit_price(entry_direction, one_frame, previous_frame, edge_price=N
     if one_frame['low'] < one_frame['possible_stoploss'] < one_frame['high']:
         exit_price = one_frame['possible_stoploss']
         exit_reason = 'Hit stoploss'
-
-    # elif is_exitable_by_bollinger(edge_price, one_frame['band_+2σ'], one_frame['band_-2σ']):
-    #     exit_price = one_frame['band_+2σ'] if entry_direction == 'long' else one_frame['band_-2σ']
-    # elif exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
-    #     exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
-    elif exitable_by_long_stoccross(entry_direction, long_stod_greater=one_frame['stoD_over_stoSD']) \
-            and exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
-        exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
-        exit_reason = 'Stochastics of both long and target-span are crossed'
     return exit_price, exit_reason
 
 

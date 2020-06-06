@@ -29,7 +29,6 @@ class AlphaTrader(Trader):
         self._drive_drawing_charts(df_positions=df_positions)
         return df_positions
 
-
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Private
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

@@ -41,14 +41,16 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def calc_indicators(self, candles, long_span_candles=None, stoc_only=False):
         if candles is None or candles.empty:
-            return {'error': '[ERROR] Analyzer: 分析対象データがありません'}
+            print('[ERROR] Analyzer: 分析対象データがありません')
+            exit()
 
+        result_msg = {'success': '[Analyzer] indicators算出完了'}
         self.__indicators['stoD'] = self.__calc_stod(candles=candles, window_size=5)
         self.__indicators['stoSD'] = self.__calc_stosd(candles=candles, window_size=5)
         if long_span_candles is not None:
             self.__indicators['long_stoc'] = self.__prepare_long_stoc(long_span_candles)
         if stoc_only is True:
-            return
+            return result_msg
 
         self.__calc_sma(close_candles=candles.close)
         self.__calc_ema(close_candles=candles.close)
@@ -60,7 +62,7 @@ class Analyzer():
         # if 'success' in result:
         #     print(result['success'])
         #     self.__get_breakpoints()
-        return {'success': '[Analyzer] indicators算出完了'}
+        return result_msg
 
     def get_indicators(self):
         indicators = pd.concat(
