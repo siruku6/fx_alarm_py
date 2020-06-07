@@ -73,11 +73,11 @@ class Trader():
     def __prepare_candles(self, operation, need_request=True, days=None):
         if need_request is False:
             candles = pd.read_csv('./tmp/csvs/h4_candles_for_test.csv')
-        elif operation in ('backtest',):
+        elif operation in ('backtest', 'forward_test'):
             candles = self.__request_custom_candles(days=self.get_entry_rules('days'))
-        elif operation in ('live', 'forward_test'):
+        elif operation == 'live':
             self.tradeable = self._client.request_is_tradeable()['tradeable']
-            if not self.tradeable and operation == 'live':
+            if not self.tradeable:
                 return {'info': 'exit at once'}
 
             candles = self._client.load_specify_length_candles(

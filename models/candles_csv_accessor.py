@@ -1,6 +1,7 @@
 import datetime
 import pandas as pd
 
+
 class CandlesCsvAccessor():
     FILEPATH_HEAD = 'log/candles'
     DATETIME_FMT = '%Y-%m-%d %H:%M:%S'

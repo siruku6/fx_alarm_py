@@ -135,7 +135,6 @@ class RealTrader(Trader):
             position_type, possible_stoploss, stoploss_price
         ))
 
-    # TODO: 実装はいったん終わり、検証中
     def __play_scalping_trade(self, candles):
         ''' 現在のレートにおいて、scalpingルールでトレード '''
         indicators = self._indicators
