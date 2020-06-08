@@ -1,3 +1,4 @@
+import math
 import unittest
 import numpy as np
 import pandas as pd
@@ -121,6 +122,62 @@ def test___decide_exit_price():
     assert exit_price is None
     assert exit_type == 'buy_exit'
     assert exit_reason is None
+
+
+def test___exit_by_stoploss():
+    def test_stoploss(candles):
+        for i, row in enumerate(candles):
+            if i == 0:
+                continue
+
+            exit_price, exit_reason = scalping.__exit_by_stoploss(
+                row['entry_direction'], row, candles[i - 1]
+            )
+
+            if exit_price is None:
+                assert exit_price is row['expected_exitprice']
+            else:
+                assert math.isclose(exit_price, row['expected_exitprice'])
+            assert exit_reason == row['expected_exitreason']
+
+    # INFO: test in long-entry
+    long_candles = [
+        {
+            'entry_direction': 'long',
+            'high': 130.1, 'low': 130.0,
+            'support': 129.0, 'regist': 131.0
+        }, {
+            'entry_direction': 'long',
+            'high': 130.1, 'low': 130.0,
+            'support': 129.0, 'regist': 131.0,
+            'expected_exitprice': None, 'expected_exitreason': None
+        }, {
+            'entry_direction': 'long',
+            'high': 129.5, 'low': 128.5,
+            'support': 129.0, 'regist': 131.0,
+            'expected_exitprice': 129.0, 'expected_exitreason': 'Hit stoploss'
+        }
+    ]
+    # INFO: test in short-entry
+    short_candles = [
+        {
+            'entry_direction': 'short',
+            'high': 130.1, 'low': 130.0,
+            'support': 129.0, 'regist': 130.5
+        }, {
+            'entry_direction': 'short',
+            'high': 130.1, 'low': 130.0,
+            'support': 129.0, 'regist': 130.5,
+            'expected_exitprice': None, 'expected_exitreason': None
+        }, {
+            'entry_direction': 'short',
+            'high': 131.0, 'low': 130.0,
+            'support': 129.0, 'regist': 130.5,
+            'expected_exitprice': 130.5, 'expected_exitreason': 'Hit stoploss'
+        }
+    ]
+    test_stoploss(long_candles)
+    test_stoploss(short_candles)
 
 
 def test_new_stoploss_price():
