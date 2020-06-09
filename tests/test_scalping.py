@@ -1,3 +1,4 @@
+import math
 import unittest
 import numpy as np
 import pandas as pd
@@ -81,6 +82,24 @@ class TestScalping(unittest.TestCase):
             self.assertEqual(is_exitable, row['exitable'])
 
 
+def test_set_entryable_prices():
+    test_candles = pd.DataFrame.from_dict(
+        {
+            'entryable': [None, np.nan, 'long', 'long', 'short', 'short'],
+            'open': [100.0, 100.0, 101.0, 102.0, 99.0, 98.0],
+        }
+    )
+    scalping.set_entryable_prices(test_candles, spread=0.5)
+    result = test_candles['entryable_price'].values.tolist()
+    expected_entryable_prices = [np.nan, np.nan, 101.5, 102.5, 99.0, 98.0]
+
+    for price, expected_price in zip(result, expected_entryable_prices):
+        if math.isnan(price):
+            assert math.isnan(expected_price)
+        else:
+            assert math.isclose(price, expected_price)
+
+
 def test___decide_exit_price():
     # - - - - - - - - - - - - - - - - - - - -
     #             long entry
@@ -121,6 +140,62 @@ def test___decide_exit_price():
     assert exit_price is None
     assert exit_type == 'buy_exit'
     assert exit_reason is None
+
+
+def test___exit_by_stoploss():
+    def test_stoploss(candles):
+        for i, row in enumerate(candles):
+            if i == 0:
+                continue
+
+            exit_price, exit_reason = scalping.__exit_by_stoploss(
+                row['entry_direction'], row, candles[i - 1]
+            )
+
+            if exit_price is None:
+                assert exit_price is row['expected_exitprice']
+            else:
+                assert math.isclose(exit_price, row['expected_exitprice'])
+            assert exit_reason == row['expected_exitreason']
+
+    # INFO: test in long-entry
+    long_candles = [
+        {
+            'entry_direction': 'long',
+            'high': 130.1, 'low': 130.0,
+            'support': 129.0, 'regist': 131.0
+        }, {
+            'entry_direction': 'long',
+            'high': 130.1, 'low': 130.0,
+            'support': 129.0, 'regist': 131.0,
+            'expected_exitprice': None, 'expected_exitreason': None
+        }, {
+            'entry_direction': 'long',
+            'high': 129.5, 'low': 128.5,
+            'support': 129.0, 'regist': 131.0,
+            'expected_exitprice': 129.0, 'expected_exitreason': 'Hit stoploss'
+        }
+    ]
+    # INFO: test in short-entry
+    short_candles = [
+        {
+            'entry_direction': 'short',
+            'high': 130.1, 'low': 130.0,
+            'support': 129.0, 'regist': 130.5
+        }, {
+            'entry_direction': 'short',
+            'high': 130.1, 'low': 130.0,
+            'support': 129.0, 'regist': 130.5,
+            'expected_exitprice': None, 'expected_exitreason': None
+        }, {
+            'entry_direction': 'short',
+            'high': 131.0, 'low': 130.0,
+            'support': 129.0, 'regist': 130.5,
+            'expected_exitprice': 130.5, 'expected_exitreason': 'Hit stoploss'
+        }
+    ]
+    test_stoploss(long_candles)
+    test_stoploss(short_candles)
 
 
 def test_new_stoploss_price():
