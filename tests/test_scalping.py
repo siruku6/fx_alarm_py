@@ -82,6 +82,24 @@ class TestScalping(unittest.TestCase):
             self.assertEqual(is_exitable, row['exitable'])
 
 
+def test_set_entryable_prices():
+    test_candles = pd.DataFrame.from_dict(
+        {
+            'entryable': [None, np.nan, 'long', 'long', 'short', 'short'],
+            'open': [100.0, 100.0, 101.0, 102.0, 99.0, 98.0],
+        }
+    )
+    scalping.set_entryable_prices(test_candles, spread=0.5)
+    result = test_candles['entryable_price'].values.tolist()
+    expected_entryable_prices = [np.nan, np.nan, 101.5, 102.5, 99.0, 98.0]
+
+    for price, expected_price in zip(result, expected_entryable_prices):
+        if math.isnan(price):
+            assert math.isnan(expected_price)
+        else:
+            assert math.isclose(price, expected_price)
+
+
 def test___decide_exit_price():
     # - - - - - - - - - - - - - - - - - - - -
     #             long entry
