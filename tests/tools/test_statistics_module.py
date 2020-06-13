@@ -6,7 +6,7 @@ import pytest
 import models.tools.statistics_module as stat
 
 
-def test___calc_profit_2():
+def test___calc_profit():
     dummy_position_hist_dicts = {
         'position': [
             'long', 'sell_exit', 'sell_exit', 'short', 'buy_exit', 'buy_exit',
@@ -27,6 +27,6 @@ def test___calc_profit_2():
     ]
 
     positions_df = pd.DataFrame.from_dict(dummy_position_hist_dicts)
-    result = stat.__calc_profit_2(positions_df)['profit'].values
+    result = stat.__calc_profit(positions_df)['profit'].values
     for diff, expected_diff in zip(result, expected_result):
         assert math.isclose(diff, expected_diff) or (math.isnan(diff) and math.isnan(expected_diff))
