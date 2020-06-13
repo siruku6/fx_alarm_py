@@ -38,7 +38,7 @@ def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, 
     filter_boolean = __filter_to_boolean(entry_filter)
 
     positions = df_positions.loc[df_positions.position.notnull(), :].copy()
-    positions = __calc_profit_2(copied_positions=positions)
+    positions = __calc_profit(copied_positions=positions)
     positions.loc[:, 'gross'] = positions.profit.cumsum()
     positions.loc[:, 'drawdown'] = positions.gross - positions.gross.cummax()
 
@@ -61,30 +61,30 @@ def __filter_to_boolean(_filter):
     return [(elem in _filter) for elem in FILTER_ELEMENTS]
 
 
-def __calc_profit_2(copied_positions):
+def __calc_profit(copied_positions):
+    ''' calculate the profit and loss for each trades '''
+    # INFO: long か short かで正負を逆にする
+    pl_calculator = lambda position_series, diffs: np.where(position_series == 'sell_exit', diffs, diffs * -1)
+
     # INFO: entry したその足で exit してしまった分の profit を計算
     is_soon_exit = \
-        copied_positions.exitable_price.notnull() \
-        & copied_positions.entry_price.notnull() \
-        & ~(copied_positions.shift(1).exitable_price.isna())
+        copied_positions['exitable_price'].notnull() \
+        & copied_positions['entry_price'].notnull() \
+        & ~(copied_positions.shift(1)['exitable_price'].isna())
     soon_exit_positions = copied_positions[is_soon_exit]
     exit_entry_diffs = (soon_exit_positions.exitable_price - soon_exit_positions.entry_price).map(__round_really)
-    copied_positions.loc[is_soon_exit, 'profit'] = np.where(
-        # INFO: long か short かで正負を逆にする
-        soon_exit_positions.position == 'sell_exit', exit_entry_diffs, exit_entry_diffs * -1
+    copied_positions.loc[is_soon_exit, 'profit'] = pl_calculator(
+        soon_exit_positions.position, exit_entry_diffs
     )
 
     # INFO: entry 後、次の足までは position を持ち越した分の profit を計算
-    continued_index = copied_positions.exitable_price.notnull() & ~is_soon_exit
-    continued_positions = copied_positions[continued_index]
-    previous_positions = copied_positions.shift(1)
+    continued_index = copied_positions['exitable_price'].notnull() & ~is_soon_exit
     exit_entry_diffs = \
-        (copied_positions.exitable_price - previous_positions.entry_price).map(__round_really)[continued_index]
-    copied_positions.loc[continued_index, 'profit'] = np.where(
-        # INFO: sell_exit か buy_exit かで正負を逆にする
-        continued_positions.position == 'sell_exit', exit_entry_diffs, exit_entry_diffs * -1
+        (copied_positions.exitable_price - copied_positions.shift(1).entry_price) \
+        .map(__round_really)[continued_index]
+    copied_positions.loc[continued_index, 'profit'] = pl_calculator(
+        copied_positions[continued_index].position, exit_entry_diffs
     )
-
     return copied_positions
 
 
