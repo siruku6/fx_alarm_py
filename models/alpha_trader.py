@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from models.oanda_py_client import FXBase
+# from models.oanda_py_client import FXBase
 from models.trader import Trader
 import models.trade_rules.scalping as scalping
 
@@ -13,24 +13,7 @@ class AlphaTrader(Trader):
     #
     # Public
     #
-    def auto_verify_trading_rule(self, rule='scalping'):
-        ''' tradeルールを自動検証 '''
-        self._reset_drawer()
-
-        candles = FXBase.get_candles().copy()
-        self._prepare_trade_signs(candles)
-        result = self.__backtest_scalping(candles)
-
-        print('{} ... (auto_verify_trading_rule)'.format(result['result']))
-
-        df_positions = self._preprocess_backtest_result(rule, result)
-        self._drive_drawing_charts(df_positions=df_positions)
-        return df_positions
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # Private
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __backtest_scalping(self, candles):
+    def backtest(self, candles):
         ''' スキャルピングのentry pointを検出 '''
         candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
         entryable = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
@@ -41,6 +24,9 @@ class AlphaTrader(Trader):
         candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
         return {'result': '[Trader] 売買判定終了', 'candles': candles}
 
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # Private
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def __generate_entry_column(self, candles):
         print('[Trader] judging entryable or not ...')
         scalping.set_entryable_prices(candles, self._static_spread)

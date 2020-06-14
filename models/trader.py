@@ -7,7 +7,6 @@ from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 from models.tools.mathematics import range_2nd_decimal
 import models.trade_rules.base as base_rules
-import models.trade_rules.wait_close as wait_close
 import models.tools.format_converter as converter
 import models.tools.interface as i_face
 import models.tools.statistics_module as statistics
@@ -50,7 +49,7 @@ class Trader():
 
         self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
         self._indicators = self._ana.get_indicators()
-        self.__initialize_position_variables()
+        self._initialize_position_variables()
 
     def __set_drawing_option(self):
         self.__static_options = {}
@@ -93,13 +92,7 @@ class Trader():
 
         return {}
 
-    def __load_m10_candles(self, time_series):
-        first_time = converter.str_to_datetime(time_series.iat[0][:19])
-        last_time = converter.str_to_datetime(time_series.iat[-1][:19])
-        # INFO: 実は、candlesのlastrow分のm10candlesがない
-        return self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
-
-    def __initialize_position_variables(self):
+    def _initialize_position_variables(self):
         self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
 
@@ -169,10 +162,11 @@ class Trader():
 
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
-        if rule == 'swing':
-            if self.get_entry_rules('entry_filter') == []:
-                self.set_entry_rules('entry_filter', value=statistics.FILTER_ELEMENTS)
-            result = self.__backtest_swing(candles)
+        if self.get_entry_rules('entry_filter') == []:
+            self.set_entry_rules('entry_filter', value=statistics.FILTER_ELEMENTS)
+
+        if rule in ('swing', 'scalping'):
+            result = self.backtest(candles)
         elif rule == 'wait_close':
             result = self.__backtest_wait_close(candles)
         else:
@@ -409,28 +403,6 @@ class Trader():
         FXBase.set_long_span_candles(result)
         # result.resample('4H').ffill() # upsamplingしようとしたがいらなかった。
 
-    def __backtest_swing(self, candles):
-        ''' スイングトレードのentry pointを検出 '''
-        # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする いらなくない？
-        self.__initialize_position_variables()
-
-        self.__generate_entry_column(candles=candles)
-        sliding_result = self.__slide_prices_to_really_possible(candles=candles)
-        candles.to_csv('./tmp/csvs/full_data_dump.csv')
-
-        result = 'no position' if sliding_result['result'] == 'no position' else '[Trader] 売買判定終了'
-        return {'result': result, 'candles': candles}
-
-    def __backtest_wait_close(self, candles):
-        ''' swingでH4 close直後のみにentryする場合のentry pointを検出 '''
-        candles['thrust'] = wait_close.generate_thrust_column(candles)
-        self.__generate_entry_column_for_wait_close(candles)
-        sliding_result = self.__slide_prices_to_really_possible(candles=candles)
-        candles.to_csv('./tmp/csvs/wait_close_data_dump.csv')
-
-        result = 'no position' if sliding_result['result'] == 'no position' else '[Trader] 売買判定終了'
-        return {'result': result, 'candles': candles}
-
     def _prepare_trade_signs(self, candles):
         print('[Trader] preparing base-data for judging ...')
 
@@ -451,118 +423,6 @@ class Trader():
         candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=candles[['bull', 'bear']])
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
         candles['stoc_allows'] = self.__generate_stoc_allows_column(sr_trend=candles['trend'])
-
-    def __generate_entry_column(self, candles):
-        print('[Trader] judging entryable or not ...')
-        self.__judge_entryable(candles)
-        base_rules.set_entryable_prices(candles, self._static_spread)
-
-        entry_direction = candles.entryable.fillna(method='ffill')
-        long_direction_index = entry_direction == 'long'
-        short_direction_index = entry_direction == 'short'
-
-        self.__set_stoploss_prices(
-            candles,
-            long_indexes=long_direction_index,
-            short_indexes=short_direction_index
-        )
-        base_rules.commit_positions(
-            candles,
-            long_indexes=long_direction_index,
-            short_indexes=short_direction_index,
-            spread=self._static_spread
-        )
-
-    def __generate_entry_column_for_wait_close(self, candles):
-        print('[Trader] judging entryable or not ...')
-        entryable = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
-        candles.loc[entryable, 'entryable'] = candles[entryable].thrust
-        base_rules.set_entryable_prices(candles, self._static_spread)
-
-        entry_direction = candles.entryable.fillna(method='ffill')
-        long_direction_index = entry_direction == 'long'
-        short_direction_index = entry_direction == 'short'
-
-        self.__set_stoploss_prices(
-            candles,
-            long_indexes=long_direction_index,
-            short_indexes=short_direction_index
-        )
-        base_rules.commit_positions(
-            candles,
-            long_indexes=long_direction_index,
-            short_indexes=short_direction_index,
-            spread=self._static_spread
-        )
-
-    def __judge_entryable(self, candles):
-        ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
-        satisfy_preconditions = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
-        candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions].thrust
-        candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
-
-    def __set_stoploss_prices(self, candles, long_indexes, short_indexes):
-        ''' trail した場合の stoploss 価格を candles dataframe に設定 '''
-        # INFO: long-stoploss
-        long_stoploss_prices = candles.shift(1)[long_indexes].low - self._stoploss_buffer_pips
-        candles.loc[long_indexes, 'possible_stoploss'] = long_stoploss_prices
-
-        # INFO: short-stoploss
-        short_stoploss_prices = candles.shift(1)[short_indexes].high \
-            + self._stoploss_buffer_pips \
-            + self._static_spread
-        candles.loc[short_indexes, 'possible_stoploss'] = short_stoploss_prices
-
-    def __slide_prices_to_really_possible(self, candles):
-        print('[Trader] start sliding ...')
-
-        position_index = candles.position.isin(['long', 'short']) \
-            | (candles.position.isin(['sell_exit', 'buy_exit']) & ~candles.entryable_price.isna())
-        position_rows = candles[position_index][[
-            'time', 'entryable_price', 'position'
-        ]].to_dict('records')
-        if position_rows == []:
-            print('[Trader] no positions ...')
-            return {'result': 'no position'}
-
-        position_rows = self.__slide_prices_in_dicts(time_series=candles['time'], position_rows=position_rows)
-        slided_positions = pd.DataFrame.from_dict(position_rows)
-        candles.loc[position_index, 'entry_price'] = slided_positions.price.to_numpy(copy=True)
-        candles.loc[position_index, 'time'] = slided_positions.time.astype(str).to_numpy(copy=True)
-
-        print('[Trader] finished sliding !')
-        return {'result': 'success'}
-
-    def __slide_prices_in_dicts(self, time_series, position_rows):
-        if self.m10_candles is None:
-            self.m10_candles = self.__load_m10_candles(time_series)
-
-        m10_candles = self.m10_candles
-        m10_candles['time'] = m10_candles.index
-        spread = self._static_spread
-
-        len_of_rows = len(position_rows)
-        for i, row in enumerate(position_rows):
-            print('[Trader] sliding price .. {}/{}'.format(i + 1, len_of_rows))
-            start = row['time']
-            end = self.__add_candle_duration(start[:19])
-            candles_in_granularity = m10_candles.loc[start:end, :].to_dict('records')
-
-            if row['position'] in ['long', 'sell_exit']:
-                for m10_candle in candles_in_granularity:
-                    if row['entryable_price'] < m10_candle['high'] + spread:
-                        row['price'] = m10_candle['high'] + spread
-                        row['time'] = m10_candle['time']
-                        break
-            elif row['position'] in ['short', 'buy_exit']:
-                for m10_candle in candles_in_granularity:
-                    if row['entryable_price'] > m10_candle['low']:
-                        row['price'] = m10_candle['low']
-                        row['time'] = m10_candle['time']
-                        break
-            if 'price' not in row:
-                row['price'] = row['entryable_price']
-        return position_rows
 
     def _preprocess_backtest_result(self, rule, result):
         positions_columns = ['time', 'position', 'entry_price', 'exitable_price']
@@ -679,21 +539,6 @@ class Trader():
 
     def _log_skip_reason(self, reason):
         print('[Trader] skip: {}'.format(reason))
-
-    def __add_candle_duration(self, start_string):
-        start_time = converter.str_to_datetime(start_string)
-        granularity = self.get_entry_rules('granularity')
-        time_unit = granularity[0]
-        if time_unit == 'M':
-            candle_duration = datetime.timedelta(minutes=int(granularity[1:]))
-        elif time_unit == 'H':
-            candle_duration = datetime.timedelta(hours=int(granularity[1:]))
-        elif time_unit == 'D':
-            candle_duration = datetime.timedelta(days=1)
-
-        a_minute = datetime.timedelta(minutes=1)
-        result = (start_time + candle_duration - a_minute).strftime(Trader.TIME_STRING_FMT)
-        return result
 
     def __split_df_by_200rows(self, d_frame):
         dfs = []
