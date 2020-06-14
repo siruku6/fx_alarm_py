@@ -92,12 +92,6 @@ class Trader():
 
         return {}
 
-    # def __load_m10_candles(self, time_series):
-    #     first_time = converter.str_to_datetime(time_series.iat[0][:19])
-    #     last_time = converter.str_to_datetime(time_series.iat[-1][:19])
-    #     # INFO: 実は、candlesのlastrow分のm10candlesがない
-    #     return self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
-
     def _initialize_position_variables(self):
         self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
