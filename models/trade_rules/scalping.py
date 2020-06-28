@@ -70,8 +70,8 @@ def __decide_exit_price(entry_direction, one_frame, previous_frame):
     # elif exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
     #     exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
     elif exitable_by_long_stoccross(entry_direction, long_stod_greater=one_frame['stoD_over_stoSD']) \
-            and exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
-        exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
+            and exitable_by_stoccross(entry_direction, stod=previous_frame['stoD_3'], stosd=previous_frame['stoSD_3']):
+        exit_price = one_frame['open']  # 'low'] if entry_direction == 'long' else one_frame['high']
         exit_reason = 'Stochastics of both long and target-span are crossed'
     return exit_price, exit_type, exit_reason
 
@@ -138,6 +138,8 @@ def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
         return False
 
 
+# INFO: stod, stosd は、直前の足の確定値を使う
+#   その方が、forward test に近い結果を出せるため
 def exitable_by_stoccross(position_type, stod, stosd):
     stoc_crossed = ((position_type == 'long') and (stod < stosd)) \
         or ((position_type == 'short') and (stod > stosd))

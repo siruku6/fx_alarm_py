@@ -45,7 +45,7 @@ class AlphaTrader(Trader):
 
         # INFO: Entry / Exit のタイミングを確定
         base_df = pd.merge(
-            candles[['high', 'low', 'close', 'time', 'entryable', 'entryable_price']],  # , 'possible_stoploss'
+            candles[['open', 'high', 'low', 'close', 'time', 'entryable', 'entryable_price']],  # , 'possible_stoploss'
             self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3', 'support', 'regist']],
             left_index=True, right_index=True
         )
