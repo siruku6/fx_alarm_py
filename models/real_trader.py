@@ -234,7 +234,7 @@ class RealTrader(Trader):
             self.__drive_entry_process(candles, last_candle, indicators, last_indicators)
         else:
             new_stop = self.__drive_trail_process(candles, last_indicators)
-            self.__drive_exit_process(self._position['type'], last_indicators, last_candle)
+            self.__drive_exit_process(self._position['type'], indicators, last_candle)
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
             self._position['type'], new_stop if 'new_stop' in locals() else '-', self._position.get('stoploss', None)
@@ -287,12 +287,15 @@ class RealTrader(Trader):
 
         return new_stop
 
-    def __drive_exit_process(self, position_type, last_indicators, last_candle, preliminary=False):
+    def __drive_exit_process(self, position_type, indicators, last_candle, preliminary=False):
         # plus_2sigma = last_indicators['band_+2σ']
         # minus_2sigma = last_indicators['band_-2σ']
         # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
-        stod = last_indicators['stoD_3']
-        stosd = last_indicators['stoSD_3']
+
+        # INFO: stod, stosd は、直前の足の確定値を使う
+        #   その方が、forward test に近い結果を出せるため
+        stod = indicators.iloc[-2]['stoD_3']
+        stosd = indicators.iloc[-2]['stoSD_3']
         stod_over_stosd_on_long = last_candle['stoD_over_stoSD']
 
         # if scalping.exitable_by_stoccross(position_type, stod, stosd):
