@@ -33,7 +33,7 @@ class RealTrader(Trader):
     #
     # Override shared methods
     #
-    def _create_position(self, index, direction):
+    def _create_position(self, index, direction, last_indicators=None):
         '''
         ルールに基づいてポジションをとる(Oanda通信有)
         '''
@@ -41,9 +41,14 @@ class RealTrader(Trader):
         if direction == 'long':
             sign = ''
             stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
+            if last_indicators is not None:
+                stoploss = last_indicators['support']
         elif direction == 'short':
             sign = '-'
             stoploss = self.__stoploss_in_short(previous_high=candles.high[index - 1])
+            if last_indicators is not None:
+                stoploss = last_indicators['regist']
+
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
 
     def __stoploss_in_short(self, previous_high):
@@ -264,7 +269,7 @@ class RealTrader(Trader):
         #     return False
 
         last_index = len(indicators) - 1
-        self._create_position(last_index, direction)
+        self._create_position(last_index, direction, last_indicators)
         return direction
 
     def __drive_trail_process(self, candles, last_indicators):
