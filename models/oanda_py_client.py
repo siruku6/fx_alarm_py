@@ -141,7 +141,7 @@ class OandaPyClient():
             )
             tmp_candles = self.__transform_to_candle_chart(response)
             candles = FXBase.union_candles_distinct(candles, tmp_candles)
-            print('残り: {remaining_days}日分'.format(remaining_days=remaining_days))
+            print('[Client] Remaining: {remaining_days} days'.format(remaining_days=remaining_days))
             time.sleep(1)
 
         return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
