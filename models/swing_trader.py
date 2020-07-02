@@ -7,6 +7,7 @@ import models.trade_rules.base as base_rules
 import models.trade_rules.wait_close as wait_close
 import models.tools.format_converter as converter
 
+
 class SwingTrader(Trader):
     ''' トレードルールに基づいてOandaへの発注を行うclass '''
     def __init__(self, operation='backtest', days=None):
@@ -30,7 +31,7 @@ class SwingTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Private
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __backtest_wait_close(self, candles):
+    def _backtest_wait_close(self, candles):
         ''' swingでH4 close直後のみにentryする場合のentry pointを検出 '''
         candles['thrust'] = wait_close.generate_thrust_column(candles)
         self.__generate_entry_column_for_wait_close(candles)

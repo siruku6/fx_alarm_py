@@ -141,7 +141,7 @@ class OandaPyClient():
             )
             tmp_candles = self.__transform_to_candle_chart(response)
             candles = FXBase.union_candles_distinct(candles, tmp_candles)
-            print('残り: {remaining_days}日分'.format(remaining_days=remaining_days))
+            print('[Client] Remaining: {remaining_days} days'.format(remaining_days=remaining_days))
             time.sleep(1)
 
         return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
@@ -323,7 +323,8 @@ class OandaPyClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_trade_id  # , data=data
         )
         response = self.__api_client.request(request_obj)
-        LOGGER.info('[Client] close-position: %s \n REASON: %s', response, reason)
+        LOGGER.info('[Client] close-reason: %s', reason)
+        LOGGER.info('[Client] close-position: %s', response)
         if response.get('orderFillTransaction') is None and response.get('orderCancelTransaction') is not None:
             return 'The exit order was canceled because of {}'.format(
                 response.get('orderCancelTransaction').get('reason')

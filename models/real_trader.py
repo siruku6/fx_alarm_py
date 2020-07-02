@@ -27,23 +27,27 @@ class RealTrader(Trader):
         self._prepare_trade_signs(candles)
         candles['preconditions_allows'] = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
         candles = self._merge_long_stoc(candles)
-        # self.__play_swing_trade()
+        # self.__play_swing_trade(candles)
         self.__play_scalping_trade(candles)
 
     #
     # Override shared methods
     #
-    def _create_position(self, index, direction):
+    def _create_position(self, previous_candle, direction, last_indicators=None):
         '''
         ルールに基づいてポジションをとる(Oanda通信有)
         '''
-        candles = FXBase.get_candles()
         if direction == 'long':
             sign = ''
-            stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
+            stoploss = previous_candle['low'] - self._stoploss_buffer_pips
+            if last_indicators is not None:
+                stoploss = last_indicators['support']
         elif direction == 'short':
             sign = '-'
-            stoploss = self.__stoploss_in_short(previous_high=candles.high[index - 1])
+            stoploss = self.__stoploss_in_short(previous_high=previous_candle['high'])
+            if last_indicators is not None:
+                stoploss = last_indicators['regist']
+
         self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
 
     def __stoploss_in_short(self, previous_high):
@@ -72,10 +76,12 @@ class RealTrader(Trader):
     #
     # Private
     #
-    def __play_swing_trade(self):
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    #                       Swing
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def __play_swing_trade(self, candles):
         ''' 現在のレートにおいて、スイングトレードルールでトレード '''
         last_index = len(self._indicators) - 1
-        candles = FXBase.get_candles()
         close_price = candles.close.iat[-1]
         last_time = candles.time.iat[-1]
         indicators = self._indicators
@@ -103,11 +109,93 @@ class RealTrader(Trader):
             if direction is None:
                 return
 
-            self._create_position(last_index, direction)
+            self._create_position(candles.iloc[-2], direction)
         else:
             self._judge_settle_position(last_index, close_price, candles)
 
         return None
+
+    def _sma_run_along_trend(self, index, trend):
+        sma = self._indicators['20SMA']
+        if trend == 'bull' and sma[index - 1] < sma[index]:
+            return True
+        elif trend == 'bear' and sma[index - 1] > sma[index]:
+            return True
+
+        if self._operation == 'live':
+            print('[Trader] Trend: {}, 20SMA: {} -> {}'.format(trend, sma[index - 1], sma[index]))
+            self._log_skip_reason('c. 20SMA not run along trend')
+        return False
+
+    def _over_2_sigma(self, index, price):
+        if self._indicators['band_+2σ'][index] < price or \
+           self._indicators['band_-2σ'][index] > price:
+            if self._operation == 'live':
+                self._log_skip_reason(
+                    'c. {}: price is over 2sigma'.format(FXBase.get_candles().time[index])
+                )
+            return True
+
+        return False
+
+    def _expand_moving_average_gap(self, index, trend):
+        sma = self._indicators['20SMA']
+        ema = self._indicators['10EMA']
+
+        previous_gap = ema[index - 1] - sma[index - 1]
+        current_gap = ema[index] - sma[index]
+
+        if trend == 'bull':
+            ma_gap_is_expanding = previous_gap < current_gap
+        elif trend == 'bear':
+            ma_gap_is_expanding = previous_gap > current_gap
+
+        if not ma_gap_is_expanding and self._operation == 'live':
+            self._log_skip_reason(
+                'c. {}: MA_gap is shrinking,\n  10EMA: {} -> {},\n  20SMA: {} -> {}'.format(
+                    FXBase.get_candles().time[index],
+                    ema[index - 1], ema[index],
+                    sma[index - 1], sma[index]
+                )
+            )
+        return ma_gap_is_expanding
+
+    def _find_thrust(self, index, candles, trend):
+        '''
+        thrust発生の有無と方向を判定して返却する
+        '''
+        direction = None
+        if trend == 'bull' and candles[:index + 1].tail(10).high.idxmax() == index:
+            direction = 'long'
+        elif trend == 'bear' and candles[:index + 1].tail(10).low.idxmin() == index:
+            direction = 'short'
+
+        if direction is not None:
+            return direction
+
+        if self._operation == 'live':
+            print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
+                trend,
+                candles.high[index - 1], candles.high[index],
+                candles.low[index - 1], candles.low[index]
+            ))
+            self._log_skip_reason('3. There isn`t thrust')
+
+        # INFO: shift(1)との比較だけでthrust判定したい場合はこちら
+        # candles_h = candles.high
+        # candles_l = candles.low
+        # direction = rules.detect_thrust(
+        #     trend,
+        #     previous_high=candles_h[index - 1], high=candles_h[index],
+        #     previous_low=candles_l[index - 1], low=candles_l[index]
+        # )
+
+        # if direction = None and self._operation == 'live':
+        #     print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
+        #         trend, candles_h[index - 1], candles_h[index], candles_l[index - 1], candles_l[index]
+        #     ))
+        #     self._log_skip_reason('3. There isn`t thrust')
+        # return direction
 
     def _judge_settle_position(self, index, c_price, candles):
         parabolic = self._indicators['SAR']
@@ -135,6 +223,9 @@ class RealTrader(Trader):
             position_type, possible_stoploss, stoploss_price
         ))
 
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    #                       Scalping
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def __play_scalping_trade(self, candles):
         ''' 現在のレートにおいて、scalpingルールでトレード '''
         indicators = self._indicators
@@ -147,7 +238,7 @@ class RealTrader(Trader):
             self.__drive_entry_process(candles, last_candle, indicators, last_indicators)
         else:
             new_stop = self.__drive_trail_process(candles, last_indicators)
-            self.__drive_exit_process(self._position['type'], last_indicators, last_candle)
+            self.__drive_exit_process(self._position['type'], indicators, last_candle)
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
             self._position['type'], new_stop if 'new_stop' in locals() else '-', self._position.get('stoploss', None)
@@ -177,7 +268,7 @@ class RealTrader(Trader):
         #     return False
 
         last_index = len(indicators) - 1
-        self._create_position(last_index, direction)
+        self._create_position(candles.iloc[-2], direction, last_indicators)
         return direction
 
     def __drive_trail_process(self, candles, last_indicators):
@@ -200,12 +291,15 @@ class RealTrader(Trader):
 
         return new_stop
 
-    def __drive_exit_process(self, position_type, last_indicators, last_candle, preliminary=False):
+    def __drive_exit_process(self, position_type, indicators, last_candle, preliminary=False):
         # plus_2sigma = last_indicators['band_+2σ']
         # minus_2sigma = last_indicators['band_-2σ']
         # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
-        stod = last_indicators['stoD_3']
-        stosd = last_indicators['stoSD_3']
+
+        # INFO: stod, stosd は、直前の足の確定値を使う
+        #   その方が、forward test に近い結果を出せるため
+        stod = indicators.iloc[-2]['stoD_3']
+        stosd = indicators.iloc[-2]['stoSD_3']
         stod_over_stosd_on_long = last_candle['stoD_over_stoSD']
 
         # if scalping.exitable_by_stoccross(position_type, stod, stosd):
