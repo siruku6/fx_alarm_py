@@ -112,7 +112,7 @@ def _order_response_dummy(entry_direction_sign, stoploss_double, instrument):
         'order': {
             'stopLossOnFill': {'timeInForce': 'GTC', 'price': str(stoploss_double)[:7]},
             'instrument': instrument,
-            'units': '{}{}'.format(entry_direction_sign, os.environ.get('UNITS')),
+            'units': '{}{}'.format(entry_direction_sign, os.environ.get('UNITS') or '1'),
             'type': 'MARKET',
             'positionFill': 'DEFAULT'
         }
