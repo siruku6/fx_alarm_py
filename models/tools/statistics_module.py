@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP  # , ROUND_HALF_EVEN
 import numpy as np
-from pandas import DataFrame
+import pandas as pd
 
 TRADE_RESULT_ITEMS = [
     'DoneTime', 'Rule', 'Granularity', 'StoplossBuf', 'Spread',
@@ -91,10 +91,12 @@ def __calc_profit(copied_positions):
 
 
 def __calc_performance_indicators(positions):
-    long_cnt = len(positions[(positions.position == 'sell_exit')])
-    short_cnt = len(positions[(positions.position == 'buy_exit')])
+    long_hist_index = positions['position'].str.contains('long|sell_exit') & pd.notna(positions['entry_price'])
+    short_hist_index = positions['position'].str.contains('short|buy_exit') & pd.notna(positions['entry_price'])
+    long_cnt = len(positions[long_hist_index])
+    short_cnt = len(positions[short_hist_index])
     entry_cnt = long_cnt + short_cnt
-    win_positions = positions[positions.profit >= 0]
+    win_positions = positions[positions.profit > 0]
     lose_positions = positions[positions.profit < 0]
     gross_profit = win_positions.profit.sum()
     gross_loss = lose_positions.profit.sum()
@@ -145,7 +147,7 @@ def __append_performance_result_to_csv(rule, granularity, sl_buf, spread, candle
         performance_result['profit_factor'],                 # 'Profit Factor'
         performance_result['recovery_factor']                # 'Recovery Factor'
     ]
-    result_df = DataFrame([result_row + filter_boolean], columns=TRADE_RESULT_ITEMS + FILTER_ELEMENTS)
+    result_df = pd.DataFrame([result_row + filter_boolean], columns=TRADE_RESULT_ITEMS + FILTER_ELEMENTS)
     result_df.to_csv('tmp/csvs/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
     print('[Trader] トレード統計(vectorized)をcsv追記完了')
 
