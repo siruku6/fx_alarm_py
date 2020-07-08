@@ -29,21 +29,38 @@ def dummy_candles():
 def test_not_entry(real_trader_client, dummy_candles):
     real_trader_client._ana.calc_indicators(dummy_candles, long_span_candles=dummy_candles)
     indicators = real_trader_client._ana.get_indicators()
-    no_time_since_lastloss = datetime.timedelta(hours=0)
-    two_hours_since_lastloss = datetime.timedelta(hours=2)
 
+    # Example: 最後の損失から1時間が経過していない場合
+    no_time_since_lastloss = datetime.timedelta(hours=0)
     with patch('models.real_trader.RealTrader._RealTrader__since_last_loss', return_value=no_time_since_lastloss):
         result = real_trader_client._RealTrader__drive_entry_process(
             dummy_candles, dummy_candles.iloc[-1], indicators, indicators.iloc[-1]
         )
         assert result is False
 
-    # with patch('models.real_trader.RealTrader._RealTrader__since_last_loss', return_value=two_hours_since_lastloss):
-    #     # FAILED tests/test_real_trader.py::test_not_entry - KeyError: 'preconditions_allows'
-    #     result = real_trader_client._RealTrader__drive_entry_process(
-    #         dummy_candles, dummy_candles.iloc[-1], indicators, indicators.iloc[-1]
-    #     )
-    #     assert result is False
+    # Example: 最後の損失から1時間が経過しているが、Entry条件を満たしていない(preconditions_allows が False)
+    two_hours_since_lastloss = datetime.timedelta(hours=2)
+    columns = ['trend', 'preconditions_allows', 'time'] + statistics.FILTER_ELEMENTS.copy()
+    tmp_dummy_candles = pd.DataFrame([[False for _ in columns]], columns=columns)
+    with patch('models.real_trader.RealTrader._RealTrader__since_last_loss', return_value=two_hours_since_lastloss):
+        result = real_trader_client._RealTrader__drive_entry_process(
+            tmp_dummy_candles, tmp_dummy_candles.iloc[-1], indicators, indicators.iloc[-1]
+        )
+        assert result is False
+
+    # Example: 最後の損失から1時間が経過し、preconditions_allows が True だが、 repulsion なし
+    tmp_dummy_candles = dummy_candles.copy()
+    tmp_dummy_candles.loc[:, 'preconditions_allows'] = True
+    tmp_dummy_candles.loc[:, 'trend'] = 'bull'
+    tmp_dummy_candles.loc[:, 'time'] = 'xxxx-xx-xx xx:xx'
+    repulsion = None
+    with patch('models.real_trader.RealTrader._RealTrader__since_last_loss', return_value=two_hours_since_lastloss):
+        with patch('models.trade_rules.scalping.repulsion_exist', return_value=repulsion):
+            result = real_trader_client._RealTrader__drive_entry_process(
+                tmp_dummy_candles, tmp_dummy_candles.iloc[-1], indicators, indicators.iloc[-1]
+            )
+            assert result is False
+
     # import pdb; pdb.set_trace()
 
 
