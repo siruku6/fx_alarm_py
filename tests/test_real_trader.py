@@ -1,12 +1,13 @@
 import datetime
 import os
 
-# import numpy as np
+import numpy as np
 import pandas as pd
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, call
 
 import models.real_trader as real
+import models.tools.statistics_module as statistics
 from tests.fixtures.d1_stoc_dummy import d1_stoc_dummy
 from tests.oanda_dummy_responses import dummy_market_order_response
 
@@ -135,6 +136,34 @@ def test___since_last_loss(real_trader_client):
     with patch('models.oanda_py_client.OandaPyClient.request_transactions', return_value=dummy_transactions):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()
     assert time_since_loss < datetime.timedelta(hours=1)
+
+
+def test___show_why_not_entry(real_trader_client):
+    entry_filters = statistics.FILTER_ELEMENTS
+    real_trader_client.set_entry_rules('entry_filter', entry_filters)
+
+    columns = entry_filters.copy()
+    columns.extend(['trend', 'time'])
+
+    # Example: conditions are all True
+    conditions_df = pd.DataFrame([np.full(len(columns), True)], columns=columns)
+    with patch('models.real_trader.RealTrader._log_skip_reason') as mock:
+        real_trader_client._RealTrader__show_why_not_entry(conditions_df)
+    mock.assert_not_called()
+
+    # Example: conditions are all False
+    conditions_df = pd.DataFrame([np.full(len(columns), False)], columns=columns)
+    with patch('models.real_trader.RealTrader._log_skip_reason') as mock:
+        real_trader_client._RealTrader__show_why_not_entry(conditions_df)
+
+    calls = [call('c. {}: "{}" is not satisfied !'.format(False, item)) for item in entry_filters]
+    mock.assert_has_calls(calls)
+
+    # Example: conditions are all None
+    conditions_df = pd.DataFrame([np.full(len(columns), None)], columns=columns)
+    with patch('models.real_trader.RealTrader._log_skip_reason') as mock:
+        real_trader_client._RealTrader__show_why_not_entry(conditions_df)
+    mock.assert_any_call('c. {}: "trend" is None !'.format(None))
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
