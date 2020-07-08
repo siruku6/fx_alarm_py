@@ -128,14 +128,13 @@ def test___since_last_loss(real_trader_client):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()
     assert time_since_loss == datetime.timedelta(hours=99)
 
-    # TODO: Context: Within 1 hour after last loss
-    # dummy_transactions.loc[0, 'time'] = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.xxxxxxxxxZ')
-    # with patch('models.oanda_py_client.OandaPyClient.request_transactions', return_value=dummy_transactions):
-    #     time_since_loss = real_trader_client._RealTrader__since_last_loss()
-
-    # import pdb; pdb.set_trace()
-
-    # assert time_since_loss < datetime.timedelta(hours=1)
+    # Context: Within 1 hour after last loss
+    dummy_transactions = pd.DataFrame(
+        {'pl': [-121.03], 'time': [datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.xxxxxxxxxZ')]}
+    )
+    with patch('models.oanda_py_client.OandaPyClient.request_transactions', return_value=dummy_transactions):
+        time_since_loss = real_trader_client._RealTrader__since_last_loss()
+    assert time_since_loss < datetime.timedelta(hours=1)
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
