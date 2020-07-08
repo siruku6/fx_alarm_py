@@ -335,6 +335,17 @@ class RealTrader(Trader):
         return pos
 
     def __since_last_loss(self):
+        '''
+        最も最近の損失からの経過時間を返す
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        time_since_loss : datetime
+        '''
         candle_size = 100
         hist_df = self._client.request_transactions(candle_size)
         time_series = hist_df[hist_df.pl < 0]['time']
