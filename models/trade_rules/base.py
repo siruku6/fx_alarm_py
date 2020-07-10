@@ -97,3 +97,90 @@ def new_stoploss_price(position_type, previous_low, previous_high, old_stoploss,
     elif position_type == 'short':
         new_stoploss = previous_high + stoploss_buf + static_spread
         return round(min(new_stoploss, old_stoploss), 3)
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#                          Old trade rules
+#                   These rules are now unused ....
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+def sma_run_along_trend(self, index, trend):
+    sma = self._indicators['20SMA']
+    if trend == 'bull' and sma[index - 1] < sma[index]:
+        return True
+    elif trend == 'bear' and sma[index - 1] > sma[index]:
+        return True
+
+    if self._operation == 'live':
+        print('[Trader] Trend: {}, 20SMA: {} -> {}'.format(trend, sma[index - 1], sma[index]))
+        self._log_skip_reason('c. 20SMA not run along trend')
+    return False
+
+def over_2_sigma(self, index, price):
+    if self._indicators['band_+2σ'][index] < price or \
+    self._indicators['band_-2σ'][index] > price:
+        if self._operation == 'live':
+            self._log_skip_reason(
+                'c. {}: price is over 2sigma'.format(FXBase.get_candles().time[index])
+            )
+        return True
+
+    return False
+
+def expand_moving_average_gap(self, index, trend):
+    sma = self._indicators['20SMA']
+    ema = self._indicators['10EMA']
+
+    previous_gap = ema[index - 1] - sma[index - 1]
+    current_gap = ema[index] - sma[index]
+
+    if trend == 'bull':
+        ma_gap_is_expanding = previous_gap < current_gap
+    elif trend == 'bear':
+        ma_gap_is_expanding = previous_gap > current_gap
+
+    if not ma_gap_is_expanding and self._operation == 'live':
+        self._log_skip_reason(
+            'c. {}: MA_gap is shrinking,\n  10EMA: {} -> {},\n  20SMA: {} -> {}'.format(
+                FXBase.get_candles().time[index],
+                ema[index - 1], ema[index],
+                sma[index - 1], sma[index]
+            )
+        )
+    return ma_gap_is_expanding
+
+def find_thrust(self, index, candles, trend):
+    '''
+    thrust発生の有無と方向を判定して返却する
+    '''
+    direction = None
+    if trend == 'bull' and candles[:index + 1].tail(10).high.idxmax() == index:
+        direction = 'long'
+    elif trend == 'bear' and candles[:index + 1].tail(10).low.idxmin() == index:
+        direction = 'short'
+
+    if direction is not None:
+        return direction
+
+    if self._operation == 'live':
+        print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
+            trend,
+            candles.high[index - 1], candles.high[index],
+            candles.low[index - 1], candles.low[index]
+        ))
+        self._log_skip_reason('3. There isn`t thrust')
+
+    # INFO: shift(1)との比較だけでthrust判定したい場合はこちら
+    # candles_h = candles.high
+    # candles_l = candles.low
+    # direction = rules.detect_thrust(
+    #     trend,
+    #     previous_high=candles_h[index - 1], high=candles_h[index],
+    #     previous_low=candles_l[index - 1], low=candles_l[index]
+    # )
+
+    # if direction = None and self._operation == 'live':
+    #     print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
+    #         trend, candles_h[index - 1], candles_h[index], candles_l[index - 1], candles_l[index]
+    #     ))
+    #     self._log_skip_reason('3. There isn`t thrust')
+    # return direction

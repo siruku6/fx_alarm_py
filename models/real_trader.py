@@ -82,120 +82,29 @@ class RealTrader(Trader):
     def __play_swing_trade(self, candles):
         ''' 現在のレートにおいて、スイングトレードルールでトレード '''
         last_index = len(self._indicators) - 1
-        close_price = candles.close.iat[-1]
-        last_time = candles.time.iat[-1]
-        indicators = self._indicators
+        last_candle = candles.iloc[-1, :]
 
         self._set_position(self.__load_position())
         if self._position['type'] == 'none':
-            trend = self.__detect_latest_trend(index=last_index, c_price=close_price, time=last_time)
-            if trend is None:
+            entry_rules = [
+                'sma_follow_trend', 'band_expansion', 'in_the_band',
+                'ma_gap_expanding', 'stoc_allows'
+            ]
+            self.set_entry_rules('entry_filter', value=entry_rules)
+            precondition = np.all(candles[entry_rules], axis=1).iloc[-1]
+            if last_candle['trend'] is None or not precondition:
+                self.__show_why_not_entry(candles)
                 return
-            elif os.environ.get('CUSTOM_RULE') == 'on':
-                bands_gap = indicators['band_+2σ'] - indicators['band_-2σ']
-                if not self._sma_run_along_trend(last_index, trend):
-                    return
-                elif bands_gap[last_index - 3] > bands_gap[last_index]:
-                    print('[Trader] c. band is shrinking...')
-                    return
-                elif self._over_2_sigma(last_index, price=close_price):
-                    return
-                elif not self._expand_moving_average_gap(last_index, trend):
-                    return
-                elif not self._stochastic_allow_trade(last_index, trend):
-                    return
 
-            direction = self._find_thrust(last_index, candles, trend)
+            direction = last_candle['thrust']
             if direction is None:
                 return
 
             self._create_position(candles.iloc[-2], direction)
         else:
-            self._judge_settle_position(last_index, close_price, candles)
+            self._judge_settle_position(last_index, last_candle.close, candles)
 
         return None
-
-    def _sma_run_along_trend(self, index, trend):
-        sma = self._indicators['20SMA']
-        if trend == 'bull' and sma[index - 1] < sma[index]:
-            return True
-        elif trend == 'bear' and sma[index - 1] > sma[index]:
-            return True
-
-        if self._operation == 'live':
-            print('[Trader] Trend: {}, 20SMA: {} -> {}'.format(trend, sma[index - 1], sma[index]))
-            self._log_skip_reason('c. 20SMA not run along trend')
-        return False
-
-    def _over_2_sigma(self, index, price):
-        if self._indicators['band_+2σ'][index] < price or \
-           self._indicators['band_-2σ'][index] > price:
-            if self._operation == 'live':
-                self._log_skip_reason(
-                    'c. {}: price is over 2sigma'.format(FXBase.get_candles().time[index])
-                )
-            return True
-
-        return False
-
-    def _expand_moving_average_gap(self, index, trend):
-        sma = self._indicators['20SMA']
-        ema = self._indicators['10EMA']
-
-        previous_gap = ema[index - 1] - sma[index - 1]
-        current_gap = ema[index] - sma[index]
-
-        if trend == 'bull':
-            ma_gap_is_expanding = previous_gap < current_gap
-        elif trend == 'bear':
-            ma_gap_is_expanding = previous_gap > current_gap
-
-        if not ma_gap_is_expanding and self._operation == 'live':
-            self._log_skip_reason(
-                'c. {}: MA_gap is shrinking,\n  10EMA: {} -> {},\n  20SMA: {} -> {}'.format(
-                    FXBase.get_candles().time[index],
-                    ema[index - 1], ema[index],
-                    sma[index - 1], sma[index]
-                )
-            )
-        return ma_gap_is_expanding
-
-    def _find_thrust(self, index, candles, trend):
-        '''
-        thrust発生の有無と方向を判定して返却する
-        '''
-        direction = None
-        if trend == 'bull' and candles[:index + 1].tail(10).high.idxmax() == index:
-            direction = 'long'
-        elif trend == 'bear' and candles[:index + 1].tail(10).low.idxmin() == index:
-            direction = 'short'
-
-        if direction is not None:
-            return direction
-
-        if self._operation == 'live':
-            print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
-                trend,
-                candles.high[index - 1], candles.high[index],
-                candles.low[index - 1], candles.low[index]
-            ))
-            self._log_skip_reason('3. There isn`t thrust')
-
-        # INFO: shift(1)との比較だけでthrust判定したい場合はこちら
-        # candles_h = candles.high
-        # candles_l = candles.low
-        # direction = rules.detect_thrust(
-        #     trend,
-        #     previous_high=candles_h[index - 1], high=candles_h[index],
-        #     previous_low=candles_l[index - 1], low=candles_l[index]
-        # )
-
-        # if direction = None and self._operation == 'live':
-        #     print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
-        #         trend, candles_h[index - 1], candles_h[index], candles_l[index - 1], candles_l[index]
-        #     ))
-        #     self._log_skip_reason('3. There isn`t thrust')
-        # return direction
 
     def _judge_settle_position(self, index, c_price, candles):
         parabolic = self._indicators['SAR']
