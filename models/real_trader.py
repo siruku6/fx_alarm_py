@@ -276,33 +276,3 @@ class RealTrader(Trader):
         for reason, val in zip(columns, vals):
             if not val:
                 self._log_skip_reason('c. {}: "{}" is not satisfied !'.format(time, reason))
-
-    #
-    #  apply each rules
-    #
-    def __detect_latest_trend(self, index, c_price, time):
-        '''
-        ルールに基づいてトレンドの有無を判定
-        '''
-        sma = self._indicators['20SMA'][index]
-        ema = self._indicators['10EMA'][index]
-        parabo = self._indicators['SAR'][index]
-        trend = rules.identify_trend_type(c_price, sma, ema, parabo)
-
-        if trend is None:
-            print('[Trader] Time: {}, 20SMA: {}, 10EMA: {}, close: {}'.format(
-                time, round(sma, 3), round(ema, 3), c_price
-            ))
-            self._log_skip_reason('2. There isn`t the trend')
-        return trend
-
-    def _stochastic_allow_trade(self, index, trend):
-        ''' stocがtrendと一致した動きをしていれば true を返す '''
-        stod = self._indicators['stoD_3'][index]
-        stosd = self._indicators['stoSD_3'][index]
-
-        result = rules.stoc_allows_entry(stod, stosd, trend)
-        if result is False:
-            print('[Trader] stoD: {}, stoSD: {}'.format(stod, stosd))
-            self._log_skip_reason('c. stochastic denies trade')
-        return result
