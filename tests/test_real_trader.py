@@ -49,7 +49,7 @@ def test_not_entry(real_trader_client, dummy_candles):
         assert result is False
 
     # Example: 最後の損失から1時間が経過し、preconditions_allows が True だが、 repulsion なし
-    tmp_dummy_candles = dummy_candles.copy()
+    tmp_dummy_candles = dummy_candles.tail(10).copy()
     tmp_dummy_candles.loc[:, 'preconditions_allows'] = True
     tmp_dummy_candles.loc[:, 'trend'] = 'bull'
     tmp_dummy_candles.loc[:, 'time'] = 'xxxx-xx-xx xx:xx'
@@ -61,7 +61,20 @@ def test_not_entry(real_trader_client, dummy_candles):
             )
             assert result is False
 
-    # import pdb; pdb.set_trace()
+    # Example: 最後の損失から1時間が経過し、preconditions_allows が True で、 repulsion あり
+    with patch('models.real_trader.RealTrader._RealTrader__since_last_loss', return_value=two_hours_since_lastloss):
+        repulsion = 'long'
+        with patch('models.trade_rules.scalping.repulsion_exist', return_value=repulsion):
+            with patch('models.real_trader.RealTrader._create_position') as mock:
+                last_indicators = indicators.iloc[-1]
+                result = real_trader_client._RealTrader__drive_entry_process(
+                    tmp_dummy_candles, tmp_dummy_candles.iloc[-1], indicators, last_indicators
+                )
+                assert result is repulsion
+
+    pd.testing.assert_series_equal(mock.call_args[0][0], tmp_dummy_candles.iloc[-2])
+    assert mock.call_args[0][1] == repulsion
+    pd.testing.assert_series_equal(mock.call_args[0][2], last_indicators)
 
 
 def test__create_position_with_indicators(real_trader_client):
