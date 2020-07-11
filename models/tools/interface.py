@@ -2,12 +2,11 @@ def ask_granularity():
     while True:
         print('取得スパンは？(ex: M5): ', end='')
         granularity = str(input())
-        if granularity[0] in 'MH' and granularity[1:].isdecimal():
+        alphabet = granularity[0]
+        if (alphabet in 'MH' and granularity[1:].isdecimal()) or (alphabet in 'DW'):
             break
-        elif granularity[0] in 'DW':
-            break
-        else:
-            print('Invalid granularity !\n')
+
+        print('Invalid granularity !\n')
     return granularity
 
 

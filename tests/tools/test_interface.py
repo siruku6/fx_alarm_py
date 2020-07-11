@@ -1,18 +1,26 @@
 from collections import OrderedDict
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, call
 import models.tools.interface as interface
 
 
+def test_ask_granularity():
+    dummy_inputs = ['M1', 'M30', 'H4', 'D', 'W']
+    for dummy_input in dummy_inputs:
+        with patch('builtins.print') as mock:
+            with patch('builtins.input', side_effect=[dummy_input]):
+                assert interface.ask_granularity() == dummy_input
+        mock.assert_called_once_with('取得スパンは？(ex: M5): ', end='')
+
+    dummy_inputs = ['M', '30', 'F4', 'M5']
+    with patch('builtins.print') as mock:
+        with patch('builtins.input', side_effect=dummy_inputs):
+            assert interface.ask_granularity() == 'M5'
+
+    calls = [call('Invalid granularity !\n') for _ in dummy_inputs[:-1]]
+    mock.assert_has_calls(calls, any_order=True)
+
 class TestInterface(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        print('\n[Interface] setup')
-
-    @classmethod
-    def tearDownClass(cls):
-        print('\n[Interface] tearDown')
-
     def test_ask_true_or_false(self):
         with patch('builtins.print'):
             with patch('builtins.input', side_effect=['1']):
@@ -47,7 +55,7 @@ class TestInterface(unittest.TestCase):
             USD_CHF={'spread': 0.00014}
         )
         with patch('models.tools.interface.print'):
-            for i, (key, val) in enumerate(dict_for_testcase.items()):
+            for i, (key, _val) in enumerate(dict_for_testcase.items()):
                 with patch('models.tools.interface.prompt_inputting_decimal', return_value=i):
                     result = interface.select_from_dict(dict_for_testcase)
                     self.assertEqual(result, key, '選択に対応するkeyを得る')
