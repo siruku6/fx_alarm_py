@@ -1,7 +1,7 @@
 import math
 import numpy as np
 import pandas as pd
-import pytest
+# import pytest
 
 import models.tools.statistics_module as stat
 
@@ -23,7 +23,7 @@ def test___calc_profit():
     }
     expected_result = [
         0.0, 0.168, 0.018, 0.0, 0.447, 0.316,
-        0.0, -0.097, -0.039, 0.0, -0.326, -0.684 
+        0.0, -0.097, -0.039, 0.0, -0.326, -0.684
     ]
 
     positions_df = pd.DataFrame.from_dict(dummy_position_hist_dicts)
@@ -57,3 +57,20 @@ def test___calc_profit_extra_pattern():
     result = stat.__calc_profit(positions_df)['profit'].values
     for diff, expected_diff in zip(result, expected_result):
         assert math.isclose(diff, expected_diff)
+
+
+def test___hist_index_of():
+    positions = pd.DataFrame({
+        'position': ['long', 'sell_exit', 'short', 'buy_exit', 'long', 'short'],
+        'entry_price': [123.456, 234.567, 345.678, 456.789, None, np.nan]
+    })
+
+    # index of long position
+    long_index = stat.__hist_index_of(positions, sign='long|sell_exit')
+    expected_result = pd.Series([True, True, False, False, False, False])
+    pd.testing.assert_series_equal(long_index, expected_result)
+
+    # index of short position
+    short_index = stat.__hist_index_of(positions, sign='short|buy_exit')
+    expected_result = pd.Series([False, False, True, True, False, False])
+    pd.testing.assert_series_equal(short_index, expected_result)
