@@ -7,7 +7,7 @@ TRADE_RESULT_ITEMS = [
     'DoneTime', 'Rule', 'Granularity', 'StoplossBuf', 'Spread',
     'Duration', 'CandlesCnt', 'EntryCnt', 'WinRate', 'WinCnt', 'LoseCnt',
     'Gross', 'GrossProfit', 'GrossLoss', 'MaxProfit', 'MaxLoss',
-    'MaxDrawdown', 'Profit Factor', 'Recovery Factor'
+    'MaxDrawdown', 'Profit Factor', 'Recovery Factor', 'Sharp Ratio', 'Sortino Ratio'
 ]
 FILTER_ELEMENTS = [
     'in_the_band',
@@ -91,16 +91,17 @@ def __calc_profit(copied_positions):
 
 
 def __calc_performance_indicators(positions):
-    long_hist_index = positions['position'].str.contains('long|sell_exit') & pd.notna(positions['entry_price'])
-    short_hist_index = positions['position'].str.contains('short|buy_exit') & pd.notna(positions['entry_price'])
-    long_cnt = len(positions[long_hist_index])
-    short_cnt = len(positions[short_hist_index])
+    long_cnt = len(positions[__hist_index_of(positions, sign='long|sell_exit')])
+    short_cnt = len(positions[__hist_index_of(positions, sign='short|buy_exit')])
     entry_cnt = long_cnt + short_cnt
     win_positions = positions[positions.profit > 0]
     lose_positions = positions[positions.profit < 0]
     gross_profit = win_positions.profit.sum()
     gross_loss = lose_positions.profit.sum()
+    pl = positions.profit.sum()
     max_drawdown = positions.drawdown.min()
+    sharp_ratio = pl / positions.profit.std()
+    sortino_ratio = pl / lose_positions.profit.std()
 
     return {
         'entry_count': entry_cnt,
@@ -116,8 +117,29 @@ def __calc_performance_indicators(positions):
         'max_loss': lose_positions.profit.min(),
         'drawdown': max_drawdown,
         'profit_factor': round(-gross_profit / gross_loss, 2) if gross_loss != 0 else '-',
-        'recovery_factor': round((gross_profit + gross_loss) / -max_drawdown, 2) if max_drawdown != 0 else '-'
+        'recovery_factor': round((gross_profit + gross_loss) / -max_drawdown, 2) if max_drawdown != 0 else '-',
+        'sharp_ratio': sharp_ratio,
+        'sortino_ratio': sortino_ratio
     }
+
+
+def __hist_index_of(positions, sign):
+    '''
+    long 又は short どちらかのみの position を絞り込むための boolean 型 Series を生成する
+    params:
+        positions
+            type:    DataFrame
+            columns: [
+                'position',      # str ('long', 'short', 'sell_exit', 'buy_exit' or None)
+                'entry_price',   # float64
+            ]
+        sign
+            type:    string
+            example: 'long|sell_exit' or 'short|buy_exit'
+    returns:
+        type:    Series
+    '''
+    return positions['position'].str.contains(sign) & pd.notna(positions['entry_price'])
 
 
 def __append_performance_result_to_csv(rule, granularity, sl_buf, spread, candles, performance_result, filter_boolean):
@@ -145,7 +167,9 @@ def __append_performance_result_to_csv(rule, granularity, sl_buf, spread, candle
         round(performance_result['max_loss'] * 100, 3),      # 'MaxLoss'
         round(performance_result['drawdown'] * 100, 3),      # 'MaxDrawdown'
         performance_result['profit_factor'],                 # 'Profit Factor'
-        performance_result['recovery_factor']                # 'Recovery Factor'
+        performance_result['recovery_factor'],               # 'Recovery Factor'
+        performance_result['sharp_ratio'],                   # 'Sharp Ratio'
+        performance_result['sortino_ratio']                  # 'Sortino Ratio'
     ]
     result_df = pd.DataFrame([result_row + filter_boolean], columns=TRADE_RESULT_ITEMS + FILTER_ELEMENTS)
     result_df.to_csv('tmp/csvs/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
