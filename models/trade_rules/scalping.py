@@ -46,9 +46,7 @@ def commit_positions_by_loop(factor_dicts):
             continue
 
         # exit した場合のみここに到達する
-        one_frame['exitable_price'] = exit_price
-        one_frame['position'] = exit_type
-        one_frame['exit_reason'] = exit_reason
+        one_frame.update(exitable_price=exit_price, position=exit_type, exit_reason=exit_reason)
         entry_direction = reset_next_position(index)
 
     return pd.DataFrame.from_dict(factor_dicts)[['position', 'exitable_price', 'exit_reason', 'possible_stoploss']]
