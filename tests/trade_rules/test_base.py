@@ -1,6 +1,29 @@
-import models.trade_rules.base as base
 import numpy as np
 import pandas as pd
+
+import models.trade_rules.base as base
+
+
+def test_generate_trend_column():
+    sample_data = pd.DataFrame.from_dict(
+        {
+            'no': [123, 123.1, 123.2, 122, None],
+            'long': [123.3, 123.2, 123.1, 123, 'bull'],
+            'short': [122.7, 123.8, 123.9, 123, 'bear'],
+        }, columns=['close', '10EMA', '20SMA', 'SAR', 'trend'], orient='index'
+    ).astype(
+        {
+            'close': 'float32',
+            '10EMA': 'float32',
+            '20SMA': 'float32',
+            'SAR': 'float32',
+            'trend': 'object'
+        }
+    )
+
+    trend, _, _ = base.generate_trend_column(sample_data, sample_data['close'])
+    pd.testing.assert_series_equal(trend, sample_data['trend'], check_names=False)
+
 
 def test_generate_stoc_allows_column():
     indicators = pd.DataFrame.from_dict(

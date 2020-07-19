@@ -42,6 +42,18 @@ def commit_positions(candles, long_indexes, short_indexes, spread):
     candles.loc[no_position_index, 'position'] = None
 
 
+def generate_trend_column(indicators, c_prices):
+    sma = indicators['20SMA']
+    ema = indicators['10EMA']
+    parabo = indicators['SAR']
+    method_trend_checker = np.frompyfunc(identify_trend_type, 4, 1)
+
+    trend = method_trend_checker(c_prices, sma, ema, parabo)
+    bull = np.where(trend == 'bull', True, False)
+    bear = np.where(trend == 'bear', True, False)
+    return trend, bull, bear
+
+
 def generate_stoc_allows_column(indicators, sr_trend):
     ''' stocがtrendに沿う値を取っているか判定する列を返却 '''
     stod = indicators['stoD_3']

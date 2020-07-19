@@ -190,17 +190,6 @@ class Trader():
         tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
         return tmp_df
 
-    def __generate_trend_column(self, c_prices):
-        sma = self._indicators['20SMA']
-        ema = self._indicators['10EMA']
-        parabo = self._indicators['SAR']
-        method_trend_checker = np.frompyfunc(base_rules.identify_trend_type, 4, 1)
-
-        trend = method_trend_checker(c_prices, sma, ema, parabo)
-        bull = np.where(trend == 'bull', True, False)
-        bear = np.where(trend == 'bear', True, False)
-        return trend, bull, bear
-
     def __generate_thrust_column(self, candles):
         # INFO: if high == the max of recent-10-candles: True is set !
         sr_highest_in_10candles = (candles.high == candles.high.rolling(window=10).max())
@@ -322,7 +311,7 @@ class Trader():
 
         indicators = self._indicators
         candles['trend'], candles['bull'], candles['bear'] \
-            = self.__generate_trend_column(c_prices=candles.close)
+            = base_rules.generate_trend_column(indicators, candles.close)
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
         candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=comparison_prices_with_bands)
