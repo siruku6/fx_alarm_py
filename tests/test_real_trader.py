@@ -9,7 +9,7 @@ from unittest.mock import patch, call
 import models.real_trader as real
 import models.tools.statistics_module as statistics
 from tests.fixtures.d1_stoc_dummy import d1_stoc_dummy
-from tests.oanda_dummy_responses import dummy_market_order_response
+from tests.oanda_dummy_responses import dummy_open_trades, dummy_market_order_response
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -26,9 +26,17 @@ def dummy_candles():
     yield candles
 
 
-def test_not_entry(real_trader_client, dummy_candles):
+# INFO:
+#   fixture の使い方 https://qiita.com/_akiyama_/items/9ead227227d669b0564e
+@pytest.fixture(scope='module', autouse=True)
+def dummy_indicators(real_trader_client, dummy_candles):
     real_trader_client._ana.calc_indicators(dummy_candles, long_span_candles=dummy_candles)
-    indicators = real_trader_client._ana.get_indicators()
+    yield real_trader_client._ana.get_indicators()
+
+
+def test_not_entry(real_trader_client, dummy_candles, dummy_indicators):
+    # real_trader_client._ana.calc_indicators(dummy_candles, long_span_candles=dummy_candles)
+    indicators = dummy_indicators
 
     # Example: 最後の損失から1時間が経過していない場合
     no_time_since_lastloss = datetime.timedelta(hours=0)
@@ -148,6 +156,49 @@ def test__trail_stoploss(real_trader_client):
         tradeID=dummy_trade_id,
         data=data
     )
+
+
+def test___drive_exit_process(real_trader_client):
+    indicators = pd.DataFrame({'stoD_3': [10.000, None], 'stoSD_3': [30.000, None]})
+    last_candle = pd.DataFrame([{'long_stoD': 25.694, 'long_stoSD': 18.522, 'stoD_over_stoSD': False}]) \
+                    .iloc[-1]
+    # Example: 'long'
+    #   stoD_3 < stoSD_3, stoD_over_stoSD => False
+    with patch('models.real_trader.RealTrader._RealTrader__settle_position', return_value=None) as mock:
+        real_trader_client._RealTrader__drive_exit_process(
+            'long', indicators, last_candle, preliminary=True
+        )
+    mock.assert_not_called()
+
+    with patch('models.real_trader.RealTrader._RealTrader__settle_position', return_value=[]) as mock:
+        real_trader_client._RealTrader__drive_exit_process(
+            'long', indicators, last_candle
+        )
+    mock.assert_called_once()
+
+    # Example: 'short'
+    #   stoD_3 < stoSD_3, stoD_over_stoSD => False
+    with patch('models.real_trader.RealTrader._RealTrader__settle_position', return_value=None) as mock:
+        real_trader_client._RealTrader__drive_exit_process(
+            'short', indicators, last_candle
+        )
+    mock.assert_not_called()
+    # import pdb; pdb.set_trace()
+    # TODO: testcase 不足
+
+
+def test___load_position(real_trader_client):
+    with patch('models.oanda_py_client.OandaPyClient.request_open_trades', return_value=[]):
+        pos = real_trader_client._RealTrader__load_position()
+    assert pos == {'type': 'none'}
+
+
+    with patch('models.oanda_py_client.OandaPyClient.request_open_trades', return_value=dummy_open_trades):
+        pos = real_trader_client._RealTrader__load_position()
+    assert type(pos) is dict # '戻り値は辞書型'
+    assert 'type' in pos
+    assert 'price' in pos
+    assert 'stoploss' in pos
 
 
 def test___since_last_loss(real_trader_client):

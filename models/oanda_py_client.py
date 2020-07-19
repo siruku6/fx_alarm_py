@@ -371,11 +371,11 @@ class OandaPyClient():
             'type': ['ORDER'],
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
-        requset_obj = transactions.TransactionIDRange(
+        request_obj = transactions.TransactionIDRange(
             accountID=os.environ['OANDA_ACCOUNT_ID'],
             params=params
         )
-        response = self.__api_client.request(requset_obj)
+        response = self.__api_client.request(request_obj)
         filtered_df = self.__filter_and_make_df(response['transactions'])
         return filtered_df
 

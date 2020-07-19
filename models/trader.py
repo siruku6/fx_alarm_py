@@ -190,17 +190,6 @@ class Trader():
         tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
         return tmp_df
 
-    def __generate_trend_column(self, c_prices):
-        sma = self._indicators['20SMA']
-        ema = self._indicators['10EMA']
-        parabo = self._indicators['SAR']
-        method_trend_checker = np.frompyfunc(base_rules.identify_trend_type, 4, 1)
-
-        trend = method_trend_checker(c_prices, sma, ema, parabo)
-        bull = np.where(trend == 'bull', True, False)
-        bear = np.where(trend == 'bear', True, False)
-        return trend, bull, bear
-
     def __generate_thrust_column(self, candles):
         # INFO: if high == the max of recent-10-candles: True is set !
         sr_highest_in_10candles = (candles.high == candles.high.rolling(window=10).max())
@@ -283,13 +272,6 @@ class Trader():
         })
         return np.any(tmp_df, axis=1)
 
-    def __generate_stoc_allows_column(self, sr_trend):
-        ''' stocがtrendに沿う値を取っているか判定する列を返却 '''
-        stod = self._indicators['stoD_3']
-        stosd = self._indicators['stoSD_3']
-        column_generator = np.frompyfunc(base_rules.stoc_allows_entry, 3, 1)
-        return column_generator(stod, stosd, sr_trend)
-
     #
     # private
     #
@@ -329,7 +311,7 @@ class Trader():
 
         indicators = self._indicators
         candles['trend'], candles['bull'], candles['bear'] \
-            = self.__generate_trend_column(c_prices=candles.close)
+            = base_rules.generate_trend_column(indicators, candles.close)
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
         candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=comparison_prices_with_bands)
@@ -338,7 +320,9 @@ class Trader():
         )
         candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=candles[['bull', 'bear']])
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
-        candles['stoc_allows'] = self.__generate_stoc_allows_column(sr_trend=candles['trend'])
+        candles['stoc_allows'] = base_rules.generate_stoc_allows_column(
+            indicators, sr_trend=candles['trend']
+        )
 
     def _preprocess_backtest_result(self, rule, result):
         positions_columns = ['time', 'position', 'entry_price', 'exitable_price']
