@@ -283,13 +283,6 @@ class Trader():
         })
         return np.any(tmp_df, axis=1)
 
-    def __generate_stoc_allows_column(self, sr_trend):
-        ''' stocがtrendに沿う値を取っているか判定する列を返却 '''
-        stod = self._indicators['stoD_3']
-        stosd = self._indicators['stoSD_3']
-        column_generator = np.frompyfunc(base_rules.stoc_allows_entry, 3, 1)
-        return column_generator(stod, stosd, sr_trend)
-
     #
     # private
     #
@@ -338,7 +331,9 @@ class Trader():
         )
         candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=candles[['bull', 'bear']])
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
-        candles['stoc_allows'] = self.__generate_stoc_allows_column(sr_trend=candles['trend'])
+        candles['stoc_allows'] = base_rules.generate_stoc_allows_column(
+            indicators=self._indicators , sr_trend=candles['trend']
+        )
 
     def _preprocess_backtest_result(self, rule, result):
         positions_columns = ['time', 'position', 'entry_price', 'exitable_price']

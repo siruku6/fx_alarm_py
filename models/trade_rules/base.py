@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 
 
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#                       Multople rows Processor
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def set_entryable_prices(candles, spread):
     ''' entry した場合の price を candles dataframe に設定 '''
     # INFO: long-entry
@@ -39,6 +42,17 @@ def commit_positions(candles, long_indexes, short_indexes, spread):
     candles.loc[no_position_index, 'position'] = None
 
 
+def generate_stoc_allows_column(indicators, sr_trend):
+    ''' stocがtrendに沿う値を取っているか判定する列を返却 '''
+    stod = indicators['stoD_3']
+    stosd = indicators['stoSD_3']
+    column_generator = np.frompyfunc(stoc_allows_entry, 3, 1)
+    return column_generator(stod, stosd, sr_trend)
+
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+#                         Single row Processor
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 def identify_trend_type(c_price, sma, ema, parabo):
     '''
     Identify whether the trend type is 'bull', 'bear' or None
