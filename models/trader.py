@@ -332,7 +332,7 @@ class Trader():
         candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=candles[['bull', 'bear']])
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
         candles['stoc_allows'] = base_rules.generate_stoc_allows_column(
-            indicators=self._indicators , sr_trend=candles['trend']
+            indicators, sr_trend=candles['trend']
         )
 
     def _preprocess_backtest_result(self, rule, result):
