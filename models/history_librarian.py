@@ -36,12 +36,13 @@ class Librarian():
 
         # preapre history_df: trade-history
         history_df = self.__client.request_transactions()
+        history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
+
         history_df.loc[:, 'price'] = history_df.price.astype('float32')
         candles = self.__prepare_candles(log_oldest_time=history_df.iloc[0].time, granularity=granularity)
         print('[Libra] candles and trade-logs are loaded')
 
         history_df = self.__adjust_time_for_merging(candles, history_df, granularity)
-        history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
 
         # prepare pl_and_gross
         pl_and_gross_df = self.__calc_pl_gross(granularity, history_df[['time', 'pl', 'dst']])
