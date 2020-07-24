@@ -65,9 +65,8 @@ class Librarian():
     def __prepare_candles(self, log_oldest_time, granularity):
         today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
         start_dt = pd.to_datetime(log_oldest_time) - datetime.timedelta(days=30)
-        days = (today_dt - start_dt).days + 1
 
-        result = self.__client.load_long_chart(days=days, granularity=granularity)
+        result = self.__client.load_candles_by_duration(start=start_dt, end=today_dt, granularity=granularity)
         return result['candles']
 
     def __adjust_time_for_merging(self, candles, history_df, granularity):
