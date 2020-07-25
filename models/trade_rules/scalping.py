@@ -68,6 +68,7 @@ def __decide_exit_price(entry_direction, one_frame, previous_frame):
     # elif exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
     #     exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
     elif exitable_by_long_stoccross(entry_direction, long_stod_greater=one_frame['stoD_over_stoSD']) \
+            and exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']) \
             and exitable_by_stoccross(entry_direction, stod=previous_frame['stoD_3'], stosd=previous_frame['stoSD_3']):
         exit_price = one_frame['open']  # 'low'] if entry_direction == 'long' else one_frame['high']
         exit_reason = 'Stochastics of both long and target-span are crossed'
