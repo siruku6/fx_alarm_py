@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import mplfinance.original_flavor as mpf
 import numpy as np
 import pandas as pd
+
+import models.tools.mathematics as mtmtcs
 from models.oanda_py_client import FXBase
 
 matplotlib.use('Agg')
@@ -63,6 +65,18 @@ class FigureDrawer():
         self.draw_df_on_plt(d_frame.loc[:, ['stoSD_3']], FigureDrawer.PLOT_TYPE['simple-line'], color='orangered', plt_id=2)
         # self.draw_df_on_plt(d_frame.loc[:, ['regist']], FigureDrawer.PLOT_TYPE['dot'], color='orangered', size=0.5)
         # self.draw_df_on_plt(d_frame.loc[:, ['support']], FigureDrawer.PLOT_TYPE['dot'], color='blue', size=0.5)
+
+    def draw_long_stoc(self, candles, indicators):
+        candle_digits = mtmtcs.int_digits(candles['close'].iat[0])
+        gap = mtmtcs.generate_float_digits_of(candle_digits - 3)
+        y_height = indicators['band_-2σ'].min(skipna=True) - gap
+
+        candles.fillna({'stoD_over_stoSD': False}, inplace=True)
+        bull_long_stoc = candles.loc[candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
+        bear_long_stoc = candles.loc[~candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
+
+        self.draw_df_on_plt(bull_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='red', plt_id=1)
+        self.draw_df_on_plt(bear_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='blue', plt_id=1)
 
     def draw_df_on_plt(self, d_frame, plot_type, color='black', colors=None, size=1, nolabel=None, plt_id=1):
         ''' DataFrameを受け取って、各columnを描画 '''
@@ -150,9 +164,8 @@ class FigureDrawer():
     #         label=label, s=size
     #     )
 
-    def draw_candles(self, start=0, end=None):
+    def draw_candles(self, target_candles):
         ''' 取得済みチャートを描画 '''
-        target_candles = FXBase.get_candles(start=start, end=end)
         mpf.candlestick2_ohlc(
             self.__axes[0],
             opens=target_candles.open.values,

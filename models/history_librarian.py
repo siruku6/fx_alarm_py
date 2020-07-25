@@ -252,7 +252,8 @@ class Librarian():
         d_frame['gross'].fillna(method='ffill', inplace=True)
         drwr.draw_df_on_plt(d_frame[['gross', 'pl']], drwr.PLOT_TYPE['bar'], colors=['orange', 'yellow'], plt_id=3)
 
-        drwr.draw_candles(start=-Librarian.DRAWABLE_ROWS, end=None)  # 200本より古い足は消している
+        target_candles = d_frame.iloc[-Librarian.DRAWABLE_ROWS:, :]  # 200本より古い足は消している
+        drwr.draw_candles(target_candles)
         result = drwr.create_png(
             granularity='real-trade',
             sr_time=d_frame.time, num=0, filename='hist'
