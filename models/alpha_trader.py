@@ -55,5 +55,5 @@ class AlphaTrader(Trader):
         candles.loc[:, 'position'] = commited_df['position']
         candles.loc[:, 'exitable_price'] = commited_df['exitable_price']
         candles.loc[:, 'exit_reason'] = commited_df['exit_reason']
-        candles.loc[:, 'entry_price'] = candles['entryable_price']
+        candles.loc[:, 'entry_price'] = commited_df['entryable_price']
         candles.loc[:, 'possible_stoploss'] = commited_df['possible_stoploss']
