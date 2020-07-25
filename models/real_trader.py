@@ -205,23 +205,20 @@ class RealTrader(Trader):
         # minus_2sigma = last_indicators['band_-2σ']
         # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
 
-        # INFO: stod, stosd は、直前の足の確定値を使う
-        #   その方が、forward test に近い結果を出せるため
-        stod = indicators.iloc[-2]['stoD_3']
-        stosd = indicators.iloc[-2]['stoSD_3']
-        stod_over_stosd_on_long = last_candle['stoD_over_stoSD']
+        current_indicator = indicators.iloc[-1]
+        current_indicator['stoD_over_stoSD'] = last_candle['stoD_over_stoSD']
+        previous_indicator = indicators.iloc[-2]
 
-        # if scalping.exitable_by_stoccross(position_type, stod, stosd):
-        if scalping.exitable_by_long_stoccross(position_type, stod_over_stosd_on_long) \
-                and scalping.exitable_by_stoccross(position_type, stod, stosd):
-            # self.__settle_position(reason='C is over the bands. +2s: {}, C: {}, -2s:{}'.format(
-            #     plus_2sigma, last_candle.close, minus_2sigma
-            # ))
+        # stod_over_stosd_on_long = last_candle['stoD_over_stoSD']
+        if scalping.drive_exitable_judge_with_stocs(position_type, current_indicator, previous_indicator):
+            # if scalping.exitable_by_long_stoccross(position_type, stod_over_stosd_on_long) \
+            #         and scalping.exitable_by_stoccross(
+            #             position_type, previous_indicator['stoD_3'], previous_indicator['stoSD_3']
+            #         ):
             if preliminary: return True
 
-            self.__settle_position(reason='stoc crossed ! position_type: {}, stod: {}, stosd:{}'.format(
-                position_type, stod, stosd
-            ))
+            reason = 'stoc crossed at {} ! position_type: {}'.format(position_type, last_candle['time'])
+            self.__settle_position(reason=reason)
 
     def __load_position(self):
         pos = {'type': 'none'}
