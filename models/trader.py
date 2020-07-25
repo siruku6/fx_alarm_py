@@ -215,6 +215,7 @@ class Trader():
         # )
         # return result
 
+    # 60EMA is necessary?
     def __generate_ema_allows_column(self, candles):
         ema60 = self._indicators['60EMA']
         ema60_allows_bull = np.all(np.array([candles.bull, ema60 < candles.close]), axis=0)
@@ -313,7 +314,8 @@ class Trader():
         candles['trend'], candles['bull'], candles['bear'] \
             = base_rules.generate_trend_column(indicators, candles.close)
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
-        candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
+        # 60EMA is necessary?
+        # candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=comparison_prices_with_bands)
         candles['band_expansion'] = self.__generate_band_expansion_column(
             df_bands=indicators[['band_+2σ', 'band_-2σ']]

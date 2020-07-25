@@ -50,6 +50,7 @@ class FigureDrawer():
     # OPTIMIZE: Analyzerクラスと密結合なメソッドになってしまった
     def draw_indicators(self, d_frame):
         ''' DateFrameからindicatorを描画 '''
+        # 60EMA is necessary?
         # self.draw_df_on_plt(d_frame.loc[:, ['60EMA']], FigureDrawer.PLOT_TYPE['dashed-line'], color='lime')
 
         simple_lines_df = d_frame[['20SMA', '10EMA', 'band_+1σ', 'band_+2σ']]
