@@ -47,9 +47,12 @@ def commit_positions_by_loop(factor_dicts):
 
         # exit した場合のみここに到達する
         one_frame.update(exitable_price=exit_price, position=exit_type, exit_reason=exit_reason)
+        __tmp_delay_irregular_entry(factor_dicts, index)  # HACK: 暫定措置
         entry_direction = reset_next_position(index)
 
-    return pd.DataFrame.from_dict(factor_dicts)[['position', 'exitable_price', 'exit_reason', 'possible_stoploss']]
+    return pd.DataFrame.from_dict(factor_dicts)[
+        ['entryable_price', 'position', 'exitable_price', 'exit_reason', 'possible_stoploss']
+    ]
 
 
 def __decide_exit_price(entry_direction, one_frame, previous_frame):
@@ -87,6 +90,18 @@ def __exit_by_stoploss(entry_direction, one_frame, previous_frame):
         exit_price = one_frame['possible_stoploss']
         exit_reason = 'Hit stoploss'
     return exit_price, exit_reason
+
+
+def __tmp_delay_irregular_entry(factor_dicts, index):
+    one_frame = factor_dicts[index]
+    # HACK: long なのに buy_exit などの逆行減少があるときは entryを消しておく (暫定措置)
+    long_buy_exit = one_frame['entryable'] == 'long' and one_frame['position'] == 'buy_exit'
+    short_sell_exit = one_frame['entryable'] == 'short' and one_frame['position'] == 'sell_exit'
+
+    if long_buy_exit or short_sell_exit:
+        # delay entry
+        factor_dicts[index + 1].update(entryable=one_frame['entryable'], entryable_price=one_frame['entryable_price'])
+        one_frame.update(entryable_price=None)
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - -
