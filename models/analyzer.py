@@ -17,6 +17,7 @@ class Analyzer():
         self.__indicators = {
             '20SMA': None,
             '10EMA': None,
+            # 60EMA is necessary?
             '60EMA': None,
             'SIGMA_BAND': None,
             'SIGMA*-1_BAND': None,
@@ -69,6 +70,7 @@ class Analyzer():
             [
                 self.__indicators['20SMA'],
                 self.__indicators['10EMA'],
+                # 60EMA is necessary?
                 self.__indicators['60EMA'],
                 self.__indicators['SIGMA_BAND'],
                 self.__indicators['SIGMA*-1_BAND'],
@@ -102,6 +104,8 @@ class Analyzer():
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
         ema = close_candles.ewm(span=window_size).mean()
         self.__indicators['10EMA'] = pd.DataFrame(ema).rename(columns={'close': '10EMA'})
+
+        # 60EMA is necessary?
         ema60 = close_candles.ewm(span=60).mean()
         self.__indicators['60EMA'] = pd.DataFrame(ema60).rename(columns={'close': '60EMA'})
 

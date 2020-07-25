@@ -215,6 +215,7 @@ class Trader():
         # )
         # return result
 
+    # 60EMA is necessary?
     def __generate_ema_allows_column(self, candles):
         ema60 = self._indicators['60EMA']
         ema60_allows_bull = np.all(np.array([candles.bull, ema60 < candles.close]), axis=0)
@@ -313,7 +314,8 @@ class Trader():
         candles['trend'], candles['bull'], candles['bear'] \
             = base_rules.generate_trend_column(indicators, candles.close)
         candles['thrust'] = self.__generate_thrust_column(candles=candles)
-        candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
+        # 60EMA is necessary?
+        # candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=comparison_prices_with_bands)
         candles['band_expansion'] = self.__generate_band_expansion_column(
             df_bands=indicators[['band_+2σ', 'band_-2σ']]
@@ -367,8 +369,17 @@ class Trader():
             ][['sequence', 'price']]
             return entry_rows
 
+        start = df_len - Trader.MAX_ROWS_COUNT * (df_index + 1)
+        if start < 0:
+            start = 0
+        end = df_len - Trader.MAX_ROWS_COUNT * df_index
+        target_candles = FXBase.get_candles(start=start, end=end)
+        sr_time = drwr.draw_candles(target_candles)['time']
+
         # indicators
         drwr.draw_indicators(d_frame=indicators)
+        target_candles = self._merge_long_stoc(target_candles)[['close', 'stoD_over_stoSD']]
+        drwr.draw_long_stoc(candles=target_candles, indicators=indicators)
 
         # positions
         # INFO: exitable_price などの列が残っていると、後 draw_positions_df の dropna で行が消される
@@ -383,7 +394,6 @@ class Trader():
         drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
         drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
         drwr.draw_positions_df(positions_df=close_df, plot_type=drwr.PLOT_TYPE['exit'])
-        # drwr.draw_positions_df(positions_df=short_close_df, plot_type=drwr.PLOT_TYPE['exit'], nolabel='_nolegend_')
         drwr.draw_positions_df(positions_df=trail_df, plot_type=drwr.PLOT_TYPE['trail'])
 
         drwr.draw_vertical_lines(
@@ -393,13 +403,6 @@ class Trader():
             vmin=indicators['band_-2σ'].min(skipna=True),
             vmax=indicators['band_+2σ'].max(skipna=True)
         )
-
-        # candles
-        start = df_len - Trader.MAX_ROWS_COUNT * (df_index + 1)
-        if start < 0:
-            start = 0
-        end = df_len - Trader.MAX_ROWS_COUNT * df_index
-        sr_time = drwr.draw_candles(start, end)['time']
 
         # profit(pl) / gross
         if self.__static_options['figure_option'] > 2:
