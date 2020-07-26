@@ -142,23 +142,6 @@ def test___decide_exit_price():
     assert exit_reason is None
 
 
-def test___assign_possible_stoploss():
-    candles = [
-        {
-            'entry_direction': 'long',
-            'support': 129.0, 'regist': 131.0,
-            'expected_stoploss': 129.0
-        }, {
-            'entry_direction': 'short',
-            'support': 129.0, 'regist': 130.5,
-            'expected_stoploss': 130.5
-        }
-    ]
-    for i, row in enumerate(candles):
-        stoploss_price = scalping.__assign_possible_stoploss(row['entry_direction'], row)
-        assert math.isclose(stoploss_price, row['expected_stoploss'])
-
-
 def test___exit_by_stoploss():
     def test_stoploss(candles):
         for i, row in enumerate(candles):

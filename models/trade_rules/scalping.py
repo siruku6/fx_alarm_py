@@ -41,12 +41,13 @@ def commit_positions_by_loop(factor_dicts):
             entry_direction = reset_next_position(index)
             continue
 
-        one_frame['possible_stoploss'] = __assign_possible_stoploss(
-            entry_direction, previous_frame=factor_dicts[index - 1]
+        previous_frame = factor_dicts[index - 1]
+        one_frame['possible_stoploss'] = new_stoploss_price(
+            entry_direction, previous_frame['support'], previous_frame['regist'], np.nan
         )
 
         exit_price, exit_type, exit_reason = __decide_exit_price(
-            entry_direction, one_frame, previous_frame=factor_dicts[index - 1]
+            entry_direction, one_frame, previous_frame=previous_frame
         )
         # exit する理由がなければ continue
         if exit_price is None:
@@ -60,16 +61,6 @@ def commit_positions_by_loop(factor_dicts):
     return pd.DataFrame.from_dict(factor_dicts)[
         ['entryable_price', 'position', 'exitable_price', 'exit_reason', 'possible_stoploss']
     ]
-
-
-def __assign_possible_stoploss(entry_direction, previous_frame):
-    if entry_direction == 'long':
-        possible_stoploss = previous_frame['support']
-    elif entry_direction == 'short':
-        # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
-        possible_stoploss = previous_frame['regist']
-
-    return possible_stoploss
 
 
 def __decide_exit_price(entry_direction, one_frame, previous_frame):
@@ -139,14 +130,15 @@ def repulsion_exist(trend, previous_ema, two_before_high, previous_high, two_bef
 
 
 def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss):
-    if position_type == 'long':
-        if np.isnan(old_stoploss) or old_stoploss < current_sup:
-            return current_sup
-    elif position_type == 'short':
-        if np.isnan(old_stoploss) or old_stoploss > current_regist:
-            return current_regist
+    stoploss = np.nan
+    is_old_stoploss_empty = np.isnan(old_stoploss)
 
-    return np.nan
+    if position_type == 'long' and (is_old_stoploss_empty or old_stoploss < current_sup):
+        stoploss = current_sup
+    elif position_type == 'short' and (is_old_stoploss_empty or old_stoploss > current_regist):
+        stoploss = current_regist
+
+    return stoploss
 
 
 def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
