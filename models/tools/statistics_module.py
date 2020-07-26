@@ -14,7 +14,8 @@ FILTER_ELEMENTS = [
     'ma_gap_expanding',
     'sma_follow_trend',
     'stoc_allows',
-    'ema60_allows',
+    # 60EMA is necessary?
+    # 'ema60_allows',
     'band_expansion'
 ]
 

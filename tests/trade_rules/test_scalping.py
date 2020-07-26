@@ -145,12 +145,7 @@ def test___decide_exit_price():
 def test___exit_by_stoploss():
     def test_stoploss(candles):
         for i, row in enumerate(candles):
-            if i == 0:
-                continue
-
-            exit_price, exit_reason = scalping.__exit_by_stoploss(
-                row['entry_direction'], row, candles[i - 1]
-            )
+            exit_price, exit_reason = scalping.__exit_by_stoploss(row['entry_direction'], row)
 
             if exit_price is None:
                 assert exit_price is row['expected_exitprice']
@@ -162,17 +157,11 @@ def test___exit_by_stoploss():
     long_candles = [
         {
             'entry_direction': 'long',
-            'high': 130.1, 'low': 130.0,
-            'support': 129.0, 'regist': 131.0
-        }, {
-            'entry_direction': 'long',
-            'high': 130.1, 'low': 130.0,
-            'support': 129.0, 'regist': 131.0,
+            'high': 130.1, 'low': 130.0, 'possible_stoploss': 129.0,
             'expected_exitprice': None, 'expected_exitreason': None
         }, {
             'entry_direction': 'long',
-            'high': 129.5, 'low': 128.5,
-            'support': 129.0, 'regist': 131.0,
+            'high': 129.5, 'low': 128.5, 'possible_stoploss': 129.0,
             'expected_exitprice': 129.0, 'expected_exitreason': 'Hit stoploss'
         }
     ]
@@ -180,17 +169,11 @@ def test___exit_by_stoploss():
     short_candles = [
         {
             'entry_direction': 'short',
-            'high': 130.1, 'low': 130.0,
-            'support': 129.0, 'regist': 130.5
-        }, {
-            'entry_direction': 'short',
-            'high': 130.1, 'low': 130.0,
-            'support': 129.0, 'regist': 130.5,
+            'high': 130.1, 'low': 130.0, 'possible_stoploss': 130.5,
             'expected_exitprice': None, 'expected_exitreason': None
         }, {
             'entry_direction': 'short',
-            'high': 131.0, 'low': 130.0,
-            'support': 129.0, 'regist': 130.5,
+            'high': 131.0, 'low': 130.0, 'possible_stoploss': 130.5,
             'expected_exitprice': 130.5, 'expected_exitreason': 'Hit stoploss'
         }
     ]

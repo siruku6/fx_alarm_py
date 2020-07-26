@@ -25,10 +25,13 @@ def set_entryable_prices(candles, spread):
 
 
 def commit_positions_by_loop(factor_dicts):
-    loop_objects = factor_dicts[:-1]  # コピー変数: loop_objects への変更は factor_dicts にも及ぶ
+    loop_objects = factor_dicts  # コピー変数: loop_objects への変更は factor_dicts にも及ぶ
     entry_direction = factor_dicts[0]['entryable']  # 'long', 'short' or nan
 
     def reset_next_position(index):
+        if factor_dicts[-1]['time'] == factor_dicts[index]['time']:
+            return 'It is the last'
+
         factor_dicts[index + 1]['position'] = entry_direction = factor_dicts[index + 1]['entryable']
         return entry_direction
 
@@ -38,20 +41,26 @@ def commit_positions_by_loop(factor_dicts):
             entry_direction = reset_next_position(index)
             continue
 
+        previous_frame = factor_dicts[index - 1]
+        one_frame['possible_stoploss'] = new_stoploss_price(
+            entry_direction, previous_frame['support'], previous_frame['regist'], np.nan
+        )
+
         exit_price, exit_type, exit_reason = __decide_exit_price(
-            entry_direction, one_frame, previous_frame=factor_dicts[index - 1]
+            entry_direction, one_frame, previous_frame=previous_frame
         )
         # exit する理由がなければ continue
         if exit_price is None:
             continue
 
         # exit した場合のみここに到達する
-        one_frame['exitable_price'] = exit_price
-        one_frame['position'] = exit_type
-        one_frame['exit_reason'] = exit_reason
+        one_frame.update(exitable_price=exit_price, position=exit_type, exit_reason=exit_reason)
+        __tmp_delay_irregular_entry(factor_dicts, index)  # HACK: 暫定措置
         entry_direction = reset_next_position(index)
 
-    return pd.DataFrame.from_dict(factor_dicts)[['position', 'exitable_price', 'exit_reason', 'possible_stoploss']]
+    return pd.DataFrame.from_dict(factor_dicts)[
+        ['entryable_price', 'position', 'exitable_price', 'exit_reason', 'possible_stoploss']
+    ]
 
 
 def __decide_exit_price(entry_direction, one_frame, previous_frame):
@@ -61,37 +70,39 @@ def __decide_exit_price(entry_direction, one_frame, previous_frame):
     elif entry_direction == 'short':
         edge_price = one_frame['low']
         exit_type = 'buy_exit'
-    exit_price, exit_reason = __exit_by_stoploss(entry_direction, one_frame, previous_frame)
+    exit_price, exit_reason = __exit_by_stoploss(entry_direction, one_frame)
     if exit_price is not None:
         return exit_price, exit_type, exit_reason
 
     # if is_exitable_by_bollinger(edge_price, one_frame['band_+2σ'], one_frame['band_-2σ']):
     #     exit_price = one_frame['band_+2σ'] if entry_direction == 'long' else one_frame['band_-2σ']
-    # elif exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']):
-    #     exit_price = one_frame['low'] if entry_direction == 'long' else one_frame['high']
-    elif exitable_by_long_stoccross(entry_direction, long_stod_greater=one_frame['stoD_over_stoSD']) \
-            and exitable_by_stoccross(entry_direction, stod=previous_frame['stoD_3'], stosd=previous_frame['stoSD_3']):
+    if drive_exitable_judge_with_stocs(entry_direction, one_frame, previous_frame):
         exit_price = one_frame['open']  # 'low'] if entry_direction == 'long' else one_frame['high']
         exit_reason = 'Stochastics of both long and target-span are crossed'
     return exit_price, exit_type, exit_reason
 
 
-def __exit_by_stoploss(entry_direction, one_frame, previous_frame):
+def __exit_by_stoploss(entry_direction, one_frame):
     ''' stoploss による exit の判定 '''
     exit_price = None
     exit_reason = None
 
-    if 'possible_stoploss' not in one_frame:
-        one_frame['possible_stoploss'] = np.nan
-        if entry_direction == 'long':
-            one_frame['possible_stoploss'] = previous_frame['support']
-        elif entry_direction == 'short':
-            # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
-            one_frame['possible_stoploss'] = previous_frame['regist']
     if one_frame['low'] < one_frame['possible_stoploss'] < one_frame['high']:
         exit_price = one_frame['possible_stoploss']
         exit_reason = 'Hit stoploss'
     return exit_price, exit_reason
+
+
+def __tmp_delay_irregular_entry(factor_dicts, index):
+    one_frame = factor_dicts[index]
+    # HACK: long なのに buy_exit などの逆行減少があるときは entryを消しておく (暫定措置)
+    long_buy_exit = one_frame['entryable'] == 'long' and one_frame['position'] == 'buy_exit'
+    short_sell_exit = one_frame['entryable'] == 'short' and one_frame['position'] == 'sell_exit'
+
+    if long_buy_exit or short_sell_exit:
+        # delay entry
+        factor_dicts[index + 1].update(entryable=one_frame['entryable'], entryable_price=one_frame['entryable_price'])
+        one_frame.update(entryable_price=None)
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - -
@@ -119,14 +130,15 @@ def repulsion_exist(trend, previous_ema, two_before_high, previous_high, two_bef
 
 
 def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss):
-    if position_type == 'long':
-        if np.isnan(old_stoploss) or old_stoploss < current_sup:
-            return current_sup
-    elif position_type == 'short':
-        if np.isnan(old_stoploss) or old_stoploss > current_regist:
-            return current_regist
+    stoploss = np.nan
+    is_old_stoploss_empty = np.isnan(old_stoploss)
 
-    return np.nan
+    if position_type == 'long' and (is_old_stoploss_empty or old_stoploss < current_sup):
+        stoploss = current_sup
+    elif position_type == 'short' and (is_old_stoploss_empty or old_stoploss > current_regist):
+        stoploss = current_regist
+
+    return stoploss
 
 
 def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
@@ -136,6 +148,13 @@ def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
         return True
     else:
         return False
+
+
+def drive_exitable_judge_with_stocs(entry_direction, one_frame, previous_frame):
+    result = exitable_by_long_stoccross(entry_direction, long_stod_greater=one_frame['stoD_over_stoSD']) \
+        and exitable_by_stoccross(entry_direction, stod=one_frame['stoD_3'], stosd=one_frame['stoSD_3']) \
+        and exitable_by_stoccross(entry_direction, stod=previous_frame['stoD_3'], stosd=previous_frame['stoSD_3'])
+    return result
 
 
 # INFO: stod, stosd は、直前の足の確定値を使う

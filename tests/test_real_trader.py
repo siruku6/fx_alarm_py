@@ -158,31 +158,45 @@ def test__trail_stoploss(real_trader_client):
     )
 
 
-def test___drive_exit_process(real_trader_client):
-    indicators = pd.DataFrame({'stoD_3': [10.000, None], 'stoSD_3': [30.000, None]})
-    last_candle = pd.DataFrame([{'long_stoD': 25.694, 'long_stoSD': 18.522, 'stoD_over_stoSD': False}]) \
-                    .iloc[-1]
+def test___drive_exit_process_dead_cross(real_trader_client):
+    # Example: stoD_3 < stoSD_3, stoD_over_stoSD => False
+    indicators = pd.DataFrame({'stoD_3': [10.000, 10.000], 'stoSD_3': [30.000, 30.000]})
+    last_candle = pd.DataFrame(
+        [{'long_stoD': 15.694, 'long_stoSD': 28.522, 'stoD_over_stoSD': False, 'time': 'xxxx-xx-xx xx:xx'}]
+    ).iloc[-1]
+
     # Example: 'long'
-    #   stoD_3 < stoSD_3, stoD_over_stoSD => False
-    with patch('models.real_trader.RealTrader._RealTrader__settle_position', return_value=None) as mock:
+    with patch('models.real_trader.RealTrader._RealTrader__settle_position') as mock:
         real_trader_client._RealTrader__drive_exit_process(
             'long', indicators, last_candle, preliminary=True
         )
-    mock.assert_not_called()
+        mock.assert_not_called()
 
-    with patch('models.real_trader.RealTrader._RealTrader__settle_position', return_value=[]) as mock:
-        real_trader_client._RealTrader__drive_exit_process(
-            'long', indicators, last_candle
-        )
-    mock.assert_called_once()
+        real_trader_client._RealTrader__drive_exit_process('long', indicators, last_candle)
+        mock.assert_called_once()
 
     # Example: 'short'
-    #   stoD_3 < stoSD_3, stoD_over_stoSD => False
-    with patch('models.real_trader.RealTrader._RealTrader__settle_position', return_value=None) as mock:
-        real_trader_client._RealTrader__drive_exit_process(
-            'short', indicators, last_candle
-        )
-    mock.assert_not_called()
+    with patch('models.real_trader.RealTrader._RealTrader__settle_position') as mock:
+        real_trader_client._RealTrader__drive_exit_process('short', indicators, last_candle)
+        mock.assert_not_called()
+
+
+def test___drive_exit_process_golden_cross(real_trader_client):
+    # Example: stoD_3 > stoSD_3, stoD_over_stoSD => True
+    indicators = pd.DataFrame({'stoD_3': [30.000, 30.000], 'stoSD_3': [10.000, 10.000]})
+    last_candle = pd.DataFrame(
+        [{'long_stoD': 25.694, 'long_stoSD': 18.522, 'stoD_over_stoSD': True, 'time': 'xxxx-xx-xx xx:xx'}]
+    ).iloc[-1]
+
+    with patch('models.real_trader.RealTrader._RealTrader__settle_position') as mock:
+        # Example: 'long'
+        real_trader_client._RealTrader__drive_exit_process('long', indicators, last_candle)
+        mock.assert_not_called()
+
+        # Example: 'short'
+        real_trader_client._RealTrader__drive_exit_process('short', indicators, last_candle)
+        mock.assert_called_once()
+
     # import pdb; pdb.set_trace()
     # TODO: testcase 不足
 
