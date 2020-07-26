@@ -217,7 +217,7 @@ class RealTrader(Trader):
             #         ):
             if preliminary: return True
 
-            reason = 'stoc crossed at {} ! position_type: {}'.format(position_type, last_candle['time'])
+            reason = 'stoc crossed at {} ! position_type: {}'.format(last_candle['time'], position_type)
             self.__settle_position(reason=reason)
 
     def __load_position(self):
