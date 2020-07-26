@@ -154,29 +154,6 @@ def over_2_sigma(self, index, price):
     return False
 
 
-def expand_moving_average_gap(self, index, trend):
-    sma = self._indicators['20SMA']
-    ema = self._indicators['10EMA']
-
-    previous_gap = ema[index - 1] - sma[index - 1]
-    current_gap = ema[index] - sma[index]
-
-    if trend == 'bull':
-        ma_gap_is_expanding = previous_gap < current_gap
-    elif trend == 'bear':
-        ma_gap_is_expanding = previous_gap > current_gap
-
-    if not ma_gap_is_expanding and self._operation == 'live':
-        self._log_skip_reason(
-            'c. {}: MA_gap is shrinking,\n  10EMA: {} -> {},\n  20SMA: {} -> {}'.format(
-                FXBase.get_candles().time[index],
-                ema[index - 1], ema[index],
-                sma[index - 1], sma[index]
-            )
-        )
-    return ma_gap_is_expanding
-
-
 def find_thrust(self, index, candles, trend):
     '''
     thrust発生の有無と方向を判定して返却する
@@ -213,32 +190,3 @@ def find_thrust(self, index, candles, trend):
     #     ))
     #     self._log_skip_reason('3. There isn`t thrust')
     # return direction
-
-
-def detect_latest_trend(self, index, c_price, time):
-    '''
-    ルールに基づいてトレンドの有無を判定
-    '''
-    sma = self._indicators['20SMA'][index]
-    ema = self._indicators['10EMA'][index]
-    parabo = self._indicators['SAR'][index]
-    trend = rules.identify_trend_type(c_price, sma, ema, parabo)
-
-    if trend is None:
-        print('[Trader] Time: {}, 20SMA: {}, 10EMA: {}, close: {}'.format(
-            time, round(sma, 3), round(ema, 3), c_price
-        ))
-        self._log_skip_reason('2. There isn`t the trend')
-    return trend
-
-
-def stochastic_allow_trade(self, index, trend):
-    ''' stocがtrendと一致した動きをしていれば true を返す '''
-    stod = self._indicators['stoD_3'][index]
-    stosd = self._indicators['stoSD_3'][index]
-
-    result = rules.stoc_allows_entry(stod, stosd, trend)
-    if result is False:
-        print('[Trader] stoD: {}, stoSD: {}'.format(stod, stosd))
-        self._log_skip_reason('c. stochastic denies trade')
-    return result
