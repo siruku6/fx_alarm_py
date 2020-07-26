@@ -42,7 +42,7 @@ def commit_positions_by_loop(factor_dicts):
             continue
 
         one_frame['possible_stoploss'] = __assign_possible_stoploss(
-            entry_direction, one_frame, previous_frame=factor_dicts[index - 1]
+            entry_direction, previous_frame=factor_dicts[index - 1]
         )
 
         exit_price, exit_type, exit_reason = __decide_exit_price(
@@ -62,8 +62,7 @@ def commit_positions_by_loop(factor_dicts):
     ]
 
 
-def __assign_possible_stoploss(entry_direction, one_frame, previous_frame):
-    one_frame['possible_stoploss'] = np.nan
+def __assign_possible_stoploss(entry_direction, previous_frame):
     if entry_direction == 'long':
         possible_stoploss = previous_frame['support']
     elif entry_direction == 'short':
