@@ -25,10 +25,13 @@ def set_entryable_prices(candles, spread):
 
 
 def commit_positions_by_loop(factor_dicts):
-    loop_objects = factor_dicts[:-1]  # コピー変数: loop_objects への変更は factor_dicts にも及ぶ
+    loop_objects = factor_dicts  # コピー変数: loop_objects への変更は factor_dicts にも及ぶ
     entry_direction = factor_dicts[0]['entryable']  # 'long', 'short' or nan
 
     def reset_next_position(index):
+        if factor_dicts[-1]['time'] == factor_dicts[index]['time']:
+            return 'It is the last'
+
         factor_dicts[index + 1]['position'] = entry_direction = factor_dicts[index + 1]['entryable']
         return entry_direction
 
@@ -37,6 +40,10 @@ def commit_positions_by_loop(factor_dicts):
         if entry_direction not in ('long', 'short'):
             entry_direction = reset_next_position(index)
             continue
+
+        one_frame['possible_stoploss'] = __assign_possible_stoploss(
+            entry_direction, one_frame, previous_frame=factor_dicts[index - 1]
+        )
 
         exit_price, exit_type, exit_reason = __decide_exit_price(
             entry_direction, one_frame, previous_frame=factor_dicts[index - 1]
@@ -55,6 +62,17 @@ def commit_positions_by_loop(factor_dicts):
     ]
 
 
+def __assign_possible_stoploss(entry_direction, one_frame, previous_frame):
+    one_frame['possible_stoploss'] = np.nan
+    if entry_direction == 'long':
+        possible_stoploss = previous_frame['support']
+    elif entry_direction == 'short':
+        # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
+        possible_stoploss = previous_frame['regist']
+
+    return possible_stoploss
+
+
 def __decide_exit_price(entry_direction, one_frame, previous_frame):
     if entry_direction == 'long':
         edge_price = one_frame['high']
@@ -62,7 +80,7 @@ def __decide_exit_price(entry_direction, one_frame, previous_frame):
     elif entry_direction == 'short':
         edge_price = one_frame['low']
         exit_type = 'buy_exit'
-    exit_price, exit_reason = __exit_by_stoploss(entry_direction, one_frame, previous_frame)
+    exit_price, exit_reason = __exit_by_stoploss(entry_direction, one_frame)
     if exit_price is not None:
         return exit_price, exit_type, exit_reason
 
@@ -74,18 +92,11 @@ def __decide_exit_price(entry_direction, one_frame, previous_frame):
     return exit_price, exit_type, exit_reason
 
 
-def __exit_by_stoploss(entry_direction, one_frame, previous_frame):
+def __exit_by_stoploss(entry_direction, one_frame):
     ''' stoploss による exit の判定 '''
     exit_price = None
     exit_reason = None
 
-    if 'possible_stoploss' not in one_frame:
-        one_frame['possible_stoploss'] = np.nan
-        if entry_direction == 'long':
-            one_frame['possible_stoploss'] = previous_frame['support']
-        elif entry_direction == 'short':
-            # TODO: one_frame['high'] + spread > one_frame['possible_stoploss'] # spread の考慮
-            one_frame['possible_stoploss'] = previous_frame['regist']
     if one_frame['low'] < one_frame['possible_stoploss'] < one_frame['high']:
         exit_price = one_frame['possible_stoploss']
         exit_reason = 'Hit stoploss'
