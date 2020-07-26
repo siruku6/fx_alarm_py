@@ -5,7 +5,7 @@ import numpy as np
 
 from models.oanda_py_client import FXBase
 from models.trader import Trader
-import models.trade_rules.base as rules
+# import models.trade_rules.base as rules
 import models.trade_rules.scalping as scalping
 
 
