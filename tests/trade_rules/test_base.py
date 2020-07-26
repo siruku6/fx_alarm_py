@@ -7,16 +7,15 @@ import models.trade_rules.base as base
 def test_generate_trend_column():
     sample_data = pd.DataFrame.from_dict(
         {
-            'no': [123, 123.1, 123.2, 122, None],
-            'long': [123.3, 123.2, 123.1, 123, 'bull'],
-            'short': [122.7, 123.8, 123.9, 123, 'bear'],
-        }, columns=['close', '10EMA', '20SMA', 'SAR', 'trend'], orient='index'
+            'no': [123, 123.2, 123.1, None],
+            'long': [123.3, 123.2, 123.1, 'bull'],
+            'short': [122.7, 123.8, 123.9, 'bear'],
+        }, columns=['close', '10EMA', '20SMA', 'trend'], orient='index'
     ).astype(
         {
             'close': 'float32',
             '10EMA': 'float32',
             '20SMA': 'float32',
-            'SAR': 'float32',
             'trend': 'object'
         }
     )
