@@ -223,10 +223,16 @@ class Trader():
         return np.any(np.array([ema60_allows_bull, ema60_allows_bear]), axis=0)
 
     def __generate_in_the_band_column(self, price_series):
-        ''' 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 '''
+        ''' (2-sigma-band) * 0.8 内にレートが収まっていることを判定するcolumnを生成 '''
+        indicators = self._indicators
+        diff_prices_and_sma = price_series - indicators['20SMA']
+
+        def diff_band_and_sma(name):
+            return (indicators[name] - indicators['20SMA']) * 0.8
+
         df_over_band_detection = pd.DataFrame({
-            'under_positive_band': self._indicators['band_+2σ'] > price_series,
-            'above_negative_band': self._indicators['band_-2σ'] < price_series
+            'under_positive_band': diff_prices_and_sma < diff_band_and_sma('band_+2σ'),
+            'above_negative_band': diff_prices_and_sma > diff_band_and_sma('band_-2σ')
         })
         return np.all(df_over_band_detection, axis=1)
 
