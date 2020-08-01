@@ -28,7 +28,7 @@ class Analyzer():
             'stoSD': None,
             'support': None,
             'regist': None,
-            'long_stoc': None,
+            'long_indicators': None
         }
 
         # Trendline
@@ -48,8 +48,10 @@ class Analyzer():
         result_msg = {'success': '[Analyzer] indicators算出完了'}
         self.__indicators['stoD'] = self.__calc_stod(candles=candles, window_size=5)
         self.__indicators['stoSD'] = self.__calc_stosd(candles=candles, window_size=5)
+
         if long_span_candles is not None:
-            self.__indicators['long_stoc'] = self.__prepare_long_stoc(long_span_candles)
+            self.__indicators['long_indicators'] = self.__prepare_long_indicators(long_span_candles)
+
         if stoc_only is True:
             return result_msg
 
@@ -88,8 +90,8 @@ class Analyzer():
         )
         return indicators
 
-    def get_long_stoc(self):
-        return self.__indicators['long_stoc']
+    def get_long_indicators(self):
+        return self.__indicators['long_indicators']
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Moving Average                     #
@@ -297,14 +299,21 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                    Stochastic                       #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def __prepare_long_stoc(self, long_span_candles):
-        tmp_df = long_span_candles.copy().reset_index()
-        tmp_df['time'] = tmp_df['time'].map(str)
-        tmp_df['long_stoD'] = self.__calc_stod(candles=tmp_df, window_size=5)
-        tmp_df['long_stoSD'] = self.__calc_stosd(candles=tmp_df, window_size=5)
-        tmp_df['stoD_over_stoSD'] = tmp_df['long_stoD'] > tmp_df['long_stoSD']
+    def __prepare_long_indicators(self, long_span_candles):
+        tmp_candles = long_span_candles.copy().reset_index()
+        tmp_candles['time'] = tmp_candles['time'].map(str)
+        # INFO: stoc
+        tmp_candles['long_stoD'] = self.__calc_stod(candles=tmp_candles, window_size=5)
+        tmp_candles['long_stoSD'] = self.__calc_stosd(candles=tmp_candles, window_size=5)
+        tmp_candles['stoD_over_stoSD'] = tmp_candles['long_stoD'] > tmp_candles['long_stoSD']
 
-        return tmp_df[['long_stoD', 'long_stoSD', 'stoD_over_stoSD', 'time']]
+        # INFO: moving_averages
+        tmp_candles['long_20SMA'] = self.__calc_sma(close_candles=tmp_candles.close)
+        tmp_candles['long_10EMA'] = self.__calc_ema(close_candles=tmp_candles.close)
+
+        return tmp_candles[[
+            'long_stoD', 'long_stoSD', 'stoD_over_stoSD', 'long_20SMA', 'long_10EMA', 'time'
+        ]].copy()
 
     # http://www.algo-fx-blog.com/stochastics-python/
     def __calc_stok(self, candles, window_size=5):

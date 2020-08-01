@@ -49,7 +49,7 @@ class AlphaTrader(Trader):
             self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3', 'support', 'regist']],
             left_index=True, right_index=True
         )
-        commit_factors_df = self._merge_long_stoc(base_df)
+        commit_factors_df = self._merge_long_indicators(base_df)
 
         commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
         candles.loc[:, 'position'] = commited_df['position']
