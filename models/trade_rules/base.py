@@ -45,10 +45,9 @@ def commit_positions(candles, long_indexes, short_indexes, spread):
 def generate_trend_column(indicators, c_prices):
     sma = indicators['20SMA']
     ema = indicators['10EMA']
-    parabo = indicators['SAR']
-    method_trend_checker = np.frompyfunc(identify_trend_type, 4, 1)
+    method_trend_checker = np.frompyfunc(identify_trend_type, 3, 1)
 
-    trend = method_trend_checker(c_prices, sma, ema, parabo)
+    trend = method_trend_checker(c_prices, sma, ema)
     bull = np.where(trend == 'bull', True, False)
     bear = np.where(trend == 'bear', True, False)
     return trend, bull, bear
@@ -65,7 +64,7 @@ def generate_stoc_allows_column(indicators, sr_trend):
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                         Single row Processor
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def identify_trend_type(c_price, sma, ema, parabo):
+def identify_trend_type(c_price, sma, ema):
     '''
     Identify whether the trend type is 'bull', 'bear' or None
 
@@ -75,15 +74,14 @@ def identify_trend_type(c_price, sma, ema, parabo):
         current close price
     sma     : float
     ema     : float
-    parabo  : float
 
     Returns
     -------
     string or None
     '''
-    if sma < ema < c_price and parabo < c_price:
+    if sma < ema < c_price:  # and parabo < c_price:
         return 'bull'
-    elif sma > ema > c_price and parabo > c_price:
+    elif sma > ema > c_price:  # and parabo > c_price:
         return 'bear'
     else:
         return None

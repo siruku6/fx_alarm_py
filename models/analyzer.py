@@ -53,8 +53,10 @@ class Analyzer():
         if stoc_only is True:
             return result_msg
 
-        self.__calc_sma(close_candles=candles.close)
-        self.__calc_ema(close_candles=candles.close)
+        self.__indicators['20SMA'] = self.__calc_sma(close_candles=candles.close)
+        self.__indicators['10EMA'] = self.__calc_ema(close_candles=candles.close)
+        # 60EMA is necessary?
+        self.__indicators['60EMA'] = self.__calc_ema(close_candles=candles.close, window_size=60)
         self.__calc_bollinger_bands(close_candles=candles.close)
         self.__calc_parabolic(candles=candles)
         self.__indicators['regist'] = self.__calc_registance(high_candles=candles.high)
@@ -96,18 +98,14 @@ class Analyzer():
         ''' 単純移動平均線を生成 '''
         # mean()後の .dropna().reset_index(drop = True) を消去中
         sma = pd.Series.rolling(close_candles, window=window_size).mean()
-        self.__indicators['20SMA'] = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
+        return pd.DataFrame(sma).rename(columns={'close': '20SMA'})
 
     def __calc_ema(self, close_candles, window_size=10):
         ''' 指数平滑移動平均線を生成 '''
         # TODO: scipyを使うと早くなる
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
         ema = close_candles.ewm(span=window_size).mean()
-        self.__indicators['10EMA'] = pd.DataFrame(ema).rename(columns={'close': '10EMA'})
-
-        # 60EMA is necessary?
-        ema60 = close_candles.ewm(span=60).mean()
-        self.__indicators['60EMA'] = pd.DataFrame(ema60).rename(columns={'close': '60EMA'})
+        return pd.DataFrame(ema).rename(columns={'close': '{}EMA'.format(window_size)})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Bollinger Bands                    #

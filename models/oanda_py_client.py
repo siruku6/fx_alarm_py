@@ -399,20 +399,17 @@ class OandaPyClient():
             self, start=None, end=None, candles_count=None, granularity='M5'
     ):
         ''' OandaAPIと直接通信し、為替データを取得 '''
+        params = {
+            'alignmentTimezone': 'Etc/GMT',
+            'dailyAlignment': 0,
+            'granularity': granularity
+        }
         if start is None and end is None:
-            params = {'count': candles_count, 'granularity': granularity}
+            params.update({'count': candles_count})
         elif candles_count is not None:
-            params = {
-                # INFO: つけない方が一般的なレートに近くなる
-                # 'alignmentTimezone':   'Asia/Tokyo',
-                'from': start, 'count': candles_count,
-                'granularity': granularity
-            }
+            params.update({'from': start, 'count': candles_count})
         else:
-            params = {
-                'from': start, 'to': end,
-                'granularity': granularity
-            }
+            params.update({'from': start, 'to': end})
 
         request_obj = module_inst.InstrumentsCandles(
             instrument=self.__instrument,
