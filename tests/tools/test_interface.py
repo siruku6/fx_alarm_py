@@ -12,7 +12,7 @@ def test_ask_granularity():
                 assert interface.ask_granularity() == dummy_input
         mock.assert_called_once_with('取得スパンは？(ex: M5): ', end='')
 
-    dummy_inputs = ['M', '30', 'F4', 'M5']
+    dummy_inputs = ['', 'M', '30', 'F4', 'M5']
     with patch('builtins.print') as mock:
         with patch('builtins.input', side_effect=dummy_inputs):
             assert interface.ask_granularity() == 'M5'
