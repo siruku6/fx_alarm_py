@@ -183,10 +183,12 @@ class Trader():
     def _set_position(self, position_dict):
         self._position = position_dict
 
-    def _merge_long_stoc(self, candles):
-        tmp_df = candles.merge(self._ana.get_long_stoc(), on='time', how='left')
+    def _merge_long_indicators(self, candles):
+        tmp_df = candles.merge(self._ana.get_long_indicators(), on='time', how='left')
         # tmp_df['long_stoD'].fillna(method='ffill', inplace=True)
         # tmp_df['long_stoSD'].fillna(method='ffill', inplace=True)
+        tmp_df['long_20SMA'].fillna(method='ffill', inplace=True)
+        tmp_df['long_10EMA'].fillna(method='ffill', inplace=True)
         tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
         return tmp_df
 
@@ -378,7 +380,7 @@ class Trader():
 
         # indicators
         drwr.draw_indicators(d_frame=indicators)
-        target_candles = self._merge_long_stoc(target_candles)[['close', 'stoD_over_stoSD']]
+        target_candles = self._merge_long_indicators(target_candles)[['close', 'stoD_over_stoSD']]
         drwr.draw_long_stoc(candles=target_candles, indicators=indicators)
 
         # positions

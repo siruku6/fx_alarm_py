@@ -26,7 +26,7 @@ class RealTrader(Trader):
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
         candles['preconditions_allows'] = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
-        candles = self._merge_long_stoc(candles)
+        candles = self._merge_long_indicators(candles)
         # self.__play_swing_trade(candles)
         self.__play_scalping_trade(candles)
 
