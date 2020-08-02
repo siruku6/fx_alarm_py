@@ -67,7 +67,7 @@ class FigureDrawer():
         # self.draw_df_on_plt(d_frame.loc[:, ['support']], FigureDrawer.PLOT_TYPE['dot'], color='blue', size=0.5)
 
     def draw_long_stoc(self, candles, indicators):
-        candle_digits = mtmtcs.int_digits(candles['close'].iat[0])
+        candle_digits = mtmtcs.int_log10(candles['close'].iat[0])
         gap = mtmtcs.generate_float_digits_of(candle_digits - 3)
         y_height = indicators['band_-2σ'].min(skipna=True) - gap
 

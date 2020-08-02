@@ -1,13 +1,14 @@
 import math
 
 
-def int_digits(number):
+def int_log10(number):
     '''
     calcuate digits number of integer part
 
     Parameters
     ----------
     number : integer, float or double (any types of number)
+        but only > 1.0
 
     Returns
     -------
@@ -15,11 +16,11 @@ def int_digits(number):
 
     Example
     -------
-    int_digits(1234) -> 4
-    int_digits(1.234567) -> 1
-    int_digits(12.345) -> 2
+    int_log10(1234) -> 3
+    int_log10(1.234567) -> 0
+    int_log10(12.345) -> 1
     '''
-    return int(math.log10(number) + 1)
+    return int(math.log10(number))
 
 
 def generate_float_digits_of(digit):
@@ -32,15 +33,15 @@ def generate_float_digits_of(digit):
 
     Returns
     -------
-    float
+    float (only negative)
 
     Example
     -------
-    generate_float_digits_of(1) -> 0.1
-    generate_float_digits_of(2) -> 0.01
-    generate_float_digits_of(3) -> 0.001
+    generate_float_digits_of(-1) -> 0.1
+    generate_float_digits_of(-2) -> 0.01
+    generate_float_digits_of(-3) -> 0.001
     '''
-    return float('0.' + '0' * (digit - 1) + '1')
+    return float('0.' + '0' * (-digit - 1) + '1')
 
 
 def range_2nd_decimal(begin, end, step):
