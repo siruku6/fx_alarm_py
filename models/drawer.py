@@ -104,17 +104,17 @@ class FigureDrawer():
         # 描画
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
         if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
-            for (key, column), c in zip(d_frame.iteritems(), colors):
-                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=c, linewidth=0.5)
+            for (key, column), color in zip(d_frame.iteritems(), colors):
+                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
-            for (key, column), c in zip(d_frame.iteritems(), colors):
-                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=c, linestyle='dashed', linewidth=0.5)
+            for (key, column), color in zip(d_frame.iteritems(), colors):
+                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linestyle='dashed', linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
-            for (key, column), c in zip(d_frame.iteritems(), colors):
-                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=c, marker='d', s=size, alpha=0.5)
+            for (key, column), color in zip(d_frame.iteritems(), colors):
+                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=size, alpha=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['bar']:
-            for (key, column), c in zip(d_frame.iteritems(), colors):
-                plt_axis.bar(x=np.arange(len(d_frame)), height=column.values, label=nolabel or key, width=0.6, color=c)
+            for (key, column), color in zip(d_frame.iteritems(), colors):
+                plt_axis.bar(x=np.arange(len(d_frame)), height=column.values, label=nolabel or key, width=0.6, color=color)
 
         return {'success': 'd_frameを描画'}
 
