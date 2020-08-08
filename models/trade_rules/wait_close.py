@@ -25,4 +25,4 @@ def generate_thrust_column(candles):
 #     return satisfy_preconditions
 
 #     # TODO: この position はいらないっぽい scalping swing では確認済み。 wait_close でも不要であれば消す
-#     # candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions].thrust.copy()
+#     # candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions]['thrust'].copy()

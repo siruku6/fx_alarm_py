@@ -18,7 +18,7 @@ class AlphaTrader(Trader):
         ''' スキャルピングのentry pointを検出 '''
         candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
         entryable = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
-        candles.loc[entryable, 'entryable'] = candles[entryable].thrust
+        candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
 
         self.__generate_entry_column(candles)
         # HACK: 長期足 indicators をcandlesに保持させるための実装
