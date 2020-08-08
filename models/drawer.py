@@ -82,8 +82,8 @@ class FigureDrawer():
         self.draw_df_on_plt(bear_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='blue', nolabel='_nolegend_')
 
         # long-trend
-        self.draw_df_on_plt(candles.loc[:, ['long_10EMA']], FigureDrawer.PLOT_TYPE['simple-line'])
-        self.draw_df_on_plt(candles.loc[:, ['long_20SMA']], FigureDrawer.PLOT_TYPE['simple-line'])
+        self.draw_df_on_plt(candles.loc[:, ['long_10EMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightslategray')
+        self.draw_df_on_plt(candles.loc[:, ['long_20SMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='darkslategray')
 
         bull_long_trend = candles.loc[candles['long_trend'] == 'bull', ['long_trend']].assign(long_trend=y_height2)
         bear_long_trend = candles.loc[candles['long_trend'] == 'bear', ['long_trend']].assign(long_trend=y_height2)
