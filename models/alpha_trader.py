@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
-# from models.oanda_py_client import FXBase
+
+from models.oanda_py_client import FXBase
 from models.trader import Trader
 import models.trade_rules.scalping as scalping
 
@@ -20,7 +21,8 @@ class AlphaTrader(Trader):
         candles.loc[entryable, 'entryable'] = candles[entryable].thrust
 
         self.__generate_entry_column(candles)
-
+        # HACK: 長期足 indicators をcandlesに保持させるための実装
+        FXBase.set_candles(candles)
         candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
         return {'result': '[Trader] 売買判定終了', 'candles': candles}
 
@@ -57,3 +59,9 @@ class AlphaTrader(Trader):
         candles.loc[:, 'exit_reason'] = commited_df['exit_reason']
         candles.loc[:, 'entry_price'] = commited_df['entryable_price']
         candles.loc[:, 'possible_stoploss'] = commited_df['possible_stoploss']
+
+        # png描画用データ
+        candles.loc[:, 'stoD_over_stoSD'] = commit_factors_df['stoD_over_stoSD']
+        candles.loc[:, 'long_10EMA'] = commit_factors_df['long_10EMA']
+        candles.loc[:, 'long_20SMA'] = commit_factors_df['long_20SMA']
+        candles.loc[:, 'long_trend'] = commit_factors_df['long_trend']

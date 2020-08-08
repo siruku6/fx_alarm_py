@@ -187,9 +187,16 @@ class Trader():
         tmp_df = candles.merge(self._ana.get_long_indicators(), on='time', how='left')
         # tmp_df['long_stoD'].fillna(method='ffill', inplace=True)
         # tmp_df['long_stoSD'].fillna(method='ffill', inplace=True)
+        tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
+        tmp_df['stoD_over_stoSD'].fillna({'stoD_over_stoSD': False}, inplace=True)
+        tmp_df.loc[:, 'stoD_over_stoSD'] = tmp_df['stoD_over_stoSD'].astype(bool)
+
         tmp_df['long_20SMA'].fillna(method='ffill', inplace=True)
         tmp_df['long_10EMA'].fillna(method='ffill', inplace=True)
-        tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
+        long_ma = tmp_df[['long_10EMA', 'long_20SMA']].copy() \
+                                                      .rename(columns={'long_10EMA': '10EMA', 'long_20SMA': '20SMA'})
+        tmp_df['long_trend'], _, _ = base_rules.generate_trend_column(long_ma, candles.close)
+
         return tmp_df
 
     def __generate_thrust_column(self, candles):
@@ -380,8 +387,7 @@ class Trader():
 
         # indicators
         drwr.draw_indicators(d_frame=indicators)
-        target_candles = self._merge_long_indicators(target_candles)[['close', 'stoD_over_stoSD']]
-        drwr.draw_long_stoc(candles=target_candles, indicators=indicators)
+        drwr.draw_long_indicators(candles=target_candles, min_point=indicators['band_-2σ'].min(skipna=True))
 
         # positions
         # INFO: exitable_price などの列が残っていると、後 draw_positions_df の dropna で行が消される
