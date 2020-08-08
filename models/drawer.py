@@ -66,17 +66,29 @@ class FigureDrawer():
         # self.draw_df_on_plt(d_frame.loc[:, ['regist']], FigureDrawer.PLOT_TYPE['dot'], color='orangered', size=0.5)
         # self.draw_df_on_plt(d_frame.loc[:, ['support']], FigureDrawer.PLOT_TYPE['dot'], color='blue', size=0.5)
 
-    def draw_long_stoc(self, candles, indicators):
+    def draw_long_indicators(self, candles, min_point):
+        candles = candles.reset_index(drop=True)
+
+        # INFO: calculate the height of long-indicators in the figure
         candle_digits = mtmtcs.int_log10(candles['close'].iat[0])
         gap = mtmtcs.generate_float_digits_of(candle_digits - 3)
-        y_height = indicators['band_-2σ'].min(skipna=True) - gap
+        y_height = min_point - gap
+        y_height2 = min_point - gap * 3
 
-        candles.fillna({'stoD_over_stoSD': False}, inplace=True)
+        # long-stoc
         bull_long_stoc = candles.loc[candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
         bear_long_stoc = candles.loc[~candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
+        self.draw_df_on_plt(bull_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='red')
+        self.draw_df_on_plt(bear_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='blue', nolabel='_nolegend_')
 
-        self.draw_df_on_plt(bull_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='red', plt_id=1)
-        self.draw_df_on_plt(bear_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='blue', plt_id=1)
+        # long-trend
+        self.draw_df_on_plt(candles.loc[:, ['long_10EMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightslategray')
+        self.draw_df_on_plt(candles.loc[:, ['long_20SMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='darkslategray')
+
+        bull_long_trend = candles.loc[candles['long_trend'] == 'bull', ['long_trend']].assign(long_trend=y_height2)
+        bear_long_trend = candles.loc[candles['long_trend'] == 'bear', ['long_trend']].assign(long_trend=y_height2)
+        self.draw_df_on_plt(bull_long_trend, FigureDrawer.PLOT_TYPE['dot'], color='green')
+        self.draw_df_on_plt(bear_long_trend, FigureDrawer.PLOT_TYPE['dot'], color='red', nolabel='_nolegend_')
 
     def draw_df_on_plt(self, d_frame, plot_type, color='black', colors=None, size=1, nolabel=None, plt_id=1):
         ''' DataFrameを受け取って、各columnを描画 '''
@@ -92,17 +104,17 @@ class FigureDrawer():
         # 描画
         # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
         if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
-            for (key, column), c in zip(d_frame.iteritems(), colors):
-                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=c, linewidth=0.5)
+            for (key, column), color in zip(d_frame.iteritems(), colors):
+                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
-            for (key, column), c in zip(d_frame.iteritems(), colors):
-                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=c, linestyle='dashed', linewidth=0.5)
+            for (key, column), color in zip(d_frame.iteritems(), colors):
+                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linestyle='dashed', linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
-            for (key, column), c in zip(d_frame.iteritems(), colors):
-                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=c, marker='d', s=size, alpha=0.5)
+            for (key, column), color in zip(d_frame.iteritems(), colors):
+                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=size, alpha=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['bar']:
-            for (key, column), c in zip(d_frame.iteritems(), colors):
-                plt_axis.bar(x=np.arange(len(d_frame)), height=column.values, label=nolabel or key, width=0.6, color=c)
+            for (key, column), color in zip(d_frame.iteritems(), colors):
+                plt_axis.bar(x=np.arange(len(d_frame)), height=column.values, label=nolabel or key, width=0.6, color=color)
 
         return {'success': 'd_frameを描画'}
 
@@ -230,5 +242,5 @@ class FigureDrawer():
         if xticks_num > 0:
             plt_module.xticks(indexes, [])
         if legend:
-            plt_module.legend(loc='upper left', fontsize=8)  # best だと結構右に来て邪魔
+            plt_module.legend(loc='upper left', fontsize=4)  # best だと結構右に来て邪魔
         plt_module.grid(which='major', linestyle='dashed', linewidth=0.5)

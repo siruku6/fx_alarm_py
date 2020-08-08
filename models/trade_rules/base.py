@@ -48,9 +48,7 @@ def generate_trend_column(indicators, c_prices):
     method_trend_checker = np.frompyfunc(identify_trend_type, 3, 1)
 
     trend = method_trend_checker(c_prices, sma, ema)
-    bull = np.where(trend == 'bull', True, False)
-    bear = np.where(trend == 'bear', True, False)
-    return trend, bull, bear
+    return trend
 
 
 def generate_stoc_allows_column(indicators, sr_trend):

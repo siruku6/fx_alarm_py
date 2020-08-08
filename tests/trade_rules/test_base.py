@@ -20,7 +20,7 @@ def test_generate_trend_column():
         }
     )
 
-    trend, _, _ = base.generate_trend_column(sample_data, sample_data['close'])
+    trend = base.generate_trend_column(sample_data, sample_data['close'])
     pd.testing.assert_series_equal(trend, sample_data['trend'], check_names=False)
 
 
