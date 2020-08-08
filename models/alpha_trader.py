@@ -20,6 +20,7 @@ class AlphaTrader(Trader):
         entryable = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
         candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
 
+        candles = self._merge_long_indicators(candles)
         self.__generate_entry_column(candles)
         # HACK: 長期足 indicators をcandlesに保持させるための実装
         FXBase.set_candles(candles)
@@ -47,21 +48,13 @@ class AlphaTrader(Trader):
 
         # INFO: Entry / Exit のタイミングを確定
         base_df = pd.merge(
-            candles[['open', 'high', 'low', 'close', 'time', 'entryable', 'entryable_price']],  # , 'possible_stoploss'
+            candles[['open', 'high', 'low', 'close', 'time', 'entryable', 'entryable_price', 'stoD_over_stoSD']],
             self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3', 'support', 'regist']],
             left_index=True, right_index=True
         )
-        commit_factors_df = self._merge_long_indicators(base_df)
-
-        commited_df = scalping.commit_positions_by_loop(factor_dicts=commit_factors_df.to_dict('records'))
+        commited_df = scalping.commit_positions_by_loop(factor_dicts=base_df.to_dict('records'))
         candles.loc[:, 'position'] = commited_df['position']
         candles.loc[:, 'exitable_price'] = commited_df['exitable_price']
         candles.loc[:, 'exit_reason'] = commited_df['exit_reason']
         candles.loc[:, 'entry_price'] = commited_df['entryable_price']
         candles.loc[:, 'possible_stoploss'] = commited_df['possible_stoploss']
-
-        # png描画用データ
-        candles.loc[:, 'stoD_over_stoSD'] = commit_factors_df['stoD_over_stoSD']
-        candles.loc[:, 'long_10EMA'] = commit_factors_df['long_10EMA']
-        candles.loc[:, 'long_20SMA'] = commit_factors_df['long_20SMA']
-        candles.loc[:, 'long_trend'] = commit_factors_df['long_trend']
