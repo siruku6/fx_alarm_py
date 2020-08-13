@@ -187,21 +187,28 @@ class Trader():
         tmp_df = candles.merge(self._ana.get_long_indicators(), on='time', how='left')
         # tmp_df['long_stoD'].fillna(method='ffill', inplace=True)
         # tmp_df['long_stoSD'].fillna(method='ffill', inplace=True)
+        tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
+        tmp_df['stoD_over_stoSD'].fillna({'stoD_over_stoSD': False}, inplace=True)
+        tmp_df.loc[:, 'stoD_over_stoSD'] = tmp_df['stoD_over_stoSD'].astype(bool)
+
         tmp_df['long_20SMA'].fillna(method='ffill', inplace=True)
         tmp_df['long_10EMA'].fillna(method='ffill', inplace=True)
-        tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
+        long_ma = tmp_df[['long_10EMA', 'long_20SMA']].copy() \
+                                                      .rename(columns={'long_10EMA': '10EMA', 'long_20SMA': '20SMA'})
+        tmp_df['long_trend'] = base_rules.generate_trend_column(long_ma, candles.close)
+
         return tmp_df
 
-    def __generate_thrust_column(self, candles):
+    def __generate_thrust_column(self, candles, trend):
         # INFO: if high == the max of recent-10-candles: True is set !
         sr_highest_in_10candles = (candles.high == candles.high.rolling(window=10).max())
         sr_lowest_in_10candles = (candles.low == candles.low.rolling(window=10).min())
         sr_up_thrust = np.all(
-            pd.DataFrame({'highest': sr_highest_in_10candles, 'bull': candles.bull}),
+            pd.DataFrame({'highest': sr_highest_in_10candles, 'bull': trend['bull']}),
             axis=1
         )
         sr_down_thrust = np.all(
-            pd.DataFrame({'lowest': sr_lowest_in_10candles, 'bear': candles.bear}),
+            pd.DataFrame({'lowest': sr_lowest_in_10candles, 'bear': trend['bear']}),
             axis=1
         )
         method_thrust_checker = np.frompyfunc(base_rules.detect_thrust2, 2, 1)
@@ -313,17 +320,20 @@ class Trader():
             comparison_prices_with_bands = candles.open
 
         indicators = self._indicators
-        candles['trend'], candles['bull'], candles['bear'] \
-            = base_rules.generate_trend_column(indicators, candles.close)
-        candles['thrust'] = self.__generate_thrust_column(candles=candles)
+        candles['trend'] = base_rules.generate_trend_column(indicators, candles.close)
+        trend = pd.DataFrame({
+            'bull': np.where(candles['trend'] == 'bull', True, False),
+            'bear': np.where(candles['trend'] == 'bear', True, False)
+        })
+        candles['thrust'] = self.__generate_thrust_column(candles=candles, trend=trend)
         # 60EMA is necessary?
         # candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=comparison_prices_with_bands)
         candles['band_expansion'] = self.__generate_band_expansion_column(
             df_bands=indicators[['band_+2σ', 'band_-2σ']]
         )
-        candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=candles[['bull', 'bear']])
-        candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=candles[['bull', 'bear']])
+        candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=trend)
+        candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=trend)
         candles['stoc_allows'] = base_rules.generate_stoc_allows_column(
             indicators, sr_trend=candles['trend']
         )
@@ -380,8 +390,7 @@ class Trader():
 
         # indicators
         drwr.draw_indicators(d_frame=indicators)
-        target_candles = self._merge_long_indicators(target_candles)[['close', 'stoD_over_stoSD']]
-        drwr.draw_long_stoc(candles=target_candles, indicators=indicators)
+        drwr.draw_long_indicators(candles=target_candles, min_point=indicators['band_-2σ'].min(skipna=True))
 
         # positions
         # INFO: exitable_price などの列が残っていると、後 draw_positions_df の dropna で行が消される
