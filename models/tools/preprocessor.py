@@ -1,9 +1,12 @@
+import urllib
+
 import pandas as pd
 
 
 def to_candle_df(response):
     ''' APIレスポンスをチャートデータに整形 '''
-    if response['candles'] == []: return pd.DataFrame(columns=[])
+    if response['candles'] == []:
+        return pd.DataFrame(columns=[])
 
     candle = pd.DataFrame.from_dict([row['mid'] for row in response['candles']])
     candle = candle.astype({
@@ -19,6 +22,19 @@ def to_candle_df(response):
     candle['time'] = [time[:19] for time in candle.time]
 
     return candle
+
+
+def extract_transaction_ids(response):
+    top_url = response['pages'][0]
+    last_url = response['pages'][-1]
+    top_query = urllib.parse.urlparse(top_url).query
+    last_query = urllib.parse.urlparse(last_url).query
+
+    # INFO: top_query.split('&')[0] => from=xxxxx
+    return {
+        'old_id': top_query.split('&')[0][5:],
+        'last_id': last_query.split('&')[1][3:]
+    }
 
 
 def filter_and_make_df(response_transactions, instrument):
