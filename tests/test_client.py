@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 # My-made modules
 import models.oanda_py_client as watcher
-from tests.oanda_dummy_responses import dummy_instruments, dummy_market_order_response
+from tests.oanda_dummy_responses import dummy_market_order_response
 
 
 class TestClient(unittest.TestCase):
@@ -115,13 +115,6 @@ class TestClient(unittest.TestCase):
     #  - - - - - - - - - - -
     #    Private methods
     #  - - - - - - - - - - -
-    def test___transform_to_candle_chart(self):
-        candles = self.__client_instance._OandaPyClient__transform_to_candle_chart(
-            response=dummy_instruments
-        )
-        expected_array = ['close', 'high', 'low', 'open', 'time']
-        self.assertTrue((candles.columns == expected_array).all())
-
     def test___calc_requestable_max_days(self):
         correction = {
             'D': 5000, 'M12': int(5000 / 120), 'H12': int(5000 / 2)
