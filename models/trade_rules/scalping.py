@@ -25,6 +25,16 @@ def set_entryable_prices(candles, spread):
 
 
 def commit_positions_by_loop(factor_dicts):
+    '''
+    Parameters
+    ----------
+    factor_dicts : list of dict
+        keys => [
+            'open', 'high', 'low', 'close', 'time',
+            'entryable', 'entryable_price', 'stoD_over_stoSD',
+            'band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3', 'support', 'regist'
+        ]
+    '''
     loop_objects = factor_dicts  # コピー変数: loop_objects への変更は factor_dicts にも及ぶ
     entry_direction = factor_dicts[0]['entryable']  # 'long', 'short' or nan
 
