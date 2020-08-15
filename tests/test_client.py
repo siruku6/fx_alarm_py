@@ -9,7 +9,7 @@ from unittest.mock import patch
 # My-made modules
 import models.oanda_py_client as watcher
 from tests.oanda_dummy_responses import dummy_market_order_response
-from tests.fixtures.past_transactions import PAST_TRANSACTIONS
+from tests.fixtures.past_transactions import TRANSACTION_IDS, PAST_TRANSACTIONS
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -119,6 +119,20 @@ def test___request_transactions_once(oanda_client, past_transactions):
             response = oanda_client._OandaPyClient__request_transactions_once(from_id=from_id, to_id=to_id)
         mock.assert_called_with(
             accountID=os.environ.get('OANDA_ACCOUNT_ID'), params={'from': from_id, 'to': 5, 'type': ['ORDER']}
+        )
+
+
+def test___request_transaction_ids(oanda_client):
+    dummy_from_str = 'xxxx-xx-xxT00:00:00.123456789'
+
+    with patch('oandapyV20.endpoints.transactions.TransactionList') as mock:
+        with patch('oandapyV20.API.request', return_value=TRANSACTION_IDS):
+            from_id, to_id = oanda_client._OandaPyClient__request_transaction_ids(from_str=dummy_from_str)
+            assert from_id == '2'
+            assert to_id == '400'
+
+        mock.assert_called_with(
+            accountID=os.environ.get('OANDA_ACCOUNT_ID'), params={'from': dummy_from_str, 'pageSize': 1000}
         )
 
 

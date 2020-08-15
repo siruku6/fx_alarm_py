@@ -4,7 +4,7 @@ import pytest
 
 import models.tools.preprocessor as prepro
 from tests.oanda_dummy_responses import dummy_instruments
-from tests.fixtures.past_transactions import PAST_TRANSACTIONS, NO_PL_TRANSACTIONS
+from tests.fixtures.past_transactions import TRANSACTION_IDS, PAST_TRANSACTIONS, NO_PL_TRANSACTIONS
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -37,19 +37,7 @@ def test_to_candle_df():
 
 
 def test_extract_transaction_ids():
-    dummy_response = {
-        "count": 2124,
-        "from": "2016-06-24T21:03:50.914647476Z",
-        "lastTransactionID": "2124",
-        "pageSize": 100,
-        "to": "2016-10-05T06:54:14.025946546Z",
-        "pages": [
-            "https://api-fxpractice.oanda.com/v3/accounts/101-004-1435156-001/transactions/idrange?from=2&to=100",
-            "https://api-fxpractice.oanda.com/v3/accounts/101-004-1435156-001/transactions/idrange?from=101&to=200",
-            "https://api-fxpractice.oanda.com/v3/accounts/101-004-1435156-001/transactions/idrange?from=201&to=300",
-            "https://api-fxpractice.oanda.com/v3/accounts/101-004-1435156-001/transactions/idrange?from=301&to=400"
-        ]
-    }
+    dummy_response = TRANSACTION_IDS
     result = prepro.extract_transaction_ids(dummy_response)
     assert result == {'old_id': '2', 'last_id': '400'}
 
