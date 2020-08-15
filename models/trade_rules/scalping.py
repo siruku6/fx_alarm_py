@@ -28,39 +28,45 @@ def commit_positions_by_loop(factor_dicts):
     loop_objects = factor_dicts  # コピー変数: loop_objects への変更は factor_dicts にも及ぶ
     entry_direction = factor_dicts[0]['entryable']  # 'long', 'short' or nan
 
-    def reset_next_position(index):
-        if factor_dicts[-1]['time'] == factor_dicts[index]['time']:
-            return 'It is the last'
-
-        factor_dicts[index + 1]['position'] = entry_direction = factor_dicts[index + 1]['entryable']
-        return entry_direction
-
     for index, one_frame in enumerate(loop_objects):
-        # entry 中でなければ continue
-        if entry_direction not in ('long', 'short'):
-            entry_direction = reset_next_position(index)
-            continue
-
-        previous_frame = factor_dicts[index - 1]
-        one_frame['possible_stoploss'] = new_stoploss_price(
-            entry_direction, previous_frame['support'], previous_frame['regist'], np.nan
-        )
-
-        exit_price, exit_type, exit_reason = __decide_exit_price(
-            entry_direction, one_frame, previous_frame=previous_frame
-        )
-        # exit する理由がなければ continue
-        if exit_price is None:
-            continue
-
-        # exit した場合のみここに到達する
-        one_frame.update(exitable_price=exit_price, position=exit_type, exit_reason=exit_reason)
-        __tmp_delay_irregular_entry(factor_dicts, index)  # HACK: 暫定措置
-        entry_direction = reset_next_position(index)
+        entry_direction = __trade_routine(entry_direction, factor_dicts, index, one_frame)
 
     return pd.DataFrame.from_dict(factor_dicts)[
         ['entryable_price', 'position', 'exitable_price', 'exit_reason', 'possible_stoploss']
     ]
+
+
+def __trade_routine(entry_direction, factor_dicts, index, one_frame):
+    # entry 中でなければ continue
+    if entry_direction not in ('long', 'short'):
+        entry_direction = __reset_next_position(factor_dicts, index, entry_direction)
+        return entry_direction
+
+    previous_frame = factor_dicts[index - 1]
+    one_frame['possible_stoploss'] = new_stoploss_price(
+        entry_direction, previous_frame['support'], previous_frame['regist'], np.nan
+    )
+
+    exit_price, exit_type, exit_reason = __decide_exit_price(
+        entry_direction, one_frame, previous_frame=previous_frame
+    )
+    # exit する理由がなければ continue
+    if exit_price is None:
+        return entry_direction
+
+    # exit した場合のみここに到達する
+    one_frame.update(exitable_price=exit_price, position=exit_type, exit_reason=exit_reason)
+    __tmp_delay_irregular_entry(factor_dicts, index)  # HACK: 暫定措置
+    entry_direction = __reset_next_position(factor_dicts, index, entry_direction)
+    return entry_direction
+
+
+def __reset_next_position(factor_dicts, index, entry_direction):
+    if factor_dicts[-1]['time'] == factor_dicts[index]['time']:
+        return 'It is the last'
+
+    factor_dicts[index + 1]['position'] = entry_direction = factor_dicts[index + 1]['entryable']
+    return entry_direction
 
 
 def __decide_exit_price(entry_direction, one_frame, previous_frame):
