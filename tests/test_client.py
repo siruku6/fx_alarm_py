@@ -97,18 +97,9 @@ class TestClient(unittest.TestCase):
         result = self.client_instance.request_closing_position()
         assert 'error' in result
 
-    #  - - - - - - - - - - -
-    #    Private methods
-    #  - - - - - - - - - - -
-    def test___calc_requestable_max_days(self):
-        correction = {
-            'D': 5000, 'M12': int(5000 / 120), 'H12': int(5000 / 2)
-        }
-        for key, val in correction.items():
-            cnt = self.client_instance._OandaPyClient__calc_requestable_max_days(granularity=key)
-            self.assertEqual(cnt, val, '[Client __calc_requestable_max_days] {}'.format(key))
-
-
+# - - - - - - - - - - -
+#    Private methods
+# - - - - - - - - - - -
 def test___request_transactions_once(oanda_client, past_transactions):
     from_id = 1
     to_id = 5
@@ -134,6 +125,15 @@ def test___request_transaction_ids(oanda_client):
         mock.assert_called_with(
             accountID=os.environ.get('OANDA_ACCOUNT_ID'), params={'from': dummy_from_str, 'pageSize': 1000}
         )
+
+
+def test___calc_requestable_max_days(oanda_client):
+    correction = {
+        'D': 5000, 'M12': int(5000 / 120), 'H12': int(5000 / 2)
+    }
+    for key, expected_count in correction.items():
+        cnt = oanda_client._OandaPyClient__calc_requestable_max_days(granularity=key)
+        assert cnt == expected_count
 
 
 def test___calc_requestable_time_duration(oanda_client):
