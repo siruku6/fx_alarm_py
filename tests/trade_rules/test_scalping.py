@@ -2,6 +2,7 @@ import math
 import numpy as np
 import pandas as pd
 import models.trade_rules.scalping as scalping
+from tests.fixtures.factor_dicts import DUMMY_FACTOR_DICTS
 
 
 def test_generate_up_repulsion_column():
@@ -90,6 +91,27 @@ def test_set_entryable_prices():
             assert math.isnan(expected_price)
         else:
             assert math.isclose(price, expected_price)
+
+
+# def test___trade_routine():
+#     dummy_dicts = DUMMY_FACTOR_DICTS.copy()
+#     scalping.commit_positions_by_loop(dummy_dicts)
+
+def test___trade_routine():
+    dummy_dicts = DUMMY_FACTOR_DICTS.copy()
+
+    # Example: no position, but next is long
+    index = 1
+    next_direction = scalping.__trade_routine(None, dummy_dicts, index, dummy_dicts[index])
+    assert next_direction == 'long'
+    assert not 'position' in dummy_dicts[index]
+    assert dummy_dicts[index + 1]['position'] == dummy_dicts[index + 1]['entryable']
+
+    # Example: sell_exit
+    index = 8
+    next_direction = scalping.__trade_routine('long', dummy_dicts, index, dummy_dicts[index])
+    assert dummy_dicts[index]['position'] == 'sell_exit'
+    assert dummy_dicts[index + 1]['position'] == dummy_dicts[index + 1]['entryable']
 
 
 def test___decide_exit_price():

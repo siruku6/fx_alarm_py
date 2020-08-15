@@ -103,7 +103,6 @@ class TestClient(unittest.TestCase):
 def test___request_transactions_once(oanda_client, past_transactions):
     from_id = 1
     to_id = 5
-    # import pdb; pdb.set_trace()
 
     with patch('oandapyV20.endpoints.transactions.TransactionIDRange') as mock:
         with patch('oandapyV20.API.request', return_value=past_transactions):
