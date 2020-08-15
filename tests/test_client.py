@@ -9,7 +9,7 @@ from unittest.mock import patch
 # My-made modules
 import models.oanda_py_client as watcher
 from tests.oanda_dummy_responses import dummy_market_order_response
-from tests.fixtures.past_transactions import PAST_TRANSACTIONS
+from tests.fixtures.past_transactions import TRANSACTION_IDS, PAST_TRANSACTIONS
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -97,18 +97,9 @@ class TestClient(unittest.TestCase):
         result = self.client_instance.request_closing_position()
         assert 'error' in result
 
-    #  - - - - - - - - - - -
-    #    Private methods
-    #  - - - - - - - - - - -
-    def test___calc_requestable_max_days(self):
-        correction = {
-            'D': 5000, 'M12': int(5000 / 120), 'H12': int(5000 / 2)
-        }
-        for key, val in correction.items():
-            cnt = self.client_instance._OandaPyClient__calc_requestable_max_days(granularity=key)
-            self.assertEqual(cnt, val, '[Client __calc_requestable_max_days] {}'.format(key))
-
-
+# - - - - - - - - - - -
+#    Private methods
+# - - - - - - - - - - -
 def test___request_transactions_once(oanda_client, past_transactions):
     from_id = 1
     to_id = 5
@@ -120,6 +111,29 @@ def test___request_transactions_once(oanda_client, past_transactions):
         mock.assert_called_with(
             accountID=os.environ.get('OANDA_ACCOUNT_ID'), params={'from': from_id, 'to': 5, 'type': ['ORDER']}
         )
+
+
+def test___request_transaction_ids(oanda_client):
+    dummy_from_str = 'xxxx-xx-xxT00:00:00.123456789'
+
+    with patch('oandapyV20.endpoints.transactions.TransactionList') as mock:
+        with patch('oandapyV20.API.request', return_value=TRANSACTION_IDS):
+            from_id, to_id = oanda_client._OandaPyClient__request_transaction_ids(from_str=dummy_from_str)
+            assert from_id == '2'
+            assert to_id == '400'
+
+        mock.assert_called_with(
+            accountID=os.environ.get('OANDA_ACCOUNT_ID'), params={'from': dummy_from_str, 'pageSize': 1000}
+        )
+
+
+def test___calc_requestable_max_days(oanda_client):
+    correction = {
+        'D': 5000, 'M12': int(5000 / 120), 'H12': int(5000 / 2)
+    }
+    for key, expected_count in correction.items():
+        cnt = oanda_client._OandaPyClient__calc_requestable_max_days(granularity=key)
+        assert cnt == expected_count
 
 
 def test___calc_requestable_time_duration(oanda_client):

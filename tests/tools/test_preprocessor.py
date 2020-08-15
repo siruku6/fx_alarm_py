@@ -1,9 +1,10 @@
 import numpy as np
+import pandas as pd
 import pytest
 
 import models.tools.preprocessor as prepro
 from tests.oanda_dummy_responses import dummy_instruments
-from tests.fixtures.past_transactions import PAST_TRANSACTIONS, NO_PL_TRANSACTIONS
+from tests.fixtures.past_transactions import TRANSACTION_IDS, PAST_TRANSACTIONS, NO_PL_TRANSACTIONS
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -27,14 +28,22 @@ def expected_columns():
 
 
 def test_to_candle_df():
+    no_candles = prepro.to_candle_df({'candles': []})
+    assert type(no_candles) == pd.core.frame.DataFrame
+
     candles = prepro.to_candle_df(dummy_instruments)
     expected_array = ['close', 'high', 'low', 'open', 'time']
-
     assert (candles.columns == expected_array).all()
 
 
+def test_extract_transaction_ids():
+    dummy_response = TRANSACTION_IDS
+    result = prepro.extract_transaction_ids(dummy_response)
+    assert result == {'old_id': '2', 'last_id': '400'}
+
+
 def test_filter_and_make_df(past_transactions, expected_columns):
-    instrument='USD_JPY'
+    instrument = 'USD_JPY'
     result = prepro.filter_and_make_df(past_transactions, instrument)
 
     # Assert Columns
@@ -48,7 +57,7 @@ def test_filter_and_make_df(past_transactions, expected_columns):
 
 
 def test_filter_and_make_df_with_no_pl(no_pl_transactions, expected_columns):
-    instrument='USD_JPY'
+    instrument = 'USD_JPY'
     # TODO:
     #   FutureWarning: elementwise comparison failed; returning scalar instead,
     #   but in the future will perform elementwise comparison
