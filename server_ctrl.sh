@@ -5,7 +5,7 @@ menu=$(cat << EOS
 / / / / / / / / / / / / / / / /
 操作を選択してください。
 {1} :python main.py
-{2} :testコード実行
+{2} :betaコード実行
 {5} :find (find ./[dir] -type f -print | xargs grep [str])
 {6} :unittest全実行
 {11}:Lambdaアップ用zip作成
@@ -118,8 +118,8 @@ while true; do
       wait_display
       ;;
     2)
-      echo 'test_cord.pyファイル実行'
-      python test_cord.py
+      echo 'beta_cord.pyファイル実行'
+      python beta_cord.py
       wait_display
       ;;
     5)

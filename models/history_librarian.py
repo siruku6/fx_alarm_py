@@ -59,6 +59,10 @@ class Librarian():
 
         return result
 
+    def beta_pull_transacion_id(self):
+        result = self.__client.request_massive_transactions()
+        print(result)
+
     #
     # Private
     #

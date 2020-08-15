@@ -361,14 +361,47 @@ class OandaPyClient():
         LOGGER.info('[Client] trail: %s', response)
         return response
 
-    def request_transactions(self, count=999):
-        start = int(self.__last_transaction_id) - count
-        if start < 1:
-            start = 1
+    def request_transactions(self, count=500):
+        to_id = int(self.__last_transaction_id)
+        from_id = to_id - count
+        from_id = min(from_id, 1)
+        response = self.__request_transactions_once(from_id, to_id)
+        filtered_df = prepro.filter_and_make_df(response['transactions'], self.__instrument)
+        return filtered_df
+
+    def request_massive_transactions(self):
+        gained_transactions = []
+        from_id, to_id = self.__request_transaction_ids()
+
+        while True:
+            print('[INFO] requesting {}..{}'.format(from_id, to_id))
+
+            response = self.__request_transactions_once(from_id, to_id)
+            tmp_transactons = response['transactions']
+            gained_transactions += tmp_transactons
+            # INFO: ループの終了条件
+            #   'to' に指定した ID の transaction がない時が多々あり、
+            #   その場合、transactions を取得できないので、ごくわずかな数になる。
+            #   そこまで来たら処理終了
+            if len(tmp_transactons) <= 10 or tmp_transactons[-1]['id'] == to_id:
+                break
+
+            print('[INFO] last_transaction_id {}'.format(tmp_transactons[-1]['id']))
+            gained_last_transaction_id = tmp_transactons[-1]['id']
+            from_id = str(int(gained_last_transaction_id) + 1)
+
+        filtered_df = prepro.filter_and_make_df(gained_transactions, self.__instrument)
+        return filtered_df
+
+    #
+    # Private
+    #
+
+    def __request_transactions_once(self, from_id, to_id):
         params = {
-            # len(from ... to) <= 1000
-            'to': int(self.__last_transaction_id),
-            'from': start,
+            # len(from ... to) < 500 くらいっぽい
+            'from': from_id,
+            'to': to_id,
             'type': ['ORDER'],
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
@@ -377,12 +410,14 @@ class OandaPyClient():
             params=params
         )
         response = self.__api_client.request(request_obj)
-        filtered_df = prepro.filter_and_make_df(response['transactions'], self.__instrument)
-        return filtered_df
+        return response
 
-    #
-    # Private
-    #
+    def __request_transaction_ids(self, from_str='2020-01-01T04:58:09.460556567'):
+        params = {'from': from_str, 'pageSize': 1000}
+        request_obj = transactions.TransactionList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
+        response = self.__api_client.request(request_obj)
+        ids = prepro.extract_transaction_ids(response)
+        return ids['old_id'], ids['last_id']
 
     def __calc_candles_wanted(self, days=1, granularity='M5'):
         time_unit = granularity[0]

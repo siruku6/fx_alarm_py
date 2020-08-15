@@ -1,6 +1,6 @@
 # ignoring target
 __pycache__/
-test_cord.py
+beta_cord.py
 .coverage
 coverage.xml
 *.csv
