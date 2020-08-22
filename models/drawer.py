@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 import models.tools.mathematics as mtmtcs
-from models.oanda_py_client import FXBase
+from models.candle_storage import FXBase
 
 matplotlib.use('Agg')
 matplotlib.rcParams['axes.xmargin'] = 0

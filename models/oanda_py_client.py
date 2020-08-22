@@ -27,53 +27,6 @@ LOGGER.setLevel(logging.INFO)
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
 
 
-class FXBase():
-    __candles = None
-    __long_span_candles = None
-
-    # candles
-    @classmethod
-    def get_candles(cls, start=0, end=None):
-        if cls.__candles is None:
-            return pd.DataFrame(columns=[])
-        return cls.__candles[start:end]
-
-    @classmethod
-    def set_time_id(cls):
-        cls.__candles['time_id'] = cls.get_candles().index + 1
-
-    @classmethod
-    def union_candles_distinct(cls, old_candles, new_candles):
-        if old_candles is None:
-            return new_candles
-
-        return pd.concat([old_candles, new_candles]) \
-                 .drop_duplicates(subset='time') \
-                 .reset_index(drop=True)
-
-    @classmethod
-    def set_candles(cls, candles):
-        cls.__candles = candles
-
-    @classmethod
-    def replace_latest_price(cls, price_type, new_price):
-        column_num = cls.__candles.columns.get_loc(price_type)
-        cls.__candles.iat[-1, column_num] = new_price
-
-    @classmethod
-    def write_candles_on_csv(cls, filename='./tmp/candles.csv'):
-        cls.__candles.to_csv(filename)
-
-    # D1 or H4 candles
-    @classmethod
-    def get_long_span_candles(cls):
-        return cls.__long_span_candles
-
-    @classmethod
-    def set_long_span_candles(cls, long_span_candles):
-        cls.__long_span_candles = long_span_candles
-
-
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
 class OandaPyClient():
@@ -141,7 +94,7 @@ class OandaPyClient():
                 granularity=granularity
             )
             tmp_candles = prepro.to_candle_df(response)
-            candles = FXBase.union_candles_distinct(candles, tmp_candles)
+            candles = self.__union_candles_distinct(candles, tmp_candles)
             print('[Client] Remaining: {remaining_days} days'.format(remaining_days=remaining_days))
             time.sleep(1)
 
@@ -199,7 +152,7 @@ class OandaPyClient():
                 granularity=granularity
             )
             tmp_candles = prepro.to_candle_df(response)
-            candles = FXBase.union_candles_distinct(candles, tmp_candles)
+            candles = self.__union_candles_distinct(candles, tmp_candles)
             print('取得済み: {datetime}まで'.format(datetime=next_endtime))
             time.sleep(1)
 
@@ -222,21 +175,10 @@ class OandaPyClient():
         }
 
     def request_current_price(self):
-        '''
-        最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き
-        '''
         # INFO: .to_dictは、単にコンソールログの見やすさ向上のために使用中
         latest_candle = self.load_specify_length_candles(length=1, granularity='M1')['candles'] \
                             .iloc[-1].to_dict()
-
-        candle_dict = FXBase.get_candles().iloc[-1].to_dict()
-        FXBase.replace_latest_price('close', latest_candle['close'])
-        if candle_dict['high'] < latest_candle['high']:
-            FXBase.replace_latest_price('high', latest_candle['high'])
-        elif candle_dict['low'] > latest_candle['low']:
-            FXBase.replace_latest_price('low', latest_candle['low'])
-        print('[Client] Last_H4: {}, Current_M1: {}'.format(candle_dict, latest_candle))
-        print('[Client] New_H4: {}'.format(FXBase.get_candles().iloc[-1].to_dict()))
+        return latest_candle
 
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''
@@ -361,10 +303,10 @@ class OandaPyClient():
         LOGGER.info('[Client] trail: %s', response)
         return response
 
-    def request_transactions(self, count=500):
+    def request_latest_transactions(self, count=999):
         to_id = int(self.__last_transaction_id)
         from_id = to_id - count
-        from_id = min(from_id, 1)
+        from_id = max(from_id, 1)
         response = self.__request_transactions_once(from_id, to_id)
         filtered_df = prepro.filter_and_make_df(response['transactions'], self.__instrument)
         return filtered_df
@@ -485,3 +427,11 @@ class OandaPyClient():
             days = OandaPyClient.REQUESTABLE_COUNT
 
         return datetime.timedelta(days=days, hours=hours, minutes=minutes)
+
+    def __union_candles_distinct(self, old_candles, new_candles):
+        if old_candles is None:
+            return new_candles
+
+        return pd.concat([old_candles, new_candles]) \
+                 .drop_duplicates(subset='time') \
+                 .reset_index(drop=True)

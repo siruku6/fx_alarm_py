@@ -29,7 +29,7 @@ def expected_columns():
 
 def test_to_candle_df():
     no_candles = prepro.to_candle_df({'candles': []})
-    assert type(no_candles) == pd.core.frame.DataFrame
+    assert isinstance(no_candles, pd.core.frame.DataFrame)
 
     candles = prepro.to_candle_df(dummy_instruments)
     expected_array = ['close', 'high', 'low', 'open', 'time']

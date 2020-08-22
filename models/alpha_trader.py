@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from models.oanda_py_client import FXBase
+from models.candle_storage import FXBase
 from models.trader import Trader
 import models.trade_rules.scalping as scalping
 

@@ -3,7 +3,7 @@ import os
 from pprint import pprint
 import numpy as np
 
-from models.oanda_py_client import FXBase
+from models.candle_storage import FXBase
 from models.trader import Trader
 # import models.trade_rules.base as rules
 import models.trade_rules.scalping as scalping
@@ -253,7 +253,7 @@ class RealTrader(Trader):
         time_since_loss : datetime
         '''
         candle_size = 100
-        hist_df = self._client.request_transactions(candle_size)
+        hist_df = self._client.request_latest_transactions(candle_size)
         time_series = hist_df[hist_df.pl < 0]['time']
         if time_series.empty:
             return datetime.timedelta(hours=99)

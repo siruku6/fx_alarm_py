@@ -2,7 +2,8 @@ import datetime
 import numpy as np
 import pandas as pd
 
-from models.oanda_py_client import FXBase, OandaPyClient
+from models.candle_storage import FXBase
+from models.oanda_py_client import OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 import models.tools.format_converter as converter
@@ -35,7 +36,7 @@ class Librarian():
         self.__client.request_open_trades()
 
         # preapre history_df: trade-history
-        history_df = self.__client.request_transactions()
+        history_df = self.__client.request_latest_transactions()
         history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
 
         history_df.loc[:, 'price'] = history_df.price.astype('float32')
