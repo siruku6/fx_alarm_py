@@ -35,7 +35,7 @@ class Librarian():
         self.__client.request_open_trades()
 
         # preapre history_df: trade-history
-        history_df = self.__client.request_transactions()
+        history_df = self.__client.request_latest_transactions()
         history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
 
         history_df.loc[:, 'price'] = history_df.price.astype('float32')

@@ -97,6 +97,10 @@ class TestClient(unittest.TestCase):
         result = self.client_instance.request_closing_position()
         assert 'error' in result
 
+# TODO: request_latest_transactions
+#   from_id ~ to_id が 1000以内に収まっていること
+#   assert_called_with で確認
+
 # - - - - - - - - - - -
 #    Private methods
 # - - - - - - - - - - -

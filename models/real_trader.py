@@ -253,7 +253,7 @@ class RealTrader(Trader):
         time_since_loss : datetime
         '''
         candle_size = 100
-        hist_df = self._client.request_transactions(candle_size)
+        hist_df = self._client.request_latest_transactions(candle_size)
         time_series = hist_df[hist_df.pl < 0]['time']
         if time_series.empty:
             return datetime.timedelta(hours=99)

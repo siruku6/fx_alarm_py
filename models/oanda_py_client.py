@@ -361,10 +361,10 @@ class OandaPyClient():
         LOGGER.info('[Client] trail: %s', response)
         return response
 
-    def request_transactions(self, count=500):
+    def request_latest_transactions(self, count=999):
         to_id = int(self.__last_transaction_id)
         from_id = to_id - count
-        from_id = min(from_id, 1)
+        from_id = max(from_id, 1)
         response = self.__request_transactions_once(from_id, to_id)
         filtered_df = prepro.filter_and_make_df(response['transactions'], self.__instrument)
         return filtered_df
