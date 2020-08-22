@@ -2,7 +2,8 @@ import datetime
 import numpy as np
 import pandas as pd
 
-from models.oanda_py_client import FXBase, OandaPyClient
+from models.candle_storage import FXBase
+from models.oanda_py_client import OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 import models.tools.format_converter as converter
