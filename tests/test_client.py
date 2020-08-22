@@ -97,31 +97,30 @@ class TestClient(unittest.TestCase):
         result = self.client_instance.request_closing_position()
         assert 'error' in result
 
+
 # TODO: request_latest_transactions
 #   from_id ~ to_id が 1000以内に収まっていること
 #   assert_called_with で確認
 
-# - - - - - - - - - - -
-#    Private methods
-# - - - - - - - - - - -
-def test___request_transactions_once(oanda_client, past_transactions):
+
+def test_request_transactions_once(oanda_client, past_transactions):
     from_id = 1
     to_id = 5
 
     with patch('oandapyV20.endpoints.transactions.TransactionIDRange') as mock:
         with patch('oandapyV20.API.request', return_value=past_transactions):
-            response = oanda_client._OandaPyClient__request_transactions_once(from_id=from_id, to_id=to_id)
+            response = oanda_client.request_transactions_once(from_id=from_id, to_id=to_id)
         mock.assert_called_with(
             accountID=os.environ.get('OANDA_ACCOUNT_ID'), params={'from': from_id, 'to': 5, 'type': ['ORDER']}
         )
 
 
-def test___request_transaction_ids(oanda_client):
+def test_request_transaction_ids(oanda_client):
     dummy_from_str = 'xxxx-xx-xxT00:00:00.123456789'
 
     with patch('oandapyV20.endpoints.transactions.TransactionList') as mock:
         with patch('oandapyV20.API.request', return_value=TRANSACTION_IDS):
-            from_id, to_id = oanda_client._OandaPyClient__request_transaction_ids(from_str=dummy_from_str)
+            from_id, to_id = oanda_client.request_transaction_ids(from_str=dummy_from_str)
             assert from_id == '2'
             assert to_id == '400'
 
@@ -130,6 +129,9 @@ def test___request_transaction_ids(oanda_client):
         )
 
 
+# - - - - - - - - - - -
+#    Private methods
+# - - - - - - - - - - -
 def test___calc_requestable_max_days(oanda_client):
     correction = {
         'D': 5000, 'M12': int(5000 / 120), 'H12': int(5000 / 2)

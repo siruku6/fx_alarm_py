@@ -7,6 +7,7 @@ from models.oanda_py_client import OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 import models.tools.format_converter as converter
+import models.tools.preprocessor as prepro
 
 
 class Librarian():
@@ -61,8 +62,32 @@ class Librarian():
         return result
 
     def beta_pull_transacion_id(self):
-        result = self.__client.request_massive_transactions()
+        result = self.request_massive_transactions()
         print(result)
+
+    def request_massive_transactions(self):
+        gained_transactions = []
+        from_id, to_id = self.__client.request_transaction_ids()
+
+        while True:
+            print('[INFO] requesting {}..{}'.format(from_id, to_id))
+
+            response = self.__client.request_transactions_once(from_id, to_id)
+            tmp_transactons = response['transactions']
+            gained_transactions += tmp_transactons
+            # INFO: ループの終了条件
+            #   'to' に指定した ID の transaction がない時が多々あり、
+            #   その場合、transactions を取得できないので、ごくわずかな数になる。
+            #   そこまで来たら処理終了
+            if len(tmp_transactons) <= 10 or tmp_transactons[-1]['id'] == to_id:
+                break
+
+            print('[INFO] last_transaction_id {}'.format(tmp_transactons[-1]['id']))
+            gained_last_transaction_id = tmp_transactons[-1]['id']
+            from_id = str(int(gained_last_transaction_id) + 1)
+
+        filtered_df = prepro.filter_and_make_df(gained_transactions, self.__instrument)
+        return filtered_df
 
     #
     # Private
