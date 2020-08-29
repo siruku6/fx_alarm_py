@@ -1,7 +1,7 @@
 import pytest
 
 
-@pytest.fixture()
+@pytest.fixture(scope='session')
 def dummy_instruments():
     return {
         'candles': [{
@@ -25,7 +25,7 @@ def dummy_instruments():
     }
 
 
-@pytest.fixture()
+@pytest.fixture(scope='session')
 def dummy_open_trades():
     return [{
         'currentUnits': '-1',
@@ -97,7 +97,7 @@ def dummy_open_trades():
 # https://qastack.jp/programming/18011902/pass-a-parameter-to-a-fixture-function
 # https://docs.pytest.org/en/latest/example/parametrize.html#indirect-parametrization
 # https://www.366service.com/jp/qa/665a767bf116ce225233c4b9ef915165
-@pytest.fixture()
+@pytest.fixture(scope='session')
 def dummy_stoploss_price():
     return 111.111
 
@@ -114,7 +114,7 @@ def dummy_market_order_response(dummy_stoploss_price):
     }
 
 
-@pytest.fixture()
+@pytest.fixture(scope='session')
 def dummy_trades_list():
     return {
         'lastTransactionID': '700',
