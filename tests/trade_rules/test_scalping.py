@@ -20,9 +20,9 @@ def test_generate_up_repulsion_column():
     )
     repulsion_series = scalping.generate_repulsion_column(candles=test_df, ema=test_df.ema)
 
-    assert repulsion_series[0] == None
-    assert repulsion_series[1] == None
-    # assert repulsion_series[2] == None  # repulsion_exist 試験中のため、コメントアウト
+    assert repulsion_series[0] is None
+    assert repulsion_series[1] is None
+    # assert repulsion_series[2] is None  # repulsion_exist 試験中のため、コメントアウト
     assert repulsion_series[3] == 'long'
 
 
@@ -109,7 +109,7 @@ def test___trade_routine():
     index = 1
     next_direction = scalping.__trade_routine(None, dummy_dicts, index, dummy_dicts[index])
     assert next_direction == 'long'
-    assert not 'position' in dummy_dicts[index]
+    assert 'position' not in dummy_dicts[index]
     assert dummy_dicts[index + 1]['position'] == dummy_dicts[index + 1]['entryable']
 
     # Example: sell_exit
