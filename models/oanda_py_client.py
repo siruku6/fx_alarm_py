@@ -2,10 +2,12 @@ import datetime
 import time
 import logging
 import os
-import pandas as pd
 import pprint
-import requests
+import sys
 from collections import OrderedDict
+
+import pandas as pd
+import requests
 
 # For trading
 from oandapyV20 import API
@@ -307,39 +309,11 @@ class OandaPyClient():
         to_id = int(self.__last_transaction_id)
         from_id = to_id - count
         from_id = max(from_id, 1)
-        response = self.__request_transactions_once(from_id, to_id)
+        response = self.request_transactions_once(from_id, to_id)
         filtered_df = prepro.filter_and_make_df(response['transactions'], self.__instrument)
         return filtered_df
 
-    def request_massive_transactions(self):
-        gained_transactions = []
-        from_id, to_id = self.__request_transaction_ids()
-
-        while True:
-            print('[INFO] requesting {}..{}'.format(from_id, to_id))
-
-            response = self.__request_transactions_once(from_id, to_id)
-            tmp_transactons = response['transactions']
-            gained_transactions += tmp_transactons
-            # INFO: ループの終了条件
-            #   'to' に指定した ID の transaction がない時が多々あり、
-            #   その場合、transactions を取得できないので、ごくわずかな数になる。
-            #   そこまで来たら処理終了
-            if len(tmp_transactons) <= 10 or tmp_transactons[-1]['id'] == to_id:
-                break
-
-            print('[INFO] last_transaction_id {}'.format(tmp_transactons[-1]['id']))
-            gained_last_transaction_id = tmp_transactons[-1]['id']
-            from_id = str(int(gained_last_transaction_id) + 1)
-
-        filtered_df = prepro.filter_and_make_df(gained_transactions, self.__instrument)
-        return filtered_df
-
-    #
-    # Private
-    #
-
-    def __request_transactions_once(self, from_id, to_id):
+    def request_transactions_once(self, from_id, to_id):
         params = {
             # len(from ... to) < 500 くらいっぽい
             'from': from_id,
@@ -347,20 +321,38 @@ class OandaPyClient():
             'type': ['ORDER'],
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
-        request_obj = transactions.TransactionIDRange(
-            accountID=os.environ['OANDA_ACCOUNT_ID'],
-            params=params
-        )
-        response = self.__api_client.request(request_obj)
+        request_obj = transactions.TransactionIDRange(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
+        response = self.__request(request_obj)
+
         return response
 
-    def __request_transaction_ids(self, from_str='2020-01-01T04:58:09.460556567'):
+    # TODO: from_str の扱いを決める必要あり
+    def request_transaction_ids(self, from_str='2020-01-01T04:58:09.460556567'):
         params = {'from': from_str, 'pageSize': 1000}
         request_obj = transactions.TransactionList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
-        response = self.__api_client.request(request_obj)
+        response = self.__request(request_obj)
+        if 'error' in response:
+            return response, None
+
         ids = prepro.extract_transaction_ids(response)
         return ids['old_id'], ids['last_id']
 
+    def __request(self, obj):
+        try:
+            response = self.__api_client.request(obj)
+        except V20Error as error:
+            LOGGER.error('[%s] V20Error: %s', sys._getframe().f_back.f_code.co_name, error)
+            # error.msg
+            return {'error': error.code}
+        except requests.exceptions.ConnectionError as error:
+            LOGGER.error('[%s] requests.exceptions.ConnectionError: %s', sys._getframe().f_code.co_name, error)
+            return {'error': 500}
+        else:
+            return response
+
+    #
+    # Private
+    #
     def __calc_candles_wanted(self, days=1, granularity='M5'):
         time_unit = granularity[0]
         if time_unit == 'D':
@@ -394,14 +386,9 @@ class OandaPyClient():
             params=params
         )
         # HACK: 現在値を取得する際、誤差で将来の時間と扱われてエラーになることがある
-        try:
-            response = self.__api_client.request(request_obj)
-        except V20Error as error:
-            LOGGER.error('[__request_oanda_instruments] V20Error: {}'.format(error))
-            return {'candles': []}
-        except requests.exceptions.ConnectionError as error:
-            LOGGER.error('[__request_oanda_instruments] requests.exceptions.ConnectionError: {}'.format(error))
-            return {'candles': []}
+        response = self.__request(request_obj)
+        if 'error' in response:
+            return {'candles': [], 'error': response['error']}
 
         return response
 

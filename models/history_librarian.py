@@ -7,19 +7,19 @@ from models.oanda_py_client import OandaPyClient
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 import models.tools.format_converter as converter
+import models.tools.preprocessor as prepro
 
 
 class Librarian():
     DRAWABLE_ROWS = 200
 
-    def __init__(self):
-        self.__instrument, _ = OandaPyClient.select_instrument()
+    def __init__(self, instrument=None):
+        self.__instrument = instrument or OandaPyClient.select_instrument()[0]
         self.__client = OandaPyClient(instrument=self.__instrument)
         self.__ana = Analyzer()
-        self.__drawer = FigureDrawer(rows_num=3, instrument=self.__instrument)
         self._indicators = None
 
-    def merge_history_and_instruments(self, granularity='M10'):
+    def merge_history_and_instruments(self, history_df, granularity='M10'):
         '''
         create dataframe which includes trade-history & time-series currency price
 
@@ -32,13 +32,6 @@ class Librarian():
         -------
         dataframe
         '''
-        # INFO: lastTransactionIDを取得するために実行
-        self.__client.request_open_trades()
-
-        # preapre history_df: trade-history
-        history_df = self.__client.request_latest_transactions()
-        history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
-
         history_df.loc[:, 'price'] = history_df.price.astype('float32')
         candles = self.__prepare_candles(log_oldest_time=history_df.iloc[0].time, granularity=granularity)
         print('[Libra] candles and trade-logs are loaded')
@@ -53,16 +46,45 @@ class Librarian():
         FXBase.set_candles(result)
         print('[Libra] candles and trade-history is merged')
 
+        return result
+
+    def visualize_hist(self, result):
         # INFO: Visualization
         result.to_csv('./tmp/csvs/oanda_trade_hist.csv', index=False)
         self.__draw_history()
-        self.__drawer.close_all()
 
-        return result
+    def prepare_one_page_transactions(self):
+        # INFO: lastTransactionIDを取得するために実行
+        self.__client.request_open_trades()
 
-    def beta_pull_transacion_id(self):
-        result = self.__client.request_massive_transactions()
-        print(result)
+        # preapre history_df: trade-history
+        history_df = self.__client.request_latest_transactions()
+        history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
+        return history_df
+
+    def request_massive_transactions(self):
+        gained_transactions = []
+        from_id, to_id = self.__client.request_transaction_ids()
+
+        while True:
+            print('[INFO] requesting {}..{}'.format(from_id, to_id))
+
+            response = self.__client.request_transactions_once(from_id, to_id)
+            tmp_transactons = response['transactions']
+            gained_transactions += tmp_transactons
+            # INFO: ループの終了条件
+            #   'to' に指定した ID の transaction がない時が多々あり、
+            #   その場合、transactions を取得できないので、ごくわずかな数になる。
+            #   そこまで来たら処理終了
+            if len(tmp_transactons) <= 10 or tmp_transactons[-1]['id'] == to_id:
+                break
+
+            print('[INFO] last_transaction_id {}'.format(tmp_transactons[-1]['id']))
+            gained_last_transaction_id = tmp_transactons[-1]['id']
+            from_id = str(int(gained_last_transaction_id) + 1)
+
+        filtered_df = prepro.filter_and_make_df(gained_transactions, self.__instrument)
+        return filtered_df
 
     #
     # Private
@@ -233,10 +255,10 @@ class Librarian():
         # - - - - - - - - - - - - - - - - - - - -
         #                  描画
         # - - - - - - - - - - - - - - - - - - - -
-        drwr = self.__drawer
-        drwr.draw_indicators(d_frame=self._indicators[-Librarian.DRAWABLE_ROWS:None].reset_index(drop=True))
+        drawer = FigureDrawer(rows_num=3, instrument=self.__instrument)
+        drawer.draw_indicators(d_frame=self._indicators[-Librarian.DRAWABLE_ROWS:None].reset_index(drop=True))
 
-        drwr.draw_vertical_lines(
+        drawer.draw_vertical_lines(
             indexes=np.concatenate([
                 long_df.dropna(subset=['price']).sequence.values,
                 short_df.dropna(subset=['price']).sequence.values
@@ -245,24 +267,25 @@ class Librarian():
             vmax=self._indicators['band_+2σ'].max(skipna=True)
         )
 
-        drwr.draw_positions_df(positions_df=close_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['exit'])
-        drwr.draw_positions_df(positions_df=long_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['long'])
-        drwr.draw_positions_df(positions_df=short_df[['sequence', 'price']], plot_type=drwr.PLOT_TYPE['short'])
-        drwr.draw_positions_df(
+        drawer.draw_positions_df(positions_df=close_df[['sequence', 'price']], plot_type=drawer.PLOT_TYPE['exit'])
+        drawer.draw_positions_df(positions_df=long_df[['sequence', 'price']], plot_type=drawer.PLOT_TYPE['long'])
+        drawer.draw_positions_df(positions_df=short_df[['sequence', 'price']], plot_type=drawer.PLOT_TYPE['short'])
+        drawer.draw_positions_df(
             positions_df=d_frame[['sequence', 'stoploss']].rename(columns={'stoploss': 'price'}),
-            plot_type=drwr.PLOT_TYPE['trail']
+            plot_type=drawer.PLOT_TYPE['trail']
         )
 
         # axis3
         d_frame['gross'].fillna(method='ffill', inplace=True)
-        drwr.draw_df_on_plt(d_frame[['gross', 'pl']], drwr.PLOT_TYPE['bar'], colors=['orange', 'yellow'], plt_id=3)
+        drawer.draw_df_on_plt(d_frame[['gross', 'pl']], drawer.PLOT_TYPE['bar'], colors=['orange', 'yellow'], plt_id=3)
 
         target_candles = d_frame.iloc[-Librarian.DRAWABLE_ROWS:, :]  # 200本より古い足は消している
-        drwr.draw_candles(target_candles)
-        result = drwr.create_png(
+        drawer.draw_candles(target_candles)
+        result = drawer.create_png(
             granularity='real-trade',
             sr_time=d_frame.time, num=0, filename='hist'
         )
+        drawer.close_all()
         print(result['success'])
 
     def __prepare_position_dfs(self, df):

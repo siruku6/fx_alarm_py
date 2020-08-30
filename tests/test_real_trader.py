@@ -9,7 +9,6 @@ from unittest.mock import patch, call
 import models.real_trader as real
 import models.tools.statistics_module as statistics
 from tests.fixtures.d1_stoc_dummy import d1_stoc_dummy
-from tests.oanda_dummy_responses import dummy_open_trades, dummy_market_order_response
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -85,10 +84,9 @@ def test_not_entry(real_trader_client, dummy_candles, dummy_indicators):
     pd.testing.assert_series_equal(mock.call_args[0][2], last_indicators)
 
 
-def test__create_position_with_indicators(real_trader_client):
+def test__create_position_with_indicators(real_trader_client, dummy_market_order_response):
     last_indicators = {'support': 120.111, 'regist': 118.999}
-    stoploss_price = 111.111
-    dummy_response = dummy_market_order_response(stoploss_price)
+    dummy_response = dummy_market_order_response
 
     # long
     # HACK: patch imported module into mock
@@ -112,9 +110,8 @@ def test__create_position_with_indicators(real_trader_client):
     )
 
 
-def test__create_position_without_indicators(real_trader_client):
-    stoploss_price = 111.111
-    dummy_response = dummy_market_order_response(stoploss_price)
+def test__create_position_without_indicators(real_trader_client, dummy_market_order_response):
+    dummy_response = dummy_market_order_response
 
     # long
     with patch('oandapyV20.endpoints.orders.OrderCreate') as mock:
@@ -201,7 +198,7 @@ def test___drive_exit_process_golden_cross(real_trader_client):
     # TODO: testcase 不足
 
 
-def test___load_position(real_trader_client):
+def test___load_position(real_trader_client, dummy_open_trades):
     with patch('models.oanda_py_client.OandaPyClient.request_open_trades', return_value=[]):
         pos = real_trader_client._RealTrader__load_position()
     assert pos == {'type': 'none'}

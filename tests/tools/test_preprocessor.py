@@ -3,7 +3,6 @@ import pandas as pd
 import pytest
 
 import models.tools.preprocessor as prepro
-from tests.oanda_dummy_responses import dummy_instruments
 from tests.fixtures.past_transactions import TRANSACTION_IDS, PAST_TRANSACTIONS, NO_PL_TRANSACTIONS
 
 
@@ -27,7 +26,7 @@ def expected_columns():
     ])
 
 
-def test_to_candle_df():
+def test_to_candle_df(dummy_instruments):
     no_candles = prepro.to_candle_df({'candles': []})
     assert isinstance(no_candles, pd.core.frame.DataFrame)
 

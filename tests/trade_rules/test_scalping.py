@@ -1,6 +1,8 @@
 import math
 import numpy as np
 import pandas as pd
+import pytest
+
 import models.trade_rules.scalping as scalping
 from tests.fixtures.factor_dicts import DUMMY_FACTOR_DICTS
 
@@ -18,9 +20,9 @@ def test_generate_up_repulsion_column():
     )
     repulsion_series = scalping.generate_repulsion_column(candles=test_df, ema=test_df.ema)
 
-    assert repulsion_series[0] == None
-    assert repulsion_series[1] == None
-    # assert repulsion_series[2] == None  # repulsion_exist 試験中のため、コメントアウト
+    assert repulsion_series[0] is None
+    assert repulsion_series[1] is None
+    # assert repulsion_series[2] is None  # repulsion_exist 試験中のため、コメントアウト
     assert repulsion_series[3] == 'long'
 
 
@@ -38,28 +40,31 @@ def test_generate_down_repulsion_column():
     repulsion_series = scalping.generate_repulsion_column(candles=test_df, ema=test_df.ema)
     # import pdb; pdb.set_trace()
 
-    assert repulsion_series[0] == None
-    assert repulsion_series[1] == None
-    assert repulsion_series[2] == None
+    assert repulsion_series[0] is None
+    assert repulsion_series[1] is None
+    assert repulsion_series[2] is None
     assert repulsion_series[3] == 'short'
 
 
-def test_exitable_by_stoccross():
-    test_dicts = [
-        {'position_type': 'long', 'stod': 40, 'stosd': 90, 'exitable': True},
-        {'position_type': 'long', 'stod': 70, 'stosd': 80, 'exitable': True},
-        {'position_type': 'long', 'stod': 80, 'stosd': 70, 'exitable': False},
-        {'position_type': 'short', 'stod': 90, 'stosd': 40, 'exitable': True},
-        {'position_type': 'short', 'stod': 80, 'stosd': 70, 'exitable': True},
-        {'position_type': 'short', 'stod': 70, 'stosd': 80, 'exitable': False}
-    ]
-    for row in test_dicts:
-        is_exitable = scalping.exitable_by_stoccross(
-            position_type=row['position_type'],
-            stod=row['stod'],
-            stosd=row['stosd']
-        )
-        assert is_exitable == row['exitable']
+examples_for_exitable = (
+    ('long', 40, 90, True),
+    ('long', 70, 80, True),
+    ('long', 80, 70, False),
+    ('short', 90, 40, True),
+    ('short', 80, 70, True),
+    ('short', 70, 80, False)
+)
+
+
+@pytest.mark.parametrize('position_type, stod, stosd, exitable', examples_for_exitable)
+def test_exitable_by_stoccross(position_type, stod, stosd, exitable):
+    # for row in test_dicts:
+    is_exitable = scalping.exitable_by_stoccross(
+        position_type=position_type,
+        stod=stod,
+        stosd=stosd
+    )
+    assert is_exitable == exitable
 
 
 def test_is_exitable_by_bollinger():
@@ -104,7 +109,7 @@ def test___trade_routine():
     index = 1
     next_direction = scalping.__trade_routine(None, dummy_dicts, index, dummy_dicts[index])
     assert next_direction == 'long'
-    assert not 'position' in dummy_dicts[index]
+    assert 'position' not in dummy_dicts[index]
     assert dummy_dicts[index + 1]['position'] == dummy_dicts[index + 1]['entryable']
 
     # Example: sell_exit
