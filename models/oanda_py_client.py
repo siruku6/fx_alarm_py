@@ -2,10 +2,12 @@ import datetime
 import time
 import logging
 import os
-import pandas as pd
 import pprint
-import requests
+import sys
 from collections import OrderedDict
+
+import pandas as pd
+import requests
 
 # For trading
 from oandapyV20 import API
@@ -319,19 +321,34 @@ class OandaPyClient():
             'type': ['ORDER'],
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
-        request_obj = transactions.TransactionIDRange(
-            accountID=os.environ['OANDA_ACCOUNT_ID'],
-            params=params
-        )
-        response = self.__api_client.request(request_obj)
+        request_obj = transactions.TransactionIDRange(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
+        response = self.__request(request_obj)
+
         return response
 
+    # TODO: from_str の扱いを決める必要あり
     def request_transaction_ids(self, from_str='2020-01-01T04:58:09.460556567'):
         params = {'from': from_str, 'pageSize': 1000}
         request_obj = transactions.TransactionList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
-        response = self.__api_client.request(request_obj)
+        response = self.__request(request_obj)
+        if 'error' in response:
+            return response, None
+
         ids = prepro.extract_transaction_ids(response)
         return ids['old_id'], ids['last_id']
+
+    def __request(self, obj):
+        try:
+            response = self.__api_client.request(obj)
+        except V20Error as error:
+            LOGGER.error('[%s] V20Error: %s', sys._getframe().f_back.f_code.co_name, error)
+            # error.msg
+            return {'error': error.code}
+        except requests.exceptions.ConnectionError as error:
+            LOGGER.error('[%s] requests.exceptions.ConnectionError: %s', sys._getframe().f_code.co_name, error)
+            return {'error': 500}
+        else:
+            return response
 
     #
     # Private
@@ -369,14 +386,9 @@ class OandaPyClient():
             params=params
         )
         # HACK: 現在値を取得する際、誤差で将来の時間と扱われてエラーになることがある
-        try:
-            response = self.__api_client.request(request_obj)
-        except V20Error as error:
-            LOGGER.error('[__request_oanda_instruments] V20Error: {}'.format(error))
-            return {'candles': []}
-        except requests.exceptions.ConnectionError as error:
-            LOGGER.error('[__request_oanda_instruments] requests.exceptions.ConnectionError: {}'.format(error))
-            return {'candles': []}
+        response = self.__request(request_obj)
+        if 'error' in response:
+            return {'candles': [], 'error': response['error']}
 
         return response
 
