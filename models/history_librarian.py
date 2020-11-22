@@ -62,9 +62,9 @@ class Librarian():
         history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
         return history_df
 
-    def request_massive_transactions(self):
+    def request_massive_transactions(self, from_datetime):
         gained_transactions = []
-        from_id, to_id = self.__client.request_transaction_ids()
+        from_id, to_id = self.__client.request_transaction_ids(from_str=from_datetime)
 
         while True:
             print('[INFO] requesting {}..{}'.format(from_id, to_id))

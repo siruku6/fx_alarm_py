@@ -24,9 +24,12 @@ def lambda_handler(event, context):
 
 # For tradehist of AWS Lambda
 def api_handler(event, _context):
-    pare_name = event['queryStringParameters']['pareName']
+    params = event['queryStringParameters']
+    from_datetime = params['fromDatetime'] or (datetime.today() - datetime.timedelta(days=30))
+    pare_name = params['pareName']
+
     libra = Librarian(instrument=pare_name)
-    transactions = libra.request_massive_transactions()
+    transactions = libra.request_massive_transactions(from_datetime=from_datetime)
 
     # TODO: oandaとの通信失敗時などは、500 エラーレスポンスを返せるようにする
 
@@ -47,4 +50,11 @@ def api_handler(event, _context):
 
 # For local console
 if __name__ == '__main__':
-    lambda_handler(None, None)
+    # lambda_handler(None, None)
+
+    dummy_event = {
+        'queryStringParameters': {
+            'pareName': 'USD_JPY', 'fromDatetime': '2020-010-01T04:58:09.460556567Z'
+        }
+    }
+    api_handler(dummy_event, None)
