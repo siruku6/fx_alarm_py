@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     dummy_event = {
         'queryStringParameters': {
-            'pareName': 'USD_JPY', 'fromDatetime': '2020-010-01T04:58:09.460556567Z'
+            'pareName': 'USD_JPY', 'fromDatetime': '2020-11-15T04:58:09.460556567Z'
         }
     }
     api_handler(dummy_event, None)
