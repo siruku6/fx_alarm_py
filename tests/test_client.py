@@ -118,7 +118,7 @@ def test_request_transactions_once(client, past_transactions):
 
 
 def test_request_transaction_ids(client):
-    dummy_from_str = 'xxxx-xx-xxT00:00:00.123456789'
+    dummy_from_str = 'xxxx-xx-xxT00:00:00.123456789Z'
 
     with patch('oandapyV20.endpoints.transactions.TransactionList') as mock:
         with patch('oandapyV20.API.request', return_value=TRANSACTION_IDS):

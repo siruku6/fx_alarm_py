@@ -23,15 +23,18 @@ def lambda_handler(event, context):
 
 
 # For tradehist of AWS Lambda
-# TODO: Now, next lines are prototype of tradehist
-def hist_handler(event, context):
-    libra = Librarian(instrument='GBP_JPY')
-    transactions = libra.request_massive_transactions()
+def api_handler(event, _context):
+    params = event['queryStringParameters']
+    from_datetime = params['fromDatetime'] or (datetime.today() - datetime.timedelta(days=30))
+    pare_name = params['pareName']
+
+    libra = Librarian(instrument=pare_name)
+    transactions = libra.request_massive_transactions(from_datetime=from_datetime)
 
     # TODO: oandaとの通信失敗時などは、500 エラーレスポンスを返せるようにする
 
     result = libra.merge_history_and_instruments(transactions, granularity='H1')
-    msg = 'lambda function is correctly finished.'
+    print('lambda function is correctly finished.')
     return {
         'statusCode': 200,
         'headers': {
@@ -47,4 +50,11 @@ def hist_handler(event, context):
 
 # For local console
 if __name__ == '__main__':
-    lambda_handler(None, None)
+    # lambda_handler(None, None)
+
+    dummy_event = {
+        'queryStringParameters': {
+            'pareName': 'USD_JPY', 'fromDatetime': '2020-11-15T04:58:09.460556567Z'
+        }
+    }
+    api_handler(dummy_event, None)

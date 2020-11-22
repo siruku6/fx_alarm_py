@@ -327,7 +327,7 @@ class OandaPyClient():
         return response
 
     # TODO: from_str の扱いを決める必要あり
-    def request_transaction_ids(self, from_str='2020-01-01T04:58:09.460556567'):
+    def request_transaction_ids(self, from_str='2020-01-01T04:58:09.460556567Z'):
         params = {'from': from_str, 'pageSize': 1000}
         request_obj = transactions.TransactionList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
         response = self.__request(request_obj)
