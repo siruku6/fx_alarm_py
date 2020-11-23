@@ -91,7 +91,8 @@ class Librarian():
     #
     def __prepare_candles(self, log_oldest_time, granularity):
         today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
-        start_dt = pd.to_datetime(log_oldest_time) - datetime.timedelta(days=30)
+        buffer_timeddelta_by_20candles = converter.granularity_to_timedelta(granularity) * 20
+        start_dt = pd.to_datetime(log_oldest_time) - buffer_timeddelta_by_20candles
 
         result = self.__client.load_candles_by_duration(start=start_dt, end=today_dt, granularity=granularity)
         return result['candles']
@@ -109,7 +110,7 @@ class Librarian():
         if granularity == 'M10':  # TODO: M15, 30 も対応できるようにする
             history_df['time'] = [converter.convert_to_m10(time) for time in history_df.time]
         elif granularity in ('H1', 'H4'):
-            history_df['time'] = [self.__convert_to(granularity, time, dict_dst_switches) for time in history_df.time]
+            history_df['time'] = [self.__convert_time_str_to(granularity, time, dict_dst_switches) for time in history_df.time]
         return history_df
 
     def __detect_dst_switches(self, candles):
@@ -148,7 +149,7 @@ class Librarian():
 
         return hist_df
 
-    def __convert_to(self, granularity, oanda_time, dict_dst_switches=None):
+    def __convert_time_str_to(self, granularity, oanda_time, dict_dst_switches=None):
         time_str = oanda_time.replace('T', ' ')
         # INFO: 12文字目までで hour まで取得できる
         time = datetime.datetime.strptime(time_str[:13], '%Y-%m-%d %H')
