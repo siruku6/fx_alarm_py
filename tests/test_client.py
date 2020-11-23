@@ -144,12 +144,12 @@ def test___calc_requestable_max_days(client):
 
 
 def test___calc_requestable_time_duration(client):
-    max_count = client.REQUESTABLE_COUNT
+    max_count = client.REQUESTABLE_COUNT - 1
     granularties = ('M1', 'M5', 'M10', 'M15', 'M30', 'H1', 'H4', 'D')
     durations = [
-        datetime.timedelta(minutes=time_int * max_count - 1) for time_int in [1, 5, 10, 15, 30]
+        datetime.timedelta(minutes=time_int * max_count) for time_int in [1, 5, 10, 15, 30]
     ] + [
-        datetime.timedelta(minutes=(time_int * max_count - 1) * 60) for time_int in [1, 4]
+        datetime.timedelta(minutes=time_int * max_count * 60) for time_int in [1, 4]
     ]
     durations.append(datetime.timedelta(minutes=1 * max_count * 60 * 24))
 

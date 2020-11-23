@@ -400,20 +400,10 @@ class OandaPyClient():
         return max_days
 
     def __calc_requestable_time_duration(self, granularity):
-        days = hours = minutes = 0
+        timedelta = converter.granularity_to_timedelta(granularity)
+        requestable_duration = timedelta * (OandaPyClient.REQUESTABLE_COUNT - 1)
 
-        def max_multiply(number):
-            return int(OandaPyClient.REQUESTABLE_COUNT * int(number)) - 1
-
-        time_unit = granularity[0]
-        if time_unit == 'M':
-            minutes = max_multiply(granularity[1:])
-        elif time_unit == 'H':
-            hours = max_multiply(granularity[1:])
-        elif time_unit == 'D':
-            days = OandaPyClient.REQUESTABLE_COUNT
-
-        return datetime.timedelta(days=days, hours=hours, minutes=minutes)
+        return requestable_duration
 
     def __union_candles_distinct(self, old_candles, new_candles):
         if old_candles is None:
