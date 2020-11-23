@@ -9,7 +9,20 @@ def str_to_datetime(time_string):
     return result_dt
 
 
+def granularity_to_timedelta(granularity):
+    time_unit = granularity[0]
+    if time_unit == 'M':
+        candle_duration = datetime.timedelta(minutes=int(granularity[1:]))
+    elif time_unit == 'H':
+        candle_duration = datetime.timedelta(hours=int(granularity[1:]))
+    elif time_unit == 'D':
+        candle_duration = datetime.timedelta(days=1)
+
+    return candle_duration
+
+
 def to_oanda_format(target_datetime):
+    # datetime.datetime(2020,10,1).isoformat(timespec='microseconds') + 'Z'
     return target_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
 
 

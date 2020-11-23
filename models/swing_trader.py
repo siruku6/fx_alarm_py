@@ -161,14 +161,7 @@ class SwingTrader(Trader):
 
     def __add_candle_duration(self, start_string):
         start_time = converter.str_to_datetime(start_string)
-        granularity = self.get_entry_rules('granularity')
-        time_unit = granularity[0]
-        if time_unit == 'M':
-            candle_duration = datetime.timedelta(minutes=int(granularity[1:]))
-        elif time_unit == 'H':
-            candle_duration = datetime.timedelta(hours=int(granularity[1:]))
-        elif time_unit == 'D':
-            candle_duration = datetime.timedelta(days=1)
+        candle_duration = converter.granularity_to_timedelta(self.get_entry_rules('granularity'))
 
         a_minute = datetime.timedelta(minutes=1)
         result = (start_time + candle_duration - a_minute).strftime(Trader.TIME_STRING_FMT)

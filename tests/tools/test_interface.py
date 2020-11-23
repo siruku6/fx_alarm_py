@@ -20,6 +20,7 @@ def test_ask_granularity():
     calls = [call('Invalid granularity !\n') for _ in dummy_inputs[:-1]]
     mock.assert_has_calls(calls, any_order=True)
 
+
 class TestInterface(unittest.TestCase):
     def test_ask_true_or_false(self):
         with patch('builtins.print'):
