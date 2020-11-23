@@ -246,7 +246,6 @@ class Librarian():
         # INFO: データ準備
         d_frame = FXBase.get_candles(start=-Librarian.DRAWABLE_ROWS, end=None) \
                         .copy().reset_index(drop=True)
-        d_frame['sequence'] = d_frame.index
         long_df, short_df, close_df = self.__prepare_position_dfs(d_frame)
 
         # prepare indicators
@@ -261,18 +260,18 @@ class Librarian():
 
         drawer.draw_vertical_lines(
             indexes=np.concatenate([
-                long_df.dropna(subset=['price']).sequence.values,
-                short_df.dropna(subset=['price']).sequence.values
+                long_df.dropna(subset=['price']).index,
+                short_df.dropna(subset=['price']).index
             ]),
             vmin=self._indicators['band_-2σ'].min(skipna=True),
             vmax=self._indicators['band_+2σ'].max(skipna=True)
         )
 
-        drawer.draw_positions_df(positions_df=close_df[['sequence', 'price']], plot_type=drawer.PLOT_TYPE['exit'])
-        drawer.draw_positions_df(positions_df=long_df[['sequence', 'price']], plot_type=drawer.PLOT_TYPE['long'])
-        drawer.draw_positions_df(positions_df=short_df[['sequence', 'price']], plot_type=drawer.PLOT_TYPE['short'])
+        drawer.draw_positions_df(positions_df=close_df[['price']], plot_type=drawer.PLOT_TYPE['exit'])
+        drawer.draw_positions_df(positions_df=long_df[['price']], plot_type=drawer.PLOT_TYPE['long'])
+        drawer.draw_positions_df(positions_df=short_df[['price']], plot_type=drawer.PLOT_TYPE['short'])
         drawer.draw_positions_df(
-            positions_df=d_frame[['sequence', 'stoploss']].rename(columns={'stoploss': 'price'}),
+            positions_df=d_frame[['stoploss']].rename(columns={'stoploss': 'price'}),
             plot_type=drawer.PLOT_TYPE['trail']
         )
 
@@ -289,9 +288,9 @@ class Librarian():
         drawer.close_all()
         print(result['success'])
 
-    def __prepare_position_dfs(self, df):
-        entry_df = df[['sequence', 'entry_price', 'units']].rename(columns={'entry_price': 'price'})
-        close_df = df[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
+    def __prepare_position_dfs(self, d_frame):
+        entry_df = d_frame[['entry_price', 'units']].rename(columns={'entry_price': 'price'})
+        close_df = d_frame[['close_price', 'units']].copy().rename(columns={'close_price': 'price'})
 
         long_df, short_df = entry_df.copy(), entry_df.copy()
         # INFO: Nan は描画されないが None も描画されない
