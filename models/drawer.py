@@ -143,8 +143,10 @@ class FigureDrawer():
 
         # HACK: price に Nan が含まれているとエラーが発生していたので除去している
         drawing_targets = positions_df.dropna()
+        index = drawing_targets['sequence'] if 'sequence' in drawing_targets.columns else drawing_targets.index
+
         self.__axes[0].scatter(
-            x=drawing_targets.sequence, y=drawing_targets.price,
+            x=index, y=drawing_targets.price,
             marker=mark, edgecolors=edgecolors, label=nolabel or label,
             color=color, s=size, linewidths=0.7
         )

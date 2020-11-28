@@ -1,4 +1,5 @@
 # from models import mailer
+import datetime
 import json
 from models.real_trader import RealTrader
 from models.history_librarian import Librarian
@@ -25,7 +26,7 @@ def lambda_handler(event, context):
 # For tradehist of AWS Lambda
 def api_handler(event, _context):
     params = event['queryStringParameters']
-    from_datetime = params['fromDatetime'] or (datetime.today() - datetime.timedelta(days=30))
+    from_datetime = params['fromDatetime'] or (datetime.datetime.today() - datetime.timedelta(days=30))
     pare_name = params['pareName']
 
     libra = Librarian(instrument=pare_name)

@@ -1,5 +1,4 @@
 import datetime
-import numpy as np
 import pandas as pd
 
 from models.candle_storage import FXBase
@@ -8,6 +7,8 @@ from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 import models.tools.format_converter as converter
 import models.tools.preprocessor as prepro
+
+        # import pdb; pdb.set_trace()
 
 
 class Librarian():
@@ -43,6 +44,7 @@ class Librarian():
         history_df.drop('pl', axis=1, inplace=True)  # pl カラムは1つあれば十分
 
         result = self.__merge_hist_dfs(candles, history_df, pl_and_gross_df)
+        result['stoploss'] = self.__fill_stoploss(result.copy())
         FXBase.set_candles(result)
         print('[Libra] candles and trade-history is merged')
 
@@ -155,7 +157,7 @@ class Librarian():
         time = datetime.datetime.strptime(time_str[:13], '%Y-%m-%d %H')
 
         # INFO: adjust according to day light saving time
-        if granularity in ('H4'):
+        if granularity in ('H4',):
             if self.__is_summer_time(time_str, dict_dst_switches):
                 # INFO: OandaのH4は [1,5,9,13,17,21] を取り得るので、それをはみ出した時間を切り捨て
                 minus = ((time.hour + 3) % 4)
@@ -172,35 +174,6 @@ class Librarian():
                 return dict_dst_switches[-1]['summer_time']
             elif switch_dict['time'] < time_str and time_str < dict_dst_switches[i + 1]['time']:
                 return switch_dict['summer_time']
-
-    def __merge_hist_dfs(self, candles, history_df, pl_and_gross_df):
-        entry_df, close_df, trail_df = self.__divide_history_by_type(history_df)
-
-        result = pd.merge(candles, entry_df, on='time', how='outer', right_index=True)
-        result = pd.merge(result, close_df, on='time', how='outer', right_index=True)
-        result = pd.merge(result, trail_df, on='time', how='outer', right_index=True)
-        result = pd.merge(result, pl_and_gross_df, on='time', how='left').drop_duplicates(['time'])
-        result['units'] = result.units.fillna('0').astype(int)
-        result['stoploss'] = self.__fill_stoploss(result[['entry_price', 'close_price', 'stoploss']].copy())
-        return result
-
-    def __fill_stoploss(self, hist_df):
-        ''' entry ~ close の間の stoploss を補完 '''
-        hist_df.loc[pd.notna(hist_df['close_price'].shift(1)), 'entried'] = False
-        hist_df.loc[pd.notna(hist_df['entry_price']), 'entried'] = True
-        hist_df['entried'] = hist_df['entried'].fillna(method='ffill') \
-                                               .fillna(False)
-        hist_df['stoploss'] = hist_df.loc[hist_df['entried'], 'stoploss'].fillna(method='ffill')
-        return hist_df.loc[:, 'stoploss']
-
-    def __divide_history_by_type(self, d_frame):
-        entry_df = d_frame.dropna(subset=['tradeOpened'])[['price', 'time', 'units']] \
-                          .rename(columns={'price': 'entry_price'})
-        close_df = d_frame.dropna(subset=['tradesClosed'])[['price', 'time']] \
-                          .rename(columns={'price': 'close_price'})
-        trail_df = d_frame[d_frame.type == 'STOP_LOSS_ORDER'][['price', 'time']] \
-            .rename(columns={'price': 'stoploss'})
-        return entry_df, close_df, trail_df
 
     def __calc_pl_gross(self, granularity, original_df):
         '''
@@ -242,15 +215,47 @@ class Librarian():
 
         return target_df.resample(rule, on='time', base=base).sum()
 
+    def __merge_hist_dfs(self, candles, history_df, pl_and_gross_df):
+        tmp_positions_df = self.__extract_positions_df_from(history_df)
+        result = pd.merge(candles, tmp_positions_df, on='time', how='outer', right_index=True)
+        result = pd.merge(result, pl_and_gross_df, on='time', how='left').drop_duplicates(['time'])
+        return result
+
+    def __extract_positions_df_from(self, d_frame):
+        tmp_positions_df = d_frame.dropna(subset=['tradeOpened'])[['price', 'time', 'units']].copy() \
+                                  .rename(columns={'price': 'long'})
+        tmp_positions_df['short'] = tmp_positions_df['long'].copy()
+        exits = d_frame.dropna(subset=['tradesClosed'])[['price', 'time']].copy() \
+            .rename(columns={'price': 'exit'})
+        stoplosses = d_frame[d_frame.type == 'STOP_LOSS_ORDER'][['price', 'time']].copy() \
+            .rename(columns={'price': 'stoploss'})
+        tmp_positions_df = pd.merge(tmp_positions_df, exits, on='time', how='outer', right_index=True)
+        tmp_positions_df = pd.merge(tmp_positions_df, stoplosses, on='time', how='outer', right_index=True)
+        tmp_positions_df['units'] = tmp_positions_df['units'].fillna('0').astype(int)
+
+        # INFO: Nan は描画されないが None も描画されない
+        tmp_positions_df.loc[tmp_positions_df.units <= 0, 'long'] = None
+        tmp_positions_df.loc[tmp_positions_df.units >= 0, 'short'] = None
+
+        return tmp_positions_df  # , exit_df, trail_df
+
+    def __fill_stoploss(self, hist_df):
+        ''' entry ~ exit の間の stoploss を補完 '''
+        hist_df.loc[pd.notna(hist_df['exit'].shift(1)), 'entried'] = False
+        is_long_or_short = hist_df[['long', 'short']].any(axis=1)
+        hist_df.loc[is_long_or_short, 'entried'] = True
+        hist_df['entried'] = hist_df['entried'].fillna(method='ffill') \
+                                               .fillna(False)
+        hist_df['stoploss'] = hist_df.loc[hist_df['entried'], 'stoploss'].fillna(method='ffill')
+        return hist_df.loc[:, 'stoploss']
+
     def __draw_history(self):
         # INFO: データ準備
-        d_frame = FXBase.get_candles(start=-Librarian.DRAWABLE_ROWS, end=None) \
-                        .copy().reset_index(drop=True)
-        d_frame['sequence'] = d_frame.index
-        long_df, short_df, close_df = self.__prepare_position_dfs(d_frame)
+        candles_and_hist = FXBase.get_candles(start=-Librarian.DRAWABLE_ROWS, end=None) \
+                                 .copy().reset_index(drop=True)
 
         # prepare indicators
-        self.__ana.calc_indicators(candles=d_frame)
+        self.__ana.calc_indicators(candles=candles_and_hist)
         self._indicators = self.__ana.get_indicators()
 
         # - - - - - - - - - - - - - - - - - - - -
@@ -260,41 +265,33 @@ class Librarian():
         drawer.draw_indicators(d_frame=self._indicators[-Librarian.DRAWABLE_ROWS:None].reset_index(drop=True))
 
         drawer.draw_vertical_lines(
-            indexes=np.concatenate([
-                long_df.dropna(subset=['price']).sequence.values,
-                short_df.dropna(subset=['price']).sequence.values
-            ]),
+            indexes=candles_and_hist[['long', 'short']].dropna(how='all').index,
             vmin=self._indicators['band_-2σ'].min(skipna=True),
             vmax=self._indicators['band_+2σ'].max(skipna=True)
         )
 
-        drawer.draw_positions_df(positions_df=close_df[['sequence', 'price']], plot_type=drawer.PLOT_TYPE['exit'])
-        drawer.draw_positions_df(positions_df=long_df[['sequence', 'price']], plot_type=drawer.PLOT_TYPE['long'])
-        drawer.draw_positions_df(positions_df=short_df[['sequence', 'price']], plot_type=drawer.PLOT_TYPE['short'])
+        for column_name in ['long', 'short', 'exit']:
+            drawer.draw_positions_df(
+                positions_df=candles_and_hist[[column_name]].rename(columns={column_name: 'price'}),
+                plot_type=drawer.PLOT_TYPE[column_name]
+            )
         drawer.draw_positions_df(
-            positions_df=d_frame[['sequence', 'stoploss']].rename(columns={'stoploss': 'price'}),
+            positions_df=candles_and_hist[['stoploss']].rename(columns={'stoploss': 'price'}),
             plot_type=drawer.PLOT_TYPE['trail']
         )
 
         # axis3
-        d_frame['gross'].fillna(method='ffill', inplace=True)
-        drawer.draw_df_on_plt(d_frame[['gross', 'pl']], drawer.PLOT_TYPE['bar'], colors=['orange', 'yellow'], plt_id=3)
+        candles_and_hist['gross'].fillna(method='ffill', inplace=True)
+        drawer.draw_df_on_plt(
+            candles_and_hist[['gross', 'pl']],
+            drawer.PLOT_TYPE['bar'], colors=['orange', 'yellow'], plt_id=3
+        )
 
-        target_candles = d_frame.iloc[-Librarian.DRAWABLE_ROWS:, :]  # 200本より古い足は消している
+        target_candles = candles_and_hist.iloc[-Librarian.DRAWABLE_ROWS:, :]  # 200本より古い足は消している
         drawer.draw_candles(target_candles)
         result = drawer.create_png(
             granularity='real-trade',
-            sr_time=d_frame.time, num=0, filename='hist'
+            sr_time=candles_and_hist.time, num=0, filename='hist'
         )
         drawer.close_all()
         print(result['success'])
-
-    def __prepare_position_dfs(self, df):
-        entry_df = df[['sequence', 'entry_price', 'units']].rename(columns={'entry_price': 'price'})
-        close_df = df[['sequence', 'close_price', 'units']].copy().rename(columns={'close_price': 'price'})
-
-        long_df, short_df = entry_df.copy(), entry_df.copy()
-        # INFO: Nan は描画されないが None も描画されない
-        long_df.loc[long_df.units <= 0, 'price'] = None
-        short_df.loc[short_df.units >= 0, 'price'] = None
-        return long_df, short_df, close_df
