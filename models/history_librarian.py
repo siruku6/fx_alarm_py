@@ -249,12 +249,6 @@ class Librarian():
         hist_df['stoploss'] = hist_df.loc[hist_df['entried'], 'stoploss'].fillna(method='ffill')
         return hist_df.loc[:, 'stoploss']
 
-    def __prepare_position_dfs(self, d_frame):
-        exit_df = d_frame[['exit']].rename(columns={'exit': 'price'})
-
-        long_df, short_df = d_frame[['long']], d_frame[['short']]
-        return long_df, short_df, exit_df
-
     def __draw_history(self):
         # INFO: データ準備
         candles_and_hist = FXBase.get_candles(start=-Librarian.DRAWABLE_ROWS, end=None) \
