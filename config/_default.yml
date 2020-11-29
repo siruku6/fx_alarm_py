@@ -1,0 +1,8 @@
+# Sample of 'default.yml'
+#   $ mv config/_default.yml config/default.yml
+#   and set your values below
+OANDA_ACCESS_TOKEN: {xxxxxxxxxxXXXXXXXXXXxxxxxxxxxxXX-xxxxxxxxxxXXXXXXXXXXxxxxxxxxxxXX}
+OANDA_ACCOUNT_ID: {xxx-xxx-xxxxxxx-xxx}
+tradingLambdaRole: 'arn:aws:iam::{account-id}:role/service-role/{role-name}'
+layers:
+  - 'arn:aws:lambda:{region-name}:{account-id}:layer:{layer-name}:{version-No}'
