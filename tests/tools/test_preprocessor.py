@@ -57,9 +57,6 @@ def test_filter_and_make_df(past_transactions, expected_columns):
 
 def test_filter_and_make_df_with_no_pl(no_pl_transactions, expected_columns):
     instrument = 'USD_JPY'
-    # TODO:
-    #   FutureWarning: elementwise comparison failed; returning scalar instead,
-    #   but in the future will perform elementwise comparison
     result = prepro.filter_and_make_df(no_pl_transactions, instrument)
 
     # # Assert Columns
