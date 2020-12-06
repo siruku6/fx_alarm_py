@@ -8,7 +8,7 @@ from models.drawer import FigureDrawer
 import models.tools.format_converter as converter
 import models.tools.preprocessor as prepro
 
-        # import pdb; pdb.set_trace()
+# import pdb; pdb.set_trace()
 
 
 class Librarian():
@@ -47,6 +47,10 @@ class Librarian():
         result['stoploss'] = self.__fill_stoploss(result.copy())
         FXBase.set_candles(result)
         print('[Libra] candles and trade-history is merged')
+
+        # prepare indicators
+        self.__ana.calc_indicators(candles=result)
+        self._indicators = self.__ana.get_indicators(start=-Librarian.DRAWABLE_ROWS)
 
         return result
 
@@ -233,6 +237,9 @@ class Librarian():
         tmp_positions_df = pd.merge(tmp_positions_df, stoplosses, on='time', how='outer', right_index=True)
         tmp_positions_df['units'] = tmp_positions_df['units'].fillna('0').astype(int)
 
+        # INFO: remove unused records & values
+        tmp_positions_df = tmp_positions_df.sort_values('time') \
+                                           .drop_duplicates('time')
         # INFO: Nan は描画されないが None も描画されない
         tmp_positions_df.loc[tmp_positions_df.units <= 0, 'long'] = None
         tmp_positions_df.loc[tmp_positions_df.units >= 0, 'short'] = None
@@ -253,10 +260,6 @@ class Librarian():
         # INFO: データ準備
         candles_and_hist = FXBase.get_candles(start=-Librarian.DRAWABLE_ROWS, end=None) \
                                  .copy().reset_index(drop=True)
-
-        # prepare indicators
-        self.__ana.calc_indicators(candles=candles_and_hist)
-        self._indicators = self.__ana.get_indicators()
 
         # - - - - - - - - - - - - - - - - - - - -
         #                  描画

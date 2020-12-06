@@ -69,7 +69,7 @@ class Analyzer():
         #     self.__get_breakpoints()
         return result_msg
 
-    def get_indicators(self):
+    def get_indicators(self, start=None, end=None):
         indicators = pd.concat(
             [
                 self.__indicators['20SMA'],
@@ -87,7 +87,7 @@ class Analyzer():
                 self.__indicators['support']
             ],
             axis=1
-        )
+        )[start:end]
         return indicators
 
     def get_long_indicators(self):
