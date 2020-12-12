@@ -6,8 +6,8 @@ import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 import models.history_librarian as libra
-import models.tools.preprocessor as prepro
-from tests.fixtures.past_transactions import TRANSACTION_IDS, PAST_TRANSACTIONS, NO_PL_TRANSACTIONS
+# import models.tools.preprocessor as prepro
+from tests.fixtures.past_transactions import NO_PL_TRANSACTIONS
 
 
 #  - - - - - - - - - - - - - -
@@ -16,7 +16,7 @@ from tests.fixtures.past_transactions import TRANSACTION_IDS, PAST_TRANSACTIONS,
 @pytest.fixture(scope='module', autouse=True)
 def libra_client():
     with patch('models.oanda_py_client.OandaPyClient.select_instrument',
-                return_value=['USD_JPY', {'spread': 0.0}]):
+            return_value=['USD_JPY', {'spread': 0.0}]):
         yield libra.Librarian()
 
 
@@ -26,7 +26,7 @@ def hist_df():
         '2020-02-17 05:12:00', '2020-02-17 08:59:00', '2020-02-17 15:27:00', '2020-03-11 17:31:00',
         '2020-03-12 01:01:00', '2020-03-13 01:14:00', '2020-03-13 08:48:00'
     ]})
-    yield dummy_hist  # PAST_TRANSACTIONS
+    yield dummy_hist
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -78,7 +78,7 @@ def test___detect_dst_switches(libra_client, win_sum_candles, win_sum_win_candle
 
 
 def test___adjust_time_for_merging(libra_client, win_sum_candles, hist_df):
-    instrument = 'USD_JPY'
+    # instrument = 'USD_JPY'
 
     # Case: H1
     result = libra_client._Librarian__adjust_time_for_merging(win_sum_candles, hist_df, granularity='H1')
@@ -88,7 +88,7 @@ def test___adjust_time_for_merging(libra_client, win_sum_candles, hist_df):
     expected_times = pd.DataFrame({'time': [
         '2020-02-17 05:00:00', '2020-02-17 08:00:00', '2020-02-17 15:00:00', '2020-03-11 17:00:00',
         '2020-03-12 01:00:00', '2020-03-13 01:00:00', '2020-03-13 08:00:00'
-    ] })
+    ]})
     assert_series_equal(result['time'], expected_times['time'])
 
     # Case: H4
@@ -97,5 +97,5 @@ def test___adjust_time_for_merging(libra_client, win_sum_candles, hist_df):
     expected = pd.DataFrame({'time': [
         '2020-02-17 02:00:00', '2020-02-17 06:00:00', '2020-02-17 14:00:00', '2020-03-11 14:00:00',
         '2020-03-11 22:00:00', '2020-03-13 01:00:00', '2020-03-13 05:00:00'
-    ],'dst': [False, False, False, False, False, True, True]})
+    ], 'dst': [False, False, False, False, False, True, True]})
     assert_frame_equal(result, expected)
