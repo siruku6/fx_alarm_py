@@ -1,6 +1,8 @@
 # from models import mailer
 import datetime
 import json
+import pandas as pd
+
 from models.real_trader import RealTrader
 from models.history_librarian import Librarian
 
@@ -36,7 +38,10 @@ def api_handler(event, _context):
     result = libra.merge_history_and_instruments(transactions, granularity='H1')
 
     body = json.dumps({
-        'history': result.to_json(orient='records')
+        # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
+        #   to_json ならこの問題は起きないが、dumps と組み合わせると文字列になってしまうのでしない
+        'history': result.where((pd.notnull(result)), None) \
+                         .to_dict(orient='records')
     })
     headers = {
         # 'Access-Control-Allow-Origin': 'https://www.example.com',
