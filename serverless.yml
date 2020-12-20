@@ -13,8 +13,7 @@ service: py-fx
 frameworkVersion: '2'
 
 custom:
-  prefix: hoge
-  # prefix: ${self:service}-${self:provider.stage}
+  prefix: ${self:service}-${self:provider.stage}
   config:
     default: ${file(./config/default.yml)}
     stages:
@@ -22,25 +21,27 @@ custom:
       production: ${file(./config/stages/production.yml)}
 
 provider:
+  apiGateway:
+    shouldStartNameWithService: true
   endpointType: regional
   logRetentionInDays: 30
-  memorySize: 128
+  memorySize: 512
   name: aws
   region: us-east-2
-  role: ${self:custom.config.default.tradingLambdaRole}
+  role: arn:aws:iam::${self:custom.config.default.AWS_ACCOUNT_ID}:role/service-role/lambda_for_trade
   runtime: python3.8
   stage: ${opt:stage, 'dev'}
   timeout: 30
   versionFunctions: false
   # Optional usage plan configuration
-  # usagePlan:
-  #   quota:
-  #     limit: 5000
-  #     offset: 2
-  #     period: MONTH
-  #   throttle:
-  #     burstLimit: 200
-  #     rateLimit: 100
+  usagePlan:
+    quota:
+      limit: 30
+      offset: 0 # ApiGatewayUsagePlan - Usage Plan quota offset must be zero in the DAY period
+      period: DAY
+    throttle:
+      burstLimit: 20
+      rateLimit: 10
 
 # you can add statements to the Lambda function's IAM Role here
 #  iamRoleStatements:
@@ -61,61 +62,27 @@ provider:
 # you can add packaging information here
 package:
   exclude:
-    - log/**
-    - tests/**
-    - tmp/**
-    - beta_cord.py
-    - LICENSE
-    - ./*.ini
-    - ./*.sh
-    - ./*.txt
-    - ./*.md
+    - ./**
   # artifact: tmp/zips/app/fx_archive.zip
-  # individually: true
-  # include:
-  #   - handler.py
-  #   - models/**
+  # Create an individual zip-file for each function
+  # individually: true # default is `false`
+  include:
+    - main.py
+    - models/**
   # INFO: 'excludeDevDependencies: true' => ignore modules in package.json devDependencies
   excludeDevDependencies: false
 
 functions:
-  hello:
-    description: testing serverless framework
-    handler: handler.hello
-    name: ${self:custom.prefix}_dump
-    layers: ${self:custom.config.default.layers}
-    # The following are a few example events you can configure
-    # NOTE: Please make sure to change your handler code to work with those events
-    # Check the event documentation for details
-    # events:
-    #   - http:
-    #       path: users/create
-    #       method: get
-    #   - websocket: $connect
-    #   - s3: ${env:BUCKET}
-    #   - schedule: rate(10 minutes)
-    #   - sns: greeter-topic
-    #   - cloudwatchEvent:
-    #       event:
-    #         source:
-    #           - "aws.ec2"
-    #         detail-type:
-    #           - "EC2 Instance State-change Notification"
-    #         detail:
-    #           state:
-    #             - pending
-    #   - cloudwatchLog: '/aws/lambda/hello'
-    #   - cognitoUserPool:
-    #       pool: MyUserPool
-    #       trigger: PreSignUp
+  tradehist: ${file(./serverless_resources/function_tradehist.yml)}
 
-    # Define function environment variables here
-    environment:
-      GRANULARITY: H1
-      OANDA_ENVIRONMENT: practice
-      STOPLOSS_BUFFER: '0.000005'
-      TZ: Asia/Tokyo
-      UNITS: '10000'
-      OANDA_ACCESS_TOKEN: ${self:custom.config.default.OANDA_ACCESS_TOKEN}
-      OANDA_ACCOUNT_ID: ${self:custom.config.default.OANDA_ACCOUNT_ID}
-      STAGE: ${self:custom.config.stages.${self:provider.stage}.test}
+resources:
+  Resources:
+    # DynamoDBテーブル構築
+    DynamoDbTable: ${file(./serverless_resources/dynamodb.yml)}
+
+    # INFO: function に disableLogs: true が設定した場合はこれを有効にする
+    # TradehistLogGroup:
+    #   Type: AWS::Logs::LogGroup
+    #   Properties:
+    #     LogGroupName: /aws/lambda/${self:functions.tradehist.name}
+    #     RetentionInDays: 30
