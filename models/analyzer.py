@@ -252,7 +252,7 @@ class Analyzer():
                     bull=bull,
                     current_parabo=last_sar,
                     current_h=current_high, current_l=current_low
-                ):
+            ):
                 temp_sar = extreme_price
                 acceleration_factor = Analyzer.INITIAL_AF
                 if bull:
