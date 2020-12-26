@@ -14,12 +14,18 @@ def table_name():
 
 @pytest.fixture(scope='module', autouse=True)
 def init_endpoint():
-    del os.environ['DYNAMO_ENDPOINT']
+    if os.environ.get('DYNAMO_ENDPOINT') is not None:
+        del os.environ['DYNAMO_ENDPOINT']
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='module', autouse=False)
 def dynamo_client(table_name):
+    mock = mock_dynamodb2()
+    mock.start()
+
     yield dn_accessor.DynamodbAccessor(table_name=table_name)
+
+    mock.stop()
 
 
 @mock_dynamodb2

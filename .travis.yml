@@ -8,6 +8,8 @@ env:
     - AWS_ACCESS_KEY_ID=dummy-access-key
     - AWS_SECRET_ACCESS_KEY=dummy-access-key-secret
     - AWS_DEFAULT_REGION=us-east-2
+    - AWS_SECURITY_TOKEN='testing'
+    - AWS_SESSION_TOKEN='testing'
 install:
   - pip install -r requirements.txt
   - pip install coverage
