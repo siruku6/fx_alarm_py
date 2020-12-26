@@ -1,0 +1,22 @@
+Type: 'AWS::DynamoDB::Table'
+Properties:
+  TableName: H1_CANDLES
+  # キーの種類(schema: hash or range)と型(atttribute)を指定
+  KeySchema:
+    -
+      AttributeName: pareName
+      KeyType: HASH
+    -
+      AttributeName: time
+      KeyType: RANGE
+  AttributeDefinitions:
+    -
+      AttributeName: pareName
+      AttributeType: S
+    -
+      AttributeName: time
+      AttributeType: S
+  # キャパシティーユニットの指定
+  ProvisionedThroughput:
+    ReadCapacityUnits: 2
+    WriteCapacityUnits: 2
