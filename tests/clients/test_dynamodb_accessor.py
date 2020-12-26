@@ -24,16 +24,17 @@ def dynamo_client(table_name):
 
 @mock_dynamodb2
 def test___init_table(dynamo_client, table_name):
+    region = 'us-east-2'
     # Case1: There is no table
-    table_names = boto3.client('dynamodb').list_tables()['TableNames']
+    table_names = boto3.client('dynamodb', region_name=region).list_tables()['TableNames']
     assert table_names == []
 
     # Case2 There is one table
     dynamo_client._DynamodbAccessor__init_table(table_name=table_name)
-    table_names = boto3.client('dynamodb').list_tables()['TableNames']
+    table_names = boto3.client('dynamodb', region_name=region).list_tables()['TableNames']
     assert table_name in table_names
 
     # Case3 There is only one table even if `__init_table()` was called twice
     dynamo_client._DynamodbAccessor__init_table(table_name=table_name)
-    table_names = boto3.client('dynamodb').list_tables()['TableNames']
-    assert len(table_names) ==  1
+    table_names = boto3.client('dynamodb', region_name=region).list_tables()['TableNames']
+    assert len(table_names) == 1

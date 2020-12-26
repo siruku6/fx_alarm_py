@@ -65,7 +65,7 @@ class DynamodbAccessor():
         endpoint_url = os.environ.get('DYNAMO_ENDPOINT')
         dynamodb = boto3.resource('dynamodb', region_name='us-east-2', endpoint_url=endpoint_url)
 
-        table_names = boto3.client('dynamodb', endpoint_url=endpoint_url) \
+        table_names = boto3.client('dynamodb', region_name='us-east-2', endpoint_url=endpoint_url) \
                            .list_tables()['TableNames']
         if table_names == []:
             table = self.__create_table(dynamodb, table_name)
