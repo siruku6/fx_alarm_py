@@ -8,6 +8,8 @@ menu=$(cat << EOS
 {2} :betaコード実行
 {5} :find (find ./[dir] -type f -print | xargs grep [str])
 {6} :unittest全実行
+
+{10}:tradehist関数のみdeploy
 {11}:Lambdaアップ用zip作成
 {80}:date, hwclock を合わせる
 {99}:LINUX shutdown
@@ -142,6 +144,10 @@ while true; do
     6)
       echo 'unittest実行準備中...'
       python -m unittest
+      wait_display
+      ;;
+    10)
+      sls deploy function -f tradehist
       wait_display
       ;;
     11)
