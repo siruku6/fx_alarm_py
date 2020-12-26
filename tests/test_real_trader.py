@@ -21,7 +21,7 @@ def dummy_candles():
     d1_stoc_df = pd.DataFrame.from_dict(d1_stoc_dummy)
     candles = d1_stoc_df[['open', 'high', 'low', 'close']].copy()
     candles.loc[:, 'time'] = pd.date_range(end='2020-05-07', periods=100)
-    candles.set_index('time', inplace=True)
+    # candles.set_index('time', inplace=True)
     yield candles
 
 

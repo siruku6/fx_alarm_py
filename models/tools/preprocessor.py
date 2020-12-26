@@ -70,9 +70,10 @@ def filter_and_make_df(response_transactions, instrument):
     hist_df = __fill_instrument_for_history(hist_df.copy())
     # INFO: transaction が一切なかった場合の warning 回避のため
     hist_df['instrument'] = hist_df['instrument'].astype(str, copy=False)
+    hist_df['instrument_parent'] = hist_df['instrument_parent'].astype(str, copy=False)
     hist_df = hist_df[
-        (hist_df.instrument == instrument)
-        | (hist_df.instrument_parent == instrument)
+        (hist_df['instrument'].str.contains(instrument))
+        | (hist_df['instrument_parent'].str.contains(instrument))
     ]
     return hist_df
 

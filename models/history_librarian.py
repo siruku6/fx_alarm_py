@@ -8,7 +8,7 @@ from models.drawer import FigureDrawer
 import models.tools.format_converter as converter
 import models.tools.preprocessor as prepro
 
-        # import pdb; pdb.set_trace()
+# import pdb; pdb.set_trace()
 
 
 class Librarian():
@@ -19,6 +19,14 @@ class Librarian():
         self.__client = OandaPyClient(instrument=self.__instrument)
         self.__ana = Analyzer()
         self._indicators = None
+
+    @property
+    def indicators(self):
+        return self._indicators
+
+    @indicators.setter
+    def indicators(self, indicators):
+        self._indicators = indicators
 
     def merge_history_and_instruments(self, history_df, granularity='M10'):
         '''
@@ -46,9 +54,14 @@ class Librarian():
         result = self.__merge_hist_dfs(candles, history_df, pl_and_gross_df)
         result['stoploss'] = self.__fill_stoploss(result.copy())
         FXBase.set_candles(result)
-        print('[Libra] candles and trade-history is merged')
+        print('[Libra] candles and trade-history are merged')
 
-        return result
+        # prepare indicators
+        self.__ana.calc_indicators(candles=result)
+        self.indicators = self.__ana.get_indicators()
+        print('[Libra] and indicators are merged')
+
+        return pd.merge(result, self.indicators, on='time', how='left')
 
     def visualize_hist(self, result):
         # INFO: Visualization
@@ -140,15 +153,15 @@ class Librarian():
         switch_count = len(dst_switches)
 
         for i, dst_switching_point in enumerate(dst_switches):
-            is_dst = True if dst_switching_point['summer_time'] else False
+            is_dst = dst_switching_point['summer_time']
             if i == (switch_count - 1):
                 target_row_index = dst_switching_point['time'] <= hist_df['time']
             else:
                 target_row_index = (dst_switching_point['time'] <= hist_df['time']) \
                     & (hist_df['time'] < dst_switches[i + 1]['time'])
             hist_df.loc[target_row_index, 'dst'] = is_dst
-            hist_df['dst'] = hist_df['dst'].astype(bool)
 
+        hist_df['dst'] = hist_df['dst'].astype(bool)
         return hist_df
 
     def __convert_time_str_to(self, granularity, oanda_time, dict_dst_switches=None):
@@ -219,6 +232,8 @@ class Librarian():
         tmp_positions_df = self.__extract_positions_df_from(history_df)
         result = pd.merge(candles, tmp_positions_df, on='time', how='outer', right_index=True)
         result = pd.merge(result, pl_and_gross_df, on='time', how='left').drop_duplicates(['time'])
+        result['pl'].fillna(0, inplace=True)
+        result['gross'].fillna(0, inplace=True)
         return result
 
     def __extract_positions_df_from(self, d_frame):
@@ -233,6 +248,9 @@ class Librarian():
         tmp_positions_df = pd.merge(tmp_positions_df, stoplosses, on='time', how='outer', right_index=True)
         tmp_positions_df['units'] = tmp_positions_df['units'].fillna('0').astype(int)
 
+        # INFO: remove unused records & values
+        tmp_positions_df = tmp_positions_df.sort_values('time') \
+                                           .drop_duplicates('time')
         # INFO: Nan は描画されないが None も描画されない
         tmp_positions_df.loc[tmp_positions_df.units <= 0, 'long'] = None
         tmp_positions_df.loc[tmp_positions_df.units >= 0, 'short'] = None
@@ -253,21 +271,19 @@ class Librarian():
         # INFO: データ準備
         candles_and_hist = FXBase.get_candles(start=-Librarian.DRAWABLE_ROWS, end=None) \
                                  .copy().reset_index(drop=True)
-
-        # prepare indicators
-        self.__ana.calc_indicators(candles=candles_and_hist)
-        self._indicators = self.__ana.get_indicators()
+        # TODO: candles_and_hist にも indicators データが丸々入っているので、次の行は修正した方がよい
+        drawn_indicators = self.indicators[-Librarian.DRAWABLE_ROWS:None]
 
         # - - - - - - - - - - - - - - - - - - - -
         #                  描画
         # - - - - - - - - - - - - - - - - - - - -
         drawer = FigureDrawer(rows_num=3, instrument=self.__instrument)
-        drawer.draw_indicators(d_frame=self._indicators[-Librarian.DRAWABLE_ROWS:None].reset_index(drop=True))
+        drawer.draw_indicators(d_frame=drawn_indicators.reset_index(drop=True))
 
         drawer.draw_vertical_lines(
             indexes=candles_and_hist[['long', 'short']].dropna(how='all').index,
-            vmin=self._indicators['band_-2σ'].min(skipna=True),
-            vmax=self._indicators['band_+2σ'].max(skipna=True)
+            vmin=drawn_indicators['band_-2σ'].min(skipna=True),
+            vmax=drawn_indicators['band_+2σ'].max(skipna=True)
         )
 
         for column_name in ['long', 'short', 'exit']:
