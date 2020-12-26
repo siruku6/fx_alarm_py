@@ -13,29 +13,24 @@ class Analyzer():
     INITIAL_AF = 0.02
     MAX_AF = 0.2
 
-    def __init__(self):
-        self.__indicators = {
-            '20SMA': None,
-            '10EMA': None,
+    def __init__(self, indicator_set=None):
+        indicator_names = indicator_set or (
+            'time',
             # 60EMA is necessary?
-            '60EMA': None,
-            'SIGMA_BAND': None,
-            'SIGMA*-1_BAND': None,
-            'SIGMA*2_BAND': None,
-            'SIGMA*-2_BAND': None,
-            'SAR': None,
-            'stoD': None,
-            'stoSD': None,
-            'support': None,
-            'regist': None,
-            'long_indicators': None
-        }
+            '20SMA', '10EMA', '60EMA',
+            'SIGMA_BAND', 'SIGMA*-1_BAND', 'SIGMA*2_BAND', 'SIGMA*-2_BAND',
+            'SAR',
+            'stoD', 'stoSD',
+            'support', 'regist',
+            'long_indicators',
+        )
+        self.__indicators = {name: None for name in indicator_names}
 
-        # Trendline
-        self.desc_trends = None
-        self.asc_trends = None
-        self.jump_trendbreaks = None
-        self.fall_trendbreaks = None
+        # # Trendline
+        # self.desc_trends = None
+        # self.asc_trends = None
+        # self.jump_trendbreaks = None
+        # self.fall_trendbreaks = None
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                       Driver                        #
@@ -44,6 +39,8 @@ class Analyzer():
         if candles is None or candles.empty:
             print('[ERROR] Analyzer: 分析対象データがありません')
             exit()
+
+        self.__indicators['time'] = candles['time'].copy()
 
         result_msg = {'success': '[Analyzer] indicators算出完了'}
         self.__indicators['stoD'] = self.__calc_stod(candles=candles, window_size=5)
@@ -69,9 +66,10 @@ class Analyzer():
         #     self.__get_breakpoints()
         return result_msg
 
-    def get_indicators(self):
+    def get_indicators(self, start=None, end=None):
         indicators = pd.concat(
             [
+                self.__indicators['time'],
                 self.__indicators['20SMA'],
                 self.__indicators['10EMA'],
                 # 60EMA is necessary?
@@ -87,7 +85,7 @@ class Analyzer():
                 self.__indicators['support']
             ],
             axis=1
-        )
+        )[start:end]
         return indicators
 
     def get_long_indicators(self):
@@ -254,7 +252,7 @@ class Analyzer():
                     bull=bull,
                     current_parabo=last_sar,
                     current_h=current_high, current_l=current_low
-                ):
+            ):
                 temp_sar = extreme_price
                 acceleration_factor = Analyzer.INITIAL_AF
                 if bull:

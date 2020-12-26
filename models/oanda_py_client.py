@@ -21,7 +21,6 @@ import oandapyV20.endpoints.transactions as transactions
 import models.tools.format_converter as converter
 from models.tools.interface import select_from_dict
 import models.tools.preprocessor as prepro
-# from models.candles_csv_accessor import CandlesCsvAccessor
 from models.mongodb_accessor import MongodbAccessor
 
 LOGGER = logging.getLogger()
@@ -104,7 +103,6 @@ class OandaPyClient():
 
     def load_or_query_candles(self, start_time, end_time, granularity):
         ''' (10分足用) 取得済みであれば mongodb から candles を取得してくれる '''
-        # candles_accessor = CandlesCsvAccessor(granularity=granularity, currency_pare=self.__instrument)
         candles_accessor = MongodbAccessor(db_name='candles')
         stocked_first_time, stocked_last_time = candles_accessor.edge_datetimes_of(currency_pare=self.__instrument)
 
