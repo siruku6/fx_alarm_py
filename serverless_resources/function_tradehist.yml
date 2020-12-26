@@ -1,0 +1,69 @@
+description: testing serverless framework
+# handler: handler.hello
+handler: main.api_handler
+name: ${self:custom.prefix}-dump
+layers: arn:aws:lambda:us-east-2:${self:custom.config.default.AWS_ACCOUNT_ID}:layer:trader_modules:2
+events:
+  - http:
+      path: tradehist
+      method: get
+      integration: lambda # Lambda統合されるが、Lambdaプロキシ統合はオフにする場合の記述
+
+      # request:
+      #   # カスタムテンプレートの作成
+      #   template:
+      #     application/octet-stream:
+      #       '{"headers":{
+      #         #foreach($key in $input.params().header.keySet())
+      #         "$key": "$input.params().header.get($key)"#if($foreach.hasNext),#end
+      #         #end
+      #         },
+      #         "body": "$util.base64Encode($input.json(''$''))"
+      #         }'
+
+      # カスタムレスポンスの作成
+      # response:
+      #   # ヘッダーとテンプレートの指定
+      #   headers:
+      #     Content-Type: "'application/octet-stream'"
+      #   template: $input.path('$')
+      #   # カスタムレスポンスコードの設定
+      #   statusCodes:
+      #       # デフォルトのステータスコード
+      #       200:
+      #           pattern: ''
+      #       # カスタムステータスコード
+      #       401:
+      #           pattern: '.*"statusCode": 401,.*'
+      #           template: $input.path("$.errorMessage")
+      #           headers:
+      #             Content-Type: "'application/octet-stream'"
+#   - schedule: rate(10 minutes)
+#   - sns: greeter-topic
+#   - cloudwatchEvent:
+#       event:
+#         source:
+#           - "aws.ec2"
+#         detail-type:
+#           - "EC2 Instance State-change Notification"
+#         detail:
+#           state:
+#             - pending
+#   - cognitoUserPool:
+#       pool: MyUserPool
+#       trigger: PreSignUp
+
+# INFO: 自動で log group が作成されてしまうのを防ぐ設定
+#   その場合は代わりに resources: で log group を作成する
+# disableLogs: true
+
+# Define environment variables
+environment:
+  GRANULARITY: H1
+  OANDA_ENVIRONMENT: practice
+  STOPLOSS_BUFFER: '0.000005'
+  TZ: Asia/Tokyo
+  UNITS: '10000'
+  OANDA_ACCESS_TOKEN: ${self:custom.config.default.OANDA_ACCESS_TOKEN}
+  OANDA_ACCOUNT_ID: ${self:custom.config.default.OANDA_ACCOUNT_ID}
+  STAGE: ${self:custom.config.stages.${self:provider.stage}.test}

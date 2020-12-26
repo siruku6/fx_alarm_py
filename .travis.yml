@@ -5,6 +5,11 @@ env:
   global:
     - CC_TEST_REPORTER_ID=df0bec54ec6b21ab786dc05443fe9f52faa30df4b21c8fa2a2574b6bb47a1fb7
     - UNITS=1000
+    - AWS_ACCESS_KEY_ID=dummy-access-key
+    - AWS_SECRET_ACCESS_KEY=dummy-access-key-secret
+    - AWS_DEFAULT_REGION=us-east-2
+    - AWS_SECURITY_TOKEN='testing'
+    - AWS_SESSION_TOKEN='testing'
 install:
   - pip install -r requirements.txt
   - pip install coverage

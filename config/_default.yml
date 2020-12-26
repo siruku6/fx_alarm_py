@@ -1,0 +1,6 @@
+# Sample of 'default.yml'
+#   $ mv config/_default.yml config/default.yml
+#   and set your values below
+OANDA_ACCESS_TOKEN: {xxxxxxxxxxXXXXXXXXXXxxxxxxxxxxXX-xxxxxxxxxxXXXXXXXXXXxxxxxxxxxxXX}
+OANDA_ACCOUNT_ID: {xxx-xxx-xxxxxxx-xxx}
+AWS_ACCOUNT_ID: xxxxxxxxxxXX
