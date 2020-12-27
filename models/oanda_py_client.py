@@ -144,7 +144,7 @@ class OandaPyClient():
         next_endtime = start + requestable_duration
 
         while next_starttime < end:
-            now = datetime.datetime.now() - datetime.timedelta(hours=9, minutes=1)
+            now = datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
             if now < next_endtime: next_endtime = now
             response = self.__request_oanda_instruments(
                 start=converter.to_oanda_format(next_starttime),
