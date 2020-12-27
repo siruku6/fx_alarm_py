@@ -82,7 +82,7 @@ class OandaPyClient():
         candles = None
         requestable_max_days = self.__calc_requestable_max_days(granularity=granularity)
 
-        last_datetime = datetime.datetime.now() - datetime.timedelta(hours=9)
+        last_datetime = datetime.datetime.utcnow()
         while remaining_days > 0:
             start_datetime = last_datetime - datetime.timedelta(days=remaining_days)
             remaining_days -= requestable_max_days

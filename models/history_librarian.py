@@ -105,11 +105,11 @@ class Librarian():
     # Private
     #
     def __prepare_candles(self, log_oldest_time, granularity):
-        today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
-        buffer_timeddelta_by_20candles = converter.granularity_to_timedelta(granularity) * 20
-        start_dt = pd.to_datetime(log_oldest_time) - buffer_timeddelta_by_20candles
+        now_dt = datetime.datetime.utcnow()
+        buffer_timedelta_by_20candles = converter.granularity_to_timedelta(granularity) * 20
+        start_dt = pd.to_datetime(log_oldest_time) - buffer_timedelta_by_20candles
 
-        result = self.__client.load_candles_by_duration(start=start_dt, end=today_dt, granularity=granularity)
+        result = self.__client.load_candles_by_duration(start=start_dt, end=now_dt, granularity=granularity)
         return result['candles']
 
     def __adjust_time_for_merging(self, candles, history_df, granularity):
