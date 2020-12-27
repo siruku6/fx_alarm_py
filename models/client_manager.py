@@ -4,9 +4,9 @@ from collections import OrderedDict
 
 from models.oanda_py_client import OandaPyClient
 import models.tools.format_converter as converter
+import models.tools.interface as i_face
 import models.tools.preprocessor as prepro
 from models.mongodb_accessor import MongodbAccessor
-from models.tools.interface import select_from_dict
 
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
 
@@ -23,12 +23,12 @@ class ClientManager():
         if instrument is not None:
             return instrument, instruments[instrument]
 
-        instrument = select_from_dict(instruments, menumsg='通貨ペアは？\n')
+        instrument = i_face.select_from_dict(instruments, menumsg='通貨ペアは？\n')
         return instrument, instruments[instrument]
 
-    def __init__(self, instrument):
+    def __init__(self, instrument, test=False):
         self.__instrument = instrument
-        self.__oanda_client = OandaPyClient(instrument=self.__instrument)
+        self.__oanda_client = OandaPyClient(instrument=self.__instrument, test=test)
 
     # INFO: request-candles
     def load_specify_length_candles(self, length=60, granularity='M5'):
@@ -125,6 +125,19 @@ class ClientManager():
             next_endtime += requestable_duration
 
         return {'success': '[Client] APIリクエスト成功', 'candles': candles}
+
+    def call_oanda(self, method):
+        method_dict = {
+            'is_tradeable': self.__oanda_client.request_is_tradeable,
+            'current_price': self.request_current_price
+        }
+        return method_dict.get(method)()
+
+    def request_current_price(self):
+        # INFO: .to_dictは、単にコンソールログの見やすさ向上のために使用中
+        latest_candle = self.load_specify_length_candles(length=1, granularity='M1')['candles'] \
+                            .iloc[-1].to_dict()
+        return latest_candle
 
     def prepare_one_page_transactions(self):
         # INFO: lastTransactionIDを取得するために実行

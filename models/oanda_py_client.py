@@ -40,41 +40,6 @@ class OandaPyClient():
     #
     # Public
     #
-    # # INFO: request-candles
-    # def load_specify_length_candles(self, length=60, granularity='M5'):
-    #     ''' チャート情報を更新 '''
-    #     response = self.query_instruments(
-    #         candles_count=length,
-    #         granularity=granularity
-    #     )
-
-    #     candles = prepro.to_candle_df(response)
-    #     return {'success': '[Watcher] Oandaからのレート取得に成功', 'candles': candles}
-
-    # def load_long_chart(self, days=0, granularity='M5'):
-    #     ''' 長期間のチャート取得のために複数回APIリクエスト '''
-    #     remaining_days = days
-    #     candles = None
-    #     requestable_max_days = self.__calc_requestable_max_days(granularity=granularity)
-
-    #     last_datetime = datetime.datetime.utcnow()
-    #     while remaining_days > 0:
-    #         start_datetime = last_datetime - datetime.timedelta(days=remaining_days)
-    #         remaining_days -= requestable_max_days
-    #         if remaining_days < 0: remaining_days = 0
-    #         end_datetime = last_datetime - datetime.timedelta(days=remaining_days)
-
-    #         response = self.query_instruments(
-    #             start=converter.to_oanda_format(start_datetime),
-    #             end=converter.to_oanda_format(end_datetime),
-    #             granularity=granularity
-    #         )
-    #         tmp_candles = prepro.to_candle_df(response)
-    #         candles = self.__union_candles_distinct(candles, tmp_candles)
-    #         print('[Client] Remaining: {remaining_days} days'.format(remaining_days=remaining_days))
-    #         time.sleep(1)
-
-    #     return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
 
     # def load_or_query_candles(self, start_time, end_time, granularity):
     #     ''' (10分足用) 取得済みであれば mongodb から candles を取得してくれる '''
@@ -148,12 +113,6 @@ class OandaPyClient():
             'instrument': self.__instrument,
             'tradeable': tradeable
         }
-
-    def request_current_price(self):
-        # INFO: .to_dictは、単にコンソールログの見やすさ向上のために使用中
-        latest_candle = self.load_specify_length_candles(length=1, granularity='M1')['candles'] \
-                            .iloc[-1].to_dict()
-        return latest_candle
 
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''

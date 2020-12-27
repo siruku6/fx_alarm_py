@@ -73,39 +73,6 @@ class Librarian():
 
         return pd.merge(result, self.indicators, on='time', how='left')
 
-    # def prepare_one_page_transactions(self):
-    #     # INFO: lastTransactionIDを取得するために実行
-    #     self.__client.request_open_trades()
-
-    #     # preapre history_df: trade-history
-    #     history_df = self.__client.request_latest_transactions()
-    #     history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
-    #     return history_df
-
-    # def request_massive_transactions(self, from_datetime):
-    #     gained_transactions = []
-    #     from_id, to_id = self.__client.request_transaction_ids(from_str=from_datetime)
-
-    #     while True:
-    #         print('[INFO] requesting {}..{}'.format(from_id, to_id))
-
-    #         response = self.__client.request_transactions_once(from_id, to_id)
-    #         tmp_transactons = response['transactions']
-    #         gained_transactions += tmp_transactons
-    #         # INFO: ループの終了条件
-    #         #   'to' に指定した ID の transaction がない時が多々あり、
-    #         #   その場合、transactions を取得できないので、ごくわずかな数になる。
-    #         #   そこまで来たら処理終了
-    #         if len(tmp_transactons) <= 10 or tmp_transactons[-1]['id'] == to_id:
-    #             break
-
-    #         print('[INFO] last_transaction_id {}'.format(tmp_transactons[-1]['id']))
-    #         gained_last_transaction_id = tmp_transactons[-1]['id']
-    #         from_id = str(int(gained_last_transaction_id) + 1)
-
-    #     filtered_df = prepro.filter_and_make_df(gained_transactions, self.__instrument)
-    #     return filtered_df
-
     #
     # Private
     #
