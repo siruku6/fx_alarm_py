@@ -6,7 +6,6 @@ import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 import models.history_librarian as libra
-# import models.tools.preprocessor as prepro
 from tests.fixtures.past_transactions import NO_PL_TRANSACTIONS
 
 
@@ -15,7 +14,7 @@ from tests.fixtures.past_transactions import NO_PL_TRANSACTIONS
 #  - - - - - - - - - - - - - -
 @pytest.fixture(scope='module', autouse=True)
 def libra_client():
-    with patch('models.oanda_py_client.OandaPyClient.select_instrument',
+    with patch('models.client_manager.ClientManager.select_instrument',
             return_value=['USD_JPY', {'spread': 0.0}]):
         yield libra.Librarian()
 

@@ -34,8 +34,7 @@ def api_handler(event, _context):
     pare_name = params['pareName']
 
     libra = Librarian(instrument=pare_name)
-    transactions = libra.request_massive_transactions(from_datetime=from_datetime)
-    result = libra.merge_history_and_instruments(transactions, granularity='H1')
+    result = libra.serve_analysis_object(from_datetime)
 
     body = json.dumps({
         # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
@@ -62,9 +61,9 @@ def api_handler(event, _context):
 if __name__ == '__main__':
     # lambda_handler(None, None)
 
-    dummy_event = {
+    DUMMY_EVENT = {
         'queryStringParameters': {
             'pareName': 'USD_JPY', 'fromDatetime': '2020-11-15T04:58:09.460556567Z'
         }
     }
-    api_handler(dummy_event, None)
+    api_handler(DUMMY_EVENT, None)
