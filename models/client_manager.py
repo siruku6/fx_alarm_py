@@ -1,6 +1,7 @@
 import datetime
 import time
 from collections import OrderedDict
+import pandas as pd
 
 from models.oanda_py_client import OandaPyClient
 import models.tools.format_converter as converter
@@ -9,6 +10,7 @@ import models.tools.preprocessor as prepro
 from models.mongodb_accessor import MongodbAccessor
 
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
+
 
 class ClientManager():
     @classmethod
@@ -126,12 +128,22 @@ class ClientManager():
 
         return {'success': '[Client] APIリクエスト成功', 'candles': candles}
 
-    def call_oanda(self, method):
+    def call_oanda(self, method, **kwargs):
         method_dict = {
             'is_tradeable': self.__oanda_client.request_is_tradeable,
-            'current_price': self.request_current_price
+            'open_trades': self.__oanda_client.request_open_trades,
+            'transactions': self.__request_latest_transactions,
+            'current_price': self.request_current_price,
         }
-        return method_dict.get(method)()
+        return method_dict.get(method)(**kwargs)
+
+    def order_oanda(self, method_type, **kwargs):
+        method_dict = {
+            'entry': self.__oanda_client.request_market_ordering,
+            'trail': self.__oanda_client.request_trailing_stoploss,
+            'exit': self.__oanda_client.request_closing_position
+        }
+        return method_dict.get(method_type)(**kwargs)
 
     def request_current_price(self):
         # INFO: .to_dictは、単にコンソールログの見やすさ向上のために使用中
@@ -141,7 +153,8 @@ class ClientManager():
 
     def prepare_one_page_transactions(self):
         # INFO: lastTransactionIDを取得するために実行
-        self.__oanda_client.request_open_trades()
+        # self.__oanda_client.request_open_trades()
+        self.call_oanda('open_trades')()
 
         # preapre history_df: trade-history
         history_df = self.__request_latest_transactions()

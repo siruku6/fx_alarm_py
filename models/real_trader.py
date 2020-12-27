@@ -48,7 +48,7 @@ class RealTrader(Trader):
             if last_indicators is not None:
                 stoploss = last_indicators['regist']
 
-        self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
+        self._client.order_oanda(method_type='entry', posi_nega_sign=sign, stoploss_price=stoploss)
 
     def __stoploss_in_short(self, previous_high):
         return previous_high + self._stoploss_buffer_pips + self._static_spread
@@ -66,12 +66,12 @@ class RealTrader(Trader):
         None
         '''
         # INFO: trail先の価格を既に突破していたら自動でcloseしてくれた OandaAPI は優秀
-        result = self._client.request_trailing_stoploss(stoploss_price=new_stop)
+        result = self._client.order_oanda(method_type='trail', stoploss_price=new_stop)
         print('[Trader] Trailing-result: {}'.format(result))
 
     def __settle_position(self, reason=''):
         ''' ポジションをcloseする '''
-        pprint(self._client.request_closing_position(reason))
+        pprint(self._client.order_oanda(method_type='exit', reason=reason))
 
     #
     # Private
@@ -176,7 +176,7 @@ class RealTrader(Trader):
         # if self.__drive_exit_process(direction, last_indicators, last_candle, preliminary=True):
         #     return False
 
-        last_index = len(indicators) - 1
+        # last_index = len(indicators) - 1
         self._create_position(candles.iloc[-2], direction, last_indicators)
         return direction
 
@@ -205,7 +205,7 @@ class RealTrader(Trader):
         # minus_2sigma = last_indicators['band_-2σ']
         # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
 
-        current_indicator = indicators.iloc[-1]
+        current_indicator = indicators.iloc[-1].copy()
         current_indicator['stoD_over_stoSD'] = last_candle['stoD_over_stoSD']
         previous_indicator = indicators.iloc[-2]
 
@@ -222,7 +222,7 @@ class RealTrader(Trader):
 
     def __load_position(self):
         pos = {'type': 'none'}
-        open_trades = self._client.request_open_trades()
+        open_trades = self._client.call_oanda('open_trades')
         if open_trades == []:
             return pos
 
@@ -253,7 +253,7 @@ class RealTrader(Trader):
         time_since_loss : datetime
         '''
         candle_size = 100
-        hist_df = self._client.request_latest_transactions(candle_size)
+        hist_df = self._client.call_oanda('transactions', count=candle_size)
         time_series = hist_df[hist_df.pl < 0]['time']
         if time_series.empty:
             return datetime.timedelta(hours=99)
