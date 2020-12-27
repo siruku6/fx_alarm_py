@@ -74,25 +74,25 @@ class DynamodbAccessor():
 
         return table
 
-
     def __create_table(self, dynamodb, table_name):
         table = dynamodb.create_table(
-                TableName=table_name,
-                KeySchema=[
-                    {'AttributeName': 'pareName', 'KeyType': 'HASH'},
-                    {'AttributeName': 'time', 'KeyType': 'RANGE'}
-                ],
-                AttributeDefinitions=[
-                    {'AttributeName': 'pareName', 'AttributeType': 'S'},
-                    {'AttributeName': 'time', 'AttributeType': 'S'}
-                ],
-                ProvisionedThroughput={'ReadCapacityUnits': 1, 'WriteCapacityUnits': 1}
-            )
+            TableName=table_name,
+            KeySchema=[
+                {'AttributeName': 'pareName', 'KeyType': 'HASH'},
+                {'AttributeName': 'time', 'KeyType': 'RANGE'}
+            ],
+            AttributeDefinitions=[
+                {'AttributeName': 'pareName', 'AttributeType': 'S'},
+                {'AttributeName': 'time', 'AttributeType': 'S'}
+            ],
+            ProvisionedThroughput={'ReadCapacityUnits': 1, 'WriteCapacityUnits': 1}
+        )
         table.meta \
              .client \
              .get_waiter('table_exists') \
              .wait(TableName=table_name)
         return table
+
 
 def main():
     dynamodb_accessor = DynamodbAccessor()
@@ -122,10 +122,9 @@ def prepare_dummy_data(dynamodb_accessor, pare_name):
                 'time': (now - datetime.timedelta(days=i)).isoformat()
             } for i in range(0, 15)
         ]
-        items = dynamodb_accessor.batch_insert(dummy_items)
+        dynamodb_accessor.batch_insert(dummy_items)
 
 
 if __name__ == '__main__':
     main()
     # import pdb; pdb.set_trace()
-
