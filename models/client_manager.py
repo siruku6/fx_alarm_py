@@ -79,7 +79,7 @@ class ClientManager():
                 start=start_time, end=stocked_first_time - datetime.timedelta(minutes=10),
                 granularity=granularity
             )['candles'].rename(columns={'time': '_id'})
-            candles_supplement['_id'] = pd.to_datetime(candles_supplement._id)
+            candles_supplement['_id'] = pd.to_datetime(candles_supplement['_id'])
             candles_dict = candles_supplement.to_dict('records')
             candles_accessor.bulk_insert(currency_pare=self.__instrument, dict_array=candles_dict)
 
@@ -88,7 +88,7 @@ class ClientManager():
                 start=stocked_last_time + datetime.timedelta(minutes=10), end=end_time,
                 granularity=granularity
             )['candles'].rename(columns={'time': '_id'})
-            candles_supplement['_id'] = pd.to_datetime(candles_supplement._id)
+            candles_supplement['_id'] = pd.to_datetime(candles_supplement['_id'])
             candles_dict = candles_supplement.to_dict('records')
             candles_accessor.bulk_insert(currency_pare=self.__instrument, dict_array=candles_dict)
 
