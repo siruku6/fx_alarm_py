@@ -3,7 +3,7 @@ import time
 from collections import OrderedDict
 import pandas as pd
 
-from models.oanda_py_client import OandaPyClient
+from models.clients.oanda_client import OandaClient
 import models.tools.format_converter as converter
 import models.tools.interface as i_face
 import models.tools.preprocessor as prepro
@@ -30,7 +30,7 @@ class ClientManager():
 
     def __init__(self, instrument, test=False):
         self.__instrument = instrument
-        self.__oanda_client = OandaPyClient(instrument=self.__instrument, test=test)
+        self.__oanda_client = OandaClient(instrument=self.__instrument, test=test)
 
     # INFO: request-candles
     def load_specify_length_candles(self, length=60, granularity='M5'):
@@ -198,7 +198,7 @@ class ClientManager():
         candles_per_a_day = self.__calc_candles_wanted(days=1, granularity=granularity)
 
         # http://developer.oanda.com/rest-live-v20/instrument-ep/
-        max_days = int(OandaPyClient.REQUESTABLE_COUNT / candles_per_a_day)
+        max_days = int(OandaClient.REQUESTABLE_COUNT / candles_per_a_day)
         return max_days
 
     def __calc_candles_wanted(self, days=1, granularity='M5'):
@@ -215,7 +215,7 @@ class ClientManager():
 
     def __calc_requestable_time_duration(self, granularity):
         timedelta = converter.granularity_to_timedelta(granularity)
-        requestable_duration = timedelta * (OandaPyClient.REQUESTABLE_COUNT - 1)
+        requestable_duration = timedelta * (OandaClient.REQUESTABLE_COUNT - 1)
 
         return requestable_duration
 

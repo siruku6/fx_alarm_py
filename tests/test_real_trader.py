@@ -140,7 +140,7 @@ def test__trail_stoploss(real_trader_client):
     new_stop = 111.111
     dummy_trade_id = '999'
     real_trader_client._client._ClientManager__oanda_client \
-                              ._OandaPyClient__trade_ids = [dummy_trade_id]
+                              ._OandaClient__trade_ids = [dummy_trade_id]
     data = {
         'stopLoss': {'timeInForce': 'GTC', 'price': str(new_stop)[:7]}
     }
@@ -199,11 +199,11 @@ def test___drive_exit_process_golden_cross(real_trader_client):
 
 
 def test___load_position(real_trader_client, dummy_open_trades):
-    with patch('models.oanda_py_client.OandaPyClient.request_open_trades', return_value=[]):
+    with patch('models.clients.oanda_client.OandaClient.request_open_trades', return_value=[]):
         pos = real_trader_client._RealTrader__load_position()
     assert pos == {'type': 'none'}
 
-    with patch('models.oanda_py_client.OandaPyClient.request_open_trades', return_value=dummy_open_trades):
+    with patch('models.clients.oanda_client.OandaClient.request_open_trades', return_value=dummy_open_trades):
         pos = real_trader_client._RealTrader__load_position()
     assert isinstance(pos, dict)
     assert 'type' in pos

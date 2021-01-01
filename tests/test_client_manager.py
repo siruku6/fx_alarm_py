@@ -2,7 +2,7 @@ import datetime
 import pytest
 
 import models.client_manager as manager
-from models.oanda_py_client import OandaPyClient
+from models.clients.oanda_client import OandaClient
 
 
 @pytest.fixture(name='client', scope='module', autouse=True)
@@ -23,7 +23,7 @@ def test___calc_requestable_max_days(client):
 
 
 def test___calc_requestable_time_duration(client):
-    max_count = OandaPyClient.REQUESTABLE_COUNT - 1
+    max_count = OandaClient.REQUESTABLE_COUNT - 1
     granularties = ('M1', 'M5', 'M10', 'M15', 'M30', 'H1', 'H4', 'D')
     durations = [
         datetime.timedelta(minutes=time_int * max_count) for time_int in [1, 5, 10, 15, 30]

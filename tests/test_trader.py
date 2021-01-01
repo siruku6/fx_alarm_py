@@ -13,7 +13,7 @@ def trader_instance():
     with patch('models.trader.Trader.get_instrument', return_value='USD_JPY'):
         _trader = trader.Trader(operation='unittest')
         yield _trader
-        _trader._client._ClientManager__oanda_client._OandaPyClient__api_client.client.close()
+        _trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
 
 
 @pytest.fixture(scope='module')
@@ -21,7 +21,7 @@ def real_trader_instance():
     with patch('models.trader.Trader.get_instrument', return_value='USD_JPY'):
         real_trader = real.RealTrader(operation='unittest')
         yield real_trader
-        real_trader._client._ClientManager__oanda_client._OandaPyClient__api_client.client.close()
+        real_trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
 
 @pytest.fixture(scope='module')
 def dummy_trend_candles():

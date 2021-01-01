@@ -21,7 +21,7 @@ LOGGER.setLevel(logging.INFO)
 
 # granularity list
 # http://developer.oanda.com/rest-live-v20/instrument-df/#CandlestickGranularity
-class OandaPyClient():
+class OandaClient():
     REQUESTABLE_COUNT = 5000
 
     def __init__(self, instrument, environment=None, test=False):

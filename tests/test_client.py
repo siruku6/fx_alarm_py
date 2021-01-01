@@ -4,17 +4,17 @@ from unittest.mock import patch
 import pytest
 
 # My-made modules
-import models.oanda_py_client as watcher
+import models.clients.oanda_client as watcher
 from tests.fixtures.past_transactions import TRANSACTION_IDS, PAST_TRANSACTIONS
 
 
 @pytest.fixture(name='client', scope='module', autouse=True)
 def oanda_client():
-    client = watcher.OandaPyClient(instrument='USD_JPY')
+    client = watcher.OandaClient(instrument='USD_JPY')
     yield client
     # INFO: Preventing ResourceWarning: unclosed <ssl.SSLSocket
     # https://stackoverflow.com/questions/48160728/resourcewarning-unclosed-socket-in-python-3-unit-test
-    client._OandaPyClient__api_client.client.close()
+    client._OandaClient__api_client.client.close()
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -28,11 +28,11 @@ class TestClient(unittest.TestCase):
     #  - - - - - - - - - - - - - -
     @classmethod
     def setUpClass(cls):
-        cls.client_instance = watcher.OandaPyClient(instrument='USD_JPY')
+        cls.client_instance = watcher.OandaClient(instrument='USD_JPY')
 
     @classmethod
     def tearDownClass(cls):
-        cls.client_instance._OandaPyClient__api_client.client.close()
+        cls.client_instance._OandaClient__api_client.client.close()
 
     #  - - - - - - - - - - -
     #    Public methods
@@ -71,8 +71,8 @@ def test_market_order_args(client, dummy_market_order_response, dummy_stoploss_p
     data = {
         'order': {
             'stopLossOnFill': {'timeInForce': 'GTC', 'price': str(dummy_stoploss_price)[:7]},
-            'instrument': client._OandaPyClient__instrument,
-            'units': '-{}'.format(client._OandaPyClient__units),
+            'instrument': client._OandaClient__instrument,
+            'units': '-{}'.format(client._OandaClient__units),
             'type': 'MARKET',
             'positionFill': 'DEFAULT'
         }
