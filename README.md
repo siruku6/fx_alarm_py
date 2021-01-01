@@ -31,11 +31,6 @@ FXの為替レートを自動取得し、
     export OANDA_ACCESS_TOKEN=YOUR TOKEN
     export OANDA_ACCOUNT_ID=YOUR Account ID
 
-    # Other
-    export SENDGRID_APIKEY=sendgridのapikey
-    export MAIL_TO=通知メール宛先
-    export MAIL_FROM=送信元となるGmailメルアド
-
     #  - - - Option - - -
     # Client
     export OANDA_ENVIRONMENT=OANDA側の環境    # default: practice
@@ -46,5 +41,3 @@ FXの為替レートを自動取得し、
     export INSTRUMENT=取引する通貨ペア        # default: USD_JPY
     export STOPLOSS_BUFFER=stoplossまでの間隔 # default: 0.05
     ```
-
-- Enable your GmailAPI or SendGrid  

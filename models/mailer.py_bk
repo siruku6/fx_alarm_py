@@ -16,6 +16,12 @@
 # 画像添付方法はここを参考にした
 # https://qiita.com/obana2010/items/579f54c414d65b939457
 
+# INFO: required ENV values
+# export SENDGRID_APIKEY=sendgridのapikey
+# export MAIL_TO=通知メール宛先
+# export MAIL_FROM=送信元となるGmailメルアド
+
+
 # メール送信に必要
 import base64
 import os

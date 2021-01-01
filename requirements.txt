@@ -8,7 +8,7 @@ requests
 # scipy # trendline生成時には必要
 
 # For sending mail
-sendgrid
+# sendgrid
 
 # OandaAPIとの通信や、投資データ処理に必要
 mplfinance
