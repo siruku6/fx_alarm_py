@@ -1,4 +1,3 @@
-# from models import mailer
 import datetime
 import json
 import pandas as pd
