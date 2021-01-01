@@ -1,6 +1,7 @@
 from unittest.mock import patch
 import pytest
 import pandas as pd
+from pandas.testing import assert_series_equal
 
 from models.candle_storage import FXBase
 import models.trader as trader
@@ -12,7 +13,7 @@ def trader_instance():
     with patch('models.trader.Trader.get_instrument', return_value='USD_JPY'):
         _trader = trader.Trader(operation='unittest')
         yield _trader
-        _trader._client._OandaPyClient__api_client.client.close()
+        _trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
 
 
 @pytest.fixture(scope='module')
@@ -20,7 +21,27 @@ def real_trader_instance():
     with patch('models.trader.Trader.get_instrument', return_value='USD_JPY'):
         real_trader = real.RealTrader(operation='unittest')
         yield real_trader
-        real_trader._client._OandaPyClient__api_client.client.close()
+        real_trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
+
+@pytest.fixture(scope='module')
+def dummy_trend_candles():
+    return pd.DataFrame.from_dict([
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
+        {'high': 111.0, 'low': 108.5, 'bull': True, 'bear': False, 'result': 'long'},
+        {'high': 110.0, 'low': 107.5, 'bull': False, 'bear': True, 'result': 'short'},
+        {'high': 111.0, 'low': 108.5, 'bull': True, 'bear': False, 'result': 'long'},
+        {'high': 110.0, 'low': 107.5, 'bull': False, 'bear': True, 'result': 'short'},
+        {'high': 112.0, 'low': 106.5, 'bull': False, 'bear': False, 'result': None}
+    ], orient='columns')
 
 
 def test__accurize_entry_prices():
@@ -50,7 +71,15 @@ def test___update_latest_candle(trader_instance):
     assert FXBase.get_candles().iloc[-1].to_dict() == expect
 
 
-def test__generate_band_expansion_column(real_trader_instance):
+def test___generate_thrust_column(real_trader_instance, dummy_trend_candles):
+    dummy_df = dummy_trend_candles
+    result = real_trader_instance._Trader__generate_thrust_column(
+        candles=dummy_df[['high', 'low']], trend=dummy_df[['bull', 'bear']]
+    ).rename('result')
+    assert_series_equal(dummy_df['result'], result)
+
+
+def test___generate_band_expansion_column(real_trader_instance):
     test_df = pd.DataFrame.from_dict([
         {'band_+2σ': 110.0, 'band_-2σ': 108.5},
         {'band_+2σ': 110.1, 'band_-2σ': 108.6},

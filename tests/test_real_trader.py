@@ -1,22 +1,22 @@
 import datetime
 import os
+from unittest.mock import patch, call
 
 import numpy as np
 import pandas as pd
 import pytest
-from unittest.mock import patch, call
 
 import models.real_trader as real
 import models.tools.statistics_module as statistics
 from tests.fixtures.d1_stoc_dummy import d1_stoc_dummy
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='module')
 def real_trader_client():
     yield real.RealTrader(operation='unittest')
 
 
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='module')
 def dummy_candles():
     d1_stoc_df = pd.DataFrame.from_dict(d1_stoc_dummy)
     candles = d1_stoc_df[['open', 'high', 'low', 'close']].copy()
@@ -27,7 +27,7 @@ def dummy_candles():
 
 # INFO:
 #   fixture の使い方 https://qiita.com/_akiyama_/items/9ead227227d669b0564e
-@pytest.fixture(scope='module', autouse=True)
+@pytest.fixture(scope='module')
 def dummy_indicators(real_trader_client, dummy_candles):
     real_trader_client._ana.calc_indicators(dummy_candles, long_span_candles=dummy_candles)
     yield real_trader_client._ana.get_indicators()
@@ -139,7 +139,8 @@ def test__create_position_without_indicators(real_trader_client, dummy_market_or
 def test__trail_stoploss(real_trader_client):
     new_stop = 111.111
     dummy_trade_id = '999'
-    real_trader_client._client._OandaPyClient__trade_ids = [dummy_trade_id]
+    real_trader_client._client._ClientManager__oanda_client \
+                              ._OandaClient__trade_ids = [dummy_trade_id]
     data = {
         'stopLoss': {'timeInForce': 'GTC', 'price': str(new_stop)[:7]}
     }
@@ -194,19 +195,17 @@ def test___drive_exit_process_golden_cross(real_trader_client):
         real_trader_client._RealTrader__drive_exit_process('short', indicators, last_candle)
         mock.assert_called_once()
 
-    # import pdb; pdb.set_trace()
     # TODO: testcase 不足
 
 
 def test___load_position(real_trader_client, dummy_open_trades):
-    with patch('models.oanda_py_client.OandaPyClient.request_open_trades', return_value=[]):
+    with patch('models.clients.oanda_client.OandaClient.request_open_trades', return_value=[]):
         pos = real_trader_client._RealTrader__load_position()
     assert pos == {'type': 'none'}
 
-
-    with patch('models.oanda_py_client.OandaPyClient.request_open_trades', return_value=dummy_open_trades):
+    with patch('models.clients.oanda_client.OandaClient.request_open_trades', return_value=dummy_open_trades):
         pos = real_trader_client._RealTrader__load_position()
-    assert type(pos) is dict # '戻り値は辞書型'
+    assert isinstance(pos, dict)
     assert 'type' in pos
     assert 'price' in pos
     assert 'stoploss' in pos
@@ -217,7 +216,7 @@ def test___since_last_loss(real_trader_client):
     dummy_transactions = pd.DataFrame(
         {'pl': [121.03], 'time': ['2019-02-01T12:15:02.436718568Z']}
     )
-    with patch('models.oanda_py_client.OandaPyClient.request_latest_transactions', return_value=dummy_transactions):
+    with patch('models.client_manager.ClientManager._ClientManager__request_latest_transactions', return_value=dummy_transactions):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()
     assert time_since_loss == datetime.timedelta(hours=99)
 
@@ -225,7 +224,7 @@ def test___since_last_loss(real_trader_client):
     dummy_transactions = pd.DataFrame(
         {'pl': [-121.03], 'time': [datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.xxxxxxxxxZ')]}
     )
-    with patch('models.oanda_py_client.OandaPyClient.request_latest_transactions', return_value=dummy_transactions):
+    with patch('models.client_manager.ClientManager._ClientManager__request_latest_transactions', return_value=dummy_transactions):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()
     assert time_since_loss < datetime.timedelta(hours=1)
 

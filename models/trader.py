@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from models.candle_storage import FXBase
-from models.oanda_py_client import OandaPyClient
+from models.client_manager import ClientManager
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 from models.tools.mathematics import range_2nd_decimal
@@ -30,7 +30,7 @@ class Trader():
         '''
         need_request = True
         if operation in ('backtest', 'forward_test'):
-            result = OandaPyClient.select_instrument()
+            result = ClientManager.select_instrument()
             self._instrument = result[0]
             self._static_spread = result[1]['spread']
             self.__set_drawing_option()
@@ -60,21 +60,26 @@ class Trader():
     def __init_common_params(self, operation, days):
         self._operation = operation
         self._ana = Analyzer()
-        self._client = OandaPyClient(instrument=self.get_instrument(), test=operation in ('backtest', 'forward_test'))
+        self._client = ClientManager(instrument=self.get_instrument(), test=operation in ('backtest', 'forward_test'))
         self._entry_rules = {
             'days': days,
             'granularity': os.environ.get('GRANULARITY') or 'M5',
             # default-filter: かなりhigh performance
             'entry_filter': ['in_the_band', 'stoc_allows', 'band_expansion']
         }
+        self._drawer = None
+        self._position = None
 
     def __prepare_candles(self, operation, need_request=True, days=None):
         if need_request is False:
             candles = pd.read_csv('./tmp/csvs/h4_candles_for_test.csv')
         elif operation in ('backtest', 'forward_test'):
-            candles = self.__request_custom_candles(days=self.get_entry_rules('days'))
+            self._entry_rules['granularity'] = i_face.ask_granularity()
+            candles = self._client.load_long_chart(
+                days=self.get_entry_rules('days'), granularity=self.get_entry_rules('granularity')
+            )['candles']
         elif operation == 'live':
-            self.tradeable = self._client.request_is_tradeable()['tradeable']
+            self.tradeable = self._client.call_oanda('is_tradeable')['tradeable']
             if not self.tradeable:
                 return {'info': 'exit at once'}
 
@@ -88,7 +93,7 @@ class Trader():
         self.__m10_candles = None
         self.__prepare_long_span_candles(days=days)
 
-        latest_candle = self._client.request_current_price()
+        latest_candle = self._client.call_oanda('current_price')
         self.__update_latest_candle(latest_candle)
 
         return {}
@@ -306,17 +311,6 @@ class Trader():
             self._drawer = FigureDrawer(
                 rows_num=self.__static_options['figure_option'], instrument=self.get_instrument()
             )
-
-    def __request_custom_candles(self, days):
-        # Custom request
-        granularity = i_face.ask_granularity()
-        self._entry_rules['granularity'] = granularity
-
-        result = self._client.load_long_chart(days=days, granularity=granularity)
-        if 'error' in result:
-            print(result['error'])
-            exit()
-        return result['candles']
 
     def __prepare_long_span_candles(self, days):
         if not isinstance(days, int):

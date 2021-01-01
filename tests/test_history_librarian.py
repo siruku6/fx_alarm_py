@@ -6,7 +6,6 @@ import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 import models.history_librarian as libra
-# import models.tools.preprocessor as prepro
 from tests.fixtures.past_transactions import NO_PL_TRANSACTIONS
 
 
@@ -15,7 +14,7 @@ from tests.fixtures.past_transactions import NO_PL_TRANSACTIONS
 #  - - - - - - - - - - - - - -
 @pytest.fixture(scope='module', autouse=True)
 def libra_client():
-    with patch('models.oanda_py_client.OandaPyClient.select_instrument',
+    with patch('models.client_manager.ClientManager.select_instrument',
             return_value=['USD_JPY', {'spread': 0.0}]):
         yield libra.Librarian()
 
@@ -95,7 +94,7 @@ def test___adjust_time_for_merging(libra_client, win_sum_candles, hist_df):
     result = libra_client._Librarian__adjust_time_for_merging(win_sum_candles, hist_df, granularity='H4')
 
     expected = pd.DataFrame({'time': [
-        '2020-02-17 02:00:00', '2020-02-17 06:00:00', '2020-02-17 14:00:00', '2020-03-11 14:00:00',
-        '2020-03-11 22:00:00', '2020-03-13 01:00:00', '2020-03-13 05:00:00'
+        '2020-02-17 04:00:00', '2020-02-17 08:00:00', '2020-02-17 12:00:00', '2020-03-11 16:00:00',
+        '2020-03-12 00:00:00', '2020-03-13 01:00:00', '2020-03-13 05:00:00'
     ], 'dst': [False, False, False, False, False, True, True]})
     assert_frame_equal(result, expected)

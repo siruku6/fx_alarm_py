@@ -2,21 +2,18 @@ import datetime
 import pandas as pd
 
 from models.candle_storage import FXBase
-from models.oanda_py_client import OandaPyClient
+from models.client_manager import ClientManager
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
 import models.tools.format_converter as converter
-import models.tools.preprocessor as prepro
-
-# import pdb; pdb.set_trace()
 
 
 class Librarian():
     DRAWABLE_ROWS = 200
 
     def __init__(self, instrument=None):
-        self.__instrument = instrument or OandaPyClient.select_instrument()[0]
-        self.__client = OandaPyClient(instrument=self.__instrument)
+        self.__instrument = instrument or ClientManager.select_instrument()[0]
+        self.__client = ClientManager(instrument=self.__instrument)
         self.__ana = Analyzer()
         self._indicators = None
 
@@ -28,7 +25,20 @@ class Librarian():
     def indicators(self, indicators):
         self._indicators = indicators
 
-    def merge_history_and_instruments(self, history_df, granularity='M10'):
+    def visualize_latest_hist(self, granularity):
+        transactions = self.__client.prepare_one_page_transactions()
+        result = self.__merge_history_and_instruments(transactions, granularity=granularity)
+
+        # INFO: Visualization
+        result.to_csv('./tmp/csvs/oanda_trade_hist.csv', index=False)
+        self.__draw_history()
+
+    def serve_analysis_object(self, from_datetime):
+        transactions = self.__client.request_massive_transactions(from_datetime=from_datetime)
+        result = self.__merge_history_and_instruments(transactions, granularity='H1')
+        return result
+
+    def __merge_history_and_instruments(self, history_df, granularity='M10'):
         '''
         create dataframe which includes trade-history & time-series currency price
 
@@ -63,53 +73,15 @@ class Librarian():
 
         return pd.merge(result, self.indicators, on='time', how='left')
 
-    def visualize_hist(self, result):
-        # INFO: Visualization
-        result.to_csv('./tmp/csvs/oanda_trade_hist.csv', index=False)
-        self.__draw_history()
-
-    def prepare_one_page_transactions(self):
-        # INFO: lastTransactionIDを取得するために実行
-        self.__client.request_open_trades()
-
-        # preapre history_df: trade-history
-        history_df = self.__client.request_latest_transactions()
-        history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
-        return history_df
-
-    def request_massive_transactions(self, from_datetime):
-        gained_transactions = []
-        from_id, to_id = self.__client.request_transaction_ids(from_str=from_datetime)
-
-        while True:
-            print('[INFO] requesting {}..{}'.format(from_id, to_id))
-
-            response = self.__client.request_transactions_once(from_id, to_id)
-            tmp_transactons = response['transactions']
-            gained_transactions += tmp_transactons
-            # INFO: ループの終了条件
-            #   'to' に指定した ID の transaction がない時が多々あり、
-            #   その場合、transactions を取得できないので、ごくわずかな数になる。
-            #   そこまで来たら処理終了
-            if len(tmp_transactons) <= 10 or tmp_transactons[-1]['id'] == to_id:
-                break
-
-            print('[INFO] last_transaction_id {}'.format(tmp_transactons[-1]['id']))
-            gained_last_transaction_id = tmp_transactons[-1]['id']
-            from_id = str(int(gained_last_transaction_id) + 1)
-
-        filtered_df = prepro.filter_and_make_df(gained_transactions, self.__instrument)
-        return filtered_df
-
     #
     # Private
     #
     def __prepare_candles(self, log_oldest_time, granularity):
-        today_dt = datetime.datetime.now() - datetime.timedelta(hours=9)
-        buffer_timeddelta_by_20candles = converter.granularity_to_timedelta(granularity) * 20
-        start_dt = pd.to_datetime(log_oldest_time) - buffer_timeddelta_by_20candles
+        now_dt = datetime.datetime.utcnow()
+        buffer_timedelta_by_20candles = converter.granularity_to_timedelta(granularity) * 20
+        start_dt = pd.to_datetime(log_oldest_time) - buffer_timedelta_by_20candles
 
-        result = self.__client.load_candles_by_duration(start=start_dt, end=today_dt, granularity=granularity)
+        result = self.__client.load_candles_by_duration(start=start_dt, end=now_dt, granularity=granularity)
         return result['candles']
 
     def __adjust_time_for_merging(self, candles, history_df, granularity):
@@ -175,7 +147,7 @@ class Librarian():
                 # INFO: OandaのH4は [1,5,9,13,17,21] を取り得るので、それをはみ出した時間を切り捨て
                 minus = ((time.hour + 3) % 4)
             else:
-                minus = ((time.hour + 2) % 4)
+                minus = (time.hour % 4)
             time -= datetime.timedelta(hours=minus)
 
         hour_str = time.strftime('%Y-%m-%d %H:%M:%S')
@@ -218,7 +190,7 @@ class Librarian():
     def __downsample_pl_df(self, pl_df):
         # time 列の調節と resampling
         hist_dst_on = self.__resample_by('4H', pl_df[pl_df['dst']].copy(), base=1)
-        hist_dst_off = self.__resample_by('4H', pl_df[~pl_df['dst']].copy(), base=2)
+        hist_dst_off = self.__resample_by('4H', pl_df[~pl_df['dst']].copy(), base=0)
         return hist_dst_on.append(hist_dst_off).sort_index()
 
     def __resample_by(self, rule, target_df, base=0):
