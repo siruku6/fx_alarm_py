@@ -1,10 +1,7 @@
-# Open modules
-import datetime
 import os
-
-import pytest
 import unittest
 from unittest.mock import patch
+import pytest
 
 # My-made modules
 import models.oanda_py_client as watcher
@@ -13,7 +10,7 @@ from tests.fixtures.past_transactions import TRANSACTION_IDS, PAST_TRANSACTIONS
 
 @pytest.fixture(name='client', scope='module', autouse=True)
 def oanda_client():
-    client = watcher.OandaPyClient()
+    client = watcher.OandaPyClient(instrument='USD_JPY')
     yield client
     # INFO: Preventing ResourceWarning: unclosed <ssl.SSLSocket
     # https://stackoverflow.com/questions/48160728/resourcewarning-unclosed-socket-in-python-3-unit-test
@@ -31,7 +28,7 @@ class TestClient(unittest.TestCase):
     #  - - - - - - - - - - - - - -
     @classmethod
     def setUpClass(cls):
-        cls.client_instance = watcher.OandaPyClient()
+        cls.client_instance = watcher.OandaPyClient(instrument='USD_JPY')
 
     @classmethod
     def tearDownClass(cls):
@@ -41,12 +38,12 @@ class TestClient(unittest.TestCase):
     #    Public methods
     #  - - - - - - - - - - -
     def test_request_open_trades(self):
-        self.assertIsNone(self.client_instance._OandaPyClient__last_transaction_id)
+        self.assertIsNone(self.client_instance.last_transaction_id)
 
         with patch('builtins.print'):
             with patch('pprint.pprint'):
                 result = self.client_instance.request_open_trades()
-        self.assertIsInstance(int(self.client_instance._OandaPyClient__last_transaction_id), int)
+        self.assertIsInstance(int(self.client_instance.last_transaction_id), int)
 
 
 def test_failing_market_ordering(client):
@@ -129,35 +126,6 @@ def test_request_transaction_ids(client):
         mock.assert_called_with(
             accountID=os.environ.get('OANDA_ACCOUNT_ID'), params={'from': dummy_from_str, 'pageSize': 1000}
         )
-
-
-# - - - - - - - - - - -
-#    Private methods
-# - - - - - - - - - - -
-def test___calc_requestable_max_days(client):
-    correction = {
-        'D': 5000, 'M12': int(5000 / 120), 'H12': int(5000 / 2)
-    }
-    for key, expected_count in correction.items():
-        cnt = client._OandaPyClient__calc_requestable_max_days(granularity=key)
-        assert cnt == expected_count
-
-
-def test___calc_requestable_time_duration(client):
-    max_count = client.REQUESTABLE_COUNT - 1
-    granularties = ('M1', 'M5', 'M10', 'M15', 'M30', 'H1', 'H4', 'D')
-    durations = [
-        datetime.timedelta(minutes=time_int * max_count) for time_int in [1, 5, 10, 15, 30]
-    ] + [
-        datetime.timedelta(minutes=time_int * max_count * 60) for time_int in [1, 4]
-    ]
-    durations.append(datetime.timedelta(minutes=1 * max_count * 60 * 24))
-
-    for granularity, expected_duration in zip(granularties, durations):
-        requestable_time_duration = client._OandaPyClient__calc_requestable_time_duration(
-            granularity=granularity
-        )
-        assert requestable_time_duration == expected_duration
 
 
 if __name__ == '__main__':

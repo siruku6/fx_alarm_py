@@ -75,20 +75,21 @@ class FigureDrawer():
         y_height = min_point - gap
         y_height2 = min_point - gap * 3
 
-        # long-stoc
-        bull_long_stoc = candles.loc[candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
-        bear_long_stoc = candles.loc[~candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
-        self.draw_df_on_plt(bull_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='red')
-        self.draw_df_on_plt(bear_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='blue', nolabel='_nolegend_')
+        if 'stoD_over_stoSD' in candles.columns:
+            # long-stoc
+            bull_long_stoc = candles.loc[candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
+            bear_long_stoc = candles.loc[~candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
+            self.draw_df_on_plt(bull_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='red')
+            self.draw_df_on_plt(bear_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='blue', nolabel='_nolegend_')
 
-        # long-trend
-        self.draw_df_on_plt(candles.loc[:, ['long_10EMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightslategray')
-        self.draw_df_on_plt(candles.loc[:, ['long_20SMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='darkslategray')
+            # long-trend
+            self.draw_df_on_plt(candles.loc[:, ['long_10EMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightslategray')
+            self.draw_df_on_plt(candles.loc[:, ['long_20SMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='darkslategray')
 
-        bull_long_trend = candles.loc[candles['long_trend'] == 'bull', ['long_trend']].assign(long_trend=y_height2)
-        bear_long_trend = candles.loc[candles['long_trend'] == 'bear', ['long_trend']].assign(long_trend=y_height2)
-        self.draw_df_on_plt(bull_long_trend, FigureDrawer.PLOT_TYPE['dot'], color='green')
-        self.draw_df_on_plt(bear_long_trend, FigureDrawer.PLOT_TYPE['dot'], color='red', nolabel='_nolegend_')
+            bull_long_trend = candles.loc[candles['long_trend'] == 'bull', ['long_trend']].assign(long_trend=y_height2)
+            bear_long_trend = candles.loc[candles['long_trend'] == 'bear', ['long_trend']].assign(long_trend=y_height2)
+            self.draw_df_on_plt(bull_long_trend, FigureDrawer.PLOT_TYPE['dot'], color='green')
+            self.draw_df_on_plt(bear_long_trend, FigureDrawer.PLOT_TYPE['dot'], color='red', nolabel='_nolegend_')
 
     def draw_df_on_plt(self, d_frame, plot_type, color='black', colors=None, size=1, nolabel=None, plt_id=1):
         ''' DataFrameを受け取って、各columnを描画 '''
