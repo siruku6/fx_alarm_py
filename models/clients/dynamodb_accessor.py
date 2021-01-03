@@ -1,6 +1,4 @@
-import datetime
 # import decimal
-# import json
 import os
 
 import boto3
@@ -96,39 +94,3 @@ class DynamodbAccessor():
              .get_waiter('table_exists') \
              .wait(TableName=table_name)
         return table
-
-
-def main():
-    pare_name = 'GBP_JPY'
-    dynamodb_accessor = DynamodbAccessor(pare_name)
-    prepare_dummy_data(dynamodb_accessor)
-
-    candles = dynamodb_accessor.list_records(from_str='2020-12-08T00:00:00', to_str=datetime.datetime.now().isoformat())
-    print(candles)
-
-
-def prepare_dummy_data(dynamodb_accessor):
-    try:
-        record = dynamodb_accessor.table.scan(
-            FilterExpression=Attr('pareName').eq(dynamodb_accessor.pare_name),
-            Limit=1
-        ).get('Items')
-    except ClientError as error:
-        print(error.response['Error']['Message'])
-    else:
-        if not record == []:
-            return
-
-        now = datetime.datetime.utcnow()
-        dummy_items = [
-            {
-                'pareName': dynamodb_accessor.pare_name,
-                'time': (now - datetime.timedelta(days=i)).isoformat()
-            } for i in range(0, 15)
-        ]
-        dynamodb_accessor.batch_insert(dummy_items)
-
-
-if __name__ == '__main__':
-    main()
-    # import pdb; pdb.set_trace()

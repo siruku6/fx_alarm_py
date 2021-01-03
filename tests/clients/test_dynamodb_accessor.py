@@ -19,7 +19,7 @@ def init_endpoint():
         del os.environ['DYNAMO_ENDPOINT']
 
 
-@pytest.fixture(scope='module', autouse=False)
+@pytest.fixture(scope='module')
 def dynamo_client(table_name):
     mock = mock_dynamodb2()
     mock.start()
@@ -27,6 +27,31 @@ def dynamo_client(table_name):
     yield dn_accessor.DynamodbAccessor(pare_name='USD_JPY', table_name=table_name)
 
     mock.stop()
+
+
+@pytest.fixture(scope='module')
+def import_dummy_records():
+    def _method(dynamodb_accessor):
+        try:
+            record = dynamodb_accessor.table.scan(
+                FilterExpression=Attr('pareName').eq(dynamodb_accessor.pare_name),
+                Limit=1
+            ).get('Items')
+        except ClientError as error:
+            print(error.response['Error']['Message'])
+        else:
+            if not record == []:
+                return
+
+            now = datetime.datetime.utcnow()
+            dummy_items = [
+                {
+                    'pareName': dynamodb_accessor.pare_name,
+                    'time': (now - datetime.timedelta(days=i)).isoformat()
+                } for i in range(0, 15)
+            ]
+            dynamodb_accessor.batch_insert(dummy_items)
+    return _method
 
 
 @mock_dynamodb2
@@ -48,8 +73,8 @@ def test___init_table(dynamo_client, table_name):
 
 
 @mock_dynamodb2
-def test_list_table(dynamo_client, table_name):
-    region = 'us-east-2'
+def test_list_table(dynamo_client, table_name, import_dummy_records):
+    # region = 'us-east-2'
     dynamo_client._DynamodbAccessor__init_table(table_name=table_name)
 
     # Case1: There is no record
@@ -59,7 +84,7 @@ def test_list_table(dynamo_client, table_name):
     assert len(records) == 0
 
     # Case2: There is 15 records
-    dn_accessor.prepare_dummy_data(dynamo_client)  # Create 15 records
+    import_dummy_records(dynamo_client)  # Create 15 records
     to_str = datetime.datetime.utcnow()
     from_str = to_str - datetime.timedelta(days=16)
     records = dynamo_client.list_records(from_str.isoformat(), to_str.isoformat())
