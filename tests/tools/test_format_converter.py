@@ -42,6 +42,10 @@ def test_to_oanda_format():
         assert converted_result == expected
 
 
+# def test_to_candles_from_dynamo():
+#     pass
+
+
 def test_convert_to_m10():
     dummy_time_str = [
         '2020-10-01T12:34:00.000000Z',

@@ -59,23 +59,6 @@ def win_sum_win_candles():
 #  - - - - - - - - - - -
 #    Private methods
 #  - - - - - - - - - - -
-def test___detect_dst_switches(libra_client, win_sum_candles, win_sum_win_candles):
-    switch_points = libra_client._Librarian__detect_dst_switches(win_sum_candles)
-    expected = [
-        {'time': '2020-02-17 06:00:00', 'summer_time': False},
-        {'time': '2020-03-12 17:00:00', 'summer_time': True}
-    ]
-    assert switch_points == expected, 'index == 0 と、サマータイムの適用有無が切り替わった直後の時間を返す'
-
-    switch_points = libra_client._Librarian__detect_dst_switches(win_sum_win_candles)
-    expected = [
-        {'time': '2020-02-17 06:00:00', 'summer_time': False},
-        {'time': '2020-03-12 17:00:00', 'summer_time': True},
-        {'time': '2020-03-13 06:00:00', 'summer_time': False},
-    ]
-    assert switch_points == expected, 'index == 0 と、サマータイムの適用有無が切り替わった直後の時間を何度でも返す'
-
-
 def test___adjust_time_for_merging(libra_client, win_sum_candles, hist_df):
     # instrument = 'USD_JPY'
 
@@ -98,3 +81,24 @@ def test___adjust_time_for_merging(libra_client, win_sum_candles, hist_df):
         '2020-03-12 00:00:00', '2020-03-13 01:00:00', '2020-03-13 05:00:00'
     ], 'dst': [False, False, False, False, False, True, True]})
     assert_frame_equal(result, expected)
+
+
+def test___detect_dst_switches(libra_client, win_sum_candles, win_sum_win_candles):
+    switch_points = libra_client._Librarian__detect_dst_switches(win_sum_candles)
+    expected = [
+        {'time': '2020-02-17 06:00:00', 'summer_time': False},
+        {'time': '2020-03-12 17:00:00', 'summer_time': True}
+    ]
+    assert switch_points == expected, 'index == 0 と、サマータイムの適用有無が切り替わった直後の時間を返す'
+
+    switch_points = libra_client._Librarian__detect_dst_switches(win_sum_win_candles)
+    expected = [
+        {'time': '2020-02-17 06:00:00', 'summer_time': False},
+        {'time': '2020-03-12 17:00:00', 'summer_time': True},
+        {'time': '2020-03-13 06:00:00', 'summer_time': False},
+    ]
+    assert switch_points == expected, 'index == 0 と、サマータイムの適用有無が切り替わった直後の時間を何度でも返す'
+
+
+# def test___merge_hist_dfs():
+#     pass

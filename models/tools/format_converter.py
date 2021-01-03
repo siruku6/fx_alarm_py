@@ -1,4 +1,5 @@
 import datetime
+import pandas as pd
 
 
 TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
@@ -24,6 +25,18 @@ def granularity_to_timedelta(granularity):
 def to_oanda_format(target_datetime):
     # datetime.datetime(2020,10,1).isoformat(timespec='microseconds') + 'Z'
     return target_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
+
+
+def to_candles_from_dynamo(records):
+    result = pd.json_normalize(records)
+    if records == []:
+        return result
+
+    time_series = result['time'].copy()
+    result.drop(['time', 'pareName'], axis=1, inplace=True)
+    result = result.applymap(float)
+    result['time'] = time_series.map(convert_to_m10)
+    return result
 
 
 def convert_to_m10(oanda_time):

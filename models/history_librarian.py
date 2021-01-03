@@ -78,11 +78,15 @@ class Librarian():
     #
     def __prepare_candles(self, log_oldest_time, granularity):
         now_dt = datetime.datetime.utcnow()
-        buffer_timedelta_by_20candles = converter.granularity_to_timedelta(granularity) * 20
-        start_dt = pd.to_datetime(log_oldest_time) - buffer_timedelta_by_20candles
+        buffer_timedelta = converter.granularity_to_timedelta(granularity)
+        # TODO: 400 が適切かどうかはよく検討が必要
+        #   400本分なのに、220本しか出てこない。なんか足りない。（休日分の足が存在しないからかも）
+        min_oldest_dt = now_dt - buffer_timedelta * 400
+        possible_start_dt = pd.to_datetime(log_oldest_time) - buffer_timedelta * 20
+        start_dt = max(possible_start_dt, min_oldest_dt)
 
-        result = self.__client.load_candles_by_duration(start=start_dt, end=now_dt, granularity=granularity)
-        return result['candles']
+        result = self.__client.load_candles_by_duration_for_hist(start=start_dt, end=now_dt, granularity=granularity)
+        return result
 
     def __adjust_time_for_merging(self, candles, history_df, granularity):
         dict_dst_switches = None
@@ -202,7 +206,7 @@ class Librarian():
 
     def __merge_hist_dfs(self, candles, history_df, pl_and_gross_df):
         tmp_positions_df = self.__extract_positions_df_from(history_df)
-        result = pd.merge(candles, tmp_positions_df, on='time', how='outer', right_index=True)
+        result = pd.merge(candles, tmp_positions_df, on='time', how='left', left_index=True)
         result = pd.merge(result, pl_and_gross_df, on='time', how='left').drop_duplicates(['time'])
         result['pl'].fillna(0, inplace=True)
         result['gross'].fillna(0, inplace=True)

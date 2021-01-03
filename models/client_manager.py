@@ -4,6 +4,7 @@ from collections import OrderedDict
 import pandas as pd
 
 from models.clients.oanda_client import OandaClient
+from models.clients.dynamodb_accessor import DynamodbAccessor
 from models.clients.mongodb_accessor import MongodbAccessor
 import models.tools.format_converter as converter
 import models.tools.interface as i_face
@@ -102,7 +103,7 @@ class ClientManager():
 
         return stocked_candles
 
-    def load_candles_by_duration(self, start, end, granularity='M5'):
+    def load_candles_by_duration(self, start, end, granularity):
         ''' 広範囲期間チャート取得用の複数回リクエスト '''
         candles = None
         requestable_duration = self.__calc_requestable_time_duration(granularity)
@@ -127,6 +128,64 @@ class ClientManager():
             next_endtime += requestable_duration
 
         return {'success': '[Client] APIリクエスト成功', 'candles': candles}
+
+    def load_candles_by_duration_for_hist(self, start, end, granularity):
+        ''' Prepare candles with specifying the range of datetime '''
+        # 1. DynamoDBからのデータ取得
+        table_name = '{}_CANDLES'.format(granularity)
+        dynamo = DynamodbAccessor(self.__instrument, table_name=table_name)
+        records = dynamo.list_records(
+            # INFO: 若干広めの時間をとっている
+            #   休日やらタイミングやらで、start, endを割り込むデータしか取得できないことがありそうなため
+            # TODO: 範囲は3日などでなく、granuralityに応じて可変にした方が良い
+            (start - datetime.timedelta(days=3)).isoformat(),
+            (end + datetime.timedelta(days=1)).isoformat()
+        )
+        candles = converter.to_candles_from_dynamo(records)
+
+        # 2. データが不足している期間を特定する
+        missing_start, missing_end = self.__detect_missings(candles, start, end)
+        if missing_end <= missing_start:
+            return candles
+
+        # 3. 不足があった場合は補う
+        missed_candles = self.load_candles_by_duration(
+            missing_start, missing_end, granularity=granularity
+        )['candles']
+        candles = self.__union_candles_distinct(candles, missed_candles)
+        dynamo.batch_insert(items=missed_candles.copy())
+
+        return candles
+
+    def __detect_missings(self, candles, required_start, required_end):
+        '''
+        Parameters
+        ----------
+        candles : pandas.DataFrame
+            Columns :
+
+        required_start : datetime
+            Example : datetime.datetime(2020, 1, 2, 12, 34)
+        required_end : datetime
+
+        Returns
+        -------
+        missing_start : datetime
+        missing_end : datetime
+        '''
+        if len(candles) == 0:
+            return required_start, required_end
+
+        # 1. DBから取得したデータの先頭と末尾の日時を取得
+        stocked_first = converter.str_to_datetime(candles.iloc[0]['time'])
+        stocked_last = converter.str_to_datetime(candles.iloc[-1]['time'])
+        ealiest = min(required_start, required_end, stocked_first, stocked_last)
+        latest = max(required_start, required_end, stocked_first, stocked_last)
+
+        # 2. どの期間のデータが不足しているのかを判別
+        missing_start = required_start if ealiest == required_start else stocked_last
+        missing_end = required_end if latest == required_end else stocked_first
+        return missing_start, missing_end
 
     def call_oanda(self, method, **kwargs):
         method_dict = {
@@ -154,7 +213,7 @@ class ClientManager():
     def prepare_one_page_transactions(self):
         # INFO: lastTransactionIDを取得するために実行
         # self.__oanda_client.request_open_trades()
-        self.call_oanda('open_trades')()
+        self.call_oanda('open_trades')
 
         # preapre history_df: trade-history
         history_df = self.__request_latest_transactions()
@@ -225,4 +284,5 @@ class ClientManager():
 
         return pd.concat([old_candles, new_candles]) \
                  .drop_duplicates(subset='time') \
+                 .sort_values(by='time', ascending=True) \
                  .reset_index(drop=True)
