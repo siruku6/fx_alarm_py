@@ -8,11 +8,12 @@ events:
       path: tradehist
       method: get
       # integration: lambda # Lambda統合されるが、Lambdaプロキシ統合はオフにする場合の記述
-      # request:
-      #   parameters:
-      #     querystrings:
-      #       pareName: true
-      #       fromDatetime: true
+      reqValidatorName: onlyStringParameters
+      request:
+        parameters:
+          querystrings:
+            pareName: true
+            fromDatetime: true
       #     headers:
       #       foo: false
       #     paths:
