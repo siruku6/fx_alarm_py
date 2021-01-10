@@ -1,8 +1,9 @@
 import logging
 import os
 import pprint
+import requests
 import sys
-from requests.exceptions import ConnectionError
+from typing import Any, Dict, Tuple
 
 # For trading
 from oandapyV20 import API
@@ -176,7 +177,7 @@ class OandaClient():
         LOGGER.info('[Client] trail: %s', response)
         return response
 
-    def request_transactions_once(self, from_id, to_id):
+    def request_transactions_once(self, from_id: str, to_id: str) -> Dict[str, Any]:
         params = {
             # len(from ... to) < 500 くらいっぽい
             'from': from_id,
@@ -185,19 +186,19 @@ class OandaClient():
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
         request_obj = transactions.TransactionIDRange(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
-        response = self.__request(request_obj)
+        response: Dict[str, Any] = self.__request(request_obj)
 
         return response
 
     # TODO: from_str の扱いを決める必要あり
-    def request_transaction_ids(self, from_str='2020-01-01T04:58:09.460556567Z'):
-        params = {'from': from_str, 'pageSize': 1000}
+    def request_transaction_ids(self, from_str: str, to_str: str) -> Tuple[str, str]:
+        params: Dict[str, Union[str, int]] = {'from': from_str, 'pageSize': 1000, 'to': to_str}
         request_obj = transactions.TransactionList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
-        response = self.__request(request_obj)
+        response: Dict[str, Any] = self.__request(request_obj)
         if 'error' in response:
             return response, None
 
-        ids = prepro.extract_transaction_ids(response)
+        ids: Dict[str, str] = prepro.extract_transaction_ids(response)
         return ids['old_id'], ids['last_id']
 
     #
@@ -210,7 +211,7 @@ class OandaClient():
             LOGGER.error('[%s] V20Error: %s', sys._getframe().f_back.f_code.co_name, error)
             # error.msg
             return {'error': error.code}
-        except ConnectionError as error:
+        except requests.exceptions.ConnectionError as error:
             LOGGER.error('[%s] requests.exceptions.ConnectionError: %s', sys._getframe().f_code.co_name, error)
             return {'error': 500}
         else:

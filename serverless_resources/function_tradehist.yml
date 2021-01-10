@@ -13,7 +13,8 @@ events:
         parameters:
           querystrings:
             pareName: true
-            fromDatetime: true
+            from: true
+            to: true
       #     headers:
       #       foo: false
       #     paths:
@@ -23,7 +24,7 @@ events:
       #     application/json: >
       #       {
       #         "pareName" : "$input.params('pareName')",
-      #         "fromDatetime": "$input.params('fromDatetime')"
+      #         "from": "$input.params('from')"
       #       }
       #   template:
       #     application/octet-stream:

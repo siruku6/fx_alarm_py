@@ -220,9 +220,12 @@ class ClientManager():
         history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
         return history_df
 
-    def request_massive_transactions(self, from_datetime):
+    def request_massive_transactions(self, from_str: str, to_str: str) -> pd.DataFrame:
         gained_transactions = []
-        from_id, to_id = self.__oanda_client.request_transaction_ids(from_str=from_datetime)
+
+        from_id: str
+        to_id: str
+        from_id, to_id = self.__oanda_client.request_transaction_ids(from_str, to_str)
 
         while True:
             print('[INFO] requesting {}..{}'.format(from_id, to_id))

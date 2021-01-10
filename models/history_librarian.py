@@ -1,4 +1,5 @@
 import datetime
+from datetime import timedelta
 import pandas as pd
 
 from models.candle_storage import FXBase
@@ -33,11 +34,14 @@ class Librarian():
         result.to_csv('./tmp/csvs/oanda_trade_hist.csv', index=False)
         self.__draw_history()
 
-    def serve_analysis_object(self, from_datetime):
-        transactions = self.__client.request_massive_transactions(from_datetime=from_datetime)
-        result = self.__merge_history_and_instruments(transactions, granularity='H1')
+    def serve_analysis_object(self, from_str: str, to_str: str) -> pd.DataFrame:
+        transactions: pd.DataFrame = self.__client.request_massive_transactions(from_str, to_str)
+        result: pd.DataFrame = self.__merge_history_and_instruments(transactions, granularity='H1')
         return result
 
+    #
+    # Private
+    #
     def __merge_history_and_instruments(self, history_df, granularity='M10'):
         '''
         create dataframe which includes trade-history & time-series currency price
@@ -52,7 +56,11 @@ class Librarian():
         dataframe
         '''
         history_df.loc[:, 'price'] = history_df.price.astype('float32')
-        candles = self.__prepare_candles(log_oldest_time=history_df.iloc[0].time, granularity=granularity)
+        candles = self.__prepare_candles(
+            from_str=history_df.iloc[0].time,
+            to_str=history_df.iloc[-1].time,
+            granularity=granularity
+        )
         print('[Libra] candles and trade-logs are loaded')
 
         history_df = self.__adjust_time_for_merging(candles, history_df, granularity)
@@ -73,19 +81,19 @@ class Librarian():
 
         return pd.merge(result, self.indicators, on='time', how='left')
 
-    #
-    # Private
-    #
-    def __prepare_candles(self, log_oldest_time, granularity):
-        now_dt = datetime.datetime.utcnow()
-        buffer_timedelta = converter.granularity_to_timedelta(granularity)
+    def __prepare_candles(self, from_str: str, to_str: str, granularity: str) -> pd.DataFrame:
+        buffer_td: timedelta = converter.granularity_to_timedelta(granularity)
+        possible_start_dt: datetime = pd.to_datetime(from_str) - buffer_td * 20
+        end_dt: datetime = pd.to_datetime(to_str)
         # TODO: 400 が適切かどうかはよく検討が必要
         #   400本分なのに、220本しか出てこない。なんか足りない。（休日分の足が存在しないからかも）
-        min_oldest_dt = now_dt - buffer_timedelta * 400
-        possible_start_dt = pd.to_datetime(log_oldest_time) - buffer_timedelta * 20
-        start_dt = max(possible_start_dt, min_oldest_dt)
+        min_end_dt: datetime = end_dt - buffer_td * 400
+        start_dt: datetime = max(possible_start_dt, min_end_dt)
 
-        result = self.__client.load_candles_by_duration_for_hist(start=start_dt, end=now_dt, granularity=granularity)
+        result: pd.DataFrame = self.__client.load_candles_by_duration_for_hist(
+            start=start_dt, end=end_dt, granularity=granularity
+        )
+
         return result
 
     def __adjust_time_for_merging(self, candles, history_df, granularity):
