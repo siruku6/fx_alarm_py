@@ -3,7 +3,7 @@ import json
 import os
 
 import boto3
-from boto3.dynamodb.conditions import Attr, Key
+from boto3.dynamodb.conditions import Key  # , Attr
 from botocore.exceptions import ClientError
 from numpy import nan
 
@@ -26,7 +26,8 @@ class DynamodbAccessor():
                 pareName : String (required)
                 time     : String (required)
         '''
-        print('[Dynamo] batch_insert is starting ...')
+        print('[Dynamo] batch_insert is starting ... (records size is {})'.format(len(items)))
+        print('[Dynamo] items \n {})'.format(items))
         items['pareName'] = self.pare_name
         items = items.replace({nan: None}) \
                      .to_dict('records')

@@ -1,7 +1,7 @@
 import datetime
 import json
-import pandas as pd
 from typing import Dict
+import pandas as pd
 
 from models.real_trader import RealTrader
 from models.history_librarian import Librarian

@@ -108,8 +108,7 @@ class ClientManager():
         candles = None
         requestable_duration = self.__calc_requestable_time_duration(granularity)
         next_starttime = start
-        # INFO: start から end まで1回のリクエストで取得できる場合は、取れるだけたくさん取得してしまう
-        next_endtime = start + requestable_duration
+        next_endtime = self.__minimize_period(start, end, requestable_duration)
 
         while next_starttime < end:
             now = datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
@@ -128,6 +127,11 @@ class ClientManager():
             next_endtime += requestable_duration
 
         return {'success': '[Client] APIリクエスト成功', 'candles': candles}
+
+    def __minimize_period(self, start: datetime, end: datetime, requestable_duration) -> datetime:
+        possible_end: datetime = start + requestable_duration
+        next_end: datetime = possible_end if possible_end < end else end
+        return next_end
 
     def load_candles_by_duration_for_hist(self, start, end, granularity):
         ''' Prepare candles with specifying the range of datetime '''
@@ -152,8 +156,11 @@ class ClientManager():
         missed_candles = self.load_candles_by_duration(
             missing_start, missing_end, granularity=granularity
         )['candles']
-        candles = self.__union_candles_distinct(candles, missed_candles)
-        dynamo.batch_insert(items=missed_candles.copy())
+        # INFO: start, endともに市場停止時間帯にだった場合、missed_candles は空配列になる
+        #   その場合は insert, union をスキップ
+        if len(missed_candles) > 0:
+            dynamo.batch_insert(items=missed_candles.copy())
+            candles = self.__union_candles_distinct(candles, missed_candles)
 
         return candles
 
@@ -233,16 +240,17 @@ class ClientManager():
             response = self.__oanda_client.request_transactions_once(from_id, to_id)
             tmp_transactons = response['transactions']
             gained_transactions += tmp_transactons
+
             # INFO: ループの終了条件
             #   'to' に指定した ID の transaction がない時が多々あり、
             #   その場合、transactions を取得できないので、ごくわずかな数になる。
             #   そこまで来たら処理終了
-            if len(tmp_transactons) <= 10 or tmp_transactons[-1]['id'] == to_id:
+            if len(tmp_transactons) <= 10 or str(int(tmp_transactons[-1]['id']) + 1) >= to_id:
                 break
 
-            print('[INFO] last_transaction_id {}'.format(tmp_transactons[-1]['id']))
-            gained_last_transaction_id = tmp_transactons[-1]['id']
-            from_id = str(int(gained_last_transaction_id) + 1)
+            gained_last_transaction_id: str = tmp_transactons[-1]['id']
+            print('[INFO] last_transaction_id {}'.format(gained_last_transaction_id))
+            from_id: str = str(int(gained_last_transaction_id) + 1)
 
         filtered_df = prepro.filter_and_make_df(gained_transactions, self.__instrument)
         return filtered_df
