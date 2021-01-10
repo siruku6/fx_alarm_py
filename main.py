@@ -1,3 +1,4 @@
+import datetime
 import json
 import pandas as pd
 from typing import Dict
@@ -27,21 +28,19 @@ def lambda_handler(_event, _context):
 # For tradehist
 def api_handler(event: Dict[str, Dict], _context: Dict) -> Dict:
     # TODO: oandaとの通信失敗時などは、500 エラーレスポンスを返せるようにする
-    # TODO: params不足の際は、422 エラーレスポンスを返せるようにする
     params: Dict[str, str] = event['queryStringParameters']
     pare_name: str = params['pareName']
     from_str: str = params['from']
-    to_str: str = params.get('to')
+    to_str: str = params['to']
 
-    libra: Librarian = Librarian(instrument=pare_name)
-    result: pd.DataFrame = libra.serve_analysis_object(from_str, to_str)
+    requested_period: int = __period_between_from_to(from_str, to_str)
+    if requested_period >= 60:
+        body: str = 'Maximum size of between from and to is 60 days. You requested {} days!'.format(requested_period)
+        status: int = 400
+    else:
+        body: str = __drive_generating_tradehist(pare_name, from_str, to_str)
+        status: int = 200
 
-    body: str = json.dumps({
-        # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
-        #   to_json ならこの問題は起きないが、dumps と組み合わせると文字列になってしまうのでしない
-        'history': result.where((pd.notnull(result)), None) \
-                         .to_dict(orient='records')
-    })
     headers: Dict[str, str] = {
         # 'Access-Control-Allow-Origin': 'https://www.example.com',
         'Access-Control-Allow-Origin': '*',
@@ -49,12 +48,31 @@ def api_handler(event: Dict[str, Dict], _context: Dict) -> Dict:
         'Access-Control-Allow-Methods': 'OPTIONS,GET',
         'Access-Control-Allow-Credentials': 'true'
     }
-    print('lambda function is correctly finished.')
     return {
-        'statusCode': 200,
+        'statusCode': status,
         'headers': headers,
         'body': body
     }
+
+
+def __drive_generating_tradehist(pare_name: str, from_str: str, to_str: str) -> str:
+    libra: Librarian = Librarian(instrument=pare_name)
+    tradehist: pd.DataFrame = libra.serve_analysis_object(from_str, to_str)
+    result: str = json.dumps({
+        # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
+        #   to_json ならこの問題は起きないが、dumps と組み合わせると文字列になってしまうのでしない
+        'history': tradehist.where((pd.notnull(tradehist)), None) \
+                            .to_dict(orient='records')
+    })
+    print('lambda function is correctly finished.')
+    return result
+
+
+def __period_between_from_to(from_str: str, to_str: str) -> int:
+    start: datetime = datetime.datetime.fromisoformat(from_str[:26])
+    end: datetime = datetime.datetime.fromisoformat(to_str[:26])
+    result: int = (end - start).days
+    return result
 
 
 # For local console
