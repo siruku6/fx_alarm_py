@@ -35,7 +35,8 @@ def api_handler(event: Dict[str, Dict], _context: Dict) -> Dict:
 
     requested_period: int = __period_between_from_to(from_str, to_str)
     if requested_period >= 60:
-        body: str = 'Maximum size of between from and to is 60 days. You requested {} days!'.format(requested_period)
+        msg: str = 'Maximum days between FROM and TO is 60 days. You requested {} days!'.format(requested_period)
+        body: str = json.dumps({'message': msg})
         status: int = 400
     else:
         body: str = __drive_generating_tradehist(pare_name, from_str, to_str)
