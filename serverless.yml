@@ -13,6 +13,9 @@ service: py-fx
 frameworkVersion: '2'
 
 plugins:
+  - serverless-api-gateway-throttling
+
+  # Following two plugins are for Request Validation
   - serverless-reqvalidator-plugin
   - serverless-aws-documentation
 
@@ -23,6 +26,10 @@ custom:
     stages:
       dev: ${file(./config/stages/dev.yml)}
       production: ${file(./config/stages/production.yml)}
+  # INFO: plugin - serverless-api-gateway-throttling
+  apiGatewayThrottling:
+    maxRequestsPerSecond: 10
+    maxConcurrentRequests: 5
 
 provider:
   apiGateway:
@@ -44,7 +51,7 @@ provider:
   role: arn:aws:iam::${self:custom.config.default.AWS_ACCOUNT_ID}:role/service-role/lambda_for_trade
   runtime: python3.8
   stage: ${opt:stage, 'dev'}
-  timeout: 30
+  timeout: 20
   versionFunctions: false
 
 # you can add statements to the Lambda function's IAM Role here
