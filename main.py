@@ -69,8 +69,8 @@ def __drive_generating_tradehist(pare_name: str, from_str: str, to_str: str) -> 
 
 
 def __period_between_from_to(from_str: str, to_str: str) -> int:
-    start: datetime = datetime.datetime.fromisoformat(from_str[:26])
-    end: datetime = datetime.datetime.fromisoformat(to_str[:26])
+    start: datetime = datetime.datetime.fromisoformat(from_str[:26].rstrip('Z'))
+    end: datetime = datetime.datetime.fromisoformat(to_str[:26].rstrip('Z'))
     result: int = (end - start).days
     return result
 
