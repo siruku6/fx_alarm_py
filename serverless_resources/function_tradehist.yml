@@ -7,6 +7,20 @@ events:
   - http:
       path: tradehist
       method: get
+      cors:
+        origin: '*'
+        headers:
+          - Content-Type
+          - X-Amz-Date
+          - Authorization
+          - X-Api-Key
+          - X-Amz-Security-Token
+          # - X-Amz-User-Agent
+        allowCredentials: true
+        methods:
+          - GET
+          - OPTIONS
+
       # integration: lambda # Lambda統合されるが、Lambdaプロキシ統合はオフにする場合の記述
       reqValidatorName: onlyStringParameters
       request:
@@ -38,21 +52,18 @@ events:
 
       # カスタムレスポンスの作成
       # response:
-      #   # ヘッダーとテンプレートの指定
       #   headers:
       #     Content-Type: "'application/octet-stream'"
       #   template: $input.path('$')
-      #   # カスタムレスポンスコードの設定
       #   statusCodes:
-      #       # デフォルトのステータスコード
-      #       200:
-      #           pattern: ''
-      #       # カスタムステータスコード
-      #       401:
-      #           pattern: '.*"statusCode": 401,.*'
-      #           template: $input.path("$.errorMessage")
-      #           headers:
-      #             Content-Type: "'application/octet-stream'"
+      #     200:
+      #       pattern: ''
+      #     # カスタムステータスコード
+      #     401:
+      #       pattern: '.*"statusCode": 401,.*'
+      #       template: $input.path("$.errorMessage")
+      #       headers:
+      #         Content-Type: "'application/octet-stream'"
   # - schedule: rate(10 minutes)
   # - sns: greeter-topic
   # - cloudwatchEvent:
