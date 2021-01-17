@@ -5,9 +5,11 @@ menu=$(cat << EOS
 / / / / / / / / / / / / / / / /
 操作を選択してください。
 {1} :python main.py
-{2} :testコード実行
+{2} :betaコード実行
 {5} :find (find ./[dir] -type f -print | xargs grep [str])
 {6} :unittest全実行
+
+{10}:tradehist関数のみdeploy
 {11}:Lambdaアップ用zip作成
 {80}:date, hwclock を合わせる
 {99}:LINUX shutdown
@@ -33,35 +35,67 @@ search_menu () {
 make_zip_for_lambda () {
   echo -e 'Input 1(copy only source) or 10(prepare source & modules):'
   read select
-  DirName='fx_trading_on_lambda'
+  DirName='tmp/zips/app'
+  ModuleDirName='tmp/zips/layer_module'
   # Clean up directory
-  if [ -e "../${DireName}/*" ]; then
-    yes | rm -r "../${DirName}/models"
-    yes | rm "../${DirName}/main.py"
+  result=`find ${DirName} -maxdepth 1 -name "*.py" 2>/dev/null`
+  if [ -n "$result" ]; then
+    yes | rm -r ${DirName}/models
+    yes | rm ${DirName}/main.py
   fi
 
   # Install modules
-  cp main.py ../${DirName}/
-  cp -r models ../${DirName}/
   if test $select = 10; then
-    yes | rm -r ../${DirName}/*
-    pip install -t ../${DirName} -r requirements.txt
+    result=`find ${ModuleDirName}/python/ -maxdepth 1 -name "*.py" 2>/dev/null`
+    if [ -n "$result" ]; then
+      yes | rm -r ${ModuleDirName}/python/*
+    fi
+    pip install -t ${ModuleDirName}/python -r requirements.txt
+    # INFO: .dist-info, __pycache__ are unnecessary on Lambda
     # https://medium.com/@korniichuk/lambda-with-pandas-fd81aa2ff25e
-    rm -r ../${DirName}/*.dist-info ../${DirName}/__pycache__
+    rm -r ${ModuleDirName}/python/*.dist-info
+	rm -r ${ModuleDirName}/python/*/__pycache__
+	rm -r ${ModuleDirName}/python/*/tests
   fi
+  cp main.py ${DirName}/
+  cp -r models ${DirName}/
 
   # Create Archive
   echo -e 'Make zip now? y(yes) n(no):'
-  read select
-  if test $select = 'y'; then
-    cd ../${DirName}
-	# INFO: *.zip に合致するファイルがあれば削除
+  read select2
+  if test $select2 = 'y'; then
+    cd ${DirName}
+    # INFO: *.zip に合致するファイルがあれば削除
     result=`find . -maxdepth 1 -name "*.zip" 2>/dev/null`
     if [ -n "$result" ]; then
       rm ./*.zip
     fi
     zip fx_archive -r ./*
     cd -
+
+    if test $select = 10; then
+      cd ${ModuleDirName}
+      # INFO: *.zip に合致するファイルがあれば削除
+      result=`find . -maxdepth 1 -name "*.zip" 2>/dev/null`
+      if [ -n "$result" ]; then
+        rm ./*.zip
+      fi
+      zip fx_module_archive -r ./python
+      cd -
+    fi
+  fi
+}
+
+upload_zip_to_s3 () {
+  # Upload Archive Zip
+  echo -e 'Upload zip now? y(yes) n(no):'
+  read select
+  if test $select = 'y'; then
+    DirName='tmp/zips/app'
+    cd ${DirName}
+    pwd
+
+    aws s3 cp ./fx_archive.zip s3://fx-trade-with-lambda --storage-class ONEZONE_IA
   fi
 }
 
@@ -99,8 +133,8 @@ while true; do
       wait_display
       ;;
     2)
-      echo 'test_cord.pyファイル実行'
-      python test_cord.py
+      echo 'beta_cord.pyファイル実行'
+      python beta_cord.py
       wait_display
       ;;
     5)
@@ -112,8 +146,13 @@ while true; do
       python -m unittest
       wait_display
       ;;
+    10)
+      sls deploy function -f tradehist
+      wait_display
+      ;;
     11)
       make_zip_for_lambda
+      upload_zip_to_s3
       wait_display
       ;;
     80)

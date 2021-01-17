@@ -1,7 +1,8 @@
-import math
+# import math
+import numpy as np
 import pandas as pd
 # from scipy.stats import linregress
-from models.oanda_py_client import FXBase
+# from models.candle_storage import FXBase
 
 
 class Analyzer():
@@ -12,101 +13,116 @@ class Analyzer():
     INITIAL_AF = 0.02
     MAX_AF = 0.2
 
-    def __init__(self):
-        self.__indicators = {
-            'SMA': None,
-            'EMA': None,
-            'SIGMA*2_BAND': None,
-            'SIGMA*-2_BAND': None,
-            'SIGMA*3_BAND': None,
-            'SIGMA*-3_BAND': None,
-            'SAR': None,
-            'stoD': None,
-            'stoSD': None
-        }
+    def __init__(self, indicator_set=None):
+        indicator_names = indicator_set or (
+            'time',
+            # 60EMA is necessary?
+            '20SMA', '10EMA', '60EMA',
+            'SIGMA_BAND', 'SIGMA*-1_BAND', 'SIGMA*2_BAND', 'SIGMA*-2_BAND',
+            'SAR',
+            'stoD', 'stoSD',
+            'support', 'regist',
+            'long_indicators',
+        )
+        self.__indicators = {name: None for name in indicator_names}
 
-        # Trendline
-        self.desc_trends = None
-        self.asc_trends = None
-        self.jump_trendbreaks = None
-        self.fall_trendbreaks = None
+        # # Trendline
+        # self.desc_trends = None
+        # self.asc_trends = None
+        # self.jump_trendbreaks = None
+        # self.fall_trendbreaks = None
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                       Driver                        #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def calc_indicators(self):
-        if FXBase.get_candles() is None:
-            return {'error': '[ERROR] Analyzer: 分析対象データがありません'}
-        self.__calc_SMA()
-        self.__calc_EMA()
-        self.__calc_bollinger_bands()
-        self.__calc_parabolic()
-        self.__indicators['stoD'] = self.__calc_STOD(window_size=5)
-        self.__indicators['stoSD'] = self.__calc_STOSD(window_size=5)
+    def calc_indicators(self, candles, long_span_candles=None, stoc_only=False):
+        if candles is None or candles.empty:
+            print('[ERROR] Analyzer: 分析対象データがありません')
+            exit()
+
+        self.__indicators['time'] = candles['time'].copy()
+
+        result_msg = {'success': '[Analyzer] indicators算出完了'}
+        self.__indicators['stoD'] = self.__calc_stod(candles=candles, window_size=5)
+        self.__indicators['stoSD'] = self.__calc_stosd(candles=candles, window_size=5)
+
+        if long_span_candles is not None:
+            self.__indicators['long_indicators'] = self.__prepare_long_indicators(long_span_candles)
+
+        if stoc_only is True:
+            return result_msg
+
+        self.__indicators['20SMA'] = self.__calc_sma(close_candles=candles.close)
+        self.__indicators['10EMA'] = self.__calc_ema(close_candles=candles.close)
+        # 60EMA is necessary?
+        self.__indicators['60EMA'] = self.__calc_ema(close_candles=candles.close, window_size=60)
+        self.__calc_bollinger_bands(close_candles=candles.close)
+        self.__calc_parabolic(candles=candles)
+        self.__indicators['regist'] = self.__calc_registance(high_candles=candles.high)
+        self.__indicators['support'] = self.__calc_support(low_candles=candles.low)
         # result = self.__calc_trendlines()
         # if 'success' in result:
         #     print(result['success'])
         #     self.__get_breakpoints()
-        return {'success': '[Analyzer] indicators算出完了'}
+        return result_msg
 
-    def get_indicators(self):
+    def get_indicators(self, start=None, end=None):
         indicators = pd.concat(
             [
-                self.__indicators['SMA'],
-                self.__indicators['50SMA'],
-                self.__indicators['EMA'],
+                self.__indicators['time'],
+                self.__indicators['20SMA'],
+                self.__indicators['10EMA'],
+                # 60EMA is necessary?
+                self.__indicators['60EMA'],
+                self.__indicators['SIGMA_BAND'],
+                self.__indicators['SIGMA*-1_BAND'],
                 self.__indicators['SIGMA*2_BAND'],
                 self.__indicators['SIGMA*-2_BAND'],
-                self.__indicators['SIGMA*3_BAND'],
-                self.__indicators['SIGMA*-3_BAND'],
                 self.__indicators['SAR'],
                 self.__indicators['stoD'],
-                self.__indicators['stoSD']
+                self.__indicators['stoSD'],
+                self.__indicators['regist'],
+                self.__indicators['support']
             ],
             axis=1
-        )
+        )[start:end]
         return indicators
+
+    def get_long_indicators(self):
+        return self.__indicators['long_indicators']
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Moving Average                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def __calc_SMA(self, window_size=20):
+    def __calc_sma(self, close_candles, window_size=20):
         ''' 単純移動平均線を生成 '''
-        close = FXBase.get_candles().close
         # mean()後の .dropna().reset_index(drop = True) を消去中
-        sma = pd.Series.rolling(close, window=window_size).mean()
-        self.__indicators['SMA'] = pd.DataFrame(sma).rename(columns={'close': '20SMA'})
-        sma50 = pd.Series.rolling(close, window=50).mean()
-        self.__indicators['50SMA'] = pd.DataFrame(sma50).rename(columns={'close': '50SMA'})
+        sma = pd.Series.rolling(close_candles, window=window_size).mean()
+        return pd.DataFrame(sma).rename(columns={'close': '20SMA'})
 
-    def __calc_EMA(self, window_size=10):
+    def __calc_ema(self, close_candles, window_size=10):
         ''' 指数平滑移動平均線を生成 '''
         # TODO: scipyを使うと早くなる
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
-        ema = FXBase.get_candles().close.ewm(span=window_size).mean()
-        self.__indicators['EMA'] = pd.DataFrame(ema).rename(columns={'close': '10EMA'})
+        ema = close_candles.ewm(span=window_size).mean()
+        return pd.DataFrame(ema).rename(columns={'close': '{}EMA'.format(window_size)})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Bollinger Bands                    #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def __calc_bollinger_bands(self, window_size=20):
+    def __calc_bollinger_bands(self, close_candles, window_size=20):
         '''ボリンジャーバンドを生成'''
-        close = FXBase.get_candles().close
-        mean = pd.Series.rolling(close, window=window_size).mean()
-        standard_deviation = pd.Series.rolling(close, window=window_size).std()
+        mean = pd.Series.rolling(close_candles, window=window_size).mean()
+        standard_deviation = pd.Series.rolling(close_candles, window=window_size).std()
 
+        self.__indicators['SIGMA_BAND'] = \
+            pd.DataFrame(mean + standard_deviation).rename(columns={'close': 'band_+1σ'})
+        self.__indicators['SIGMA*-1_BAND'] = \
+            pd.DataFrame(mean - standard_deviation).rename(columns={'close': 'band_-1σ'})
         self.__indicators['SIGMA*2_BAND'] = \
-            pd.DataFrame(mean + standard_deviation * 2) \
-              .rename(columns={'close': 'band_+2σ'})
+            pd.DataFrame(mean + standard_deviation * 2).rename(columns={'close': 'band_+2σ'})
         self.__indicators['SIGMA*-2_BAND'] = \
-            pd.DataFrame(mean - standard_deviation * 2) \
-              .rename(columns={'close': 'band_-2σ'})
-        self.__indicators['SIGMA*3_BAND'] = \
-            pd.DataFrame(mean + standard_deviation * 3) \
-              .rename(columns={'close': 'band_+3σ'})
-        self.__indicators['SIGMA*-3_BAND'] = \
-            pd.DataFrame(mean - standard_deviation * 3) \
-              .rename(columns={'close': 'band_-3σ'})
+            pd.DataFrame(mean - standard_deviation * 2).rename(columns={'close': 'band_-2σ'})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
@@ -116,7 +132,7 @@ class Analyzer():
     # def __calc_trendlines(self, span=20, min_interval=3):
     #     if FXBase.get_candles() is None:
     #         return {'error': '[Analyzer] データが存在しません'}
-    #     FXBase.set_timeID()
+    #     FXBase.set_time_id()
     #     trendlines = {'high': [], 'low': []}
 
     #     # [下降・上昇]の２回ループ
@@ -205,6 +221,9 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                   Parabolic SAR                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def calc_next_parabolic(self, last_sar, extr_price, acceleration_f=INITIAL_AF):
+        return last_sar + acceleration_f * (extr_price - last_sar)
+
     def __parabolic_is_touched(self, bull, current_parabo, current_h, current_l):
         if bull and (current_parabo > current_l):
             return True
@@ -212,16 +231,17 @@ class Analyzer():
             return True
         return False
 
-    def __calc_parabolic(self):
-        # 初期状態は上昇トレンドと仮定して計算
-        bull = True
+    def __calc_parabolic(self, candles):
+        # 初期値
         acceleration_factor = Analyzer.INITIAL_AF
-        extreme_price = FXBase.get_candles().high[0]
-        temp_sar_array = [FXBase.get_candles().low[0]]
+        # INFO: 初期状態は上昇トレンドと仮定して計算
+        bull = True
+        extreme_price = candles.high[0]
+        temp_sar_array = [candles.low[0]]
 
         # HACK: dataframeのまま処理するより、to_dictで辞書配列化した方が処理が早い
-        candles_array = FXBase.get_candles().to_dict('records')
-        # for i, row in FXBase.get_candles().iterrows():
+        candles_array = candles.to_dict('records')
+        # for i, row in candles.iterrows():
         for i, row in enumerate(candles_array):
             current_high = row['high']
             current_low = row['low']
@@ -229,9 +249,9 @@ class Analyzer():
 
             # レートがparabolicに触れたときの処理
             if self.__parabolic_is_touched(
-                bull=bull,
-                current_parabo=last_sar,
-                current_h=current_high, current_l=current_low
+                    bull=bull,
+                    current_parabo=last_sar,
+                    current_h=current_high, current_l=current_low
             ):
                 temp_sar = extreme_price
                 acceleration_factor = Analyzer.INITIAL_AF
@@ -242,19 +262,31 @@ class Analyzer():
                     bull = True
                     extreme_price = current_high
             else:
-                if bull and extreme_price < current_high:
-                    extreme_price = current_high
+                # SARの仮決め
+                # temp_sar = last_sar + acceleration_factor * (extreme_price - last_sar)
+                temp_sar = self.calc_next_parabolic(
+                    last_sar=last_sar, extr_price=extreme_price, acceleration_f=acceleration_factor
+                )
+
+                # AFの更新
+                if (bull and extreme_price < current_high) or not bull and (extreme_price > current_low):
                     acceleration_factor = min(
                         acceleration_factor + Analyzer.INITIAL_AF,
                         Analyzer.MAX_AF
                     )
-                elif not bull and extreme_price > current_low:
-                    extreme_price = current_low
-                    acceleration_factor = min(
-                        acceleration_factor + Analyzer.INITIAL_AF,
-                        Analyzer.MAX_AF
+
+                # SARの調整 値が更新されすぎないように抑える
+                # 極値(extreme_price)の更新
+                if bull:
+                    temp_sar = min(
+                        temp_sar, candles_array[i - 1]['low'], candles_array[i - 2]['low']
                     )
-                temp_sar = last_sar + acceleration_factor * (extreme_price - last_sar)
+                    extreme_price = max(extreme_price, current_high)
+                else:
+                    temp_sar = max(
+                        temp_sar, candles_array[i - 1]['high'], candles_array[i - 2]['high']
+                    )
+                    extreme_price = min(extreme_price, current_low)
 
             if i == 0:
                 temp_sar_array[-1] = temp_sar
@@ -265,26 +297,65 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                    Stochastic                       #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def __prepare_long_indicators(self, long_span_candles):
+        tmp_candles = long_span_candles.copy().reset_index()
+        tmp_candles['time'] = tmp_candles['time'].map(str)
+        # INFO: stoc
+        tmp_candles['long_stoD'] = self.__calc_stod(candles=tmp_candles, window_size=5)
+        tmp_candles['long_stoSD'] = self.__calc_stosd(candles=tmp_candles, window_size=5)
+        tmp_candles['stoD_over_stoSD'] = tmp_candles['long_stoD'] > tmp_candles['long_stoSD']
+
+        # INFO: moving_averages
+        tmp_candles['long_20SMA'] = self.__calc_sma(close_candles=tmp_candles.close)
+        tmp_candles['long_10EMA'] = self.__calc_ema(close_candles=tmp_candles.close)
+
+        return tmp_candles[[
+            'long_stoD', 'long_stoSD', 'stoD_over_stoSD', 'long_20SMA', 'long_10EMA', 'time'
+        ]].copy()
+
     # http://www.algo-fx-blog.com/stochastics-python/
-    def __calc_STOK(self, window_size=5):
+    def __calc_stok(self, candles, window_size=5):
         ''' ストキャスの%Kを計算 '''
-        candles = FXBase.get_candles()
-        stoK = ((candles.close - candles.low.rolling(window=window_size, center=False).min()) / (
-            candles.high.rolling(window=window_size, center=False).max() -
-            candles.low.rolling(window=window_size, center=False).min()
+        stok = ((candles.close - candles.low.rolling(window=window_size, center=False).min()) / (
+            candles.high.rolling(window=window_size, center=False).max()
+            - candles.low.rolling(window=window_size, center=False).min()
         )) * 100
-        return stoK
+        return stok
 
-    def __calc_STOD(self, window_size):
+    def __calc_stod(self, candles, window_size):
         ''' ストキャスの%Dを計算（%Kの3日SMA） '''
-        stoK = self.__calc_STOK(window_size)
-        stoD = stoK.rolling(window=3, center=False).mean()
-        stoD.name = 'stoD:3'
-        return stoD
+        stok = self.__calc_stok(candles=candles, window_size=window_size)
+        stod = stok.rolling(window=3, center=False).mean()
+        stod.name = 'stoD_3'
+        return stod
 
-    def __calc_STOSD(self, window_size):
+    def __calc_stosd(self, candles, window_size):
         ''' ストキャスの%SDを計算（%Dの3日SMA） '''
-        stoD = self.__calc_STOD(window_size)
-        stoSD = stoD.rolling(window=3, center=False).mean()
-        stoSD.name = 'stoSD:3'
-        return stoSD
+        stod = self.__calc_stod(candles=candles, window_size=window_size)
+        stosd = stod.rolling(window=3, center=False).mean()
+        stosd.name = 'stoSD_3'
+        return stosd
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    #                Support / Registance                 #
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    def __calc_registance(self, high_candles):
+        regist_points = \
+            (pd.Series.rolling(high_candles, window=7).max() == high_candles) \
+            & (high_candles.shift(1) < high_candles) \
+            & (high_candles > high_candles.shift(-1))
+        regist_plots = self.__generate_sup_regi_plots('regist', regist_points, high_candles)
+        return regist_plots
+
+    def __calc_support(self, low_candles):
+        support_points = \
+            (pd.Series.rolling(low_candles, window=7).min() == low_candles) \
+            & (low_candles.shift(1) > low_candles) \
+            & (low_candles < low_candles.shift(-1))
+        support_plots = self.__generate_sup_regi_plots('support', support_points, low_candles)
+        return support_plots
+
+    def __generate_sup_regi_plots(self, name, target_points, high_or_low_candles):
+        return pd.Series(np.where(target_points, high_or_low_candles, None)) \
+                 .fillna(method='ffill') \
+                 .rename(name, inplace=True)

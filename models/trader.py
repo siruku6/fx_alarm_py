@@ -1,754 +1,493 @@
-import datetime
-import math
 import os
+import numpy as np
 import pandas as pd
-from models.oanda_py_client import FXBase, OandaPyClient
+from models.candle_storage import FXBase
+from models.client_manager import ClientManager
 from models.analyzer import Analyzer
 from models.drawer import FigureDrawer
-from models.mathematics import range_2nd_decimal
+from models.tools.mathematics import range_2nd_decimal
+import models.trade_rules.base as base_rules
+import models.tools.interface as i_face
+import models.tools.statistics_module as statistics
+
+# pd.set_option('display.max_rows', 400)
 
 
 class Trader():
+    MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
-    def __init__(self, operation='verification'):
-        if operation in ['verification']:
-            inst = OandaPyClient.select_instrument()
-            self.__instrument = inst['name']
-            self.__static_spread = inst['spread']
-        else:
-            self.__instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
-            self.__static_spread = 0.0
+    def __init__(self, operation='backtest', days=None):
+        '''
+        Parameters
+        ----------
+        operation : str
+            'backtest', 'forward_test' or 'live'
 
+        Returns
+        -------
+        None
+        '''
+        need_request = True
+        if operation in ('backtest', 'forward_test'):
+            result = ClientManager.select_instrument()
+            self._instrument = result[0]
+            self._static_spread = result[1]['spread']
+            self.__set_drawing_option()
+            self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
+            days = i_face.ask_number(msg='何日分のデータを取得する？(半角数字): ', limit=365)
+            need_request = i_face.ask_true_or_false(
+                msg='[Trader] Which do you use ?  [1]: current_candles, [2]: static_candles :'
+            )
+        self.__init_common_params(operation, days=days)
+
+        result = self.__prepare_candles(operation, need_request, days).get('info')
+        if result is not None:
+            print(result)
+            return
+
+        self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
+        self._indicators = self._ana.get_indicators()
+        self._initialize_position_variables()
+
+    def __set_drawing_option(self):
+        self.__static_options = {}
+        self.__static_options['figure_option'] = i_face.ask_number(
+            msg='[Trader] 画像描画する？ [1]: No, [2]: Yes, [3]: with_P/L ', limit=3
+        )
+        self._drawer = None
+
+    def __init_common_params(self, operation, days):
         self._operation = operation
-        self._client = OandaPyClient(instrument=self.get_instrument())
-        self.__ana = Analyzer()
-        self.__drawer = FigureDrawer()
-        self.__columns = ['sequence', 'price', 'stoploss', 'type', 'time', 'profit']
-        self.__granularity = os.environ.get('GRANULARITY') or 'M5'
-        sl_buffer = round(float(os.environ.get('STOPLOSS_BUFFER')), 2)
-        self._STOPLOSS_BUFFER_pips = sl_buffer or 0.05
+        self._ana = Analyzer()
+        self._client = ClientManager(instrument=self.get_instrument(), test=operation in ('backtest', 'forward_test'))
+        self._entry_rules = {
+            'days': days,
+            'granularity': os.environ.get('GRANULARITY') or 'M5',
+            # default-filter: かなりhigh performance
+            'entry_filter': ['in_the_band', 'stoc_allows', 'band_expansion']
+        }
+        self._drawer = None
         self._position = None
 
-        if operation == 'verification':
-            self.__request_custom_candles()
+    def __prepare_candles(self, operation, need_request=True, days=None):
+        if need_request is False:
+            candles = pd.read_csv('./tmp/csvs/h4_candles_for_test.csv')
+        elif operation in ('backtest', 'forward_test'):
+            self._entry_rules['granularity'] = i_face.ask_granularity()
+            candles = self._client.load_long_chart(
+                days=self.get_entry_rules('days'), granularity=self.get_entry_rules('granularity')
+            )['candles']
         elif operation == 'live':
-            result = self._client.request_is_tradeable()
-            self.tradeable = result['tradeable']
+            self.tradeable = self._client.call_oanda('is_tradeable')['tradeable']
             if not self.tradeable:
-                self._log_skip_reason('1. market is not open')
-                self.__drawer.close_all()
-                return
-            self._client.load_specified_length_candles(granularity=self.__granularity)
+                return {'info': 'exit at once'}
+
+            candles = self._client.load_specify_length_candles(
+                length=70, granularity=self.get_entry_rules('granularity')
+            )['candles']
         else:
-            return
+            return {'info': 'exit at once'}
 
-        # OPTIMIZE: これがあるせいで意外とトレードが発生しない
-        self._client.request_current_price()
+        FXBase.set_candles(candles)
+        self.__m10_candles = None
+        self.__prepare_long_span_candles(days=days)
 
-        result = self.__ana.calc_indicators()
-        if 'error' in result:
-            self._log_skip_reason(result['error'])
-            return
-        elif operation != 'live':
-            print(result['success'])
+        latest_candle = self._client.call_oanda('current_price')
+        self.__update_latest_candle(latest_candle)
 
-        self._indicators = self.__ana.get_indicators()
-        self.__initialize_position_variables()
+        return {}
 
-    def __initialize_position_variables(self):
-        self.__set_position({'type': 'none'})
+    def __update_latest_candle(self, latest_candle):
+        '''
+        最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き
+        '''
+        candle_dict = FXBase.get_candles().iloc[-1].to_dict()
+        FXBase.replace_latest_price('close', latest_candle['close'])
+        if candle_dict['high'] < latest_candle['high']:
+            FXBase.replace_latest_price('high', latest_candle['high'])
+        if candle_dict['low'] > latest_candle['low']:
+            FXBase.replace_latest_price('low', latest_candle['low'])
+        print('[Client] Last_H4: {}, Current_M1: {}'.format(candle_dict, latest_candle))
+        print('[Client] New_H4: {}'.format(FXBase.get_candles().iloc[-1].to_dict()))
+
+    def _initialize_position_variables(self):
+        self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
 
-    def __set_position(self, position_dict):
-        self._position = position_dict
+    # - - - - - - - - - - - - - - - - - - - - - - - -
+    #                getter & setter
+    # - - - - - - - - - - - - - - - - - - - - - - - -
+    def get_instrument(self):
+        return self._instrument
+
+    def get_entry_rules(self, rule_property):
+        return self._entry_rules[rule_property]
+
+    def set_entry_rules(self, rule_property, value):
+        self._entry_rules[rule_property] = value
+
+    @property
+    def m10_candles(self):
+        return self.__m10_candles
+
+    @m10_candles.setter
+    def m10_candles(self, arg):
+        self.__m10_candles = arg
 
     #
     # public
     #
-    def get_instrument(self):
-        return self.__instrument
+    # TODO: 作成中の処理
+    def verify_various_entry_filters(self, rule):
+        ''' entry_filterの全パターンを検証する '''
+        filters = [[]]
+        filter_elements = statistics.FILTER_ELEMENTS
+        for elem in filter_elements:
+            tmp_filters = filters.copy()
+            for tmp_filter in tmp_filters:
+                filter_copy = tmp_filter.copy()
+                filter_copy.append(elem)
+                filters.append(filter_copy)
 
-    def auto_verify_trading_rule(self, accurize=True):
-        ''' tradeルールを自動検証 '''
-        print(self.__demo_swing_trade()['success'])
-        if accurize and (self.__granularity[0] != 'M'):
-            print(self.__accurize_entry_prices()['success'])
+        filters.sort()
+        for _filter in filters:
+            print('[Trader] ** Now trying filter -> {} **', _filter)
+            self.set_entry_rules('entry_filter', value=_filter)
+            self.verify_various_stoploss(rule=rule)
 
-    def verify_varios_stoploss(self, accurize=True):
+    def verify_various_stoploss(self, rule):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
         verification_dataframes_array = []
-        stoploss_buffer_list = range_2nd_decimal(0.01, 0.10, 0.02)
-        stoploss_buffer_list.append(0.50)
+        stoploss_digit = i_face.select_stoploss_digit()
+        stoploss_buffer_list = range_2nd_decimal(stoploss_digit, stoploss_digit * 20, stoploss_digit * 2)
 
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
-            self._STOPLOSS_BUFFER_pips = stoploss_buf
-            self.auto_verify_trading_rule(accurize=accurize)
-
-            self.__calc_statistics()
-            _df = pd.concat(
-                [
-                    pd.DataFrame(self.__hist_positions['long'], columns=self.__columns),
-                    pd.DataFrame(self.__hist_positions['short'], columns=self.__columns)
-                ],
-                axis=1, keys=['long', 'short'],
-                names=['type', '-']
-            )
-            verification_dataframes_array.append(_df)
+            self._stoploss_buffer_pips = stoploss_buf
+            df_positions = self.auto_verify_trading_rule(rule=rule)
+            verification_dataframes_array.append(df_positions)
 
         result = pd.concat(
             verification_dataframes_array,
             axis=1, keys=stoploss_buffer_list,
             names=['SL_buffer']
         )
-        result.to_csv('./tmp/sl_verify_{inst}.csv'.format(inst=self.get_instrument()))
+        result.to_csv('./tmp/csvs/sl_verify_{inst}.csv'.format(inst=self.get_instrument()))
 
-    def draw_chart(self):
-        ''' チャートや指標をpngに描画 '''
-        MAX_ROWS = 200
-        drwr = self.__drawer
-        df_pos = {
-            'long': pd.DataFrame(self.__hist_positions['long'], columns=self.__columns),
-            'short': pd.DataFrame(self.__hist_positions['short'], columns=self.__columns)
-        }
+    def auto_verify_trading_rule(self, rule='swing'):
+        ''' tradeルールを自動検証 '''
+        self._reset_drawer()
 
-        df_len = len(self._indicators)
-        dfs_indicator = self.__split_df_by_200rows(self._indicators)
-        dfs_long_hist = self.__split_df_by_200sequences(df_pos['long'], df_len)
-        dfs_short_hist = self.__split_df_by_200sequences(df_pos['short'], df_len)
+        candles = FXBase.get_candles().copy()
+        self._prepare_trade_signs(candles)
+        if self.get_entry_rules('entry_filter') == []:
+            self.set_entry_rules('entry_filter', value=statistics.FILTER_ELEMENTS)
 
-        df_segments_count = len(dfs_indicator)
-        for i in range(0, df_segments_count):
-            drwr.draw_indicators(d_frame=dfs_indicator[i])
-
-            start = df_len - MAX_ROWS * (i + 1)
-            if start < 0: start = 0
-            end = df_len - MAX_ROWS * i
-            sr_time = drwr.draw_candles(start, end)['time']
-
-            long_entry_df = dfs_long_hist[i][dfs_long_hist[i].type == 'long']
-            long_trail_df = dfs_long_hist[i][dfs_long_hist[i].type == 'trail']
-            long_close_df = dfs_long_hist[i][dfs_long_hist[i].type == 'close']
-            short_entry_df = dfs_short_hist[i][dfs_short_hist[i].type == 'short']
-            short_trail_df = dfs_short_hist[i][dfs_short_hist[i].type == 'trail']
-            short_close_df = dfs_short_hist[i][dfs_short_hist[i].type == 'close']
-
-            drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
-            drwr.draw_positions_df(positions_df=long_trail_df, plot_type=drwr.PLOT_TYPE['trail'])
-            drwr.draw_positions_df(positions_df=long_close_df, plot_type=drwr.PLOT_TYPE['exit'])
-            drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
-            drwr.draw_positions_df(positions_df=short_trail_df, plot_type=drwr.PLOT_TYPE['trail'], nolabel='_nolegend_')
-            drwr.draw_positions_df(positions_df=short_close_df, plot_type=drwr.PLOT_TYPE['exit'],  nolabel='_nolegend_')
-            result = drwr.create_png(
-                instrument=self.get_instrument(),
-                granularity=self.__granularity,
-                sr_time=sr_time, num=i
-            )
-
-            drwr.close_all()
-            if df_segments_count != i + 1:
-                drwr.init_figure()
-            if 'success' in result:
-                print(result['success'], '/{}'.format(df_segments_count))
-
-        return {
-            'success': '[Trader] チャート分析、png生成完了',
-            # メール送信フラグ: 今は必要ない
-            'alart_necessary': False
-        }
-
-    def report_trading_result(self):
-        ''' ポジション履歴をcsv出力 '''
-        self.__calc_statistics()
-
-        df_long = pd.DataFrame.from_dict(self.__hist_positions['long'])
-        df_short = pd.DataFrame.from_dict(self.__hist_positions['short'])
-        df_long.to_csv('./tmp/long_history.csv')
-        df_short.to_csv('./tmp/short_history.csv')
-
-        print('[Trader] ポジション履歴をcsv出力完了')
-
-    #
-    # Shared with subclass
-    #
-
-    def _SMA_run_along_trend(self, index, trend):
-        sma = self._indicators['20SMA']
-        if trend == 'bull' and sma[index - 1] < sma[index]:
-            return True
-        elif trend == 'bear' and sma[index - 1] > sma[index]:
-            return True
-
-        if self._operation == 'live':
-            print('[Trader] Trend: {}, 20SMA: {} -> {}'.format(trend, sma[index - 1], sma[index]))
-            self._log_skip_reason('c. 20SMA not run along trend')
-        return False
-
-    def _over_2_sigma(self, index, o_price):
-        if self._indicators['band_+2σ'][index] < o_price or \
-           self._indicators['band_-2σ'][index] > o_price:
-            if self._operation == 'live':
-                self._log_skip_reason(
-                    'c. {}: o_price is over 2sigma'.format(FXBase.get_candles().time[index])
-                )
-            return True
-
-        return False
-
-    def _expand_MA_gap(self, index, trend):
-        sma = self._indicators['20SMA']
-        ema = self._indicators['10EMA']
-
-        previous_gap = ema[index - 1] - sma[index - 1]
-        current_gap = ema[index] - sma[index]
-
-        if trend == 'bull':
-            ma_gap_is_expanding = previous_gap < current_gap
-        elif trend == 'bear':
-            ma_gap_is_expanding = previous_gap > current_gap
-
-        if not ma_gap_is_expanding and self._operation == 'live':
-            self._log_skip_reason(
-                'c. {}: MA_gap is shrinking'.format(FXBase.get_candles().time[index])
-            )
-        return ma_gap_is_expanding
-
-    def _check_trend(self, index, c_price):
-        '''
-        ルールに基づいてトレンドの有無を判定
-        '''
-        sma = self._indicators['20SMA'][index]
-        ema = self._indicators['10EMA'][index]
-        parabo = self._indicators['SAR'][index]
-        if sma < ema < c_price and parabo < c_price:
-            trend = 'bull'
-        elif sma > ema > c_price and parabo > c_price:
-            trend = 'bear'
+        if rule in ('swing', 'scalping'):
+            result = self.backtest(candles)
+        elif rule == 'wait_close':
+            result = self._backtest_wait_close(candles)
         else:
-            trend = None
-            if self._operation == 'live':
-                print('[Trader] 20SMA: {}, 10EMA: {}, close: {}'.format(sma, ema, c_price))
-                self._log_skip_reason('2. There isn`t the trend')
-        return trend
+            print('Rule {} is not exist ...'.format(rule))
+            exit()
 
-    def _stochastic_allow_trade(self, index, trend):
-        ''' stocがtrendと一致した動きをしていれば true を返す '''
-        stod = self._indicators['stoD:3'][index]
-        stosd = self._indicators['stoSD:3'][index]
-        result = False
+        print('{} ... (auto_verify_trading_rule)'.format(result['result']))
 
-        if trend == 'bull' and (stod > stosd or stod > 80):
-            result = True
-        elif trend == 'bear' and (stod < stosd or stod < 20):
-            result = True
+        df_positions = self._preprocess_backtest_result(rule, result)
+        self._drive_drawing_charts(df_positions=df_positions)
+        return df_positions
 
-        if result is False and self._operation == 'live':
-            print('[Trader] stoD: {}, stoSD: {}'.format(stod, stosd))
-            self._log_skip_reason('c. stochastic denies trade')
+    #
+    # Methods for judging Entry or Close
+    #
+    def _set_position(self, position_dict):
+        self._position = position_dict
+
+    def _merge_long_indicators(self, candles):
+        tmp_df = candles.merge(self._ana.get_long_indicators(), on='time', how='left')
+        # tmp_df['long_stoD'].fillna(method='ffill', inplace=True)
+        # tmp_df['long_stoSD'].fillna(method='ffill', inplace=True)
+        tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
+        tmp_df['stoD_over_stoSD'].fillna({'stoD_over_stoSD': False}, inplace=True)
+        tmp_df.loc[:, 'stoD_over_stoSD'] = tmp_df['stoD_over_stoSD'].astype(bool)
+
+        tmp_df['long_20SMA'].fillna(method='ffill', inplace=True)
+        tmp_df['long_10EMA'].fillna(method='ffill', inplace=True)
+        long_ma = tmp_df[['long_10EMA', 'long_20SMA']].copy() \
+                                                      .rename(columns={'long_10EMA': '10EMA', 'long_20SMA': '20SMA'})
+        tmp_df['long_trend'] = base_rules.generate_trend_column(long_ma, candles.close)
+
+        return tmp_df
+
+    def __generate_thrust_column(self, candles, trend):
+        # INFO: if high == the max of recent-10-candles: True is set !
+        sr_highest_in_10candles = (candles.high == candles.high.rolling(window=10).max())
+        sr_lowest_in_10candles = (candles.low == candles.low.rolling(window=10).min())
+        sr_up_thrust = np.all(
+            pd.DataFrame({'highest': sr_highest_in_10candles, 'bull': trend['bull']}),
+            axis=1
+        )
+        sr_down_thrust = np.all(
+            pd.DataFrame({'lowest': sr_lowest_in_10candles, 'bear': trend['bear']}),
+            axis=1
+        )
+        method_thrust_checker = np.frompyfunc(base_rules.detect_thrust2, 2, 1)
+        result = method_thrust_checker(sr_up_thrust, sr_down_thrust)
         return result
 
-    def _find_thrust(self, i, trend):
-        '''
-        thrust発生の有無と方向を判定して返却する
-        '''
-        candles = FXBase.get_candles()
-        candles_h = candles.high
-        candles_l = candles.low
-        if trend == 'bull' and candles_h[i] > candles_h[i - 1]:
-            direction = 'long'
-        elif trend == 'bear' and candles_l[i] < candles_l[i - 1]:
-            direction = 'short'
-        else:
-            direction = None
-            if self._operation == 'live':
-                print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
-                    trend, candles_h[i - 1], candles_h[i], candles_l[i - 1], candles_l[i]
-                ))
-                self._log_skip_reason('3. There isn`t thrust')
-        return direction
+        # INFO: shift(1)との比較のみでthrustを判定する場合
+        # method_thrust_checker = np.frompyfunc(base_rules.detect_thrust, 5, 1)
+        # result = method_thrust_checker(
+        #     candles.trend,
+        #     candles.high.shift(1), candles.high,
+        #     candles.low.shift(1), candles.low
+        # )
+        # return result
 
-    def _judge_settle_position(self, i, c_price):
-        candles = FXBase.get_candles()
-        parabolic = self._indicators['SAR']
-        position_type = self._position['type']
-        stoploss_price = self._position['stoploss']
-        if position_type == 'long':
-            possible_stoploss = candles.low[i - 1] - self._STOPLOSS_BUFFER_pips
-            if possible_stoploss > stoploss_price:
-                stoploss_price = possible_stoploss
-                self._trail_stoploss(
-                    new_stop=stoploss_price, time=candles.time[i]
-                )
-            # INFO: 本番ではstoplossで決済されるので不要
-            if self._operation != 'live' and stoploss_price > candles.low[i] - self.__static_spread:
-                self._settle_position(
-                    index=i, price=stoploss_price, time=candles.time[i]
-                )
-            elif parabolic[i] > c_price - self.__static_spread:
-                self._settle_position(
-                    index=i, price=parabolic[i], time=candles.time[i]
-                )
-        elif position_type == 'short':
-            possible_stoploss = candles.high[i - 1] + self._STOPLOSS_BUFFER_pips
-            if possible_stoploss < stoploss_price:
-                stoploss_price = possible_stoploss
-                self._trail_stoploss(
-                    new_stop=stoploss_price, time=candles.time[i]
-                )
-            # INFO: 本番ではstoplossで決済されるので不要
-            if self._operation != 'live' and stoploss_price < candles.high[i]:
-                self._settle_position(
-                    index=i, price=stoploss_price, time=candles.time[i]
-                )
-            elif parabolic[i] < c_price:
-                self._settle_position(
-                    index=i, price=parabolic[i], time=candles.time[i]
-                )
+    # 60EMA is necessary?
+    def __generate_ema_allows_column(self, candles):
+        ema60 = self._indicators['60EMA']
+        ema60_allows_bull = np.all(np.array([candles.bull, ema60 < candles.close]), axis=0)
+        ema60_allows_bear = np.all(np.array([candles.bear, ema60 > candles.close]), axis=0)
+        return np.any(np.array([ema60_allows_bull, ema60_allows_bear]), axis=0)
+
+    def __generate_in_the_band_column(self, price_series):
+        ''' 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 '''
+        df_over_band_detection = pd.DataFrame({
+            'under_positive_band': self._indicators['band_+2σ'] > price_series,
+            'above_negative_band': self._indicators['band_-2σ'] < price_series
+        })
+        return np.all(df_over_band_detection, axis=1)
+
+    def __generate_band_expansion_column(self, df_bands, shift_size=3):
+        ''' band が拡張していれば True を格納して numpy配列 を生成 '''
+        # OPTIMIZE: bandについては、1足前(shift(1))に広がっていることを条件にしてもよさそう
+        #   その場合、広がっていることの確定を待つことになるので、条件としては厳しくなる
+        bands_gap = (df_bands['band_+2σ'] - df_bands['band_-2σ'])  # .shift(1).fillna(0.0)
+        return bands_gap.rolling(window=shift_size).max() == bands_gap
+        # return bands_gap.shift(shift_size) < bands_gap
+
+    def __generate_getting_steeper_column(self, df_trend):
+        ''' 移動平均が勢いづいているか否かを判定 '''
+        gap_of_ma = self._indicators['10EMA'] - self._indicators['20SMA']
+        result = gap_of_ma.shift(1) < gap_of_ma
+
+        # INFO: 上昇方向に勢いづいている
+        is_long_steeper = np.all(
+            pd.DataFrame({'bull': df_trend.bull, 'inclination': result}),
+            axis=1
+        )
+        # INFO: 下降方向に勢いづいている
+        is_short_steeper = np.all(
+            pd.DataFrame({'bear': df_trend.bear, 'inclination': np.where(result, False, True)}),
+            axis=1
+        )
+
+        # どちらかにでも勢いがついていれば True
+        return np.any(
+            pd.DataFrame({'l_steeper': is_long_steeper, 'sh_steeper': is_short_steeper}),
+            axis=1
+        )
+
+    def __generate_following_trend_column(self, df_trend):
+        ''' 移動平均線がtrendに沿う方向に動いているか判定する列を返却 '''
+        df_sma = self._indicators['20SMA'].copy()
+        df_tmp = df_trend.copy()
+        df_tmp['sma_up'] = df_sma.shift(1) < df_sma
+        df_tmp['sma_down'] = df_sma.shift(1) > df_sma
+
+        tmp_df = pd.DataFrame({
+            'both_up': np.all(df_tmp[['bull', 'sma_up']], axis=1),
+            'both_down': np.all(df_tmp[['bear', 'sma_down']], axis=1)
+        })
+        return np.any(tmp_df, axis=1)
 
     #
     # private
     #
+    def _reset_drawer(self):
+        if self.__static_options['figure_option'] > 1:
+            self._drawer = FigureDrawer(
+                rows_num=self.__static_options['figure_option'], instrument=self.get_instrument()
+            )
 
-    def __request_custom_candles(self):
-        # Custom request
-        print('何日分のデータを取得する？(半角数字): ', end='')
-        days = int(input())
-        if days > 365:
-            print('[ALERT] 現在は365日までに制限しています')
-            exit()
+    def __prepare_long_span_candles(self, days):
+        if not isinstance(days, int):
+            return
+        result = self._client.load_long_chart(days=days, granularity='D')['candles']
+        result['time'] = pd.to_datetime(result['time'])
+        result.set_index('time', inplace=True)
+        FXBase.set_long_span_candles(result)
+        # result.resample('4H').ffill() # upsamplingしようとしたがいらなかった。
 
-        print('取得スパンは？(ex: M5): ', end='')
-        self.__granularity = str(input())
+    def _prepare_trade_signs(self, candles):
+        print('[Trader] preparing base-data for judging ...')
 
-        result = self._client.load_long_chart(days=days, granularity=self.__granularity)
-        if 'error' in result:
-            print(result['error'])
-            exit()
-        FXBase.set_candles(result['candles'])
+        if self._operation in ['live', 'forward_test']:
+            comparison_prices_with_bands = candles.close
+        else:
+            comparison_prices_with_bands = candles.open
 
-    def __demo_swing_trade(self):
-        ''' スイングトレードのentry pointを検出 '''
-        sma = self._indicators['20SMA']
-        # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする
-        self.__initialize_position_variables()
-
-        close_candles = FXBase.get_candles().close
-        candle_length = len(close_candles)
-        for index, close_price in enumerate(close_candles):
-            print('[Trader] progress... {i}/{total}'.format(i=index, total=candle_length))
-            self._position['sequence'] = index
-            if self._position['type'] == 'none':
-                if math.isnan(sma[index]):
-                    continue
-                trend = self._check_trend(index, close_price)
-                if trend is None:
-                    continue
-
-                if os.environ.get('CUSTOM_RULE') == 'on':
-                    # INFO: 総損益減だが、勝率増、drawdown減、PF・RFが改善
-                    if not self._SMA_run_along_trend(index, trend):
-                        continue
-                    # 大失敗を防いでくれる
-                    if self._over_2_sigma(index, o_price=FXBase.get_candles().open[index]):
-                        continue
-                    # 大幅に改善する
-                    if not self._expand_MA_gap(index, trend):
-                        continue
-                    # 若干効果あり
-                    if not self._stochastic_allow_trade(index, trend):
-                        continue
-
-                direction = self._find_thrust(index, trend)
-                if direction is None:
-                    continue
-
-                self._create_position(index, direction)
-            else:
-                self._judge_settle_position(index, close_price)
-
-        return {'success': '[Trader] 売買判定終了'}
-
-    def _create_position(self, index, direction):
-        '''
-        ルールに基づいてポジションをとる(検証用)
-        '''
-        candles = FXBase.get_candles()
-        highs = candles.high
-        lows = candles.low
-        if direction == 'long':
-            # INFO: 窓開けを想定して max, min を使用（動作検証中）
-            entry_price = max(highs[index - 1], candles.open[index])
-            stoploss = lows[index - 1] - self._STOPLOSS_BUFFER_pips
-        elif direction == 'short':
-            entry_price = min(lows[index - 1], candles.open[index]) - self.__static_spread
-            stoploss = highs[index - 1] + self._STOPLOSS_BUFFER_pips
-
-        self.__set_position({
-            'sequence': index, 'price': entry_price, 'stoploss': stoploss,
-            'type': direction, 'time': candles.time[index]
+        indicators = self._indicators
+        candles['trend'] = base_rules.generate_trend_column(indicators, candles.close)
+        trend = pd.DataFrame({
+            'bull': np.where(candles['trend'] == 'bull', True, False),
+            'bear': np.where(candles['trend'] == 'bear', True, False)
         })
-        self.__hist_positions[direction].append(self._position.copy())
+        candles['thrust'] = self.__generate_thrust_column(candles=candles, trend=trend)
+        # 60EMA is necessary?
+        # candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
+        candles['in_the_band'] = self.__generate_in_the_band_column(price_series=comparison_prices_with_bands)
+        candles['band_expansion'] = self.__generate_band_expansion_column(
+            df_bands=indicators[['band_+2σ', 'band_-2σ']]
+        )
+        candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=trend)
+        candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=trend)
+        candles['stoc_allows'] = base_rules.generate_stoc_allows_column(
+            indicators, sr_trend=candles['trend']
+        )
 
-    def _trail_stoploss(self, new_stop, time):
-        direction = self._position['type']
-        self._position['stoploss'] = new_stop
-        position_after_trailing = self._position.copy()
-        position_after_trailing['type'] = 'trail'
-        position_after_trailing['time'] = time
-        self.__hist_positions[direction].append(position_after_trailing)
+    def _preprocess_backtest_result(self, rule, result):
+        positions_columns = ['time', 'position', 'entry_price', 'exitable_price']
+        if result['result'] == 'no position':
+            return pd.DataFrame([], columns=positions_columns)
 
-    def _settle_position(self, index, price, time):
-        '''
-        ポジション解消の履歴を残す
+        df_positions = result['candles'].loc[:, positions_columns]
+        pl_gross_df = statistics.aggregate_backtest_result(
+            rule=rule,
+            df_positions=df_positions,
+            granularity=self.get_entry_rules('granularity'),
+            stoploss_buffer=self._stoploss_buffer_pips,
+            spread=self._static_spread,
+            entry_filter=self.get_entry_rules('entry_filter')
+        )
+        df_positions = self._wrangle_result_for_graph(result['candles'][
+            ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
+        ].copy())
+        df_positions = pd.merge(df_positions, pl_gross_df, on='time', how='left')
+        df_positions['gross'].fillna(method='ffill', inplace=True)
 
-        Parameters
-        ----------
-        index : int
-            ポジションを解消するタイミングを表す
-        price : float
-            ポジション解消時の価格
-        time : string
-            ポジションを解消する日（時）
+        return df_positions
 
-        Returns
-        -------
-        None
-        '''
-        direction = self._position['type']
-        self.__set_position({'type': 'none'})
-        self.__hist_positions[direction].append({
-            'sequence': index, 'price': price,
-            'stoploss': 0.0, 'type': 'close', 'time': time
-        })
+    def _drive_drawing_charts(self, df_positions):
+        drwr = self._drawer
+        if drwr is None: return
+
+        df_len = len(df_positions)
+        dfs_indicator = self.__split_df_by_200rows(self._indicators)
+        dfs_position = self.__split_df_by_200sequences(df_positions, df_len)
+
+        df_segments_count = len(dfs_indicator)
+        for i in range(0, df_segments_count):
+            self.__draw_one_chart(
+                drwr, df_segments_count, df_len, i, indicators=dfs_indicator[i], positions_df=dfs_position[i]
+            )
+
+    def __draw_one_chart(self, drwr, df_segments_count, df_len, df_index, indicators, positions_df):
+        def query_entry_rows(position_df, position_type, exit_type):
+            entry_rows = position_df[
+                position_df.position.isin([position_type, exit_type]) & (~position_df.price.isna())
+            ][['sequence', 'price']]
+            return entry_rows
+
+        start = df_len - Trader.MAX_ROWS_COUNT * (df_index + 1)
+        if start < 0:
+            start = 0
+        end = df_len - Trader.MAX_ROWS_COUNT * df_index
+        target_candles = FXBase.get_candles(start=start, end=end)
+        sr_time = drwr.draw_candles(target_candles)['time']
+
+        # indicators
+        drwr.draw_indicators(d_frame=indicators)
+        drwr.draw_long_indicators(candles=target_candles, min_point=indicators['band_-2σ'].min(skipna=True))
+
+        # positions
+        # INFO: exitable_price などの列が残っていると、後 draw_positions_df の dropna で行が消される
+        long_entry_df = query_entry_rows(positions_df, position_type='long', exit_type='sell_exit')
+        short_entry_df = query_entry_rows(positions_df, position_type='short', exit_type='buy_exit')
+        close_df = positions_df[positions_df.position.isin(['sell_exit', 'buy_exit'])] \
+            .drop('price', axis=1) \
+            .rename(columns={'exitable_price': 'price'})
+        trail_df = positions_df[positions_df.position != '-'][['sequence', 'stoploss']] \
+            .rename(columns={'stoploss': 'price'})
+
+        drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
+        drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
+        drwr.draw_positions_df(positions_df=close_df, plot_type=drwr.PLOT_TYPE['exit'])
+        drwr.draw_positions_df(positions_df=trail_df, plot_type=drwr.PLOT_TYPE['trail'])
+
+        drwr.draw_vertical_lines(
+            indexes=np.concatenate(
+                [long_entry_df.sequence.values, short_entry_df.sequence.values]
+            ),
+            vmin=indicators['band_-2σ'].min(skipna=True),
+            vmax=indicators['band_+2σ'].max(skipna=True)
+        )
+
+        # profit(pl) / gross
+        if self.__static_options['figure_option'] > 2:
+            drwr.draw_df_on_plt(positions_df[['gross']], drwr.PLOT_TYPE['bar'], color='orange', plt_id=3)
+            drwr.draw_df_on_plt(positions_df[['profit']], drwr.PLOT_TYPE['bar'], color='yellow', plt_id=3)
+
+        result = drwr.create_png(
+            granularity=self.get_entry_rules('granularity'),
+            sr_time=sr_time, num=df_index, filename='test'
+        )
+
+        drwr.close_all()
+        if df_index + 1 != df_segments_count:
+            drwr.init_figure(rows_num=self.__static_options['figure_option'])
+        if 'success' in result:
+            print('{msg} / {count}'.format(msg=result['success'], count=df_segments_count))
+
+    def _wrangle_result_for_graph(self, result):
+        positions_df = result.rename(columns={'entry_price': 'price', 'possible_stoploss': 'stoploss'})
+        positions_df['sequence'] = positions_df.index
+        # INFO: exit直後のrowで、かつposition列が空
+        positions_df.loc[
+            ((positions_df.shift(1).position.isin(['sell_exit', 'buy_exit']))
+             | ((positions_df.shift(1).position.isin(['long', 'short']))
+                & (~positions_df.shift(1).exitable_price.isna())))
+            & (positions_df.position.isna()), 'position'
+        ] = '-'
+        # INFO: entry直後のrowで、かつexit-rowではない
+        positions_df.loc[
+            (positions_df.shift(1).position.isin(['long', 'short']))
+            & (positions_df.shift(1).exitable_price.isna())
+            & (~positions_df.position.isin(['sell_exit', 'buy_exit'])), 'position'
+        ] = '|'
+        positions_df.position.fillna(method='ffill', inplace=True)
+
+        return positions_df
 
     def _log_skip_reason(self, reason):
         print('[Trader] skip: {}'.format(reason))
-        print('[Trader] -------- end --------')
-
-    def __accurize_entry_prices(self):
-        '''
-        ポジション履歴のエントリーpriceを、実際にエントリー可能な価格に修正する
-        '''
-        first_time = self.__str_to_datetime(FXBase.get_candles().iloc[0, :].time[:19])
-        last_time = self.__str_to_datetime(FXBase.get_candles().iloc[-1, :].time[:19])
-        _m10_candles = self._client.load_or_query_candles(first_time, last_time, granularity='M10')
-
-        # long価格の修正
-        len_of_long_hist = len(self.__hist_positions['long']) - 1
-        for i, row in enumerate(self.__hist_positions['long']):
-            if i == len_of_long_hist:
-                break
-
-            print('[Trader] long-accurize: {i}/{total}'.format(i=i, total=len_of_long_hist))
-            if row['type'] == 'long':
-                start = row['time'][:19]
-                end = self.__add_candle_duration(row['time'][:19])
-                short_candles = _m10_candles.loc[start:end, :]
-
-                # TODO: dataframeでなく辞書をloopさせればもっと早くなる
-                for _j, m10_row in short_candles.iterrows():
-                    if row['price'] < m10_row.high:
-                        old_price = row['price']
-                        row['price'] = m10_row.high
-                        row['time'] = m10_row.name
-                        self.__chain_accurization(
-                            i, 'long', old_price, accurater_price=m10_row.high
-                        )
-                        break
-
-        # short価格の修正
-        len_of_short_hist = len(self.__hist_positions['short']) - 1
-        for i, row in enumerate(self.__hist_positions['short']):
-            if i == len_of_short_hist:
-                break
-
-            print('[Trader] short-accurize: {i}/{total}'.format(i=i, total=len_of_short_hist))
-            if row['type'] == 'short':
-                start = row['time'][:19]
-                end = self.__add_candle_duration(row['time'][:19])
-                short_candles = _m10_candles.loc[start:end, :]
-
-                for _j, m10_row in short_candles.iterrows():
-                    if row['price'] > m10_row.low:
-                        old_price = row['price']
-                        row['price'] = m10_row.low
-                        row['time'] = m10_row.name
-                        self.__chain_accurization(
-                            i, 'short', old_price, accurater_price=m10_row.low
-                        )
-                        break
-
-        return {'success': '[Trader] entry価格を、現実的に取引可能な値に修正'}
-
-    def __add_candle_duration(self, start_string):
-        start_time = self.__str_to_datetime(start_string)
-        granularity = self.__granularity
-        time_unit = granularity[0]
-        if time_unit == 'M':
-            candle_duration = datetime.timedelta(minutes=int(granularity[1:]))
-        elif time_unit == 'H':
-            candle_duration = datetime.timedelta(hours=int(granularity[1:]))
-        elif time_unit == 'D':
-            candle_duration = datetime.timedelta(days=1)
-
-        a_minute = datetime.timedelta(minutes=1)
-        result = (start_time + candle_duration - a_minute).strftime(Trader.TIME_STRING_FMT)
-        return result
-
-    def __chain_accurization(self, index, entry_type, old_price, accurater_price):
-        index += 1
-        length = len(self.__hist_positions[entry_type])
-        while index < length:
-            if self.__hist_positions[entry_type][index]['price'] != old_price:
-                break
-
-            self.__hist_positions[entry_type][index]['price'] = accurater_price
-            index += 1
-
-    def __str_to_datetime(self, time_string):
-        result_dt = datetime.datetime.strptime(time_string, Trader.TIME_STRING_FMT)
-        return result_dt
 
     def __split_df_by_200rows(self, d_frame):
         dfs = []
-        MAX_LEN = 200
         df_len = len(d_frame)
         loop = 0
 
-        while MAX_LEN * loop < df_len:
-            end = df_len - MAX_LEN * loop
+        while Trader.MAX_ROWS_COUNT * loop < df_len:
+            end = df_len - Trader.MAX_ROWS_COUNT * loop
             loop += 1
-            start = df_len - MAX_LEN * loop
+            start = df_len - Trader.MAX_ROWS_COUNT * loop
             start = start if start > 0 else 0
             dfs.append(d_frame[start:end].reset_index(drop=True))
         return dfs
 
     def __split_df_by_200sequences(self, d_frame, df_len):
         dfs = []
-        MAX_LEN = 200
         loop = 0
 
-        while MAX_LEN * loop < df_len:
-            end = df_len - MAX_LEN * loop
+        while Trader.MAX_ROWS_COUNT * loop < df_len:
+            end = df_len - Trader.MAX_ROWS_COUNT * loop
             loop += 1
-            start = df_len - MAX_LEN * loop
+            start = df_len - Trader.MAX_ROWS_COUNT * loop
             start = start if start > 0 else 0
             df_target = d_frame[(start <= d_frame.sequence) & (d_frame.sequence < end)].copy()
             # 描画は sequence に基づいて行われるので、ずらしておく
             df_target['sequence'] = df_target.sequence - start
             dfs.append(df_target)
         return dfs
-
-    def __calc_statistics(self):
-        ''' トレード履歴の統計情報計算処理を呼び出す '''
-        long_entry_array = self.__hist_positions['long']
-        long_entry_array = self.__calc_profit(long_entry_array, sign=1)
-        short_entry_array = self.__hist_positions['short']
-        short_entry_array = self.__calc_profit(short_entry_array, sign=-1)
-
-        result = self.__calc_detaild_statistics(long_entry_array, short_entry_array)
-        candles = FXBase.get_candles()
-
-        duration = '{start} ~ {end}'.format(
-            start=candles.time[20],
-            end=candles.time.tail(1).values[0]
-        )
-        columns = [
-            'DoneTime', 'Granularity', 'StoplossBuf', 'Spread',
-            'Duration', 'CandlesCnt', 'EntryCnt', 'WinRate', 'WinCnt', 'LoseCnt',
-            'Gross', 'GrossProfit', 'GrossLoss', 'MaxProfit', 'MaxLoss',
-            'MaxDrawdown', 'Profit Factor', 'Recovery Factor'
-        ]
-        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        result_row = [
-            now,                         # 'DoneTime'
-            self.__granularity,          # 'Granularity'
-            self._STOPLOSS_BUFFER_pips,  # 'StoplossBuf'
-            self.__static_spread,        # 'Spread'
-            duration,                    # 'Duration'
-            len(candles) - 20,           # 'CandlesCnt'
-            result['trades_count'],      # 'EntryCnt'
-            result['win_rate'],          # 'WinRate'
-            result['win_count'],         # 'WinCnt'
-            result['lose_count'],        # 'LoseCnt'
-            round(result['profit_sum'] * 100, 3),    # 'Gross'
-            round(result['gross_profit'] * 100, 3),  # 'GrossProfit'
-            round(result['gross_loss'] * 100, 3),    # 'GrossLoss'
-            round(result['max_profit'] * 100, 3),    # 'MaxProfit'
-            round(result['max_loss'] * 100, 3),      # 'MaxLoss'
-            round(result['drawdown'] * 100, 3),      # 'MaxDrawdown'
-            result['profit_factor'],                 # 'Profit Factor'
-            result['recovery_factor']                # 'Recovery Factor'
-        ]
-        result_df = pd.DataFrame([result_row], columns=columns)
-        result_df.to_csv('tmp/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
-
-    def __calc_profit(self, entry_array, sign=1):
-        ''' トレード履歴の利益を計算 '''
-        gross = 0
-        gross_max = 0
-        # INFO: pandas-dataframe化して計算するよりも速度が圧倒的に早い
-        for i, row in enumerate(entry_array):
-            if row['type'] == 'close':
-                row['profit'] = sign * (row['price'] - entry_array[i - 1]['price'])
-                gross += row['profit']
-                gross_max = max(gross_max, gross)
-            row['gross'] = gross
-            row['drawdown'] = gross - gross_max
-        return entry_array
-
-    def __calc_detaild_statistics(self, long_entry_array, short_entry_array):
-        ''' トレード履歴の詳細な分析を行う '''
-        long_count = len([row['type'] for row in long_entry_array if row['type'] == 'long'])
-        short_count = len([row['type'] for row in short_entry_array if row['type'] == 'short'])
-
-        long_profit_array = \
-            [row['profit'] for row in long_entry_array if row['type'] == 'close']
-        short_profit_array = \
-            [row['profit'] for row in short_entry_array if row['type'] == 'close']
-
-        profit_array \
-            = [profit for profit in long_profit_array if profit > 0] \
-            + [profit for profit in short_profit_array if profit > 0]
-        loss_array \
-            = [profit for profit in long_profit_array if profit < 0] \
-            + [profit for profit in short_profit_array if profit < 0]
-
-        max_drawdown = min([row['drawdown'] for row in (long_entry_array + short_entry_array)])
-        gross_profit = sum(profit_array)
-        gross_loss = sum(loss_array)
-
-        return {
-            'trades_count': long_count + short_count,
-            'win_rate': round(len(profit_array) / (long_count + short_count) * 100, 2),
-            'win_count': len(profit_array),
-            'lose_count': len(loss_array),
-            'long_count': long_count,
-            'short_count': short_count,
-            'profit_sum': sum(long_profit_array + short_profit_array),
-            'gross_profit': gross_profit,
-            'gross_loss': gross_loss,
-            'max_profit': max(profit_array),
-            'max_loss': min(loss_array),
-            'drawdown': max_drawdown,
-            'profit_factor': round(-gross_profit / gross_loss, 2),
-            'recovery_factor': round((gross_profit + gross_loss) / -max_drawdown, 2)
-        }
-
-
-class RealTrader(Trader):
-    ''' トレードルールに基づいてOandaへの発注を行うclass '''
-    def __init__(self, operation='verification'):
-        super(RealTrader, self).__init__(operation=operation)
-
-    #
-    # Public
-    #
-    def apply_trading_rule(self):
-        self.__play_swing_trade()
-
-    #
-    # Override shared methods
-    #
-    def _create_position(self, index, direction):
-        '''
-        ルールに基づいてポジションをとる(Oanda通信有)
-        '''
-        candles = FXBase.get_candles()
-        if direction == 'long':
-            sign = ''
-            stoploss = candles.low[index - 1] - self._STOPLOSS_BUFFER_pips
-        elif direction == 'short':
-            sign = '-'
-            stoploss = candles.high[index - 1] + self._STOPLOSS_BUFFER_pips
-        self._client.request_market_ordering(posi_nega_sign=sign, stoploss_price=stoploss)
-
-    def _trail_stoploss(self, new_stop, time):
-        '''
-        ポジションのstoploss-priceを強気方向へ修正する
-        Parameters
-        ----------
-        new_stop : float
-            新しいstoploss-price
-        time : string
-            不要
-
-        Returns
-        -------
-        None
-        '''
-        result = self._client.request_trailing_stoploss(stoploss_price=new_stop)
-        print(result)
-
-    def _settle_position(self, index, price, time):
-        '''
-        ポジションをcloseする
-
-        Parameters
-        ----------
-        index : int
-        price : float
-        time : string
-            全て不要
-
-        Returns
-        -------
-        None
-        '''
-        from pprint import pprint
-        pprint(self._client.request_closing_position())
-
-    #
-    # Private
-    #
-    def __play_swing_trade(self):
-        ''' 現在のレートにおいて、スイングトレードルールでトレード '''
-        print('[Trader] -------- start --------')
-        last_index = len(self._indicators) - 1
-        close_price = FXBase.get_candles().close.values[-1]
-
-        self.__set_position(self.__load_position())
-        if self._position['type'] == 'none':
-            trend = self._check_trend(index=last_index, c_price=close_price)
-            if trend is None:
-                return
-
-            if os.environ.get('CUSTOM_RULE') == 'on':
-                if not self._SMA_run_along_trend(last_index, trend):
-                    return
-                if self._over_2_sigma(last_index, o_price=FXBase.get_candles().open[last_index]):
-                    return
-                if not self._expand_MA_gap(last_index, trend):
-                    return
-                if not self._stochastic_allow_trade(last_index, trend):
-                    return
-
-            direction = self._find_thrust(last_index, trend)
-            if direction is None:
-                return
-
-            self._create_position(last_index, direction)
-        else:
-            self._judge_settle_position(last_index, close_price)
-
-        return None
-
-    def __load_position(self):
-        pos = {'type': 'none'}
-        open_trades = self._client.request_open_trades()
-        if open_trades == []:
-            return pos
-
-        # Open position の情報抽出
-        target = open_trades[0]
-        pos['price'] = float(target['price'])
-        if target['currentUnits'][0] == '-':
-            pos['type'] = 'short'
-        else:
-            pos['type'] = 'long'
-        if 'stopLossOrder' not in target:
-            return pos
-
-        pos['stoploss'] = float(target['stopLossOrder']['price'])
-        return pos

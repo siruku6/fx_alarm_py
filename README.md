@@ -1,5 +1,8 @@
 # FX_Alarm_py
-Verifying one trade rule and Alarming trader (now being developed...)
+
+[![Build Status](https://travis-ci.com/siruku6/fx_alarm_py.svg?branch=master)](https://travis-ci.com/siruku6/fx_alarm_py)
+[![Maintainability](https://api.codeclimate.com/v1/badges/67acc571f4fe4e7f7959/maintainability)](https://codeclimate.com/github/siruku6/fx_alarm_py/maintainability)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/67acc571f4fe4e7f7959/test_coverage)](https://codeclimate.com/github/siruku6/fx_alarm_py/test_coverage)
 
 ## Overview
 FXの為替レートを自動取得し、
@@ -28,11 +31,6 @@ FXの為替レートを自動取得し、
     export OANDA_ACCESS_TOKEN=YOUR TOKEN
     export OANDA_ACCOUNT_ID=YOUR Account ID
 
-    # Other
-    export SENDGRID_APIKEY=sendgridのapikey
-    export MAIL_TO=通知メール宛先
-    export MAIL_FROM=送信元となるGmailメルアド
-
     #  - - - Option - - -
     # Client
     export OANDA_ENVIRONMENT=OANDA側の環境    # default: practice
@@ -42,7 +40,4 @@ FXの為替レートを自動取得し、
     export GRANULARITY=取引時に利用する足     # default: M5
     export INSTRUMENT=取引する通貨ペア        # default: USD_JPY
     export STOPLOSS_BUFFER=stoplossまでの間隔 # default: 0.05
-    export CUSTOM_RULE=on                     # default: off 試験中のruleを使う場合はonにする
     ```
-
-- Enable your GmailAPI or SendGrid  

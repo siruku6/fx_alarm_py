@@ -1,1 +1,1 @@
-from . import analyzer, oanda_py_client, drawer, mailer, trader, history_librarian, mathematics
+from . import analyzer, client_manager, drawer, real_trader, alpha_trader, trader, history_librarian

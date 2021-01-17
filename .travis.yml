@@ -1,0 +1,24 @@
+language: python
+python:
+  - 3.8
+env:
+  global:
+    - CC_TEST_REPORTER_ID=df0bec54ec6b21ab786dc05443fe9f52faa30df4b21c8fa2a2574b6bb47a1fb7
+    - UNITS=1000
+    - AWS_ACCESS_KEY_ID=dummy-access-key
+    - AWS_SECRET_ACCESS_KEY=dummy-access-key-secret
+    - AWS_DEFAULT_REGION=us-east-2
+    - AWS_SECURITY_TOKEN='testing'
+    - AWS_SESSION_TOKEN='testing'
+install:
+  - pip install -r requirements.txt
+  - pip install coverage
+before_script:
+  - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+  - chmod +x ./cc-test-reporter
+  - ./cc-test-reporter before-build
+script:
+  - coverage run -m pytest --quiet --tb=line tests
+  - coverage xml
+after_script:
+  - ./cc-test-reporter after-build --coverage-input-type coverage.py --exit-code $TRAVIS_TEST_RESULT
