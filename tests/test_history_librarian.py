@@ -8,7 +8,6 @@ from pandas.testing import assert_frame_equal, assert_series_equal
 
 import models.history_librarian as libra
 import models.tools.format_converter as converter
-from tests.fixtures.past_transactions import NO_PL_TRANSACTIONS
 
 
 #  - - - - - - - - - - - - - -
@@ -28,11 +27,6 @@ def fixture_hist_df():
         '2020-03-12 01:01:00', '2020-03-13 01:14:00', '2020-03-13 08:48:00'
     ]})
     yield dummy_hist
-
-
-@pytest.fixture(scope='module', name='no_pl_transactions', autouse=True)
-def fixture_no_pl_transactions():
-    yield NO_PL_TRANSACTIONS
 
 
 @pytest.fixture(scope='module', name='win_sum_candles', autouse=True)
@@ -135,5 +129,7 @@ def test___detect_dst_switches(libra_client, win_sum_candles, win_sum_win_candle
     assert switch_points == expected, 'index == 0 と、サマータイムの適用有無が切り替わった直後の時間を何度でも返す'
 
 
-# def test___merge_hist_dfs():
-#     pass
+# def test___merge_hist_dfs(libra_client, past_transactions):
+
+#     result = libra_client._Librarian__merge_hist_dfs()
+#     assert_frame_equal()
