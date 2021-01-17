@@ -8,6 +8,7 @@ from pandas.testing import assert_frame_equal, assert_series_equal
 
 import models.history_librarian as libra
 import models.tools.format_converter as converter
+import models.tools.preprocessor as prepro
 
 
 #  - - - - - - - - - - - - - -
@@ -129,7 +130,30 @@ def test___detect_dst_switches(libra_client, win_sum_candles, win_sum_win_candle
     assert switch_points == expected, 'index == 0 と、サマータイムの適用有無が切り替わった直後の時間を何度でも返す'
 
 
-# def test___merge_hist_dfs(libra_client, past_transactions):
+def test___merge_hist_dfs(libra_client, past_usd_candles, past_transactions):
+    # Case1: granularity = 'H1'
+    granularity = 'H1'
+    candles = pd.DataFrame(past_usd_candles)
+    hist_df = prepro.filter_and_make_df(past_transactions, 'USD_JPY')
+    hist_df = libra_client._Librarian__adjust_time_for_merging(candles, hist_df, granularity)
+    pl_and_gross_df = libra_client._Librarian__extract_pl(granularity, hist_df[['time', 'pl', 'dst']])
+    hist_df = hist_df.drop('pl', axis=1)
 
-#     result = libra_client._Librarian__merge_hist_dfs()
-#     assert_frame_equal()
+    result = libra_client._Librarian__merge_hist_dfs(candles, hist_df, pl_and_gross_df)
+    result = result.loc[:, ['close', 'time', 'id', 'reason', 'type', 'price', 'dst', 'pl']]
+
+    close_by_stoploss = result.iloc[27, :]
+    assert np.all(close_by_stoploss.values == [
+        107.397, '2020-07-07 03:00:00', '24222', 'REPLACEMENT', 'STOP_LOSS_ORDER', '107.410', None, 730.0
+    ])
+
+    market_order = result.iloc[31, :]
+    assert np.all(market_order.values == [
+        107.632, '2020-07-07 07:00:00', '24225', 'MARKET_ORDER', 'ORDER_FILL', '107.579', None, 0.0
+    ])
+
+    close_order = result.iloc[34, :]
+    assert np.all(close_order.values == [
+        107.707, '2020-07-07 10:00:00', '24232', 'MARKET_ORDER_TRADE_CLOSE', 'ORDER_FILL', '107.733', None, 1540.0
+    ])
+

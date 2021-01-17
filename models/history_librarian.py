@@ -66,10 +66,12 @@ class Librarian():
         history_df = self.__adjust_time_for_merging(candles, history_df, granularity)
 
         # prepare pl_and_gross
-        pl_and_gross_df = self.__calc_pl_gross(granularity, history_df[['time', 'pl', 'dst']])
+        hist_pl_df = self.__extract_pl(granularity, history_df[['time', 'pl', 'dst']])
         history_df.drop('pl', axis=1, inplace=True)  # pl カラムは1つあれば十分
 
-        result = self.__merge_hist_dfs(candles, history_df, pl_and_gross_df)
+        tmp_positions_df = self.__extract_positions_df_from(history_df)
+        result = self.__merge_hist_dfs(candles, tmp_positions_df, hist_pl_df)
+        result.loc[:, 'gross'] = result['pl'].cumsum()
         result['stoploss'] = self.__fill_stoploss(result.copy())
         FXBase.set_candles(result)
         print('[Libra] candles and trade-history are merged')
@@ -172,7 +174,7 @@ class Librarian():
             elif switch_dict['time'] < time_str and time_str < dict_dst_switches[i + 1]['time']:
                 return switch_dict['summer_time']
 
-    def __calc_pl_gross(self, granularity, original_df):
+    def __extract_pl(self, granularity, original_df):
         '''
         Parameters
         ----------
@@ -186,18 +188,17 @@ class Librarian():
 
         Returns
         ----------
-        pl_gross_hist : dataframe
+        pl_hist : dataframe
         '''
         if granularity in ('H4',):
-            pl_gross_hist = self.__downsample_pl_df(pl_df=original_df)
+            pl_hist = self.__downsample_pl_df(pl_df=original_df)
         elif granularity in ('H1',):
-            pl_gross_hist = self.__resample_by('1H', original_df.copy())
+            pl_hist = self.__resample_by('1H', original_df.copy())
         else:
-            pl_gross_hist = original_df.copy()
-        pl_gross_hist.reset_index(inplace=True)
-        pl_gross_hist.loc[:, 'time'] = pl_gross_hist['time'].astype({'time': str})
-        pl_gross_hist.loc[:, 'gross'] = pl_gross_hist['pl'].cumsum()
-        return pl_gross_hist
+            pl_hist = original_df.copy()
+        pl_hist.reset_index(inplace=True)
+        pl_hist.loc[:, 'time'] = pl_hist['time'].astype({'time': str})
+        return pl_hist
 
     def __downsample_pl_df(self, pl_df):
         # time 列の調節と resampling
@@ -212,12 +213,11 @@ class Librarian():
 
         return target_df.resample(rule, on='time', base=base).sum()
 
-    def __merge_hist_dfs(self, candles, history_df, pl_and_gross_df):
-        tmp_positions_df = self.__extract_positions_df_from(history_df)
-        result = pd.merge(candles, tmp_positions_df, on='time', how='left', left_index=True)
-        result = pd.merge(result, pl_and_gross_df, on='time', how='left').drop_duplicates(['time'])
+    def __merge_hist_dfs(self, candles: pd.DataFrame,
+                         tmp_positions_df: pd.DataFrame, hist_pl_df: pd.DataFrame) -> pd.DataFrame:
+        result: pd.DataFrame = pd.merge(candles, tmp_positions_df, on='time', how='left', left_index=True)
+        result: pd.DataFrame = pd.merge(result, hist_pl_df, on='time', how='left').drop_duplicates(['time'])
         result['pl'].fillna(0, inplace=True)
-        result['gross'].fillna(0, inplace=True)
         return result
 
     def __extract_positions_df_from(self, d_frame):
