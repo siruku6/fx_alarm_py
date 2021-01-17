@@ -1,5 +1,6 @@
 import datetime
 import time
+from typing import List
 from collections import OrderedDict
 import pandas as pd
 
@@ -164,7 +165,8 @@ class ClientManager():
 
         return candles
 
-    def __detect_missings(self, candles, required_start, required_end):
+    def __detect_missings(self, candles: pd.DataFrame,
+                          required_start: datetime, required_end: datetime) -> List:
         '''
         Parameters
         ----------
@@ -177,21 +179,22 @@ class ClientManager():
 
         Returns
         -------
-        missing_start : datetime
-        missing_end : datetime
+        Array: [missing_start, missing_end]
+            missing_start : datetime
+            missing_end : datetime
         '''
         if len(candles) == 0:
             return required_start, required_end
 
         # 1. DBから取得したデータの先頭と末尾の日時を取得
-        stocked_first = converter.str_to_datetime(candles.iloc[0]['time'])
-        stocked_last = converter.str_to_datetime(candles.iloc[-1]['time'])
-        ealiest = min(required_start, required_end, stocked_first, stocked_last)
-        latest = max(required_start, required_end, stocked_first, stocked_last)
+        stocked_first: datetime = converter.str_to_datetime(candles.iloc[0]['time'])
+        stocked_last: datetime = converter.str_to_datetime(candles.iloc[-1]['time'])
+        ealiest: datetime = min(required_start, required_end, stocked_first, stocked_last)
+        latest: datetime = max(required_start, required_end, stocked_first, stocked_last)
 
         # 2. どの期間のデータが不足しているのかを判別
-        missing_start = required_start if ealiest == required_start else stocked_last
-        missing_end = required_end if latest == required_end else stocked_first
+        missing_start: datetime = required_start if ealiest == required_start else stocked_last
+        missing_end: datetime = required_end if latest == required_end else stocked_first
         return missing_start, missing_end
 
     def call_oanda(self, method, **kwargs):
