@@ -4,7 +4,7 @@ import os
 
 import boto3
 from boto3.dynamodb.conditions import Key  # , Attr
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError
 from numpy import nan
 
 
@@ -69,7 +69,7 @@ class DynamodbAccessor():
             )
         except ClientError as error:
             print(error.response['Error']['Message'])
-            return []
+            raise
         else:
             records = response['Items']
             return records
@@ -81,12 +81,16 @@ class DynamodbAccessor():
         endpoint_url = os.environ.get('DYNAMO_ENDPOINT')
         dynamodb = boto3.resource('dynamodb', region_name='us-east-2', endpoint_url=endpoint_url)
 
-        table_names = boto3.client('dynamodb', region_name='us-east-2', endpoint_url=endpoint_url) \
-                           .list_tables()['TableNames']
-        if table_names == []:
-            table = self.__create_table(dynamodb, table_name)
-        else:
-            table = dynamodb.Table(table_name)
+        try:
+            table_names = boto3.client('dynamodb', region_name='us-east-2', endpoint_url=endpoint_url) \
+                               .list_tables()['TableNames']
+            if table_names == []:
+                table = self.__create_table(dynamodb, table_name)
+            else:
+                table = dynamodb.Table(table_name)
+        except EndpointConnectionError as error:
+            print(error)
+            raise Exception('[Dynamo] can`t have reached DynamoDB !')
 
         return table
 
