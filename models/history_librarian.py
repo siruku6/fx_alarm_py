@@ -83,12 +83,12 @@ class Librarian():
 
     def __prepare_candles(self, from_str: str, to_str: str, granularity: str) -> pd.DataFrame:
         buffer_td: timedelta = converter.granularity_to_timedelta(granularity)
-        possible_start_dt: datetime = pd.to_datetime(from_str) - buffer_td * 20
-        end_dt: datetime = pd.to_datetime(to_str)
+        possible_start_dt: pd.Timestamp = pd.to_datetime(from_str) - buffer_td * 20
+        end_dt: pd.Timestamp = pd.to_datetime(to_str)
         # TODO: 400 が適切かどうかはよく検討が必要
         #   400本分なのに、220本しか出てこない。なんか足りない。（休日分の足が存在しないからかも）
-        min_end_dt: datetime = end_dt - buffer_td * 400
-        start_dt: datetime = max(possible_start_dt, min_end_dt)
+        min_end_dt: pd.Timestamp = end_dt - buffer_td * 400
+        start_dt: pd.Timestamp = max(possible_start_dt, min_end_dt)
 
         result: pd.DataFrame = self.__client.load_candles_by_duration_for_hist(
             start=start_dt, end=end_dt, granularity=granularity
