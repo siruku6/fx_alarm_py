@@ -5,7 +5,7 @@ import pytest
 
 # My-made modules
 import models.clients.oanda_client as watcher
-from tests.fixtures.past_transactions import TRANSACTION_IDS, PAST_TRANSACTIONS
+from tests.fixtures.past_transactions import TRANSACTION_IDS
 
 
 @pytest.fixture(name='client', scope='module', autouse=True)
@@ -15,11 +15,6 @@ def oanda_client():
     # INFO: Preventing ResourceWarning: unclosed <ssl.SSLSocket
     # https://stackoverflow.com/questions/48160728/resourcewarning-unclosed-socket-in-python-3-unit-test
     client._OandaClient__api_client.client.close()
-
-
-@pytest.fixture(scope='session', autouse=True)
-def past_transactions():
-    yield PAST_TRANSACTIONS
 
 
 class TestClient(unittest.TestCase):
@@ -116,15 +111,17 @@ def test_request_transactions_once(client, past_transactions):
 
 def test_request_transaction_ids(client):
     dummy_from_str = 'xxxx-xx-xxT00:00:00.123456789Z'
+    dummy_to_str = 'xxxx-xx-xxT00:00:00.123456789Z'
 
     with patch('oandapyV20.endpoints.transactions.TransactionList') as mock:
         with patch('oandapyV20.API.request', return_value=TRANSACTION_IDS):
-            from_id, to_id = client.request_transaction_ids(from_str=dummy_from_str)
+            from_id, to_id = client.request_transaction_ids(from_str=dummy_from_str, to_str=dummy_to_str)
             assert from_id == '2'
             assert to_id == '400'
 
         mock.assert_called_with(
-            accountID=os.environ.get('OANDA_ACCOUNT_ID'), params={'from': dummy_from_str, 'pageSize': 1000}
+            accountID=os.environ.get('OANDA_ACCOUNT_ID'),
+            params={'from': dummy_from_str, 'pageSize': 1000, 'to': dummy_to_str}
         )
 
 

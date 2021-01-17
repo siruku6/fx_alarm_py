@@ -4,6 +4,7 @@ from collections import OrderedDict
 import pandas as pd
 
 from models.clients.oanda_client import OandaClient
+from models.clients.dynamodb_accessor import DynamodbAccessor
 from models.clients.mongodb_accessor import MongodbAccessor
 import models.tools.format_converter as converter
 import models.tools.interface as i_face
@@ -102,13 +103,12 @@ class ClientManager():
 
         return stocked_candles
 
-    def load_candles_by_duration(self, start, end, granularity='M5'):
+    def load_candles_by_duration(self, start, end, granularity):
         ''' 広範囲期間チャート取得用の複数回リクエスト '''
         candles = None
         requestable_duration = self.__calc_requestable_time_duration(granularity)
         next_starttime = start
-        # INFO: start から end まで1回のリクエストで取得できる場合は、取れるだけたくさん取得してしまう
-        next_endtime = start + requestable_duration
+        next_endtime = self.__minimize_period(start, end, requestable_duration)
 
         while next_starttime < end:
             now = datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
@@ -127,6 +127,72 @@ class ClientManager():
             next_endtime += requestable_duration
 
         return {'success': '[Client] APIリクエスト成功', 'candles': candles}
+
+    def __minimize_period(self, start: datetime, end: datetime, requestable_duration) -> datetime:
+        possible_end: datetime = start + requestable_duration
+        next_end: datetime = possible_end if possible_end < end else end
+        return next_end
+
+    def load_candles_by_duration_for_hist(self, start, end, granularity):
+        ''' Prepare candles with specifying the range of datetime '''
+        # 1. DynamoDBからのデータ取得
+        table_name = '{}_CANDLES'.format(granularity)
+        dynamo = DynamodbAccessor(self.__instrument, table_name=table_name)
+        records = dynamo.list_records(
+            # INFO: 若干広めの時間をとっている
+            #   休日やらタイミングやらで、start, endを割り込むデータしか取得できないことがありそうなため
+            # TODO: 範囲は3日などでなく、granuralityに応じて可変にした方が良い
+            (start - datetime.timedelta(days=3)).isoformat(),
+            (end + datetime.timedelta(days=1)).isoformat()
+        )
+        candles = converter.to_candles_from_dynamo(records)
+
+        # 2. データが不足している期間を特定する
+        missing_start, missing_end = self.__detect_missings(candles, start, end)
+        if missing_end <= missing_start:
+            return candles
+
+        # 3. 不足があった場合は補う
+        missed_candles = self.load_candles_by_duration(
+            missing_start, missing_end, granularity=granularity
+        )['candles']
+        # INFO: start, endともに市場停止時間帯にだった場合、missed_candles は空配列になる
+        #   その場合は insert, union をスキップ
+        if len(missed_candles) > 0:
+            dynamo.batch_insert(items=missed_candles.copy())
+            candles = self.__union_candles_distinct(candles, missed_candles)
+
+        return candles
+
+    def __detect_missings(self, candles, required_start, required_end):
+        '''
+        Parameters
+        ----------
+        candles : pandas.DataFrame
+            Columns :
+
+        required_start : datetime
+            Example : datetime.datetime(2020, 1, 2, 12, 34)
+        required_end : datetime
+
+        Returns
+        -------
+        missing_start : datetime
+        missing_end : datetime
+        '''
+        if len(candles) == 0:
+            return required_start, required_end
+
+        # 1. DBから取得したデータの先頭と末尾の日時を取得
+        stocked_first = converter.str_to_datetime(candles.iloc[0]['time'])
+        stocked_last = converter.str_to_datetime(candles.iloc[-1]['time'])
+        ealiest = min(required_start, required_end, stocked_first, stocked_last)
+        latest = max(required_start, required_end, stocked_first, stocked_last)
+
+        # 2. どの期間のデータが不足しているのかを判別
+        missing_start = required_start if ealiest == required_start else stocked_last
+        missing_end = required_end if latest == required_end else stocked_first
+        return missing_start, missing_end
 
     def call_oanda(self, method, **kwargs):
         method_dict = {
@@ -154,16 +220,19 @@ class ClientManager():
     def prepare_one_page_transactions(self):
         # INFO: lastTransactionIDを取得するために実行
         # self.__oanda_client.request_open_trades()
-        self.call_oanda('open_trades')()
+        self.call_oanda('open_trades')
 
         # preapre history_df: trade-history
         history_df = self.__request_latest_transactions()
         history_df.to_csv('./tmp/csvs/hist_positions.csv', index=False)
         return history_df
 
-    def request_massive_transactions(self, from_datetime):
+    def request_massive_transactions(self, from_str: str, to_str: str) -> pd.DataFrame:
         gained_transactions = []
-        from_id, to_id = self.__oanda_client.request_transaction_ids(from_str=from_datetime)
+
+        from_id: str
+        to_id: str
+        from_id, to_id = self.__oanda_client.request_transaction_ids(from_str, to_str)
 
         while True:
             print('[INFO] requesting {}..{}'.format(from_id, to_id))
@@ -171,16 +240,17 @@ class ClientManager():
             response = self.__oanda_client.request_transactions_once(from_id, to_id)
             tmp_transactons = response['transactions']
             gained_transactions += tmp_transactons
+
             # INFO: ループの終了条件
             #   'to' に指定した ID の transaction がない時が多々あり、
             #   その場合、transactions を取得できないので、ごくわずかな数になる。
             #   そこまで来たら処理終了
-            if len(tmp_transactons) <= 10 or tmp_transactons[-1]['id'] == to_id:
+            if len(tmp_transactons) <= 10 or str(int(tmp_transactons[-1]['id']) + 1) >= to_id:
                 break
 
-            print('[INFO] last_transaction_id {}'.format(tmp_transactons[-1]['id']))
-            gained_last_transaction_id = tmp_transactons[-1]['id']
-            from_id = str(int(gained_last_transaction_id) + 1)
+            gained_last_transaction_id: str = tmp_transactons[-1]['id']
+            print('[INFO] last_transaction_id {}'.format(gained_last_transaction_id))
+            from_id: str = str(int(gained_last_transaction_id) + 1)
 
         filtered_df = prepro.filter_and_make_df(gained_transactions, self.__instrument)
         return filtered_df
@@ -225,4 +295,5 @@ class ClientManager():
 
         return pd.concat([old_candles, new_candles]) \
                  .drop_duplicates(subset='time') \
+                 .sort_values(by='time', ascending=True) \
                  .reset_index(drop=True)

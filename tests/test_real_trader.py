@@ -8,7 +8,6 @@ import pytest
 
 import models.real_trader as real
 import models.tools.statistics_module as statistics
-from tests.fixtures.d1_stoc_dummy import d1_stoc_dummy
 
 
 @pytest.fixture(scope='module')
@@ -17,7 +16,7 @@ def real_trader_client():
 
 
 @pytest.fixture(scope='module')
-def dummy_candles():
+def dummy_candles(d1_stoc_dummy):
     d1_stoc_df = pd.DataFrame.from_dict(d1_stoc_dummy)
     candles = d1_stoc_df[['open', 'high', 'low', 'close']].copy()
     candles.loc[:, 'time'] = pd.date_range(end='2020-05-07', periods=100)

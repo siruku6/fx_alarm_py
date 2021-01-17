@@ -3,17 +3,7 @@ import pandas as pd
 import pytest
 
 import models.tools.preprocessor as prepro
-from tests.fixtures.past_transactions import TRANSACTION_IDS, PAST_TRANSACTIONS, NO_PL_TRANSACTIONS
-
-
-@pytest.fixture(scope='module', autouse=True)
-def past_transactions():
-    yield PAST_TRANSACTIONS
-
-
-@pytest.fixture(scope='module', autouse=True)
-def no_pl_transactions():
-    yield NO_PL_TRANSACTIONS
+from tests.fixtures.past_transactions import TRANSACTION_IDS
 
 
 @pytest.fixture(scope='module', autouse=True)

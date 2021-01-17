@@ -1,10 +1,11 @@
-# import decimal
+from decimal import Decimal
+import json
 import os
 
 import boto3
-from boto3.dynamodb.conditions import Attr, Key
-from botocore.exceptions import ClientError
-import pandas as pd
+from boto3.dynamodb.conditions import Key  # , Attr
+from botocore.exceptions import ClientError, EndpointConnectionError
+from numpy import nan
 
 
 class DynamodbAccessor():
@@ -17,8 +18,21 @@ class DynamodbAccessor():
         return self._table
 
     def batch_insert(self, items):
-        print('[Dynamo] batch_insert is starting ...')
+        '''
+        Parameters
+        ----------
+        items : pandas.DataFrame
+            Columns :
+                pareName : String (required)
+                time     : String (required)
+        '''
+        print('[Dynamo] batch_insert is starting ... (records size is {})'.format(len(items)))
+        print('[Dynamo] items \n {})'.format(items))
+        items['pareName'] = self.pare_name
+        items = items.replace({nan: None}) \
+                     .to_dict('records')
 
+        items = json.loads(json.dumps(items), parse_float=Decimal)
         try:
             with self.table.batch_writer(overwrite_by_pkeys=['pareName', 'time']) as batch:
                 for item in items:
@@ -48,17 +62,17 @@ class DynamodbAccessor():
                 2   USD_JPY  2020-12-15T02:44:10.558096
         '''
 
-        to_edge = '{}.999999'.format(to_str)
+        to_edge = '{}.999999'.format(to_str[:19])
         try:
             response = self.table.query(
                 KeyConditionExpression=Key('pareName').eq(self.pare_name) & Key('time').between(from_str, to_edge)
             )
         except ClientError as error:
             print(error.response['Error']['Message'])
-            return []
+            raise
         else:
             records = response['Items']
-            return pd.json_normalize(records)
+            return records
 
     def __init_table(self, table_name):
         # HACK: env:DYNAMO_ENDPOINT(endpoint_url) が
@@ -67,12 +81,16 @@ class DynamodbAccessor():
         endpoint_url = os.environ.get('DYNAMO_ENDPOINT')
         dynamodb = boto3.resource('dynamodb', region_name='us-east-2', endpoint_url=endpoint_url)
 
-        table_names = boto3.client('dynamodb', region_name='us-east-2', endpoint_url=endpoint_url) \
-                           .list_tables()['TableNames']
-        if table_names == []:
-            table = self.__create_table(dynamodb, table_name)
-        else:
-            table = dynamodb.Table(table_name)
+        try:
+            table_names = boto3.client('dynamodb', region_name='us-east-2', endpoint_url=endpoint_url) \
+                               .list_tables()['TableNames']
+            if table_names == []:
+                table = self.__create_table(dynamodb, table_name)
+            else:
+                table = dynamodb.Table(table_name)
+        except EndpointConnectionError as error:
+            print(error)
+            raise Exception('[Dynamo] can`t have reached DynamoDB !')
 
         return table
 

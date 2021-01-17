@@ -10,9 +10,18 @@ def oanda_client():
     client = manager.ClientManager(instrument='USD_JPY')
     yield client
 
+
+# def test_load_candles_by_duration_for_hist():
+#     pass
+
+
 # - - - - - - - - - - -
 #    Private methods
 # - - - - - - - - - - -
+# def test___detect_missings(client):
+#     pass
+
+
 def test___calc_requestable_max_days(client):
     correction = {
         'D': 5000, 'M12': int(5000 / 120), 'H12': int(5000 / 2)
@@ -37,3 +46,7 @@ def test___calc_requestable_time_duration(client):
             granularity=granularity
         )
         assert requestable_time_duration == expected_duration
+
+
+# def test___union_candles_distinct():
+#     pass

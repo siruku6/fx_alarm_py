@@ -7,10 +7,39 @@ events:
   - http:
       path: tradehist
       method: get
-      integration: lambda # Lambda統合されるが、Lambdaプロキシ統合はオフにする場合の記述
+      cors:
+        origin: '*'
+        headers:
+          - Content-Type
+          - X-Amz-Date
+          - Authorization
+          - X-Api-Key
+          - X-Amz-Security-Token
+          # - X-Amz-User-Agent
+        allowCredentials: true
+        methods:
+          - GET
+          - OPTIONS
 
-      # request:
+      # integration: lambda # Lambda統合されるが、Lambdaプロキシ統合はオフにする場合の記述
+      reqValidatorName: onlyStringParameters
+      request:
+        parameters:
+          querystrings:
+            pareName: true
+            from: true
+            to: true
+      #     headers:
+      #       foo: false
+      #     paths:
+      #       bar: false
       #   # カスタムテンプレートの作成
+      #   template:
+      #     application/json: >
+      #       {
+      #         "pareName" : "$input.params('pareName')",
+      #         "from": "$input.params('from')"
+      #       }
       #   template:
       #     application/octet-stream:
       #       '{"headers":{
@@ -23,35 +52,32 @@ events:
 
       # カスタムレスポンスの作成
       # response:
-      #   # ヘッダーとテンプレートの指定
       #   headers:
       #     Content-Type: "'application/octet-stream'"
       #   template: $input.path('$')
-      #   # カスタムレスポンスコードの設定
       #   statusCodes:
-      #       # デフォルトのステータスコード
-      #       200:
-      #           pattern: ''
-      #       # カスタムステータスコード
-      #       401:
-      #           pattern: '.*"statusCode": 401,.*'
-      #           template: $input.path("$.errorMessage")
-      #           headers:
-      #             Content-Type: "'application/octet-stream'"
-#   - schedule: rate(10 minutes)
-#   - sns: greeter-topic
-#   - cloudwatchEvent:
-#       event:
-#         source:
-#           - "aws.ec2"
-#         detail-type:
-#           - "EC2 Instance State-change Notification"
-#         detail:
-#           state:
-#             - pending
-#   - cognitoUserPool:
-#       pool: MyUserPool
-#       trigger: PreSignUp
+      #     200:
+      #       pattern: ''
+      #     # カスタムステータスコード
+      #     401:
+      #       pattern: '.*"statusCode": 401,.*'
+      #       template: $input.path("$.errorMessage")
+      #       headers:
+      #         Content-Type: "'application/octet-stream'"
+  # - schedule: rate(10 minutes)
+  # - sns: greeter-topic
+  # - cloudwatchEvent:
+  #     event:
+  #       source:
+  #         - "aws.ec2"
+  #       detail-type:
+  #         - "EC2 Instance State-change Notification"
+  #       detail:
+  #         state:
+  #           - pending
+  # - cognitoUserPool:
+  #     pool: MyUserPool
+  #     trigger: PreSignUp
 
 # INFO: 自動で log group が作成されてしまうのを防ぐ設定
 #   その場合は代わりに resources: で log group を作成する

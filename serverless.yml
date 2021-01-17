@@ -12,6 +12,13 @@ service: py-fx
 # Check out our docs for more details
 frameworkVersion: '2'
 
+plugins:
+  - serverless-api-gateway-throttling
+
+  # Following two plugins are for Request Validation
+  - serverless-reqvalidator-plugin
+  - serverless-aws-documentation
+
 custom:
   prefix: ${self:service}-${self:provider.stage}
   config:
@@ -19,10 +26,23 @@ custom:
     stages:
       dev: ${file(./config/stages/dev.yml)}
       production: ${file(./config/stages/production.yml)}
+  # INFO: plugin - serverless-api-gateway-throttling
+  apiGatewayThrottling:
+    maxRequestsPerSecond: 10
+    maxConcurrentRequests: 5
 
 provider:
   apiGateway:
     shouldStartNameWithService: true
+    # Optional usage plan configuration
+    usagePlan:
+      quota:
+        limit: 30
+        offset: 0 # ApiGatewayUsagePlan - Usage Plan quota offset must be zero in the DAY period
+        period: DAY
+      throttle:
+        burstLimit: 20
+        rateLimit: 10
   endpointType: regional
   logRetentionInDays: 30
   memorySize: 512
@@ -31,17 +51,8 @@ provider:
   role: arn:aws:iam::${self:custom.config.default.AWS_ACCOUNT_ID}:role/service-role/lambda_for_trade
   runtime: python3.8
   stage: ${opt:stage, 'dev'}
-  timeout: 30
+  timeout: 20
   versionFunctions: false
-  # Optional usage plan configuration
-  usagePlan:
-    quota:
-      limit: 30
-      offset: 0 # ApiGatewayUsagePlan - Usage Plan quota offset must be zero in the DAY period
-      period: DAY
-    throttle:
-      burstLimit: 20
-      rateLimit: 10
 
 # you can add statements to the Lambda function's IAM Role here
 #  iamRoleStatements:
@@ -80,9 +91,19 @@ resources:
     # DynamoDBテーブル構築
     DynamoDbTable: ${file(./serverless_resources/dynamodb.yml)}
 
-    # INFO: function に disableLogs: true が設定した場合はこれを有効にする
+    # INFO: function に disableLogs: true を設定した場合はこれを有効にする
     # TradehistLogGroup:
     #   Type: AWS::Logs::LogGroup
     #   Properties:
     #     LogGroupName: /aws/lambda/${self:functions.tradehist.name}
     #     RetentionInDays: 30
+
+    # API Gatewayのリクエストの検証有効化
+    onlyStringParameters:
+      Type: AWS::ApiGateway::RequestValidator
+      Properties:
+        Name: 'only-string-parameters'
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        ValidateRequestBody: false
+        ValidateRequestParameters: true
