@@ -1,9 +1,10 @@
 import logging
 import os
 import pprint
-import requests
 import sys
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Union
+
+import requests
 
 # For trading
 from oandapyV20 import API

@@ -1,4 +1,5 @@
 import datetime
+from typing import Any, Dict, List
 import pandas as pd
 
 
@@ -27,15 +28,15 @@ def to_oanda_format(target_datetime):
     return target_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
 
 
-def to_candles_from_dynamo(records):
-    result = pd.json_normalize(records)
+def to_candles_from_dynamo(records: List[Dict[str, Any]]) -> pd.DataFrame:
+    result: pd.DataFrame = pd.json_normalize(records)
     if records == []:
         return result
 
-    time_series = result['time'].copy()
+    time_series: pd.DataFrame = result['time'].copy()
     result.drop(['time', 'pareName'], axis=1, inplace=True)
-    result = result.applymap(float)
-    result['time'] = time_series.map(convert_to_m10)
+    result: pd.DataFrame = result.applymap(float)
+    result['time']: pd.Series = time_series.map(convert_to_m10)
     return result
 
 
