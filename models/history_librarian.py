@@ -202,20 +202,20 @@ class Librarian():
 
     def __downsample_pl_df(self, pl_df):
         # time 列の調節と resampling
-        hist_dst_on = self.__resample_by('4H', pl_df[pl_df['dst']].copy(), base=1)
-        hist_dst_off = self.__resample_by('4H', pl_df[~pl_df['dst']].copy(), base=0)
+        hist_dst_on = self.__resample_by('4H', pl_df[pl_df['dst']].copy(), offset='1h')
+        hist_dst_off = self.__resample_by('4H', pl_df[~pl_df['dst']].copy(), offset='0h')
         return hist_dst_on.append(hist_dst_off).sort_index()
 
-    def __resample_by(self, rule, target_df, base=0):
+    def __resample_by(self, rule, target_df, offset='0h'):
         target_df.loc[:, 'time'] = pd.to_datetime(target_df['time'])
         if target_df.empty:
             return target_df[[]]
 
-        return target_df.resample(rule, on='time', base=base).sum()
+        return target_df.resample(rule, on='time', offset=offset).sum()
 
     def __merge_hist_dfs(self, candles: pd.DataFrame,
                          tmp_positions_df: pd.DataFrame, hist_pl_df: pd.DataFrame) -> pd.DataFrame:
-        result: pd.DataFrame = pd.merge(candles, tmp_positions_df, on='time', how='left', left_index=True)
+        result: pd.DataFrame = pd.merge(candles, tmp_positions_df, on='time', how='left')
         result: pd.DataFrame = pd.merge(result, hist_pl_df, on='time', how='left').drop_duplicates(['time'])
         result['pl'].fillna(0, inplace=True)
         return result
@@ -228,8 +228,8 @@ class Librarian():
             .rename(columns={'price': 'exit'})
         stoplosses = d_frame[d_frame.type == 'STOP_LOSS_ORDER'][['price', 'time']].copy() \
             .rename(columns={'price': 'stoploss'})
-        tmp_positions_df = pd.merge(tmp_positions_df, exits, on='time', how='outer', right_index=True)
-        tmp_positions_df = pd.merge(tmp_positions_df, stoplosses, on='time', how='outer', right_index=True)
+        tmp_positions_df = pd.merge(tmp_positions_df, exits, on='time', how='outer')
+        tmp_positions_df = pd.merge(tmp_positions_df, stoplosses, on='time', how='outer')
         tmp_positions_df['units'] = tmp_positions_df['units'].fillna('0').astype(int)
 
         # INFO: remove unused records & values
