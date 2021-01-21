@@ -5,21 +5,22 @@
 [![Test Coverage](https://api.codeclimate.com/v1/badges/67acc571f4fe4e7f7959/test_coverage)](https://codeclimate.com/github/siruku6/fx_alarm_py/test_coverage)
 
 ## Overview
-FXの為替レートを自動取得し、
-- 指定した期間中、特定のルールでトレードした場合の損益を自動集計
-- 今後の予測が容易なタイミングでメールを送信
 
-するようにする予定（したい）
+- Backtest
+- Real Trade
+    - Trade through Oanda API
+    - Trading history
 
 ## Description
-まだ全然できてません！
+
+In development ...
 
 ## Requirement
-- python3.x
+- python3.8 or python3.9
 - pip modules
     ```bash
     # 詳細は requirements.txt を参照
-    # pip install -r requirements.txt
+    $ pip install -r requirements.txt
     ```
 
 - 環境変数
@@ -40,4 +41,7 @@ FXの為替レートを自動取得し、
     export GRANULARITY=取引時に利用する足     # default: M5
     export INSTRUMENT=取引する通貨ペア        # default: USD_JPY
     export STOPLOSS_BUFFER=stoplossまでの間隔 # default: 0.05
+    
+    # DynamoDB: ローカルで開発する場合は、DynamoDB Localのendpointを設定。本番では何も設定しない
+    export DYNAMO_ENDPOINT=http://localhost:8000 # defaut: null 
     ```
