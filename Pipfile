@@ -1,0 +1,28 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+boto3 = "*"
+numpy = "*"
+matplotlib = "*"
+requests = "*"
+mplfinance = "*"
+urllib3 = "==1.25.11"
+pandas = ">=1.2.0"
+oandapyV20 = "*"
+
+[dev-packages]
+moto = "*"
+pytest = "*"
+
+[requires]
+python_version = "3.8"
+
+[pipenv]
+allow_prereleases = true
+
+[scripts]
+beta = "pipenv run python beta_cord.py"
+test = "pytest -vv"
