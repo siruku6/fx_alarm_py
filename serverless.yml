@@ -48,27 +48,16 @@ provider:
   memorySize: 512
   name: aws
   region: us-east-2
-  role: arn:aws:iam::${self:custom.config.default.AWS_ACCOUNT_ID}:role/service-role/lambda_for_trade
+  # INFO: refer to iamRoleStatements
+  #   なるべくserverless frameworkのみで完結できるよう、使用するroleはiamRoleStatementsで定義した
+  # role: arn:aws:iam::${self:custom.config.default.AWS_ACCOUNT_ID}:role/service-role/lambda_for_trade
   runtime: python3.8
   stage: ${opt:stage, 'dev'}
   timeout: 20
   versionFunctions: false
 
-# you can add statements to the Lambda function's IAM Role here
-#  iamRoleStatements:
-#    - Effect: "Allow"
-#      Action:
-#        - "s3:ListBucket"
-#      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
-#    - Effect: "Allow"
-#      Action:
-#        - "s3:PutObject"
-#      Resource:
-#        Fn::Join:
-#          - ""
-#          - - "arn:aws:s3:::"
-#            - "Ref" : "ServerlessDeploymentBucket"
-#            - "/*"
+  # you can add statements to the Lambda function's IAM Role here
+  iamRoleStatements: ${file(./serverless_resources/iam_role_statements.yml)}
 
 # you can add packaging information here
 package:

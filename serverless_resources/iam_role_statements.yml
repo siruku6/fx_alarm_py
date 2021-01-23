@@ -1,0 +1,23 @@
+- Effect: Allow
+  Action:
+    - dynamodb:CreateTable
+    - dynamodb:ListTables
+    - dynamodb:Query
+    - dynamodb:Scan
+    - dynamodb:BatchWriteItem
+    - dynamodb:PutItem
+  Resource:
+    - arn:aws:dynamodb:${self:provider.region}:${self:custom.config.default.AWS_ACCOUNT_ID}:table/*
+# - Effect: "Allow"
+#   Action:
+#     - "s3:ListBucket"
+#   Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
+# - Effect: "Allow"
+#   Action:
+#     - "s3:PutObject"
+#   Resource:
+#     Fn::Join:
+#       - ""
+#       - - "arn:aws:s3:::"
+#         - "Ref" : "ServerlessDeploymentBucket"
+#         - "/*"
