@@ -2,6 +2,7 @@ import datetime
 import os
 import boto3
 from boto3.dynamodb.conditions import Attr
+from botocore.exceptions import ClientError
 import pandas as pd
 
 from moto import mock_dynamodb2
@@ -9,8 +10,8 @@ import pytest
 import models.clients.dynamodb_accessor as dn_accessor
 
 
-@pytest.fixture(scope='module', autouse=True)
-def table_name():
+@pytest.fixture(name='table_name', scope='module', autouse=True)
+def fixture_table_name():
     return 'H1_CANDLES'
 
 
@@ -20,8 +21,8 @@ def init_endpoint():
         del os.environ['DYNAMO_ENDPOINT']
 
 
-@pytest.fixture(scope='module')
-def dynamo_client(table_name):
+@pytest.fixture(name='dynamo_client', scope='module')
+def fixture_dynamo_client(table_name):
     mock = mock_dynamodb2()
     mock.start()
 
@@ -30,8 +31,8 @@ def dynamo_client(table_name):
     mock.stop()
 
 
-@pytest.fixture(scope='module')
-def import_dummy_records():
+@pytest.fixture(name='import_dummy_records', scope='module')
+def fixture_import_dummy_records():
     def _method(dynamodb_accessor):
         try:
             record = dynamodb_accessor.table.scan(
@@ -73,7 +74,6 @@ def test___init_table(dynamo_client, table_name):
 
 @mock_dynamodb2
 def test_list_table(dynamo_client, table_name, import_dummy_records):
-    # region = 'us-east-2'
     dynamo_client._DynamodbAccessor__init_table(table_name=table_name)
 
     # Case1: There is no record
@@ -91,4 +91,3 @@ def test_list_table(dynamo_client, table_name, import_dummy_records):
     assert len(records) == 15
     assert isinstance(records, list)
     assert isinstance(records[0], dict)
-
