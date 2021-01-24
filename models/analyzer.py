@@ -5,14 +5,12 @@ import pandas as pd
 
 class Analyzer():
     INDICATOR_NAMES = (
-        'time',
         # 60EMA is necessary?
         '20SMA', '10EMA', '60EMA',
-        'SIGMA_BAND', 'SIGMA*-1_BAND', 'SIGMA*2_BAND', 'SIGMA*-2_BAND',
+        'sigma*1_band', 'sigma*-1_band', 'sigma*2_band', 'sigma*-2_band',
         'SAR',
         'stoD', 'stoSD',
-        'support', 'regist',
-        'long_indicators',
+        'support', 'regist'
     )
 
     # For Trendline
@@ -24,7 +22,7 @@ class Analyzer():
 
     def __init__(self, indicator_set=None):
         self.__indicator_list = indicator_set or Analyzer.INDICATOR_NAMES
-        self.__indicators = {name: None for name in self.__indicator_list}
+        self.__indicators = {name: None for name in self.__indicator_list + ('long_indicators',)}
         self.__base_candles = None
 
         # # Trendline
@@ -50,10 +48,17 @@ class Analyzer():
         if stoc_only is True:
             return result_msg
 
-        for target in ('20SMA', '10EMA', '60EMA', 'SAR', 'stoD', 'stoSD', 'regist', 'support'):
+        target_indicators = (
+            name for name in self.__indicator_list
+            if name in ('20SMA', '10EMA', '60EMA', 'SAR', 'stoD', 'stoSD', 'regist', 'support')
+        )
+        for target in target_indicators:
             self.__indicators[target] = self.__calc(target)
+        if 'sigma*1_band' in self.__indicator_list:
+            self.__calc_bollinger_bands(band_width=1)
+        if 'sigma*2_band' in self.__indicator_list:
+            self.__calc_bollinger_bands(band_width=2)
 
-        self.__calc_bollinger_bands(close_candles=candles.close)
         # result = self.__calc_trendlines()
         # if 'success' in result:
         #     print(result['success'])
@@ -75,10 +80,7 @@ class Analyzer():
 
     def get_indicators(self, start=None, end=None):
         indicators = pd.concat(
-            [
-                self.__indicators[name] for name in self.__indicator_list
-                if name != 'long_indicators'
-            ],
+            [self.__indicators[name] for name in ('time',) + self.__indicator_list],
             axis=1
         )[start:end]
         return indicators
@@ -110,19 +112,18 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Bollinger Bands                    #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def __calc_bollinger_bands(self, close_candles, window_size=20):
+    def __calc_bollinger_bands(self, band_width=1, window_size=20):
         '''ボリンジャーバンドを生成'''
+        close_candles = self.__base_candles.close
         mean = pd.Series.rolling(close_candles, window=window_size).mean()
         standard_deviation = pd.Series.rolling(close_candles, window=window_size).std()
+        positive_band_name = 'sigma*{}_band'.format(band_width)
+        negative_band_name = 'sigma*-{}_band'.format(band_width)
 
-        self.__indicators['SIGMA_BAND'] = pd.DataFrame(mean + standard_deviation) \
-                                            .rename(columns={'close': 'sigma*1_band'})
-        self.__indicators['SIGMA*-1_BAND'] = pd.DataFrame(mean - standard_deviation) \
-                                               .rename(columns={'close': 'sigma*-1_band'})
-        self.__indicators['SIGMA*2_BAND'] = pd.DataFrame(mean + standard_deviation * 2) \
-                                              .rename(columns={'close': 'sigma*2_band'})
-        self.__indicators['SIGMA*-2_BAND'] = pd.DataFrame(mean - standard_deviation * 2) \
-                                               .rename(columns={'close': 'sigma*-2_band'})
+        self.__indicators[positive_band_name] = pd.DataFrame(mean + standard_deviation * band_width) \
+                                                  .rename(columns={'close': positive_band_name})
+        self.__indicators[negative_band_name] = pd.DataFrame(mean - standard_deviation * band_width) \
+                                                  .rename(columns={'close': negative_band_name})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #

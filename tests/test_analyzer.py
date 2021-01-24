@@ -27,8 +27,7 @@ def test_calced_indicators_columns(analyzer, past_usd_candles):
     analyzer.calc_indicators(d1_stoc_df)
     result = analyzer.get_indicators()
 
-    expected = list(Analyzer.INDICATOR_NAMES)
-    expected.remove('long_indicators')
+    expected = ['time'] + list(Analyzer.INDICATOR_NAMES)
     assert result.columns.intersection(expected).all()
 
 
