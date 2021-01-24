@@ -127,7 +127,7 @@ def test___decide_exit_price():
     entry_direction = 'long'
     one_frame = {
         'open': 100.0, 'high': 130.0, 'low': 90.0, 'close': 120.0,
-        'possible_stoploss': 80, 'band_+2σ': 140, 'band_-2σ': 85,
+        'possible_stoploss': 80, 'sigma*2_band': 140, 'sigma*-2_band': 85,
         'stoD_3': 60, 'stoSD_3': 50, 'stoD_over_stoSD': True
     }
     previous_frame = {'support': 80.0, 'regist': 120.0}
@@ -139,7 +139,7 @@ def test___decide_exit_price():
     # # 下降中
     # one_frame = {
     #     'open': 100.0, 'high': 130.0, 'low': 90.0, 'close': 120.0,
-    #     'possible_stoploss': 80, 'band_+2σ': 140, 'band_-2σ': 85, 'stoD_3': 60, 'stoSD_3': 50
+    #     'possible_stoploss': 80, 'sigma*2_band': 140, 'sigma*-2_band': 85, 'stoD_3': 60, 'stoSD_3': 50
     # }
     # exit_price, exit_reason = scalping.__decide_exit_price(entry_direction, one_frame)
     # assert exit_price is None
@@ -151,7 +151,7 @@ def test___decide_exit_price():
     entry_direction = 'short'
     one_frame = {
         'open': 100.0, 'high': 110.0, 'low': 80.0, 'close': 90.0,
-        'possible_stoploss': 120, 'band_+2σ': 130, 'band_-2σ': 70,
+        'possible_stoploss': 120, 'sigma*2_band': 130, 'sigma*-2_band': 70,
         'stoD_3': 40, 'stoSD_3': 50, 'stoD_over_stoSD': False
     }
     previous_frame = {'support': 90.0, 'regist': 120.0}

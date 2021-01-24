@@ -49,7 +49,7 @@ class AlphaTrader(Trader):
         # INFO: Entry / Exit のタイミングを確定
         base_df = pd.merge(
             candles[['open', 'high', 'low', 'close', 'time', 'entryable', 'entryable_price', 'stoD_over_stoSD']],
-            self._indicators[['band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3', 'support', 'regist']],
+            self._indicators[['sigma*2_band', 'sigma*-2_band', 'stoD_3', 'stoSD_3', 'support', 'regist']],
             left_index=True, right_index=True
         )
         commited_df = scalping.commit_positions_by_loop(factor_dicts=base_df.to_dict('records'))

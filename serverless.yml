@@ -74,6 +74,7 @@ package:
 
 functions:
   tradehist: ${file(./serverless_resources/function_tradehist.yml)}
+  indicator_names: ${file(./serverless_resources/function_indicator_names.yml)}
 
 resources:
   Resources:
@@ -88,6 +89,14 @@ resources:
     #     RetentionInDays: 30
 
     # API Gatewayのリクエストの検証有効化
+    noParameter:
+      Type: AWS::ApiGateway::RequestValidator
+      Properties:
+        Name: 'no-parameter'
+        RestApiId:
+          Ref: ApiGatewayRestApi
+        ValidateRequestBody: false
+        ValidateRequestParameters: false
     onlyStringParameters:
       Type: AWS::ApiGateway::RequestValidator
       Properties:

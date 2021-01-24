@@ -45,3 +45,20 @@ In development ...
     # DynamoDB: ローカルで開発する場合は、DynamoDB Localのendpointを設定。本番では何も設定しない
     export DYNAMO_ENDPOINT=http://localhost:8000 # defaut: null 
     ```
+
+## Deployment
+
+- Copy config file
+    ```bash
+    $ cp config/_default.yml config/default.yml
+    ```
+- Set Environment Variables
+    ```bash
+    $ vim default.yml
+    ```
+
+    |*Variable*|*Example*|*Explanation*|
+    |----------|---------|-------------|
+    |OANDA_ACCESS_TOKEN|a30z-a30z (65 digits)|Get on Oanda<br>[OANDA REST API DOCS](https://developer.oanda.com/docs/jp/)|
+    |OANDA_ACCOUNT_ID  |100-000-1234567-000  |"|
+    |AWS_ACCOUNT_ID    |123456789012         |Your Account ID of AWS|

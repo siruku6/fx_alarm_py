@@ -266,8 +266,8 @@ class Librarian():
 
         drawer.draw_vertical_lines(
             indexes=candles_and_hist[['long', 'short']].dropna(how='all').index,
-            vmin=drawn_indicators['band_-2σ'].min(skipna=True),
-            vmax=drawn_indicators['band_+2σ'].max(skipna=True)
+            vmin=drawn_indicators['sigma*-2_band'].min(skipna=True),
+            vmax=drawn_indicators['sigma*2_band'].max(skipna=True)
         )
 
         for column_name in ['long', 'short', 'exit']:

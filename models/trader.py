@@ -255,8 +255,8 @@ class Trader():
     def __generate_in_the_band_column(self, price_series):
         ''' 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 '''
         df_over_band_detection = pd.DataFrame({
-            'under_positive_band': self._indicators['band_+2σ'] > price_series,
-            'above_negative_band': self._indicators['band_-2σ'] < price_series
+            'under_positive_band': self._indicators['sigma*2_band'] > price_series,
+            'above_negative_band': self._indicators['sigma*-2_band'] < price_series
         })
         return np.all(df_over_band_detection, axis=1)
 
@@ -264,7 +264,7 @@ class Trader():
         ''' band が拡張していれば True を格納して numpy配列 を生成 '''
         # OPTIMIZE: bandについては、1足前(shift(1))に広がっていることを条件にしてもよさそう
         #   その場合、広がっていることの確定を待つことになるので、条件としては厳しくなる
-        bands_gap = (df_bands['band_+2σ'] - df_bands['band_-2σ'])  # .shift(1).fillna(0.0)
+        bands_gap = (df_bands['sigma*2_band'] - df_bands['sigma*-2_band'])  # .shift(1).fillna(0.0)
         return bands_gap.rolling(window=shift_size).max() == bands_gap
         # return bands_gap.shift(shift_size) < bands_gap
 
@@ -340,7 +340,7 @@ class Trader():
         # candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_the_band_column(price_series=comparison_prices_with_bands)
         candles['band_expansion'] = self.__generate_band_expansion_column(
-            df_bands=indicators[['band_+2σ', 'band_-2σ']]
+            df_bands=indicators[['sigma*2_band', 'sigma*-2_band']]
         )
         candles['ma_gap_expanding'] = self.__generate_getting_steeper_column(df_trend=trend)
         candles['sma_follow_trend'] = self.__generate_following_trend_column(df_trend=trend)
@@ -400,7 +400,7 @@ class Trader():
 
         # indicators
         drwr.draw_indicators(d_frame=indicators)
-        drwr.draw_long_indicators(candles=target_candles, min_point=indicators['band_-2σ'].min(skipna=True))
+        drwr.draw_long_indicators(candles=target_candles, min_point=indicators['sigma*-2_band'].min(skipna=True))
 
         # positions
         # INFO: exitable_price などの列が残っていると、後 draw_positions_df の dropna で行が消される
@@ -421,8 +421,8 @@ class Trader():
             indexes=np.concatenate(
                 [long_entry_df.sequence.values, short_entry_df.sequence.values]
             ),
-            vmin=indicators['band_-2σ'].min(skipna=True),
-            vmax=indicators['band_+2σ'].max(skipna=True)
+            vmin=indicators['sigma*-2_band'].min(skipna=True),
+            vmax=indicators['sigma*2_band'].max(skipna=True)
         )
 
         # profit(pl) / gross
