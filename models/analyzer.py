@@ -41,20 +41,16 @@ class Analyzer():
             print('[ERROR] Analyzer: 分析対象データがありません')
             exit()
 
-        self.__base_candles = candles
+        self.__base_candles = candles.copy()
         self.__indicators['time'] = candles['time'].copy()
-
-        result_msg = {'success': '[Analyzer] indicators算出完了'}
-        self.__indicators['stoD'] = self.__calc_stod(candles=candles, window_size=5)
-        self.__indicators['stoSD'] = self.__calc_stosd(candles=candles, window_size=5)
-
         if long_span_candles is not None:
             self.__indicators['long_indicators'] = self.__prepare_long_indicators(long_span_candles)
 
+        result_msg = {'success': '[Analyzer] indicators算出完了'}
         if stoc_only is True:
             return result_msg
 
-        for target in ('20SMA', '10EMA', '60EMA', 'SAR', 'regist', 'support'):
+        for target in ('20SMA', '10EMA', '60EMA', 'SAR', 'stoD', 'stoSD', 'regist', 'support'):
             self.__indicators[target] = self.__calc(target)
 
         self.__calc_bollinger_bands(close_candles=candles.close)
@@ -70,6 +66,8 @@ class Analyzer():
             '10EMA': self.__calc_ema,
             '60EMA': self.__calc_60ema,
             'SAR': self.__calc_parabolic,
+            'stoD': self.__calc_stod,
+            'stoSD': self.__calc_stosd,
             'regist': self.__calc_registance,
             'support': self.__calc_support
         }
@@ -321,16 +319,20 @@ class Analyzer():
         )) * 100
         return stok
 
-    def __calc_stod(self, candles, window_size):
+    def __calc_stod(self, candles=None, window_size=5):
         ''' ストキャスの%Dを計算（%Kの3日SMA） '''
-        stok = self.__calc_stok(candles=candles, window_size=window_size)
+        tmp_candles = candles if candles is not None else self.__base_candles
+
+        stok = self.__calc_stok(candles=tmp_candles, window_size=window_size)
         stod = stok.rolling(window=3, center=False).mean()
         stod.name = 'stoD_3'
         return stod
 
-    def __calc_stosd(self, candles, window_size):
+    def __calc_stosd(self, candles=None, window_size=5):
         ''' ストキャスの%SDを計算（%Dの3日SMA） '''
-        stod = self.__calc_stod(candles=candles, window_size=window_size)
+        tmp_candles = candles if candles is not None else self.__base_candles
+
+        stod = self.__calc_stod(candles=tmp_candles, window_size=window_size)
         stosd = stod.rolling(window=3, center=False).mean()
         stosd.name = 'stoSD_3'
         return stosd

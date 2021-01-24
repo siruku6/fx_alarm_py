@@ -21,6 +21,17 @@ def test_fail_calc_indicators(analyzer):
     assert pytest_wrapped_e.type == SystemExit
 
 
+def test_calced_indicators_columns(analyzer, past_usd_candles):
+    d1_stoc_df = pd.DataFrame.from_dict(past_usd_candles)
+
+    analyzer.calc_indicators(d1_stoc_df)
+    result = analyzer.get_indicators()
+
+    expected = list(Analyzer.INDICATOR_NAMES)
+    expected.remove('long_indicators')
+    assert result.columns.intersection(expected).all()
+
+
 def test_get_long_indicators(analyzer, d1_stoc_dummy):
     d1_stoc_df = pd.DataFrame.from_dict(d1_stoc_dummy)
     candles = d1_stoc_df[['open', 'high', 'low', 'close']].copy()
