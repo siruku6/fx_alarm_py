@@ -25,6 +25,7 @@ class Analyzer():
     def __init__(self, indicator_set=None):
         self.__indicator_list = indicator_set or Analyzer.INDICATOR_NAMES
         self.__indicators = {name: None for name in self.__indicator_list}
+        self.__base_candles = None
 
         # # Trendline
         # self.desc_trends = None
@@ -40,6 +41,7 @@ class Analyzer():
             print('[ERROR] Analyzer: 分析対象データがありません')
             exit()
 
+        self.__base_candles = candles
         self.__indicators['time'] = candles['time'].copy()
 
         result_msg = {'success': '[Analyzer] indicators算出完了'}
@@ -52,19 +54,26 @@ class Analyzer():
         if stoc_only is True:
             return result_msg
 
-        self.__indicators['20SMA'] = self.__calc_sma(close_candles=candles.close)
-        self.__indicators['10EMA'] = self.__calc_ema(close_candles=candles.close)
-        # 60EMA is necessary?
-        self.__indicators['60EMA'] = self.__calc_ema(close_candles=candles.close, window_size=60)
+        for target in ('20SMA', '10EMA', '60EMA', 'SAR', 'regist', 'support'):
+            self.__indicators[target] = self.__calc(target)
+
         self.__calc_bollinger_bands(close_candles=candles.close)
-        self.__indicators['SAR'] = self.__calc_parabolic(candles=candles)
-        self.__indicators['regist'] = self.__calc_registance(high_candles=candles.high)
-        self.__indicators['support'] = self.__calc_support(low_candles=candles.low)
         # result = self.__calc_trendlines()
         # if 'success' in result:
         #     print(result['success'])
         #     self.__get_breakpoints()
         return result_msg
+
+    def __calc(self, target, **kwargs):
+        method_dict = {
+            '20SMA': self.__calc_sma,
+            '10EMA': self.__calc_ema,
+            '60EMA': self.__calc_60ema,
+            'SAR': self.__calc_parabolic,
+            'regist': self.__calc_registance,
+            'support': self.__calc_support
+        }
+        return method_dict.get(target)(**kwargs)
 
     def get_indicators(self, start=None, end=None):
         indicators = pd.concat(
@@ -82,18 +91,23 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Moving Average                     #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def __calc_sma(self, close_candles, window_size=20):
+    def __calc_sma(self, closes=None, window_size=20):
         ''' 単純移動平均線を生成 '''
+        close_candles = closes if closes is not None else self.__base_candles.loc[:, 'close']
         # mean()後の .dropna().reset_index(drop = True) を消去中
         sma = pd.Series.rolling(close_candles, window=window_size).mean()
         return pd.DataFrame(sma).rename(columns={'close': '20SMA'})
 
-    def __calc_ema(self, close_candles, window_size=10):
+    def __calc_ema(self, closes=None, window_size=10):
         ''' 指数平滑移動平均線を生成 '''
+        close_candles = closes if closes is not None else self.__base_candles.loc[:, 'close']
         # TODO: scipyを使うと早くなる
         # https://qiita.com/toyolab/items/6872b32d9fa1763345d8
         ema = close_candles.ewm(span=window_size).mean()
         return pd.DataFrame(ema).rename(columns={'close': '{}EMA'.format(window_size)})
+
+    def __calc_60ema(self, closes=None):
+        return self.__calc_ema(closes, window_size=60)
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                  Bollinger Bands                    #
@@ -104,13 +118,13 @@ class Analyzer():
         standard_deviation = pd.Series.rolling(close_candles, window=window_size).std()
 
         self.__indicators['SIGMA_BAND'] = pd.DataFrame(mean + standard_deviation) \
-                                            .rename(columns={'close': 'band_+1σ'})
+                                            .rename(columns={'close': 'sigma*1_band'})
         self.__indicators['SIGMA*-1_BAND'] = pd.DataFrame(mean - standard_deviation) \
-                                               .rename(columns={'close': 'band_-1σ'})
+                                               .rename(columns={'close': 'sigma*-1_band'})
         self.__indicators['SIGMA*2_BAND'] = pd.DataFrame(mean + standard_deviation * 2) \
-                                              .rename(columns={'close': 'band_+2σ'})
+                                              .rename(columns={'close': 'sigma*2_band'})
         self.__indicators['SIGMA*-2_BAND'] = pd.DataFrame(mean - standard_deviation * 2) \
-                                               .rename(columns={'close': 'band_-2σ'})
+                                               .rename(columns={'close': 'sigma*-2_band'})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
@@ -219,7 +233,8 @@ class Analyzer():
             return True
         return False
 
-    def __calc_parabolic(self, candles):
+    def __calc_parabolic(self):
+        candles = self.__base_candles
         # 初期値
         acceleration_factor = Analyzer.INITIAL_AF
         # INFO: 初期状態は上昇トレンドと仮定して計算
@@ -290,8 +305,8 @@ class Analyzer():
         tmp_candles['stoD_over_stoSD'] = tmp_candles['long_stoD'] > tmp_candles['long_stoSD']
 
         # INFO: moving_averages
-        tmp_candles['long_20SMA'] = self.__calc_sma(close_candles=tmp_candles.close)
-        tmp_candles['long_10EMA'] = self.__calc_ema(close_candles=tmp_candles.close)
+        tmp_candles['long_20SMA'] = self.__calc_sma(tmp_candles.close)
+        tmp_candles['long_10EMA'] = self.__calc_ema(tmp_candles.close)
 
         return tmp_candles[[
             'long_stoD', 'long_stoSD', 'stoD_over_stoSD', 'long_20SMA', 'long_10EMA', 'time'
@@ -323,7 +338,8 @@ class Analyzer():
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                Support / Registance                 #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    def __calc_registance(self, high_candles):
+    def __calc_registance(self):
+        high_candles =  self.__base_candles.loc[:, 'high']
         regist_points = \
             (pd.Series.rolling(high_candles, window=7).max() == high_candles) \
             & (high_candles.shift(1) < high_candles) \
@@ -331,7 +347,8 @@ class Analyzer():
         regist_plots = self.__generate_sup_regi_plots('regist', regist_points, high_candles)
         return regist_plots
 
-    def __calc_support(self, low_candles):
+    def __calc_support(self):
+        low_candles =  self.__base_candles.loc[:, 'low']
         support_points = \
             (pd.Series.rolling(low_candles, window=7).min() == low_candles) \
             & (low_candles.shift(1) > low_candles) \

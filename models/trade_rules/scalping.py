@@ -32,7 +32,7 @@ def commit_positions_by_loop(factor_dicts):
         keys => [
             'open', 'high', 'low', 'close', 'time',
             'entryable', 'entryable_price', 'stoD_over_stoSD',
-            'band_+2σ', 'band_-2σ', 'stoD_3', 'stoSD_3', 'support', 'regist'
+            'sigma*2_band', 'sigma*-2_band', 'stoD_3', 'stoSD_3', 'support', 'regist'
         ]
     '''
     loop_objects = factor_dicts  # コピー変数: loop_objects への変更は factor_dicts にも及ぶ
@@ -90,8 +90,8 @@ def __decide_exit_price(entry_direction, one_frame, previous_frame):
     if exit_price is not None:
         return exit_price, exit_type, exit_reason
 
-    # if is_exitable_by_bollinger(edge_price, one_frame['band_+2σ'], one_frame['band_-2σ']):
-    #     exit_price = one_frame['band_+2σ'] if entry_direction == 'long' else one_frame['band_-2σ']
+    # if is_exitable_by_bollinger(edge_price, one_frame['sigma*2_band'], one_frame['sigma*-2_band']):
+    #     exit_price = one_frame['sigma*2_band'] if entry_direction == 'long' else one_frame['sigma*-2_band']
     if drive_exitable_judge_with_stocs(entry_direction, one_frame, previous_frame):
         exit_price = one_frame['open']  # 'low'] if entry_direction == 'long' else one_frame['high']
         exit_reason = 'Stochastics of both long and target-span are crossed'

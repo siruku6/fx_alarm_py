@@ -201,8 +201,8 @@ class RealTrader(Trader):
         return new_stop
 
     def __drive_exit_process(self, position_type, indicators, last_candle, preliminary=False):
-        # plus_2sigma = last_indicators['band_+2σ']
-        # minus_2sigma = last_indicators['band_-2σ']
+        # plus_2sigma = last_indicators['sigma*2_band']
+        # minus_2sigma = last_indicators['sigma*-2_band']
         # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
 
         current_indicator = indicators.iloc[-1].copy()

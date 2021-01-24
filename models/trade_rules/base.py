@@ -139,8 +139,8 @@ def sma_run_along_trend(self, index, trend):
 
 
 def over_2_sigma(self, index, price):
-    if self._indicators['band_+2σ'][index] < price or \
-    self._indicators['band_-2σ'][index] > price:
+    if self._indicators['sigma*2_band'][index] < price or \
+    self._indicators['sigma*-2_band'][index] > price:
         if self._operation == 'live':
             self._log_skip_reason(
                 'c. {}: price is over 2sigma'.format(FXBase.get_candles().time[index])

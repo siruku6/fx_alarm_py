@@ -81,10 +81,10 @@ def test___generate_thrust_column(real_trader_instance, dummy_trend_candles):
 
 def test___generate_band_expansion_column(real_trader_instance):
     test_df = pd.DataFrame.from_dict([
-        {'band_+2σ': 110.0, 'band_-2σ': 108.5},
-        {'band_+2σ': 110.1, 'band_-2σ': 108.6},
-        {'band_+2σ': 110.0, 'band_-2σ': 108.3},
-        {'band_+2σ': 110.1, 'band_-2σ': 108.6}
+        {'sigma*2_band': 110.0, 'sigma*-2_band': 108.5},
+        {'sigma*2_band': 110.1, 'sigma*-2_band': 108.6},
+        {'sigma*2_band': 110.0, 'sigma*-2_band': 108.3},
+        {'sigma*2_band': 110.1, 'sigma*-2_band': 108.6}
     ], orient='columns')
     result = real_trader_instance._Trader__generate_band_expansion_column(df_bands=test_df)
     assert result.iat[-2]

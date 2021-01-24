@@ -55,11 +55,11 @@ class FigureDrawer():
         # 60EMA is necessary?
         # self.draw_df_on_plt(d_frame.loc[:, ['60EMA']], FigureDrawer.PLOT_TYPE['dashed-line'], color='lime')
 
-        simple_lines_df = d_frame[['20SMA', '10EMA', 'band_+1σ', 'band_+2σ']]
+        simple_lines_df = d_frame[['20SMA', '10EMA', 'sigma*1_band', 'sigma*2_band']]
         colors = ('lightskyblue', 'cyan', 'midnightblue', 'royalblue')
         self.draw_df_on_plt(simple_lines_df, FigureDrawer.PLOT_TYPE['simple-line'], colors=colors)
-        self.draw_df_on_plt(d_frame.loc[:, ['band_-1σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='midnightblue', nolabel='_nolegend_')
-        self.draw_df_on_plt(d_frame.loc[:, ['band_-2σ']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
+        self.draw_df_on_plt(d_frame.loc[:, ['sigma*-1_band']], FigureDrawer.PLOT_TYPE['simple-line'], color='midnightblue', nolabel='_nolegend_')
+        self.draw_df_on_plt(d_frame.loc[:, ['sigma*-2_band']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
         self.draw_df_on_plt(d_frame.loc[:, ['SAR']], FigureDrawer.PLOT_TYPE['dot'], color='purple')
         self.draw_df_on_plt(d_frame.loc[:, ['stoD_3']], FigureDrawer.PLOT_TYPE['simple-line'], color='turquoise', plt_id=2)
         self.draw_df_on_plt(d_frame.loc[:, ['stoSD_3']], FigureDrawer.PLOT_TYPE['simple-line'], color='orangered', plt_id=2)
