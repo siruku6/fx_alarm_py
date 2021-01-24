@@ -3,6 +3,7 @@ import json
 from typing import Dict
 import pandas as pd
 
+from models.analyzer import Analyzer
 from models.real_trader import RealTrader
 from models.history_librarian import Librarian
 
@@ -25,7 +26,22 @@ def lambda_handler(_event, _context):
     }
 
 
-# For tradehist
+# ------------------------------
+#         For tradehist
+# ------------------------------
+def indicator_names_handler(_event: Dict[str, Dict], _context: Dict) -> Dict:
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+            # 'Access-Control-Allow-Methods': 'OPTIONS,GET',
+            # 'Access-Control-Allow-Credentials': 'true'
+        },
+        'body': json.dumps(Analyzer.INDICATOR_NAMES)
+    }
+
+
 def api_handler(event: Dict[str, Dict], _context: Dict) -> Dict:
     # TODO: oandaとの通信失敗時などは、500 エラーレスポンスを返せるようにする
     params: Dict[str, str] = event['queryStringParameters']
@@ -42,17 +58,20 @@ def api_handler(event: Dict[str, Dict], _context: Dict) -> Dict:
         body: str = __drive_generating_tradehist(pare_name, from_str, to_str)
         status: int = 200
 
-    headers: Dict[str, str] = {
+    return {
+        'statusCode': status,
+        'headers': __headers(method='GET'),
+        'body': body
+    }
+
+
+def __headers(method: str) -> Dict[str, str]:
+    return {
         # 'Access-Control-Allow-Origin': 'https://www.example.com',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-        'Access-Control-Allow-Methods': 'OPTIONS,GET',
+        'Access-Control-Allow-Methods': 'OPTIONS,{}'.format(method),
         'Access-Control-Allow-Credentials': 'true'
-    }
-    return {
-        'statusCode': status,
-        'headers': headers,
-        'body': body
     }
 
 
@@ -78,13 +97,18 @@ def __period_between_from_to(from_str: str, to_str: str) -> int:
 
 # For local console
 if __name__ == '__main__':
+    # # Real Trade
     # lambda_handler(None, None)
 
-    DUMMY_EVENT = {
-        'queryStringParameters': {
-            'pareName': 'USD_JPY',
-            'from': '2020-12-30T04:58:09.460556567Z',
-            'to': '2021-01-07T04:58:09.460556567Z'
-        }
-    }
-    api_handler(DUMMY_EVENT, None)
+    # Get Indicators
+    print(indicator_list_handler(None, None))
+
+    # # Tradehist
+    # DUMMY_EVENT = {
+    #     'queryStringParameters': {
+    #         'pareName': 'USD_JPY',
+    #         'from': '2020-12-30T04:58:09.460556567Z',
+    #         'to': '2021-01-07T04:58:09.460556567Z'
+    #     }
+    # }
+    # api_handler(DUMMY_EVENT, None)

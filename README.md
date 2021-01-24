@@ -41,3 +41,20 @@ FXの為替レートを自動取得し、
     export INSTRUMENT=取引する通貨ペア        # default: USD_JPY
     export STOPLOSS_BUFFER=stoplossまでの間隔 # default: 0.05
     ```
+
+## Deployment
+
+- Copy config file
+    ```bash
+    $ cp config/_default.yml config/default.yml
+    ```
+- Set Environment Variables
+    ```bash
+    $ vim default.yml
+    ```
+
+    |*Variable*|*Example*|*Explanation*|
+    |----------|---------|-------------|
+    |OANDA_ACCESS_TOKEN|a30z-a30z (65 digits)|Get on Oanda<br>[OANDA REST API DOCS](https://developer.oanda.com/docs/jp/)|
+    |OANDA_ACCOUNT_ID  |100-000-1234567-000  |"|
+    |AWS_ACCOUNT_ID    |123456789012         |Your Account ID of AWS|
