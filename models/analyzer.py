@@ -1,11 +1,20 @@
-# import math
 import numpy as np
 import pandas as pd
 # from scipy.stats import linregress
-# from models.candle_storage import FXBase
 
 
 class Analyzer():
+    INDICATOR_NAMES = (
+        'time',
+        # 60EMA is necessary?
+        '20SMA', '10EMA', '60EMA',
+        'SIGMA_BAND', 'SIGMA*-1_BAND', 'SIGMA*2_BAND', 'SIGMA*-2_BAND',
+        'SAR',
+        'stoD', 'stoSD',
+        'support', 'regist',
+        'long_indicators',
+    )
+
     # For Trendline
     MAX_EXTREMAL_CNT = 3
 
@@ -14,17 +23,8 @@ class Analyzer():
     MAX_AF = 0.2
 
     def __init__(self, indicator_set=None):
-        indicator_names = indicator_set or (
-            'time',
-            # 60EMA is necessary?
-            '20SMA', '10EMA', '60EMA',
-            'SIGMA_BAND', 'SIGMA*-1_BAND', 'SIGMA*2_BAND', 'SIGMA*-2_BAND',
-            'SAR',
-            'stoD', 'stoSD',
-            'support', 'regist',
-            'long_indicators',
-        )
-        self.__indicators = {name: None for name in indicator_names}
+        self.__indicator_list = indicator_set or Analyzer.INDICATOR_NAMES
+        self.__indicators = {name: None for name in self.__indicator_list}
 
         # # Trendline
         # self.desc_trends = None
@@ -57,7 +57,7 @@ class Analyzer():
         # 60EMA is necessary?
         self.__indicators['60EMA'] = self.__calc_ema(close_candles=candles.close, window_size=60)
         self.__calc_bollinger_bands(close_candles=candles.close)
-        self.__calc_parabolic(candles=candles)
+        self.__indicators['SAR'] = self.__calc_parabolic(candles=candles)
         self.__indicators['regist'] = self.__calc_registance(high_candles=candles.high)
         self.__indicators['support'] = self.__calc_support(low_candles=candles.low)
         # result = self.__calc_trendlines()
@@ -69,20 +69,8 @@ class Analyzer():
     def get_indicators(self, start=None, end=None):
         indicators = pd.concat(
             [
-                self.__indicators['time'],
-                self.__indicators['20SMA'],
-                self.__indicators['10EMA'],
-                # 60EMA is necessary?
-                self.__indicators['60EMA'],
-                self.__indicators['SIGMA_BAND'],
-                self.__indicators['SIGMA*-1_BAND'],
-                self.__indicators['SIGMA*2_BAND'],
-                self.__indicators['SIGMA*-2_BAND'],
-                self.__indicators['SAR'],
-                self.__indicators['stoD'],
-                self.__indicators['stoSD'],
-                self.__indicators['regist'],
-                self.__indicators['support']
+                self.__indicators[name] for name in self.__indicator_list
+                if name != 'long_indicators'
             ],
             axis=1
         )[start:end]
@@ -115,14 +103,14 @@ class Analyzer():
         mean = pd.Series.rolling(close_candles, window=window_size).mean()
         standard_deviation = pd.Series.rolling(close_candles, window=window_size).std()
 
-        self.__indicators['SIGMA_BAND'] = \
-            pd.DataFrame(mean + standard_deviation).rename(columns={'close': 'band_+1σ'})
-        self.__indicators['SIGMA*-1_BAND'] = \
-            pd.DataFrame(mean - standard_deviation).rename(columns={'close': 'band_-1σ'})
-        self.__indicators['SIGMA*2_BAND'] = \
-            pd.DataFrame(mean + standard_deviation * 2).rename(columns={'close': 'band_+2σ'})
-        self.__indicators['SIGMA*-2_BAND'] = \
-            pd.DataFrame(mean - standard_deviation * 2).rename(columns={'close': 'band_-2σ'})
+        self.__indicators['SIGMA_BAND'] = pd.DataFrame(mean + standard_deviation) \
+                                            .rename(columns={'close': 'band_+1σ'})
+        self.__indicators['SIGMA*-1_BAND'] = pd.DataFrame(mean - standard_deviation) \
+                                               .rename(columns={'close': 'band_-1σ'})
+        self.__indicators['SIGMA*2_BAND'] = pd.DataFrame(mean + standard_deviation * 2) \
+                                              .rename(columns={'close': 'band_+2σ'})
+        self.__indicators['SIGMA*-2_BAND'] = pd.DataFrame(mean - standard_deviation * 2) \
+                                               .rename(columns={'close': 'band_-2σ'})
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                     TrendLine                       #
@@ -255,12 +243,8 @@ class Analyzer():
             ):
                 temp_sar = extreme_price
                 acceleration_factor = Analyzer.INITIAL_AF
-                if bull:
-                    bull = False
-                    extreme_price = current_low
-                else:
-                    bull = True
-                    extreme_price = current_high
+                extreme_price = current_low if bull else current_high
+                bull = not bull
             else:
                 # SARの仮決め
                 # temp_sar = last_sar + acceleration_factor * (extreme_price - last_sar)
@@ -292,7 +276,7 @@ class Analyzer():
                 temp_sar_array[-1] = temp_sar
             else:
                 temp_sar_array.append(temp_sar)
-        self.__indicators['SAR'] = pd.DataFrame(data=temp_sar_array, columns=['SAR'])
+        return pd.DataFrame(data=temp_sar_array, columns=['SAR'])
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     #                    Stochastic                       #
