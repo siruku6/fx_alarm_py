@@ -35,7 +35,7 @@ def indicator_names_handler(_event: Dict[str, Dict], _context: Dict) -> Dict:
         'headers': {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-            # 'Access-Control-Allow-Methods': 'OPTIONS,GET',
+            'Access-Control-Allow-Methods': 'OPTIONS,GET',
             # 'Access-Control-Allow-Credentials': 'true'
         },
         'body': json.dumps(Analyzer.INDICATOR_NAMES)
