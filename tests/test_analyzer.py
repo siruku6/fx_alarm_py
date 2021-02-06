@@ -40,3 +40,20 @@ def test_get_long_indicators(analyzer, d1_stoc_dummy):
     result = analyzer.get_long_indicators()
 
     assert np.all(result['stoD_over_stoSD'] == d1_stoc_df['stoD_over_stoSD'])
+
+
+examples_for_parabo_touched = (
+    # INFO: touched
+    (True, 123.456, 100.000, 123.000, True),
+    (False, 123.456, 135.790, 100.000 , True),
+
+    # INFO: not touched
+    (True, 123.456, 100.000, 123.457 , False),
+    (False, 123.456, 123.455, 100.000 , False),
+)
+
+
+@pytest.mark.parametrize('bull, current_parabo, current_h, current_l, expected', examples_for_parabo_touched)
+def test___parabolic_is_touched(bull, current_parabo, current_h, current_l, expected, analyzer):
+    result = analyzer._Analyzer__parabolic_is_touched(bull, current_parabo, current_h, current_l)
+    assert result == expected

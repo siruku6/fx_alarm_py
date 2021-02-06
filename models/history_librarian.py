@@ -307,7 +307,5 @@ class Librarian():
 
         # axis3
         candles_and_hist['gross'].fillna(method='ffill', inplace=True)
-        drawer.draw_df_on_plt(
-            candles_and_hist[['gross', 'pl']],
-            drawer.PLOT_TYPE['bar'], colors=['orange', 'yellow'], plt_id=3
-        )
+        drawer.draw_df(candles_and_hist[['gross']], names=['gross'])
+        drawer.draw_df(candles_and_hist[['pl']], names=['profit'])

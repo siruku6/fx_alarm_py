@@ -427,8 +427,8 @@ class Trader():
 
         # profit(pl) / gross
         if self.__static_options['figure_option'] > 2:
-            drwr.draw_df_on_plt(positions_df[['gross']], drwr.PLOT_TYPE['bar'], color='orange', plt_id=3)
-            drwr.draw_df_on_plt(positions_df[['profit']], drwr.PLOT_TYPE['bar'], color='yellow', plt_id=3)
+            drwr.draw_df(positions_df[['gross']], names=['gross'])
+            drwr.draw_df(positions_df[['profit']], names=['profit'])
 
         result = drwr.create_png(
             granularity=self.get_entry_rules('granularity'),
