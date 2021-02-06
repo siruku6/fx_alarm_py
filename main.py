@@ -101,7 +101,7 @@ if __name__ == '__main__':
     # lambda_handler(None, None)
 
     # Get Indicators
-    print(indicator_list_handler(None, None))
+    print(indicator_names_handler(None, None))
 
     # # Tradehist
     # DUMMY_EVENT = {

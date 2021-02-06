@@ -20,6 +20,28 @@ class FigureDrawer():
         'simple-line': 11, 'dashed-line': 12, 'bar': 13
     }
     POS_TYPE = {'neutral': 0, 'over': 1, 'beneath': 2}
+    DRAWING_CONFIGS = {
+        '20SMA': {'plot_type': 'simple-line', 'color': 'lightskyblue'},
+        '10EMA': {'plot_type': 'simple-line', 'color': 'cyan'},
+        'sigma*1_band': {'plot_type': 'simple-line', 'color': 'midnightblue'},
+        'sigma*2_band': {'plot_type': 'simple-line', 'color': 'royalblue'},
+        'sigma*-1_band': {'plot_type': 'simple-line', 'color': 'midnightblue', 'nolabel': '_nolegend_'},
+        'sigma*-2_band': {'plot_type': 'simple-line', 'color': 'royalblue', 'nolabel': '_nolegend_'},
+        'SAR': {'plot_type': 'dot', 'color': 'purple'},
+        'stoD_3': {'plot_type': 'simple-line', 'color': 'turquoise', 'plt_id': 2},
+        'stoSD_3': {'plot_type': 'simple-line', 'color': 'orangered', 'plt_id': 2},
+
+        'gross': {'plot_type': 'bar', 'color': 'orange', 'plt_id': 3},
+        'profit': {'plot_type': 'bar', 'color': 'yellow', 'plt_id': 3},
+
+        # INFO: long period indicators
+        'stoD_over_stoSD': {'plot_type': 'dot', 'color': 'red'},
+        'stoD_below_stoSD': {'plot_type': 'dot', 'color': 'blue', 'nolabel': '_nolegend_'},
+        'long_10EMA': {'plot_type': 'simple-line', 'color': 'lightslategray'},
+        'long_20SMA': {'plot_type': 'simple-line', 'color': 'darkslategray'},
+        'long_bull': {'plot_type': 'dot', 'color': 'green'},
+        'long_bear': {'plot_type': 'dot', 'color': 'red', 'nolabel': '_nolegend_'},
+    }
 
     def __init__(self, rows_num, instrument):
         self.init_figure(rows_num)
@@ -53,18 +75,17 @@ class FigureDrawer():
     def draw_indicators(self, d_frame):
         ''' DateFrameからindicatorを描画 '''
         # 60EMA is necessary?
-        # self.draw_df_on_plt(d_frame.loc[:, ['60EMA']], FigureDrawer.PLOT_TYPE['dashed-line'], color='lime')
+        # self.draw_df(d_frame.loc[:, ['60EMA']], FigureDrawer.PLOT_TYPE['dashed-line'], color='lime')
 
-        simple_lines_df = d_frame[['20SMA', '10EMA', 'sigma*1_band', 'sigma*2_band']]
-        colors = ('lightskyblue', 'cyan', 'midnightblue', 'royalblue')
-        self.draw_df_on_plt(simple_lines_df, FigureDrawer.PLOT_TYPE['simple-line'], colors=colors)
-        self.draw_df_on_plt(d_frame.loc[:, ['sigma*-1_band']], FigureDrawer.PLOT_TYPE['simple-line'], color='midnightblue', nolabel='_nolegend_')
-        self.draw_df_on_plt(d_frame.loc[:, ['sigma*-2_band']], FigureDrawer.PLOT_TYPE['simple-line'], color='royalblue', nolabel='_nolegend_')
-        self.draw_df_on_plt(d_frame.loc[:, ['SAR']], FigureDrawer.PLOT_TYPE['dot'], color='purple')
-        self.draw_df_on_plt(d_frame.loc[:, ['stoD_3']], FigureDrawer.PLOT_TYPE['simple-line'], color='turquoise', plt_id=2)
-        self.draw_df_on_plt(d_frame.loc[:, ['stoSD_3']], FigureDrawer.PLOT_TYPE['simple-line'], color='orangered', plt_id=2)
-        # self.draw_df_on_plt(d_frame.loc[:, ['regist']], FigureDrawer.PLOT_TYPE['dot'], color='orangered', size=0.5)
-        # self.draw_df_on_plt(d_frame.loc[:, ['support']], FigureDrawer.PLOT_TYPE['dot'], color='blue', size=0.5)
+        names = [
+            '20SMA', '10EMA',
+            'sigma*1_band', 'sigma*2_band', 'sigma*-1_band', 'sigma*-2_band',
+            'SAR', 'stoD_3', 'stoSD_3'
+        ]
+        self.draw_df(d_frame.loc[:, names], names=names)
+
+        # self.draw_df(d_frame.loc[:, ['regist']], FigureDrawer.PLOT_TYPE['dot'], color='orangered', size=0.5)
+        # self.draw_df(d_frame.loc[:, ['support']], FigureDrawer.PLOT_TYPE['dot'], color='blue', size=0.5)
 
     def draw_long_indicators(self, candles, min_point):
         candles = candles.reset_index(drop=True)
@@ -79,45 +100,50 @@ class FigureDrawer():
             # long-stoc
             bull_long_stoc = candles.loc[candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
             bear_long_stoc = candles.loc[~candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
-            self.draw_df_on_plt(bull_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='red')
-            self.draw_df_on_plt(bear_long_stoc, FigureDrawer.PLOT_TYPE['dot'], color='blue', nolabel='_nolegend_')
+            self.draw_df(bull_long_stoc, names=('stoD_over_stoSD',))
+            self.draw_df(bear_long_stoc, names=('stoD_below_stoSD',))
 
             # long-trend
-            self.draw_df_on_plt(candles.loc[:, ['long_10EMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='lightslategray')
-            self.draw_df_on_plt(candles.loc[:, ['long_20SMA']], FigureDrawer.PLOT_TYPE['simple-line'], color='darkslategray')
+            self.draw_df(candles.loc[:, ['long_10EMA']], names=('long_10EMA',))
+            self.draw_df(candles.loc[:, ['long_20SMA']], names=('long_20SMA',))
 
             bull_long_trend = candles.loc[candles['long_trend'] == 'bull', ['long_trend']].assign(long_trend=y_height2)
             bear_long_trend = candles.loc[candles['long_trend'] == 'bear', ['long_trend']].assign(long_trend=y_height2)
-            self.draw_df_on_plt(bull_long_trend, FigureDrawer.PLOT_TYPE['dot'], color='green')
-            self.draw_df_on_plt(bear_long_trend, FigureDrawer.PLOT_TYPE['dot'], color='red', nolabel='_nolegend_')
+            self.draw_df(bull_long_trend, names=('long_bull',))
+            self.draw_df(bear_long_trend, names=('long_bear',))
 
-    def draw_df_on_plt(self, d_frame, plot_type, color='black', colors=None, size=1, nolabel=None, plt_id=1):
+    def draw_df(self, d_frame, names):
         ''' DataFrameを受け取って、各columnを描画 '''
         # エラー防止処理
         if type(d_frame) is not pd.core.frame.DataFrame:
             raise TypeError(
-                '[Drawer] draw_df_on_plt cannot draw from except DataFrame: {}'.format(type(d_frame))
+                '[Drawer] draw_df cannot draw from except DataFrame: {}'.format(type(d_frame))
             )
 
-        if colors is None:
-            colors = [color] * len(d_frame.columns)
-        plt_axis = self.__axes[plt_id - 1]
         # 描画
-        # http://sinhrks.hatenablog.com/entry/2015/06/18/221747
-        if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
-            for (key, column), color in zip(d_frame.iteritems(), colors):
-                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linewidth=0.5)
-        elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
-            for (key, column), color in zip(d_frame.iteritems(), colors):
-                plt_axis.plot(d_frame.index, column.values, label=nolabel or key, c=color, linestyle='dashed', linewidth=0.5)
-        elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
-            for (key, column), color in zip(d_frame.iteritems(), colors):
-                plt_axis.scatter(x=d_frame.index, y=column.values, label=nolabel or key, c=color, marker='d', s=size, alpha=0.5)
-        elif plot_type == FigureDrawer.PLOT_TYPE['bar']:
-            for (key, column), color in zip(d_frame.iteritems(), colors):
-                plt_axis.bar(x=np.arange(len(d_frame)), height=column.values, label=nolabel or key, width=0.6, color=color)
-
+        x_values = d_frame.index
+        for (_key, projection), name in zip(d_frame.iteritems(), names):
+            self.__draw_series(name, x_values, projection)
         return {'success': 'd_frameを描画'}
+
+    def __draw_series(self, name: str, x_values, projection) -> None:
+        color: str = FigureDrawer.DRAWING_CONFIGS[name].get('color')
+        plot_type: str = FigureDrawer.PLOT_TYPE[FigureDrawer.DRAWING_CONFIGS[name].get('plot_type')]
+        size: int = 1
+        nolabel = FigureDrawer.DRAWING_CONFIGS[name].get('nolabel')
+        plt_id: int = FigureDrawer.DRAWING_CONFIGS[name].get('plt_id') or 1
+        target_axis = self.__axes[plt_id - 1]
+
+        if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
+            target_axis.plot(x_values, projection.values, label=nolabel or name, c=color, linewidth=0.5)
+        elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
+            target_axis.plot(x_values, projection.values, label=nolabel or name, c=color, linestyle='dashed', linewidth=0.5)
+        elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
+            target_axis.scatter(x=x_values, y=projection.values, label=nolabel or name, c=color, marker='d', s=size, alpha=0.5)
+        elif plot_type == FigureDrawer.PLOT_TYPE['bar']:
+            length: int = len(x_values)
+            target_axis.bar(x=np.arange(length), height=projection.values, label=nolabel or name, width=0.6, color=color)
+
 
     def draw_positions_df(self, positions_df, plot_type=PLOT_TYPE['long'], size=20, nolabel=None):
         ''' __hist_positionsから抽出したdfを受け取って描画 '''
