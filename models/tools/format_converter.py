@@ -28,6 +28,10 @@ def to_oanda_format(target_datetime):
     return target_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
 
 
+def to_timestamp(oanda_str):
+    return pd.to_datetime(oanda_str[:19], format='%Y-%m-%dT%H:%M:%S')
+
+
 def to_candles_from_dynamo(records: List[Dict[str, Any]]) -> pd.DataFrame:
     result: pd.DataFrame = pd.json_normalize(records)
     if records == []:

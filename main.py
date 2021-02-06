@@ -35,7 +35,7 @@ def indicator_names_handler(_event: Dict[str, Dict], _context: Dict) -> Dict:
         'headers': {
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-            # 'Access-Control-Allow-Methods': 'OPTIONS,GET',
+            'Access-Control-Allow-Methods': 'OPTIONS,GET',
             # 'Access-Control-Allow-Credentials': 'true'
         },
         'body': json.dumps(Analyzer.INDICATOR_NAMES)
@@ -76,8 +76,8 @@ def __headers(method: str) -> Dict[str, str]:
 
 
 def __drive_generating_tradehist(pare_name: str, from_str: str, to_str: str) -> str:
-    libra: Librarian = Librarian(instrument=pare_name)
-    tradehist: pd.DataFrame = libra.serve_analysis_object(from_str, to_str)
+    libra: Librarian = Librarian(from_str, to_str, instrument=pare_name)
+    tradehist: pd.DataFrame = libra.serve_analysis_object()
     result: str = json.dumps({
         # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
         #   to_json ならこの問題は起きないが、dumps と組み合わせると文字列になってしまうのでしない

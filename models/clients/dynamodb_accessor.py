@@ -84,7 +84,7 @@ class DynamodbAccessor():
         try:
             table_names = boto3.client('dynamodb', region_name='us-east-2', endpoint_url=endpoint_url) \
                                .list_tables()['TableNames']
-            if table_names == []:
+            if table_name not in table_names:
                 table = self.__create_table(dynamodb, table_name)
             else:
                 table = dynamodb.Table(table_name)

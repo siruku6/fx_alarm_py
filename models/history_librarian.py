@@ -1,5 +1,7 @@
 import datetime
 from datetime import timedelta
+from typing import List
+
 import pandas as pd
 
 from models.candle_storage import FXBase
@@ -12,11 +14,13 @@ import models.tools.format_converter as converter
 class Librarian():
     DRAWABLE_ROWS = 200
 
-    def __init__(self, instrument=None):
-        self.__instrument = instrument or ClientManager.select_instrument()[0]
-        self.__client = ClientManager(instrument=self.__instrument)
-        self.__ana = Analyzer()
-        self._indicators = None
+    def __init__(self, from_iso, to_iso, instrument=None):
+        self.__instrument: str = instrument or ClientManager.select_instrument()[0]
+        self.__from_iso: str = from_iso
+        self.__to_iso: str = to_iso
+        self.__client: ClientManager = ClientManager(instrument=self.__instrument)
+        self.__ana: Analyzer = Analyzer()
+        self._indicators: List[str] = None
 
     @property
     def indicators(self):
@@ -28,21 +32,21 @@ class Librarian():
 
     def visualize_latest_hist(self, granularity):
         transactions = self.__client.prepare_one_page_transactions()
-        result = self.__merge_history_and_instruments(transactions, granularity=granularity)
+        result = self.__collect_full_dataframe(transactions, granularity=granularity)
 
         # INFO: Visualization
         result.to_csv('./tmp/csvs/oanda_trade_hist.csv', index=False)
         self.__draw_history()
 
-    def serve_analysis_object(self, from_str: str, to_str: str) -> pd.DataFrame:
-        transactions: pd.DataFrame = self.__client.request_massive_transactions(from_str, to_str)
-        result: pd.DataFrame = self.__merge_history_and_instruments(transactions, granularity='H1')
+    def serve_analysis_object(self) -> pd.DataFrame:
+        transactions: pd.DataFrame = self.__client.request_massive_transactions(self.__from_iso, self.__to_iso)
+        result: pd.DataFrame = self.__collect_full_dataframe(transactions, granularity='H1')
         return result
 
     #
     # Private
     #
-    def __merge_history_and_instruments(self, history_df, granularity='M10'):
+    def __collect_full_dataframe(self, history_df, granularity='M10'):
         '''
         create dataframe which includes trade-history & time-series currency price
 
@@ -55,24 +59,14 @@ class Librarian():
         -------
         dataframe
         '''
-        history_df.loc[:, 'price'] = history_df.price.astype('float32')
-        candles = self.__prepare_candles(
-            from_str=history_df.iloc[0].time,
-            to_str=history_df.iloc[-1].time,
-            granularity=granularity
-        )
+        candles = self.__prepare_candles(granularity=granularity)
         print('[Libra] candles and trade-logs are loaded')
 
-        history_df = self.__adjust_time_for_merging(candles, history_df, granularity)
+        if len(history_df) == 0:
+            result = candles
+        else:
+            result = self.__merge_candles_and_hist(candles, history_df, granularity)
 
-        # prepare pl_and_gross
-        hist_pl_df = self.__extract_pl(granularity, history_df[['time', 'pl', 'dst']])
-        history_df.drop('pl', axis=1, inplace=True)  # pl カラムは1つあれば十分
-
-        tmp_positions_df = self.__extract_positions_df_from(history_df)
-        result = self.__merge_hist_dfs(candles, tmp_positions_df, hist_pl_df)
-        result.loc[:, 'gross'] = result['pl'].cumsum()
-        result['stoploss'] = self.__fill_stoploss(result.copy())
         FXBase.set_candles(result)
         print('[Libra] candles and trade-history are merged')
 
@@ -83,7 +77,24 @@ class Librarian():
 
         return pd.merge(result, self.indicators, on='time', how='left')
 
-    def __prepare_candles(self, from_str: str, to_str: str, granularity: str) -> pd.DataFrame:
+    def __merge_candles_and_hist(self, candles, history_df, granularity):
+        history_df.loc[:, 'price'] = history_df.price.astype('float32')
+        history_df = self.__adjust_time_for_merging(candles, history_df, granularity)
+
+        # prepare pl_and_gross
+        hist_pl_df = self.__extract_pl(granularity, history_df[['time', 'pl', 'dst']])
+        history_df.drop('pl', axis=1, inplace=True)  # pl カラムは1つあれば十分
+
+        tmp_positions_df = self.__extract_positions_df_from(history_df)
+        result = self.__merge_hist_dfs(candles, tmp_positions_df, hist_pl_df)
+        result.loc[:, 'gross'] = result['pl'].cumsum()
+        result['stoploss'] = self.__fill_stoploss(result.copy())
+        return result
+
+    def __prepare_candles(self, granularity: str) -> pd.DataFrame:
+        from_str: str = str(converter.to_timestamp(self.__from_iso))
+        to_str: str = str(converter.to_timestamp(self.__to_iso))
+
         buffer_td: timedelta = converter.granularity_to_timedelta(granularity)
         possible_start_dt: pd.Timestamp = pd.to_datetime(from_str) - buffer_td * 20
         end_dt: pd.Timestamp = pd.to_datetime(to_str)
@@ -100,7 +111,7 @@ class Librarian():
 
     def __adjust_time_for_merging(self, candles, history_df, granularity):
         dict_dst_switches = None
-        if granularity in ('H4',):
+        if granularity in ('H4',) and len(history_df) > 0:
             # TODO: dict_dst_switches は H4 candles でのみしか使えない形になっている
             dict_dst_switches = self.__detect_dst_switches(candles)
             history_df = self.__append_dst_column(history_df, dst_switches=dict_dst_switches)
@@ -264,6 +275,20 @@ class Librarian():
         drawer = FigureDrawer(rows_num=3, instrument=self.__instrument)
         drawer.draw_indicators(d_frame=drawn_indicators.reset_index(drop=True))
 
+        # INFO: 取引履歴・Position関連の描画
+        if 'long' in candles_and_hist.columns:
+            self.__draw_hists(drawer, drawn_indicators, candles_and_hist)
+
+        target_candles = candles_and_hist.iloc[-Librarian.DRAWABLE_ROWS:, :]  # 200本より古い足は消している
+        drawer.draw_candles(target_candles)
+        result = drawer.create_png(
+            granularity='real-trade',
+            sr_time=candles_and_hist.time, num=0, filename='hist'
+        )
+        drawer.close_all()
+        print(result['success'])
+
+    def __draw_hists(self, drawer: FigureDrawer, drawn_indicators: pd.DataFrame, candles_and_hist: pd.DataFrame):
         drawer.draw_vertical_lines(
             indexes=candles_and_hist[['long', 'short']].dropna(how='all').index,
             vmin=drawn_indicators['sigma*-2_band'].min(skipna=True),
@@ -286,12 +311,3 @@ class Librarian():
             candles_and_hist[['gross', 'pl']],
             drawer.PLOT_TYPE['bar'], colors=['orange', 'yellow'], plt_id=3
         )
-
-        target_candles = candles_and_hist.iloc[-Librarian.DRAWABLE_ROWS:, :]  # 200本より古い足は消している
-        drawer.draw_candles(target_candles)
-        result = drawer.create_png(
-            granularity='real-trade',
-            sr_time=candles_and_hist.time, num=0, filename='hist'
-        )
-        drawer.close_all()
-        print(result['success'])

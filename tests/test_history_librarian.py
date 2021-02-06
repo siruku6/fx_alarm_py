@@ -14,11 +14,21 @@ import models.tools.preprocessor as prepro
 #  - - - - - - - - - - - - - -
 #     Preparing & Clearing
 #  - - - - - - - - - - - - - -
+@pytest.fixture(scope='module', name='from_iso', autouse=True)
+def fixture_from_iso():
+    yield '2020-01-01T12:34:56.000Z'
+
+
+@pytest.fixture(scope='module', name='to_iso', autouse=True)
+def fixture_to_iso():
+    yield '2020-12-31T23:59:59.000Z'
+
+
 @pytest.fixture(scope='module', name='libra_client', autouse=True)
-def fixture_libra_client():
+def fixture_libra_client(from_iso, to_iso):
     with patch('models.client_manager.ClientManager.select_instrument',
                return_value=['USD_JPY', {'spread': 0.0}]):
-        yield libra.Librarian()
+        yield libra.Librarian(from_iso, to_iso)
 
 
 @pytest.fixture(scope='module', name='hist_df', autouse=True)
@@ -56,36 +66,32 @@ def fixture_win_sum_win_candles():
 #  - - - - - - - - - - -
 #    Private methods
 #  - - - - - - - - - - -
-def test___prepare_candles(libra_client):
-    from_str = '2020-01-01T12:34:56.000'
-    to_str = '2020-01-20T12:34:56.000'
+def test___prepare_candles(libra_client, from_iso, to_iso):
+    # from_str = '2020-01-01T12:34:56.000'
+    # to_str = '2020-01-20T12:34:56.000'
 
     # Case1:
-    #   The period between from and to is less than 400 candles
+    #   The period between from and to is more than 400 candles
     granularity = 'H4'
     buffer = converter.granularity_to_timedelta(granularity)
-    from_with_spare = pd.Timestamp(from_str) - datetime.timedelta(hours=80)
-    to_converted = pd.Timestamp(to_str)
+    from_with_spare = pd.Timestamp(to_iso[:19]) - datetime.timedelta(hours=1600)
+    to_converted = pd.Timestamp(to_iso[:19])
 
     with patch('models.client_manager.ClientManager.load_candles_by_duration_for_hist',
                return_value=pd.DataFrame()) as mock:
-        result: pd.DataFrame = libra_client._Librarian__prepare_candles(
-            from_str=from_str, to_str=to_str, granularity=granularity
-        )
+        result: pd.DataFrame = libra_client._Librarian__prepare_candles(granularity=granularity)
     mock.assert_called_with(start=from_with_spare, end=to_converted, granularity=granularity)
 
     # Case2
-    #   The period between from and to is less than 400 candles
+    #   The period between from and to is more than 400 candles
     granularity = 'H1'
     buffer = converter.granularity_to_timedelta(granularity)
-    to_converted = pd.Timestamp(to_str)
     from_with_spare = to_converted - datetime.timedelta(hours=400)
+    to_converted = pd.Timestamp(to_iso[:19])
 
     with patch('models.client_manager.ClientManager.load_candles_by_duration_for_hist',
                return_value=pd.DataFrame()) as mock:
-        result: pd.DataFrame = libra_client._Librarian__prepare_candles(
-            from_str=from_str, to_str=to_str, granularity=granularity
-        )
+        result: pd.DataFrame = libra_client._Librarian__prepare_candles(granularity=granularity)
     mock.assert_called_with(start=from_with_spare, end=to_converted, granularity=granularity)
 
 

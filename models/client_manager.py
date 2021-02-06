@@ -236,6 +236,8 @@ class ClientManager():
         from_id: str
         to_id: str
         from_id, to_id = self.__oanda_client.request_transaction_ids(from_str, to_str)
+        if from_id is None or to_id is None:
+            return pd.DataFrame([])
 
         while True:
             print('[INFO] requesting {}..{}'.format(from_id, to_id))

@@ -17,7 +17,8 @@ def to_candle_df(response):
     candle['time'] = [row['time'] for row in response['candles']]
     # 冗長な日時データを短縮
     # https://note.nkmk.me/python-pandas-datetime-timestamp/
-    candle['time'] = pd.to_datetime(candle['time']).astype(str)
+    candle['time'] = pd.to_datetime(candle['time'], format='%Y-%m-%dT%H:%M:%S.000000000Z') \
+                       .astype(str)
     # INFO: time ... '2018-06-03 21:00:00'
     candle['time'] = [time[:19] for time in candle.time]
 

@@ -197,7 +197,8 @@ class OandaClient():
         request_obj = transactions.TransactionList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
         response: Dict[str, Any] = self.__request(request_obj)
         if 'error' in response:
-            return response, None
+            print(response)
+            return None, None
 
         ids: Dict[str, str] = prepro.extract_transaction_ids(response)
         return ids['old_id'], ids['last_id']
