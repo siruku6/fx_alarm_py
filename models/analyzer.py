@@ -226,10 +226,11 @@ class Analyzer():
         return last_sar + acceleration_f * (extr_price - last_sar)
 
     def __parabolic_is_touched(self, bull, current_parabo, current_h, current_l):
-        if bull and (current_parabo > current_l):
+        touch_lower_parabo = bull and (current_parabo > current_l)
+        touch_upper_parabo = not bull and (current_parabo < current_h)
+        if touch_lower_parabo or touch_upper_parabo:
             return True
-        elif not bull and (current_parabo < current_h):
-            return True
+
         return False
 
     def __calc_parabolic(self):
