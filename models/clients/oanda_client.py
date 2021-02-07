@@ -2,7 +2,7 @@ import logging
 import os
 import pprint
 import sys
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import requests
 
@@ -26,18 +26,26 @@ LOGGER.setLevel(logging.INFO)
 class OandaClient():
     REQUESTABLE_COUNT = 5000
 
-    def __init__(self, instrument, environment=None, test=False):
+    def __init__(self, instrument: str, environment: str=None, test: bool=False):
         ''' 固定パラメータの設定 '''
         self.__api_client = API(
             access_token=os.environ['OANDA_ACCESS_TOKEN'],
             # 'practice' or 'live' is valid
             environment=environment or os.environ.get('OANDA_ENVIRONMENT') or 'practice'
         )
-        self.last_transaction_id = None
-        self.__instrument = instrument
-        self.__units = os.environ.get('UNITS') or '1'
-        self.__trade_ids = []
-        self.__test = test
+        self.last_transaction_id: str = None
+        self.__accessable: bool = True
+        self.__instrument: str = instrument
+        self.__units: str = os.environ.get('UNITS') or '1'
+        self.__trade_ids: List = []
+        self.__test: bool = test
+
+    @property
+    def accessable(self):
+        return self.__accessable
+
+    def __stop_request(self):
+        self.__accessable: bool = False
 
     #
     # Public
@@ -48,7 +56,7 @@ class OandaClient():
         request_obj = pricing.PricingInfo(
             accountID=os.environ['OANDA_ACCOUNT_ID'], params=params
         )
-        response = self.__api_client.request(request_obj)
+        response = self.__request(request_obj)
         tradeable = response['prices'][0]['tradeable']
         return {
             'instrument': self.__instrument,
@@ -58,7 +66,7 @@ class OandaClient():
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''
         request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
-        response = self.__api_client.request(request_obj)
+        response = self.__request(request_obj)
 
         # INFO: lastTransactionID は最後に行った売買のID
         self.last_transaction_id = response['lastTransactionID']
@@ -113,11 +121,7 @@ class OandaClient():
         request_obj = orders.OrderCreate(
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
-        try:
-            response = self.__api_client.request(request_obj)['orderCreateTransaction']
-        except V20Error as error:
-            LOGGER.error('[request_market_ordering] V20Error: {}'.format(error))
-
+        response = self.__request(request_obj)['orderCreateTransaction']
         response_for_display = {
             'instrument': response.get('instrument'),
             # 'price': response.get('price'),  # market order に price はなかった
@@ -140,7 +144,7 @@ class OandaClient():
         request_obj = trades.TradeClose(
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_trade_id  # , data=data
         )
-        response = self.__api_client.request(request_obj)
+        response = self.__request(request_obj)
         LOGGER.info('[Client] close-reason: %s', reason)
         LOGGER.info('[Client] close-position: %s', response)
         if response.get('orderFillTransaction') is None and response.get('orderCancelTransaction') is not None:
@@ -174,7 +178,7 @@ class OandaClient():
             tradeID=self.__trade_ids[0],
             data=data
         )
-        response = self.__api_client.request(request_obj)
+        response = self.__request(request_obj)
         LOGGER.info('[Client] trail: %s', response)
         return response
 
@@ -197,7 +201,7 @@ class OandaClient():
         request_obj = transactions.TransactionList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
         response: Dict[str, Any] = self.__request(request_obj)
         if 'error' in response:
-            print(response)
+            self.__stop_request()
             return None, None
 
         ids: Dict[str, str] = prepro.extract_transaction_ids(response)

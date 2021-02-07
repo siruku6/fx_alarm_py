@@ -147,6 +147,9 @@ class ClientManager():
             (end + datetime.timedelta(days=1)).isoformat()
         )
         candles = converter.to_candles_from_dynamo(records)
+        if self.__oanda_client.accessable is False:
+            print('[Manager] Skipped requesting candles from Oanda')
+            return candles
 
         # 2. データが不足している期間を特定する
         missing_start, missing_end = self.__detect_missings(candles, start, end)
