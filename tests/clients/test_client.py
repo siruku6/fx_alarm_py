@@ -134,5 +134,43 @@ def test_request_transaction_ids_failed(client):
         assert client.accessable is False
 
 
+def test_query_instruments(client, dummy_instruments):
+    granularity = 'M5'
+    candles_count = 399
+    start = 'xxxx-xx-xxT00:00:00.123456789Z'
+    end = 'xxxx-xx-xxT12:34:56.123456789Z'
+
+    with patch('oandapyV20.endpoints.instruments.InstrumentsCandles') as mock:
+        with patch('oandapyV20.API.request', return_value=dummy_instruments):
+            result = client.query_instruments(granularity=granularity, candles_count=candles_count)
+        assert result == dummy_instruments
+
+        mock.assert_called_with(
+            instrument=client._OandaClient__instrument,
+            params={
+                'alignmentTimezone': 'Etc/GMT',
+                'count': candles_count,
+                'dailyAlignment': 0,
+                'granularity': granularity
+            }
+        )
+
+    with patch('oandapyV20.endpoints.instruments.InstrumentsCandles') as mock:
+        with patch('oandapyV20.API.request', return_value=dummy_instruments):
+            result = client.query_instruments(granularity=granularity, start=start, end=end)
+        assert result == dummy_instruments
+
+        mock.assert_called_with(
+            instrument=client._OandaClient__instrument,
+            params={
+                'alignmentTimezone': 'Etc/GMT',
+                'from': start,
+                'to': end,
+                'dailyAlignment': 0,
+                'granularity': granularity
+            }
+        )
+
+
 if __name__ == '__main__':
     unittest.main()
