@@ -1,6 +1,7 @@
 import os
 import unittest
 from unittest.mock import patch
+from oandapyV20.exceptions import V20Error
 import pytest
 
 # My-made modules
@@ -123,6 +124,14 @@ def test_request_transaction_ids(client):
             accountID=os.environ.get('OANDA_ACCOUNT_ID'),
             params={'from': dummy_from_str, 'pageSize': 1000, 'to': dummy_to_str}
         )
+
+
+def test_request_transaction_ids_failed(client):
+    with patch('oandapyV20.API.request', side_effect=V20Error(code=400, msg="Invalid value specified for 'accountID'")):
+        from_id, to_id = client.request_transaction_ids(from_str='', to_str='')
+        assert from_id is None
+        assert to_id is None
+        assert client.accessable is False
 
 
 if __name__ == '__main__':

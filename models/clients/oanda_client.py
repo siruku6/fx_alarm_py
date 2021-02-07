@@ -2,7 +2,7 @@ import logging
 import os
 import pprint
 import sys
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, List, Tuple, Union
 
 import requests
 
@@ -26,18 +26,26 @@ LOGGER.setLevel(logging.INFO)
 class OandaClient():
     REQUESTABLE_COUNT = 5000
 
-    def __init__(self, instrument, environment=None, test=False):
+    def __init__(self, instrument: str, environment: str=None, test: bool=False):
         ''' 固定パラメータの設定 '''
         self.__api_client = API(
             access_token=os.environ['OANDA_ACCESS_TOKEN'],
             # 'practice' or 'live' is valid
             environment=environment or os.environ.get('OANDA_ENVIRONMENT') or 'practice'
         )
-        self.last_transaction_id = None
-        self.__instrument = instrument
-        self.__units = os.environ.get('UNITS') or '1'
-        self.__trade_ids = []
-        self.__test = test
+        self.last_transaction_id: str = None
+        self.__accessable: bool = True
+        self.__instrument: str = instrument
+        self.__units: str = os.environ.get('UNITS') or '1'
+        self.__trade_ids: List = []
+        self.__test: bool = test
+
+    @property
+    def accessable(self):
+        return self.__accessable
+
+    def __stop_request(self):
+        self.__accessable: bool = False
 
     #
     # Public
@@ -197,7 +205,7 @@ class OandaClient():
         request_obj = transactions.TransactionList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
         response: Dict[str, Any] = self.__request(request_obj)
         if 'error' in response:
-            print(response)
+            self.__stop_request()
             return None, None
 
         ids: Dict[str, str] = prepro.extract_transaction_ids(response)
