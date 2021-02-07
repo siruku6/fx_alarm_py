@@ -56,7 +56,7 @@ class OandaClient():
         request_obj = pricing.PricingInfo(
             accountID=os.environ['OANDA_ACCOUNT_ID'], params=params
         )
-        response = self.__api_client.request(request_obj)
+        response = self.__request(request_obj)
         tradeable = response['prices'][0]['tradeable']
         return {
             'instrument': self.__instrument,
@@ -66,7 +66,7 @@ class OandaClient():
     def request_open_trades(self):
         ''' OANDA上でopenなポジションの情報を取得 '''
         request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
-        response = self.__api_client.request(request_obj)
+        response = self.__request(request_obj)
 
         # INFO: lastTransactionID は最後に行った売買のID
         self.last_transaction_id = response['lastTransactionID']
@@ -121,11 +121,7 @@ class OandaClient():
         request_obj = orders.OrderCreate(
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
-        try:
-            response = self.__api_client.request(request_obj)['orderCreateTransaction']
-        except V20Error as error:
-            LOGGER.error('[request_market_ordering] V20Error: {}'.format(error))
-
+        response = self.__request(request_obj)['orderCreateTransaction']
         response_for_display = {
             'instrument': response.get('instrument'),
             # 'price': response.get('price'),  # market order に price はなかった
@@ -148,7 +144,7 @@ class OandaClient():
         request_obj = trades.TradeClose(
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_trade_id  # , data=data
         )
-        response = self.__api_client.request(request_obj)
+        response = self.__request(request_obj)
         LOGGER.info('[Client] close-reason: %s', reason)
         LOGGER.info('[Client] close-position: %s', response)
         if response.get('orderFillTransaction') is None and response.get('orderCancelTransaction') is not None:
@@ -182,7 +178,7 @@ class OandaClient():
             tradeID=self.__trade_ids[0],
             data=data
         )
-        response = self.__api_client.request(request_obj)
+        response = self.__request(request_obj)
         LOGGER.info('[Client] trail: %s', response)
         return response
 
