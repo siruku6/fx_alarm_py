@@ -54,6 +54,7 @@ def api_handler(event: Dict[str, Dict], _context: Dict) -> Dict:
     if valid:
         body: str = __drive_generating_tradehist(params, multi_value_params)
         status: int = 200
+    print('[Main] lambda function is correctly finished.')
 
     return {
         'statusCode': status,
@@ -91,7 +92,7 @@ def __period_between_from_to(from_str: str, to_str: str) -> int:
     return result
 
 
-def __drive_generating_tradehist(params: Dict[str, str], _multi_value_params: Dict[str, List]) -> str:
+def __drive_generating_tradehist(params: Dict[str, str], multi_value_params: Dict[str, List]) -> str:
     pare_name: str = params['pareName']
     from_str: str = params['from']
     to_str: str = params['to']
@@ -105,7 +106,6 @@ def __drive_generating_tradehist(params: Dict[str, str], _multi_value_params: Di
         'history': tradehist.where((pd.notnull(tradehist)), None) \
                             .to_dict(orient='records')
     })
-    print('lambda function is correctly finished.')
     return result
 
 
