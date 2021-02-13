@@ -140,7 +140,7 @@ def test___merge_hist_dfs(libra_client, past_usd_candles, past_transactions):
     # Case1: granularity = 'H1'
     granularity = 'H1'
     candles = pd.DataFrame(past_usd_candles)
-    hist_df = prepro.filter_and_make_df(past_transactions, 'USD_JPY')
+    hist_df = prepro.filter_and_make_df(past_transactions['transactions'], 'USD_JPY')
     hist_df = libra_client._Librarian__adjust_time_for_merging(candles, hist_df, granularity)
     pl_and_gross_df = libra_client._Librarian__extract_pl(granularity, hist_df[['time', 'pl', 'dst']])
     hist_df = hist_df.drop('pl', axis=1)

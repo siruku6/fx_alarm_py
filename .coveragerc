@@ -1,6 +1,7 @@
 [run]
 source = .
 omit = */tests/*
+       *.yml
 
 [xml]
 package_depth = 1

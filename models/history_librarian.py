@@ -1,6 +1,6 @@
 import datetime
 from datetime import timedelta
-from typing import List
+from typing import List, Tuple
 
 import pandas as pd
 
@@ -14,13 +14,13 @@ import models.tools.format_converter as converter
 class Librarian():
     DRAWABLE_ROWS = 200
 
-    def __init__(self, from_iso, to_iso, instrument=None, indicator_names=None):
+    def __init__(self, from_iso: str, to_iso: str, instrument: str=None, indicator_names: Tuple[str]=None):
         self.__instrument: str = instrument or ClientManager.select_instrument()[0]
         self.__from_iso: str = from_iso
         self.__to_iso: str = to_iso
         self.__client: ClientManager = ClientManager(instrument=self.__instrument)
         self.__ana: Analyzer = Analyzer(indicator_names)
-        self._indicators: List[str] = None
+        self._indicators: pd.DataFrame = None
 
     @property
     def indicators(self):
