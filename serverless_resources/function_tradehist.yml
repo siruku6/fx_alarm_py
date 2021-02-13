@@ -93,3 +93,4 @@ environment:
   OANDA_ACCESS_TOKEN: ${self:custom.config.default.OANDA_ACCESS_TOKEN}
   OANDA_ACCOUNT_ID: ${self:custom.config.default.OANDA_ACCOUNT_ID}
   STAGE: ${self:provider.stage}
+  MPLCONFIGDIR: '/tmp/mpl_graph'
