@@ -1,5 +1,4 @@
 import os
-import unittest
 from unittest.mock import patch
 from oandapyV20.exceptions import V20Error
 import pytest
@@ -18,28 +17,18 @@ def oanda_client():
     client._OandaClient__api_client.client.close()
 
 
-class TestClient(unittest.TestCase):
-    #  - - - - - - - - - - - - - -
-    #     Preparing & Clearing
-    #  - - - - - - - - - - - - - -
-    @classmethod
-    def setUpClass(cls):
-        cls.client_instance = watcher.OandaClient(instrument='USD_JPY')
+#  - - - - - - - - - - -
+#    Public methods
+#  - - - - - - - - - - -
+def test_request_open_trades(client, dummy_raw_open_trades):
+    assert client.last_transaction_id is None
 
-    @classmethod
-    def tearDownClass(cls):
-        cls.client_instance._OandaClient__api_client.client.close()
-
-    #  - - - - - - - - - - -
-    #    Public methods
-    #  - - - - - - - - - - -
-    def test_request_open_trades(self):
-        self.assertIsNone(self.client_instance.last_transaction_id)
-
-        with patch('builtins.print'):
-            with patch('pprint.pprint'):
-                result = self.client_instance.request_open_trades()
-        self.assertIsInstance(int(self.client_instance.last_transaction_id), int)
+    with patch('builtins.print'):
+        with patch('pprint.pprint'):
+            with patch('oandapyV20.API.request', return_value=dummy_raw_open_trades):
+                result = client.request_open_trades()
+    assert isinstance(client.last_transaction_id, str)
+    assert isinstance(int(client.last_transaction_id), int)
 
 
 def test_failing_market_ordering(client):
@@ -170,7 +159,3 @@ def test_query_instruments(client, dummy_instruments):
                 'granularity': granularity
             }
         )
-
-
-if __name__ == '__main__':
-    unittest.main()

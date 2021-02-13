@@ -26,6 +26,27 @@ def dummy_instruments():
 
 
 @pytest.fixture(scope='session')
+def dummy_raw_open_trades():
+    return {
+        'trades': [
+            {
+            'instrument': 'DE30_EUR',
+            'financing': '0.0000',
+            'openTime': '2016-10-28T14:28:05.231759081Z',
+            'initialUnits': '10',
+            'currentUnits': '10',
+            'price': '10678.3',
+            'unrealizedPL': '136.0000',
+            'realizedPL': '0.0000',
+            'state': 'OPEN',
+            'id': '2315'
+            }
+        ],
+        'lastTransactionID': '2317'
+    }
+
+
+@pytest.fixture(scope='session')
 def dummy_open_trades():
     return [{
         'currentUnits': '-1',
