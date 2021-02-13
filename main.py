@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import Dict
+from typing import Dict, List
 import pandas as pd
 
 from models.analyzer import Analyzer
@@ -45,9 +45,12 @@ def indicator_names_handler(_event: Dict[str, Dict], _context: Dict) -> Dict:
 def api_handler(event: Dict[str, Dict], _context: Dict) -> Dict:
     # TODO: oandaとの通信失敗時などは、500 エラーレスポンスを返せるようにする
     params: Dict[str, str] = event['queryStringParameters']
+    multi_value_params = event['multiValueQueryStringParameters']
+
     pare_name: str = params['pareName']
     from_str: str = params['from']
     to_str: str = params['to']
+    indicator_names: List[str] = multi_value_params.get('indicator_names[]')
 
     requested_period: int = __period_between_from_to(from_str, to_str)
     if requested_period >= 60:
