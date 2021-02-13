@@ -98,7 +98,7 @@ def __drive_generating_tradehist(params: Dict[str, str], multi_value_params: Dic
     to_str: str = params['to']
     indicator_names: List[str] = multi_value_params.get('indicator_names[]')
 
-    libra: Librarian = Librarian(from_str, to_str, instrument=pare_name, indicator_names=indicator_names)
+    libra: Librarian = Librarian(from_str, to_str, instrument=pare_name, indicator_names=tuple(indicator_names))
     tradehist: pd.DataFrame = libra.serve_analysis_object()
     result: str = json.dumps({
         # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
