@@ -33,7 +33,7 @@ def test_extract_transaction_ids():
 
 def test_filter_and_make_df(past_transactions, expected_columns):
     instrument = 'USD_JPY'
-    result = prepro.filter_and_make_df(past_transactions, instrument)
+    result = prepro.filter_and_make_df(past_transactions['transactions'], instrument)
 
     # Assert Columns
     assert (result.columns == expected_columns).all()

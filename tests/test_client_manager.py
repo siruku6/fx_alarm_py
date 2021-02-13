@@ -1,5 +1,6 @@
 import datetime
 import pandas as pd
+from unittest.mock import patch
 import pytest
 
 import models.client_manager as manager
@@ -12,6 +13,12 @@ def fixture_client_manager():
     client = manager.ClientManager(instrument='USD_JPY')
     yield client
 
+# @pytest.fixture(name='set_last_transaction_id', scope='module', autouse=False)
+# def fixture_set_last_transaction_id(client):
+#     with patch('builtins.print'):
+#         with patch('pprint.pprint'):
+#             with patch('oandapyV20.API.request', return_value=dummy_raw_open_trades):
+#                 client._ClientManager__oanda_client.request_open_trades()
 
 def test_load_candles_by_duration_for_hist():
     pass
@@ -72,6 +79,22 @@ def test___detect_missings(start, end, exp_missing_start, exp_missing_end, clien
     assert missing_start == exp_missing_start
     assert missing_end == exp_missing_end
 
+
+def test_prepare_one_page_transactions(client, dummy_raw_open_trades, past_transactions):
+    expected_columns = [
+        'id', 'batchID', 'tradeID', 'tradeOpened', 'tradesClosed', 'type',
+        'price', 'units', 'pl', 'time', 'reason', 'instrument', 'instrument_parent'
+    ]
+
+    # INFO: Skip requesting open_trades
+    with patch('oandapyV20.API.request', return_value=dummy_raw_open_trades):
+        # INFO: Skip requesting transactions
+        with patch('models.clients.oanda_client.OandaClient.request_transactions_once', return_value=past_transactions):
+            with patch('pandas.DataFrame.to_csv', return_value=None):
+                # 2317
+                result: pd.DataFrame = client.prepare_one_page_transactions()
+    assert ((result['instrument'] == 'USD_JPY') | (result['instrument_parent'] == 'USD_JPY')).all()
+    assert all(result.columns == expected_columns)
 
 def test___calc_requestable_max_days(client):
     correction = {
