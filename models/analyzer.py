@@ -20,8 +20,8 @@ class Analyzer():
     INITIAL_AF = 0.02
     MAX_AF = 0.2
 
-    def __init__(self, indicator_set=None):
-        self.__indicator_list = indicator_set or Analyzer.INDICATOR_NAMES
+    def __init__(self, indicator_names=None):
+        self.__indicator_list = indicator_names or Analyzer.INDICATOR_NAMES
         self.__indicators = {name: None for name in self.__indicator_list + ('long_indicators',)}
         self.__base_candles = None
 
