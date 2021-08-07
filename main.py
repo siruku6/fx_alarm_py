@@ -96,7 +96,7 @@ def __drive_generating_tradehist(params: Dict[str, str], multi_value_params: Dic
     pare_name: str = params['pareName']
     from_str: str = params['from']
     to_str: str = params['to']
-    indicator_names: List[str] = multi_value_params.get('indicator_names[]')
+    indicator_names: List[str] = multi_value_params.get('indicator_names[]') or []
 
     libra: Librarian = Librarian(from_str, to_str, instrument=pare_name, indicator_names=tuple(indicator_names))
     tradehist: pd.DataFrame = libra.serve_analysis_object()
