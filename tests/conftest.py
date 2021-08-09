@@ -1,4 +1,13 @@
+import os
+from dotenv import load_dotenv
 import pytest
+
+
+@pytest.fixture(scope='session', autouse=True)
+def load_env() -> None:
+    dotenv_path: str = os.path.join('./.env')
+    load_dotenv(dotenv_path)
+    yield
 
 
 @pytest.fixture(scope='session')
@@ -30,16 +39,16 @@ def dummy_raw_open_trades():
     return {
         'trades': [
             {
-            'instrument': 'DE30_EUR',
-            'financing': '0.0000',
-            'openTime': '2016-10-28T14:28:05.231759081Z',
-            'initialUnits': '10',
-            'currentUnits': '10',
-            'price': '10678.3',
-            'unrealizedPL': '136.0000',
-            'realizedPL': '0.0000',
-            'state': 'OPEN',
-            'id': '2315'
+                'instrument': 'DE30_EUR',
+                'financing': '0.0000',
+                'openTime': '2016-10-28T14:28:05.231759081Z',
+                'initialUnits': '10',
+                'currentUnits': '10',
+                'price': '10678.3',
+                'unrealizedPL': '136.0000',
+                'realizedPL': '0.0000',
+                'state': 'OPEN',
+                'id': '2315'
             }
         ],
         'lastTransactionID': '2317'

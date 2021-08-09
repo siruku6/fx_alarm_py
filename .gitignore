@@ -1,4 +1,5 @@
 # ignoring target
+.env
 __pycache__/
 beta_cord.py
 config/*.*

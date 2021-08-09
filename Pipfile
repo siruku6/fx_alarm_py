@@ -12,6 +12,7 @@ mplfinance = "*"
 urllib3 = ">=1.26.5"
 pandas = ">=1.2.0"
 oandapyV20 = "*"
+python-dotenv = "*"
 
 [dev-packages]
 moto = "*"
