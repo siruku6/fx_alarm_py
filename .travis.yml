@@ -5,6 +5,7 @@ python:
 branches:
   only:
     - master
+    - develop
 env:
   global:
     - CC_TEST_REPORTER_ID=df0bec54ec6b21ab786dc05443fe9f52faa30df4b21c8fa2a2574b6bb47a1fb7
