@@ -1,14 +1,17 @@
-def ask_granularity():
+import typing as t
+
+
+def ask_granularity() -> str:
     while True:
-        error_msg = 'Invalid granularity !\n'
+        error_msg: str = 'Invalid granularity !\n'
 
         print('取得スパンは？(ex: M5): ', end='')
-        granularity = str(input())
+        granularity: str = str(input())
         if len(granularity) == 0:
             print(error_msg)
             continue
 
-        alphabet = granularity[0]
+        alphabet: str = granularity[0]
         if not((alphabet in 'MH' and granularity[1:].isdecimal()) or (alphabet in 'DW')):
             print(error_msg)
             continue
@@ -17,11 +20,11 @@ def ask_granularity():
     return granularity
 
 
-def ask_true_or_false(msg):
+def ask_true_or_false(msg) -> bool:
     ''' True か False を選択させる '''
     while True:
         print(msg, end='')
-        selection = prompt_inputting_decimal()
+        selection: int = prompt_inputting_decimal()
         if selection == 1:
             return True
         elif selection == 2:
@@ -30,20 +33,20 @@ def ask_true_or_false(msg):
             print('[Trader] please input 1 - 2 ! >д<;')
 
 
-def ask_number(msg, limit):
+def ask_number(msg, limit) -> int:
     ''' limit以下の数値を選択させる '''
     while True:
         print(msg, end='')
-        number = prompt_inputting_decimal()
+        number: int = prompt_inputting_decimal()
         if number > limit:
             print('[ALERT] 現在は{}までに制限しています'.format(limit))
         else:
             return number
 
 
-def select_stoploss_digit():
+def select_stoploss_digit() -> float:
     # print('[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', end='')
-    digit_id = ask_number('[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', 3)
+    digit_id: int = ask_number('[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', 3)
 
     if digit_id == 1:
         return 0.01
@@ -55,25 +58,25 @@ def select_stoploss_digit():
         return 0.00001
 
 
-def select_from_dict(dictionary, menumsg='選択して下さい'):
-    menu = '[interface] {}'.format(menumsg)
-    for i, (key, _val) in enumerate(dictionary.items()):
-        menu = '{menu} [{i}]: {key},'.format(menu=menu, i=i, key=key)
-    menu = menu[0:-1] + ': '
+def select_from_dict(dictionary: t.Dict[str, str], menumsg='選択して下さい') -> str:
+    menu: str = '[interface] {}'.format(menumsg)
+    for i, (key, _) in enumerate(dictionary.items()):
+        menu: str = '{menu} [{i}]: {key},'.format(menu=menu, i=i, key=key)
+    menu: str = menu[0:-1] + ': '
 
-    dict_len = len(dictionary)
-    keys = list(dictionary.keys())
+    dict_len: int = len(dictionary)
+    keys: t.List[str] = list(dictionary.keys())
     while True:
         print(menu, end='')
-        digit_id = prompt_inputting_decimal()
+        digit_id: int = prompt_inputting_decimal()
         if digit_id < dict_len:
-            key = keys[digit_id]
+            key: str = keys[digit_id]
             return key
         else:
             print('[interface] please input {} - {} ! >д<;'.format(1, dict_len))
 
 
-def prompt_inputting_decimal():
+def prompt_inputting_decimal() -> int:
     '''
     整数を入力させ、int型にして返す
 
@@ -86,7 +89,7 @@ def prompt_inputting_decimal():
     int: decimal
     '''
     while True:
-        selection = input()
+        selection: str = input()
         if selection.isdecimal():
             return int(selection)
         else:
