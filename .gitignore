@@ -6,7 +6,7 @@ config/*.*
 config/*/*.*
 .coverage
 coverage.xml
-*.csv
+tmp/csvs/*
 *.json
 *.zip
 htmlcov/*
