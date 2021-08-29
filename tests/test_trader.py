@@ -23,6 +23,7 @@ def real_trader_instance():
         yield real_trader
         real_trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
 
+
 @pytest.fixture(scope='module')
 def dummy_trend_candles():
     return pd.DataFrame.from_dict([

@@ -129,7 +129,7 @@ class Analyzer():
     #                     TrendLine                       #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # # iterate dataframe
-    # # https://stackoverflow.com/questions/7837722/what-is-the-most-efficient-way-to-loop-through-dataframes-with-pandas
+    # https://stackoverflow.com/questions/7837722/what-is-the-most-efficient-way-to-loop-through-dataframes-with-pandas
     # def __calc_trendlines(self, span=20, min_interval=3):
     #     if FXBase.get_candles() is None:
     #         return {'error': '[Analyzer] データが存在しません'}
@@ -343,7 +343,7 @@ class Analyzer():
     #                Support / Registance                 #
     # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     def __calc_registance(self):
-        high_candles =  self.__base_candles.loc[:, 'high']
+        high_candles = self.__base_candles.loc[:, 'high']
         regist_points = \
             (pd.Series.rolling(high_candles, window=7).max() == high_candles) \
             & (high_candles.shift(1) < high_candles) \
@@ -352,7 +352,7 @@ class Analyzer():
         return regist_plots
 
     def __calc_support(self):
-        low_candles =  self.__base_candles.loc[:, 'low']
+        low_candles = self.__base_candles.loc[:, 'low']
         support_points = \
             (pd.Series.rolling(low_candles, window=7).min() == low_candles) \
             & (low_candles.shift(1) > low_candles) \

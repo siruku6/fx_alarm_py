@@ -1,5 +1,6 @@
 import json
-from unittest.mock import patch
+# from unittest.mock import patch
+from typing import Dict, List
 import pytest
 
 import main
@@ -45,7 +46,9 @@ def test_fails_api_handler(invalid_tradehist_event):
     result = main.api_handler(invalid_tradehist_event, None)
     assert result['statusCode'] == 400
     assert result['headers'] == main.__headers(method='GET')
-    assert result['body'] == json.dumps({'message': 'Maximum days between FROM and TO is 60 days. You requested 62 days!'})
+    assert result['body'] == json.dumps(
+        {'message': 'Maximum days between FROM and TO is 60 days. You requested 62 days!'}
+    )
 
 
 def test___headers():

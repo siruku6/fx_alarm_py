@@ -73,25 +73,25 @@ def test___prepare_candles(libra_client, from_iso, to_iso):
     # Case1:
     #   The period between from and to is more than 400 candles
     granularity = 'H4'
-    buffer = converter.granularity_to_timedelta(granularity)
+    _: float = converter.granularity_to_timedelta(granularity)
     from_with_spare = pd.Timestamp(to_iso[:19]) - datetime.timedelta(hours=1600)
     to_converted = pd.Timestamp(to_iso[:19])
 
     with patch('models.client_manager.ClientManager.load_candles_by_duration_for_hist',
                return_value=pd.DataFrame()) as mock:
-        result: pd.DataFrame = libra_client._Librarian__prepare_candles(granularity=granularity)
+        _: pd.DataFrame = libra_client._Librarian__prepare_candles(granularity=granularity)
     mock.assert_called_with(start=from_with_spare, end=to_converted, granularity=granularity)
 
     # Case2
     #   The period between from and to is more than 400 candles
     granularity = 'H1'
-    buffer = converter.granularity_to_timedelta(granularity)
+    _: float = converter.granularity_to_timedelta(granularity)
     from_with_spare = to_converted - datetime.timedelta(hours=400)
     to_converted = pd.Timestamp(to_iso[:19])
 
     with patch('models.client_manager.ClientManager.load_candles_by_duration_for_hist',
                return_value=pd.DataFrame()) as mock:
-        result: pd.DataFrame = libra_client._Librarian__prepare_candles(granularity=granularity)
+        _: pd.DataFrame = libra_client._Librarian__prepare_candles(granularity=granularity)
     mock.assert_called_with(start=from_with_spare, end=to_converted, granularity=granularity)
 
 
@@ -162,4 +162,3 @@ def test___merge_hist_dfs(libra_client, past_usd_candles, past_transactions):
     assert np.all(close_order.values == [
         107.707, '2020-07-07 10:00:00', '24232', 'MARKET_ORDER_TRADE_CLOSE', 'ORDER_FILL', '107.733', None, 1540.0
     ])
-

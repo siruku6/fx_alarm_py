@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from models.candle_storage import FXBase
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                       Multople rows Processor
@@ -37,8 +39,9 @@ def commit_positions(candles, long_indexes, short_indexes, spread):
     # INFO: position column の整理
     candles.position.fillna(method='ffill', inplace=True)
     # INFO: 2連続entry, entryなしでのexitを除去
-    no_position_index = (candles.position == candles.position.shift(1)) \
-                        & (candles.entryable_price.isna() | candles.exitable_price.isna())
+    no_position_index = \
+        (candles.position == candles.position.shift(1)) \
+        & (candles.entryable_price.isna() | candles.exitable_price.isna())
     candles.loc[no_position_index, 'position'] = None
 
 
@@ -139,8 +142,8 @@ def sma_run_along_trend(self, index, trend):
 
 
 def over_2_sigma(self, index, price):
-    if self._indicators['sigma*2_band'][index] < price or \
-    self._indicators['sigma*-2_band'][index] > price:
+    if self._indicators['sigma*2_band'][index] < price \
+            or self._indicators['sigma*-2_band'][index] > price:
         if self._operation == 'live':
             self._log_skip_reason(
                 'c. {}: price is over 2sigma'.format(FXBase.get_candles().time[index])

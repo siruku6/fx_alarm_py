@@ -103,8 +103,10 @@ def __drive_generating_tradehist(params: Dict[str, str], multi_value_params: Dic
     result: str = json.dumps({
         # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
         #   to_json ならこの問題は起きないが、dumps と組み合わせると文字列になってしまうのでしない
-        'history': tradehist.where((pd.notnull(tradehist)), None) \
-                            .to_dict(orient='records')
+        'history': (
+            tradehist.where((pd.notnull(tradehist)), None)
+                     .to_dict(orient='records')
+        )
     })
     return result
 

@@ -67,6 +67,7 @@ def test_to_candles_from_dynamo():
 
     pd.testing.assert_frame_equal(result, expected, check_like=True)
 
+
 def test_convert_to_m10():
     dummy_time_str = [
         '2020-10-01T12:34:00.000000Z',

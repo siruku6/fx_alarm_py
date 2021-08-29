@@ -215,7 +215,10 @@ def test___since_last_loss(real_trader_client):
     dummy_transactions = pd.DataFrame(
         {'pl': [121.03], 'time': ['2019-02-01T12:15:02.436718568Z']}
     )
-    with patch('models.client_manager.ClientManager._ClientManager__request_latest_transactions', return_value=dummy_transactions):
+    with patch(
+        'models.client_manager.ClientManager._ClientManager__request_latest_transactions',
+        return_value=dummy_transactions
+    ):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()
     assert time_since_loss == datetime.timedelta(hours=99)
 
@@ -223,7 +226,10 @@ def test___since_last_loss(real_trader_client):
     dummy_transactions = pd.DataFrame(
         {'pl': [-121.03], 'time': [datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.xxxxxxxxxZ')]}
     )
-    with patch('models.client_manager.ClientManager._ClientManager__request_latest_transactions', return_value=dummy_transactions):
+    with patch(
+        'models.client_manager.ClientManager._ClientManager__request_latest_transactions',
+        return_value=dummy_transactions
+    ):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()
     assert time_since_loss < datetime.timedelta(hours=1)
 

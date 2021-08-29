@@ -1,6 +1,6 @@
 import datetime
 from datetime import timedelta
-from typing import List, Tuple
+from typing import Tuple
 
 import pandas as pd
 
@@ -14,7 +14,7 @@ import models.tools.format_converter as converter
 class Librarian():
     DRAWABLE_ROWS = 200
 
-    def __init__(self, from_iso: str, to_iso: str, instrument: str=None, indicator_names: Tuple[str]=None):
+    def __init__(self, from_iso: str, to_iso: str, instrument: str = None, indicator_names: Tuple[str] = None):
         self.__instrument: str = instrument or ClientManager.select_instrument()[0]
         self.__from_iso: str = from_iso
         self.__to_iso: str = to_iso
@@ -122,7 +122,10 @@ class Librarian():
         if granularity == 'M10':  # TODO: M15, 30 も対応できるようにする
             history_df['time'] = [converter.convert_to_m10(time) for time in history_df.time]
         elif granularity in ('H1', 'H4'):
-            history_df['time'] = [self.__convert_time_str_to(granularity, time, dict_dst_switches) for time in history_df.time]
+            history_df['time'] = [
+                self.__convert_time_str_to(granularity, time, dict_dst_switches)
+                for time in history_df.time
+            ]
         return history_df
 
     def __detect_dst_switches(self, candles):
