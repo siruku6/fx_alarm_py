@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import pandas as pd
 
 from models.analyzer import Analyzer
@@ -73,7 +73,7 @@ def __headers(method: str) -> Dict[str, str]:
     }
 
 
-def __tradehist_params_valid(params: Dict[str, str], _multi_value_params: Dict[str, List]) -> [bool, str, int]:
+def __tradehist_params_valid(params: Dict[str, str], _multi_value_params: Dict[str, List]) -> Tuple[bool, str, int]:
     requested_period: int = __period_between_from_to(params['from'], params['to'])
     if requested_period >= 60:
         msg: str = 'Maximum days between FROM and TO is 60 days. You requested {} days!'.format(requested_period)
