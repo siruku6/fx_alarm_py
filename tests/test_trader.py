@@ -1,23 +1,24 @@
 from unittest.mock import patch
 import pytest
+import numpy as np
 import pandas as pd
 from pandas.testing import assert_series_equal
 
 from models.candle_storage import FXBase
-import models.trader as trader
+from models.trader import Trader
 import models.real_trader as real
 
 
-@pytest.fixture(scope='module')
-def trader_instance():
+@pytest.fixture(name='trader_instance', scope='module')
+def fixture_trader_instance():
     with patch('models.trader.Trader.get_instrument', return_value='USD_JPY'):
-        _trader = trader.Trader(operation='unittest')
+        _trader = Trader(operation='unittest')
         yield _trader
         _trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
 
 
-@pytest.fixture(scope='module')
-def real_trader_instance():
+@pytest.fixture(name='real_trader_instance', scope='module')
+def fixture_real_trader_instance():
     with patch('models.trader.Trader.get_instrument', return_value='USD_JPY'):
         real_trader = real.RealTrader(operation='unittest')
         yield real_trader
@@ -90,3 +91,28 @@ def test___generate_band_expansion_column(real_trader_instance):
     result = real_trader_instance._Trader__generate_band_expansion_column(df_bands=test_df)
     assert result.iat[-2]
     assert not result.iat[-1]
+
+
+class TestGenerateFollowingTrendColumn():
+    @pytest.fixture(name='dummy_smas', scope='module')
+    def fixture_dummy_smas(self) -> pd.DataFrame:
+        return pd.DataFrame({
+            '20SMA': [98.264, 101.765, 101.891, 100.253, 100.129]
+        })
+
+    @pytest.fixture(name='dummy_trends', scope='module')
+    def fixture_dummy_trend(self) -> pd.DataFrame:
+        return pd.DataFrame({
+            'bull': [None, True, False, False, True],
+            'bear': [None, False, True, True, False],
+        })
+
+    def test_5_patterns(
+        self, trader_instance: Trader,
+        dummy_smas: pd.DataFrame, dummy_trends: pd.DataFrame
+    ):
+        trader_instance._indicators = dummy_smas
+        result: np.ndarray = trader_instance._Trader__generate_following_trend_column(dummy_trends)
+        expected: np.ndarray = np.array([False, True, False, True, False])
+
+        np.testing.assert_array_equal(result, expected)

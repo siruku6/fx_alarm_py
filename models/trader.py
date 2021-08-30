@@ -29,7 +29,7 @@ class Trader():
         -------
         None
         '''
-        need_request: bool = True
+        need_request: bool = False if operation == 'unittest' else True
         if operation in ('backtest', 'forward_test'):
             selected_inst: t.List[str, float] = ClientManager.select_instrument()
             self._instrument: str = selected_inst[0]
