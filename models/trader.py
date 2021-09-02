@@ -256,7 +256,7 @@ class Trader():
         ema60_allows_bear = np.all(np.array([candles.bear, ema60 > candles.close]), axis=0)
         return np.any(np.array([ema60_allows_bull, ema60_allows_bear]), axis=0)
 
-    def __generate_in_the_band_column(self, price_series):
+    def __generate_in_bands_column(self, price_series: pd.Series) -> np.ndarray:
         ''' 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 '''
         df_over_band_detection = pd.DataFrame({
             'under_positive_band': self._indicators['sigma*2_band'] > price_series,
@@ -272,28 +272,17 @@ class Trader():
         return bands_gap.rolling(window=shift_size).max() == bands_gap
         # return bands_gap.shift(shift_size) < bands_gap
 
-    def __generate_getting_steeper_column(self, df_trend):
+    def __generate_getting_steeper_column(self, df_trend: pd.DataFrame) -> np.ndarray:
         ''' 移動平均が勢いづいているか否かを判定 '''
-        gap_of_ma = self._indicators['10EMA'] - self._indicators['20SMA']
-        result = gap_of_ma.shift(1) < gap_of_ma
+        gap_of_ma: pd.Series = self._indicators['10EMA'] - self._indicators['20SMA']
+        result: pd.Series = gap_of_ma.shift(1) < gap_of_ma
 
-        # OPTIMIZE: 以下の部分、行数をかなり減らせそう
         # INFO: 上昇方向に勢いづいている
-        is_long_steeper = np.all(
-            pd.DataFrame({'bull': df_trend.bull, 'inclination': result}),
-            axis=1
-        )
+        is_long_steeper: pd.Series = df_trend['bull'].fillna(False) & result
         # INFO: 下降方向に勢いづいている
-        is_short_steeper = np.all(
-            pd.DataFrame({'bear': df_trend.bear, 'inclination': np.where(result, False, True)}),
-            axis=1
-        )
+        is_short_steeper: pd.Series = df_trend['bear'].fillna(False) & np.where(result, False, True)
 
-        # どちらかにでも勢いがついていれば True
-        return np.any(
-            pd.DataFrame({'l_steeper': is_long_steeper, 'sh_steeper': is_short_steeper}),
-            axis=1
-        )
+        return np.any([is_long_steeper, is_short_steeper], axis=0)
 
     def __generate_following_trend_column(self, df_trend):
         ''' 移動平均線がtrendに沿う方向に動いているか判定する列を返却 '''
@@ -302,11 +291,9 @@ class Trader():
         df_tmp['sma_up'] = df_sma.shift(1) < df_sma
         df_tmp['sma_down'] = df_sma.shift(1) > df_sma
 
-        tmp_df = pd.DataFrame({
-            'both_up': np.all(df_tmp[['bull', 'sma_up']], axis=1),
-            'both_down': np.all(df_tmp[['bear', 'sma_down']], axis=1)
-        })
-        return np.any(tmp_df, axis=1)
+        both_up: np.ndarray = np.all(df_tmp[['bull', 'sma_up']], axis=1)
+        both_down: np.ndarray = np.all(df_tmp[['bear', 'sma_down']], axis=1)
+        return np.any([both_up, both_down], axis=0)
 
     #
     # private
@@ -349,7 +336,7 @@ class Trader():
         candles['thrust'] = self.__generate_thrust_column(candles=candles, trend=trend)
         # 60EMA is necessary?
         # candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
-        candles['in_the_band'] = self.__generate_in_the_band_column(price_series=comparison_prices_with_bands)
+        candles['in_the_band'] = self.__generate_in_bands_column(price_series=comparison_prices_with_bands)
         candles['band_expansion'] = self.__generate_band_expansion_column(
             df_bands=indicators[['sigma*2_band', 'sigma*-2_band']]
         )

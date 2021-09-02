@@ -81,37 +81,74 @@ def test___generate_thrust_column(real_trader_instance, dummy_trend_candles):
     assert_series_equal(dummy_df['result'], result)
 
 
-def test___generate_band_expansion_column(real_trader_instance):
-    test_df = pd.DataFrame.from_dict([
-        {'sigma*2_band': 110.0, 'sigma*-2_band': 108.5},
-        {'sigma*2_band': 110.1, 'sigma*-2_band': 108.6},
-        {'sigma*2_band': 110.0, 'sigma*-2_band': 108.3},
-        {'sigma*2_band': 110.1, 'sigma*-2_band': 108.6}
+@pytest.fixture(name='dummy_sigmas', scope='module')
+def fixture_dummy_sigmas() -> pd.DataFrame:
+    return pd.DataFrame.from_dict([
+        {'sigma*2_band': 110.001, 'sigma*-2_band': 108.509},
+        {'sigma*2_band': 110.1, 'sigma*-2_band': 108.631},
+        {'sigma*2_band': 110.013, 'sigma*-2_band': 108.3},
+        {'sigma*2_band': 110.191, 'sigma*-2_band': 108.6}
     ], orient='columns')
-    result = real_trader_instance._Trader__generate_band_expansion_column(df_bands=test_df)
-    assert result.iat[-2]
-    assert not result.iat[-1]
+
+
+class TestGenerateInBandsColumn():
+    @pytest.fixture(name='dummy_prices', scope='module')
+    def fixture_dummy_prices(self) -> pd.Series:
+        return pd.Series([109.2, 108.58, 110.02, 110.191], name='price')
+
+    def test_4_patterns(
+        self, trader_instance: Trader,
+        dummy_sigmas: pd.DataFrame, dummy_prices: pd.DataFrame
+    ):
+        trader_instance._indicators = pd.DataFrame([])
+        trader_instance._indicators['sigma*2_band'] = dummy_sigmas['sigma*2_band']
+        trader_instance._indicators['sigma*-2_band'] = dummy_sigmas['sigma*-2_band']
+        result: np.ndarray = trader_instance._Trader__generate_in_bands_column(dummy_prices)
+        expected: np.ndarray = np.array([True, False, False, False])
+
+        np.testing.assert_array_equal(result, expected)
+
+
+def test___generate_band_expansion_column(real_trader_instance, dummy_sigmas):
+    result: np.ndarray = real_trader_instance._Trader__generate_band_expansion_column(df_bands=dummy_sigmas)
+    expected: np.ndarray = np.array([False, False, True, False])
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.fixture(name='dummy_mas', scope='module')
+def fixture_dummy_mas() -> pd.DataFrame:
+    return pd.DataFrame({
+        '20SMA': [98.264, 101.765, 101.891, 100.253, 100.129],
+        '10EMA': [98.264, 101.965, 102.191, 100.453, 100.029],
+    })
+
+
+@pytest.fixture(name='dummy_trends', scope='module')
+def fixture_dummy_trend() -> pd.DataFrame:
+    return pd.DataFrame({
+        'bull': [None, True, False, False, True],
+        'bear': [None, False, True, True, False],
+    })
+
+
+class TestGenerateGettingSteeperColumn():
+    def test_5_patterns(
+        self, trader_instance: Trader,
+        dummy_mas: pd.DataFrame, dummy_trends: pd.DataFrame
+    ):
+        trader_instance._indicators = dummy_mas
+        result: np.ndarray = trader_instance._Trader__generate_getting_steeper_column(dummy_trends)
+        expected: np.ndarray = np.array([False, True, False, True, False])
+
+        np.testing.assert_array_equal(result, expected)
 
 
 class TestGenerateFollowingTrendColumn():
-    @pytest.fixture(name='dummy_smas', scope='module')
-    def fixture_dummy_smas(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            '20SMA': [98.264, 101.765, 101.891, 100.253, 100.129]
-        })
-
-    @pytest.fixture(name='dummy_trends', scope='module')
-    def fixture_dummy_trend(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            'bull': [None, True, False, False, True],
-            'bear': [None, False, True, True, False],
-        })
-
     def test_5_patterns(
         self, trader_instance: Trader,
-        dummy_smas: pd.DataFrame, dummy_trends: pd.DataFrame
+        dummy_mas: pd.DataFrame, dummy_trends: pd.DataFrame
     ):
-        trader_instance._indicators = dummy_smas
+        trader_instance._indicators = dummy_mas
         result: np.ndarray = trader_instance._Trader__generate_following_trend_column(dummy_trends)
         expected: np.ndarray = np.array([False, True, False, True, False])
 
