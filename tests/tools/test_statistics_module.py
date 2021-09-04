@@ -32,7 +32,22 @@ def test___calc_profit():
         assert math.isclose(diff, expected_diff)
 
 
-def test___calc_profit_extra_pattern():
+def test___calc_profit_with_soon_exits():
+    ''' 即座終了ポジションが最初と最後にある場合 '''
+    dummy_position_hist_dicts = {
+        'position': ('buy_exit', 'long', 'sell_exit', 'sell_exit'),
+        'entry_price': (120.027, 114.340, None, 112.038),
+        'exitable_price': (119.941, None, 114.932, 111.958)
+    }
+    expected_result = (0.086, 0.0, 0.592, -0.080)
+
+    positions_df = pd.DataFrame.from_dict(dummy_position_hist_dicts)
+    result = stat.__calc_profit(positions_df)['profit'].values
+    for diff, expected_diff in zip(result, expected_result):
+        assert math.isclose(diff, expected_diff)
+
+
+def test___calc_profit_combination():
     ''' 継続ポジションexit時に即座終了ポジションがあった場合 '''
     dummy_position_hist_dicts = {
         'position': [
