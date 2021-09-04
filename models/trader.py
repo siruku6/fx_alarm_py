@@ -1,7 +1,9 @@
 import os
+from typing import Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
-import typing as t
+
 from models.candle_storage import FXBase
 from models.client_manager import ClientManager
 from models.analyzer import Analyzer
@@ -18,7 +20,7 @@ class Trader():
     MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
-    def __init__(self, operation: str = 'backtest', days: t.Optional[int] = None):
+    def __init__(self, operation: str = 'backtest', days: Optional[int] = None):
         '''
         Parameters
         ----------
@@ -31,7 +33,7 @@ class Trader():
         '''
         need_request: bool = False if operation == 'unittest' else True
         if operation in ('backtest', 'forward_test'):
-            selected_inst: t.List[str, float] = ClientManager.select_instrument()
+            selected_inst: List[str, float] = ClientManager.select_instrument()
             self._instrument: str = selected_inst[0]
             self._static_spread: float = selected_inst[1]['spread']
             self.__set_drawing_option()
@@ -41,8 +43,8 @@ class Trader():
             )
             days: int = i_face.ask_number(msg='何日分のデータを取得する？(半角数字): ', limit=365)
         self.__init_common_params(operation, days=days)
-        self.__m10_candles: t.Optional[pd.DataFrame] = None
-        result: t.Dict[str, str] = self.__prepare_candles(operation, need_request, days).get('info')
+        self.__m10_candles: Optional[pd.DataFrame] = None
+        result: Dict[str, str] = self.__prepare_candles(operation, need_request, days).get('info')
 
         if result is not None:
             print(result)
@@ -75,7 +77,7 @@ class Trader():
         self._drawer = None
         self._position = None
 
-    def __prepare_candles(self, operation: str, need_request: bool = True, days: int = None) -> t.Dict[str, str]:
+    def __prepare_candles(self, operation: str, need_request: bool = True, days: int = None) -> Dict[str, str]:
         if need_request is False:
             candles = pd.read_csv('tests/fixtures/sample_candles.csv')
         elif operation in ('backtest', 'forward_test'):
@@ -346,24 +348,27 @@ class Trader():
             indicators, sr_trend=candles['trend']
         )
 
-    def _preprocess_backtest_result(self, rule, result):
-        positions_columns = ['time', 'position', 'entry_price', 'exitable_price']
+    def _preprocess_backtest_result(
+        self, rule: str, result: Dict[str, Union[str, pd.DataFrame]]
+    ) -> pd.DataFrame:
+        positions_columns: List[str] = ['time', 'position', 'entry_price', 'exitable_price']
         if result['result'] == 'no position':
             return pd.DataFrame([], columns=positions_columns)
 
-        df_positions = result['candles'].loc[:, positions_columns]
-        pl_gross_df = statistics.aggregate_backtest_result(
+        pl_gross_df: pd.DataFrame = statistics.aggregate_backtest_result(
             rule=rule,
-            df_positions=df_positions,
+            df_positions=result['candles'].loc[:, positions_columns],
             granularity=self.get_entry_rules('granularity'),
             stoploss_buffer=self._stoploss_buffer_pips,
             spread=self._static_spread,
             entry_filter=self.get_entry_rules('entry_filter')
         )
-        df_positions = self._wrangle_result_for_graph(result['candles'][
-            ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
-        ].copy())
-        df_positions = pd.merge(df_positions, pl_gross_df, on='time', how='left')
+        df_positions: pd.DataFrame = self._wrangle_result_for_graph(
+            result['candles'][
+                ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
+            ].copy()
+        )
+        df_positions: pd.DataFrame = pd.merge(df_positions, pl_gross_df, on='time', how='left')
         df_positions['gross'].fillna(method='ffill', inplace=True)
 
         return df_positions

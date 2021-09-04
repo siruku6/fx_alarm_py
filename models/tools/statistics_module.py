@@ -90,7 +90,9 @@ def __calc_profit(copied_positions):
 
 def __pl_calculator(position_series, diffs):
     # INFO: long か short かで正負を逆にする
-    return np.where(position_series == 'sell_exit', diffs, diffs * -1)
+    return np.nan_to_num(
+        np.where(position_series == 'sell_exit', diffs, diffs * -1)
+    )
 
 
 def __calc_performance_indicators(positions):
