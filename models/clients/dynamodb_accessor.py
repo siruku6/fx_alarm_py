@@ -23,6 +23,8 @@ class CandleRecord(TypedDict, total=False):
 QueryResult = t.Dict[str, t.Union[t.List[CandleRecord], int, t.Dict]]
 
 # import pdb; pdb.set_trace()
+
+
 class DynamodbAccessor():
     def __init__(self, pare_name: str, table_name: str = 'H1_CANDLES'):
         # HACK: env:DYNAMO_ENDPOINT(endpoint_url) が

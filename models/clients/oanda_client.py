@@ -26,7 +26,7 @@ LOGGER.setLevel(logging.INFO)
 class OandaClient():
     REQUESTABLE_COUNT = 5000
 
-    def __init__(self, instrument: str, environment: str=None, test: bool=False):
+    def __init__(self, instrument: str, environment: str = None, test: bool = False):
         ''' 固定パラメータの設定 '''
         self.__api_client = API(
             access_token=os.environ['OANDA_ACCESS_TOKEN'],

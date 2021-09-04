@@ -5,7 +5,6 @@ import pytest
 
 import models.client_manager as manager
 from models.clients.oanda_client import OandaClient
-import models.tools.format_converter as converter
 
 
 @pytest.fixture(name='client', scope='module', autouse=True)
@@ -19,6 +18,7 @@ def fixture_client_manager():
 #         with patch('pprint.pprint'):
 #             with patch('oandapyV20.API.request', return_value=dummy_raw_open_trades):
 #                 client._ClientManager__oanda_client.request_open_trades()
+
 
 def test_load_candles_by_duration_for_hist():
     pass
@@ -95,6 +95,7 @@ def test_prepare_one_page_transactions(client, dummy_raw_open_trades, past_trans
                 result: pd.DataFrame = client.prepare_one_page_transactions()
     assert ((result['instrument'] == 'USD_JPY') | (result['instrument_parent'] == 'USD_JPY')).all()
     assert all(result.columns == expected_columns)
+
 
 def test___calc_requestable_max_days(client):
     correction = {

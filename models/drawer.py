@@ -98,8 +98,10 @@ class FigureDrawer():
 
         if 'stoD_over_stoSD' in candles.columns:
             # long-stoc
-            bull_long_stoc = candles.loc[candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
-            bear_long_stoc = candles.loc[~candles['stoD_over_stoSD'], ['stoD_over_stoSD']].assign(stoD_over_stoSD=y_height)
+            bull_long_stoc = candles.loc[candles['stoD_over_stoSD'], ['stoD_over_stoSD']] \
+                                    .assign(stoD_over_stoSD=y_height)
+            bear_long_stoc = candles.loc[~candles['stoD_over_stoSD'], ['stoD_over_stoSD']] \
+                                    .assign(stoD_over_stoSD=y_height)
             self.draw_df(bull_long_stoc, names=('stoD_over_stoSD',))
             self.draw_df(bear_long_stoc, names=('stoD_below_stoSD',))
 
@@ -137,13 +139,18 @@ class FigureDrawer():
         if plot_type == FigureDrawer.PLOT_TYPE['simple-line']:
             target_axis.plot(x_values, projection.values, label=nolabel or name, c=color, linewidth=0.5)
         elif plot_type == FigureDrawer.PLOT_TYPE['dashed-line']:
-            target_axis.plot(x_values, projection.values, label=nolabel or name, c=color, linestyle='dashed', linewidth=0.5)
+            target_axis.plot(
+                x_values, projection.values, label=nolabel or name, c=color, linestyle='dashed', linewidth=0.5
+            )
         elif plot_type == FigureDrawer.PLOT_TYPE['dot']:
-            target_axis.scatter(x=x_values, y=projection.values, label=nolabel or name, c=color, marker='d', s=size, alpha=0.5)
+            target_axis.scatter(
+                x=x_values, y=projection.values, label=nolabel or name, c=color, marker='d', s=size, alpha=0.5
+            )
         elif plot_type == FigureDrawer.PLOT_TYPE['bar']:
             length: int = len(x_values)
-            target_axis.bar(x=np.arange(length), height=projection.values, label=nolabel or name, width=0.6, color=color)
-
+            target_axis.bar(
+                x=np.arange(length), height=projection.values, label=nolabel or name, width=0.6, color=color
+            )
 
     def draw_positions_df(self, positions_df, plot_type=PLOT_TYPE['long'], size=20, nolabel=None):
         ''' __hist_positionsから抽出したdfを受け取って描画 '''

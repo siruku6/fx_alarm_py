@@ -81,10 +81,10 @@ def __reset_next_position(factor_dicts, index, entry_direction):
 
 def __decide_exit_price(entry_direction, one_frame, previous_frame):
     if entry_direction == 'long':
-        edge_price = one_frame['high']
+        # edge_price = one_frame['high']
         exit_type = 'sell_exit'
     elif entry_direction == 'short':
-        edge_price = one_frame['low']
+        # edge_price = one_frame['low']
         exit_type = 'buy_exit'
     exit_price, exit_reason = __exit_by_stoploss(entry_direction, one_frame)
     if exit_price is not None:

@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import pandas as pd
 
 from models.analyzer import Analyzer
@@ -73,7 +73,7 @@ def __headers(method: str) -> Dict[str, str]:
     }
 
 
-def __tradehist_params_valid(params: Dict[str, str], _multi_value_params: Dict[str, List]) -> [bool, str, int]:
+def __tradehist_params_valid(params: Dict[str, str], _multi_value_params: Dict[str, List]) -> Tuple[bool, str, int]:
     requested_period: int = __period_between_from_to(params['from'], params['to'])
     if requested_period >= 60:
         msg: str = 'Maximum days between FROM and TO is 60 days. You requested {} days!'.format(requested_period)
@@ -103,8 +103,10 @@ def __drive_generating_tradehist(params: Dict[str, str], multi_value_params: Dic
     result: str = json.dumps({
         # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
         #   to_json ならこの問題は起きないが、dumps と組み合わせると文字列になってしまうのでしない
-        'history': tradehist.where((pd.notnull(tradehist)), None) \
-                            .to_dict(orient='records')
+        'history': (
+            tradehist.where((pd.notnull(tradehist)), None)
+                     .to_dict(orient='records')
+        )
     })
     return result
 

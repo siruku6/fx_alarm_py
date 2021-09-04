@@ -26,7 +26,7 @@ def test_request_open_trades(client, dummy_raw_open_trades):
     with patch('builtins.print'):
         with patch('pprint.pprint'):
             with patch('oandapyV20.API.request', return_value=dummy_raw_open_trades):
-                result = client.request_open_trades()
+                _ = client.request_open_trades()
     assert isinstance(client.last_transaction_id, str)
     assert isinstance(int(client.last_transaction_id), int)
 
@@ -93,7 +93,7 @@ def test_request_transactions_once(client, past_transactions):
 
     with patch('oandapyV20.endpoints.transactions.TransactionIDRange') as mock:
         with patch('oandapyV20.API.request', return_value=past_transactions):
-            response = client.request_transactions_once(from_id=from_id, to_id=to_id)
+            _ = client.request_transactions_once(from_id=from_id, to_id=to_id)
         mock.assert_called_with(
             accountID=os.environ.get('OANDA_ACCOUNT_ID'), params={'from': from_id, 'to': 5, 'type': ['ORDER']}
         )

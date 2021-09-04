@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch
 
-import models.trader as trader
+# import models.trader as trader
 import models.swing_trader as swing
 
 

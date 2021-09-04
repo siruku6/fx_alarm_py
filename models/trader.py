@@ -1,6 +1,9 @@
 import os
+from typing import Dict, List, Optional, Union
+
 import numpy as np
 import pandas as pd
+
 from models.candle_storage import FXBase
 from models.client_manager import ClientManager
 from models.analyzer import Analyzer
@@ -17,7 +20,7 @@ class Trader():
     MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
-    def __init__(self, operation='backtest', days=None):
+    def __init__(self, operation: str = 'backtest', days: Optional[int] = None):
         '''
         Parameters
         ----------
@@ -28,24 +31,26 @@ class Trader():
         -------
         None
         '''
-        need_request = True
+        need_request: bool = False if operation == 'unittest' else True
         if operation in ('backtest', 'forward_test'):
-            result = ClientManager.select_instrument()
-            self._instrument = result[0]
-            self._static_spread = result[1]['spread']
+            selected_inst: List[str, float] = ClientManager.select_instrument()
+            self._instrument: str = selected_inst[0]
+            self._static_spread: float = selected_inst[1]['spread']
             self.__set_drawing_option()
-            self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
-            days = i_face.ask_number(msg='何日分のデータを取得する？(半角数字): ', limit=365)
-            need_request = i_face.ask_true_or_false(
+            self._stoploss_buffer_pips: float = i_face.select_stoploss_digit() * 5
+            need_request: bool = i_face.ask_true_or_false(
                 msg='[Trader] Which do you use ?  [1]: current_candles, [2]: static_candles :'
             )
+            days: int = i_face.ask_number(msg='何日分のデータを取得する？(半角数字): ', limit=365)
         self.__init_common_params(operation, days=days)
+        self.__m10_candles: Optional[pd.DataFrame] = None
+        result: Dict[str, str] = self.__prepare_candles(operation, need_request, days).get('info')
 
-        result = self.__prepare_candles(operation, need_request, days).get('info')
         if result is not None:
             print(result)
             return
 
+        self.__prepare_long_span_candles(days=days, need_request=need_request)
         self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
         self._indicators = self._ana.get_indicators()
         self._initialize_position_variables()
@@ -57,10 +62,12 @@ class Trader():
         )
         self._drawer = None
 
-    def __init_common_params(self, operation, days):
-        self._operation = operation
-        self._ana = Analyzer()
-        self._client = ClientManager(instrument=self.get_instrument(), test=operation in ('backtest', 'forward_test'))
+    def __init_common_params(self, operation: str, days: int):
+        self._operation: str = operation
+        self._ana: Analyzer = Analyzer()
+        self._client: ClientManager = ClientManager(
+            instrument=self.get_instrument(), test=operation in ('backtest', 'forward_test')
+        )
         self._entry_rules = {
             'days': days,
             'granularity': os.environ.get('GRANULARITY') or 'M5',
@@ -70,9 +77,9 @@ class Trader():
         self._drawer = None
         self._position = None
 
-    def __prepare_candles(self, operation, need_request=True, days=None):
+    def __prepare_candles(self, operation: str, need_request: bool = True, days: int = None) -> Dict[str, str]:
         if need_request is False:
-            candles = pd.read_csv('./tmp/csvs/h4_candles_for_test.csv')
+            candles = pd.read_csv('tests/fixtures/sample_candles.csv')
         elif operation in ('backtest', 'forward_test'):
             self._entry_rules['granularity'] = i_face.ask_granularity()
             candles = self._client.load_long_chart(
@@ -90,15 +97,14 @@ class Trader():
             return {'info': 'exit at once'}
 
         FXBase.set_candles(candles)
-        self.__m10_candles = None
-        self.__prepare_long_span_candles(days=days)
+        if need_request is False: return {}
 
         latest_candle = self._client.call_oanda('current_price')
         self.__update_latest_candle(latest_candle)
 
         return {}
 
-    def __update_latest_candle(self, latest_candle):
+    def __update_latest_candle(self, latest_candle) -> None:
         '''
         最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き
         '''
@@ -111,7 +117,7 @@ class Trader():
         print('[Client] Last_H4: {}, Current_M1: {}'.format(candle_dict, latest_candle))
         print('[Client] New_H4: {}'.format(FXBase.get_candles().iloc[-1].to_dict()))
 
-    def _initialize_position_variables(self):
+    def _initialize_position_variables(self) -> None:
         self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
 
@@ -128,12 +134,12 @@ class Trader():
         self._entry_rules[rule_property] = value
 
     @property
-    def m10_candles(self):
+    def m10_candles(self) -> pd.DataFrame:
         return self.__m10_candles
 
     @m10_candles.setter
-    def m10_candles(self, arg):
-        self.__m10_candles = arg
+    def m10_candles(self, arg: pd.DataFrame) -> None:
+        self.__m10_candles: pd.DataFrame = arg
 
     #
     # public
@@ -252,7 +258,7 @@ class Trader():
         ema60_allows_bear = np.all(np.array([candles.bear, ema60 > candles.close]), axis=0)
         return np.any(np.array([ema60_allows_bull, ema60_allows_bear]), axis=0)
 
-    def __generate_in_the_band_column(self, price_series):
+    def __generate_in_bands_column(self, price_series: pd.Series) -> np.ndarray:
         ''' 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 '''
         df_over_band_detection = pd.DataFrame({
             'under_positive_band': self._indicators['sigma*2_band'] > price_series,
@@ -268,27 +274,17 @@ class Trader():
         return bands_gap.rolling(window=shift_size).max() == bands_gap
         # return bands_gap.shift(shift_size) < bands_gap
 
-    def __generate_getting_steeper_column(self, df_trend):
+    def __generate_getting_steeper_column(self, df_trend: pd.DataFrame) -> np.ndarray:
         ''' 移動平均が勢いづいているか否かを判定 '''
-        gap_of_ma = self._indicators['10EMA'] - self._indicators['20SMA']
-        result = gap_of_ma.shift(1) < gap_of_ma
+        gap_of_ma: pd.Series = self._indicators['10EMA'] - self._indicators['20SMA']
+        result: pd.Series = gap_of_ma.shift(1) < gap_of_ma
 
         # INFO: 上昇方向に勢いづいている
-        is_long_steeper = np.all(
-            pd.DataFrame({'bull': df_trend.bull, 'inclination': result}),
-            axis=1
-        )
+        is_long_steeper: pd.Series = df_trend['bull'].fillna(False) & result
         # INFO: 下降方向に勢いづいている
-        is_short_steeper = np.all(
-            pd.DataFrame({'bear': df_trend.bear, 'inclination': np.where(result, False, True)}),
-            axis=1
-        )
+        is_short_steeper: pd.Series = df_trend['bear'].fillna(False) & np.where(result, False, True)
 
-        # どちらかにでも勢いがついていれば True
-        return np.any(
-            pd.DataFrame({'l_steeper': is_long_steeper, 'sh_steeper': is_short_steeper}),
-            axis=1
-        )
+        return np.any([is_long_steeper, is_short_steeper], axis=0)
 
     def __generate_following_trend_column(self, df_trend):
         ''' 移動平均線がtrendに沿う方向に動いているか判定する列を返却 '''
@@ -297,11 +293,9 @@ class Trader():
         df_tmp['sma_up'] = df_sma.shift(1) < df_sma
         df_tmp['sma_down'] = df_sma.shift(1) > df_sma
 
-        tmp_df = pd.DataFrame({
-            'both_up': np.all(df_tmp[['bull', 'sma_up']], axis=1),
-            'both_down': np.all(df_tmp[['bear', 'sma_down']], axis=1)
-        })
-        return np.any(tmp_df, axis=1)
+        both_up: np.ndarray = np.all(df_tmp[['bull', 'sma_up']], axis=1)
+        both_down: np.ndarray = np.all(df_tmp[['bear', 'sma_down']], axis=1)
+        return np.any([both_up, both_down], axis=0)
 
     #
     # private
@@ -312,10 +306,16 @@ class Trader():
                 rows_num=self.__static_options['figure_option'], instrument=self.get_instrument()
             )
 
-    def __prepare_long_span_candles(self, days):
+    def __prepare_long_span_candles(self, days: int, need_request: bool = True) -> None:
         if not isinstance(days, int):
             return
-        result = self._client.load_long_chart(days=days, granularity='D')['candles']
+
+        result: pd.DataFrame
+        if need_request is False:
+            result = pd.read_csv('tests/fixtures/sample_candles_h4.csv')
+        else:
+            result = self._client.load_long_chart(days=days, granularity='D')['candles']
+
         result['time'] = pd.to_datetime(result['time'])
         result.set_index('time', inplace=True)
         FXBase.set_long_span_candles(result)
@@ -338,7 +338,7 @@ class Trader():
         candles['thrust'] = self.__generate_thrust_column(candles=candles, trend=trend)
         # 60EMA is necessary?
         # candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
-        candles['in_the_band'] = self.__generate_in_the_band_column(price_series=comparison_prices_with_bands)
+        candles['in_the_band'] = self.__generate_in_bands_column(price_series=comparison_prices_with_bands)
         candles['band_expansion'] = self.__generate_band_expansion_column(
             df_bands=indicators[['sigma*2_band', 'sigma*-2_band']]
         )
@@ -348,24 +348,27 @@ class Trader():
             indicators, sr_trend=candles['trend']
         )
 
-    def _preprocess_backtest_result(self, rule, result):
-        positions_columns = ['time', 'position', 'entry_price', 'exitable_price']
+    def _preprocess_backtest_result(
+        self, rule: str, result: Dict[str, Union[str, pd.DataFrame]]
+    ) -> pd.DataFrame:
+        positions_columns: List[str] = ['time', 'position', 'entry_price', 'exitable_price']
         if result['result'] == 'no position':
             return pd.DataFrame([], columns=positions_columns)
 
-        df_positions = result['candles'].loc[:, positions_columns]
-        pl_gross_df = statistics.aggregate_backtest_result(
+        pl_gross_df: pd.DataFrame = statistics.aggregate_backtest_result(
             rule=rule,
-            df_positions=df_positions,
+            df_positions=result['candles'].loc[:, positions_columns],
             granularity=self.get_entry_rules('granularity'),
             stoploss_buffer=self._stoploss_buffer_pips,
             spread=self._static_spread,
             entry_filter=self.get_entry_rules('entry_filter')
         )
-        df_positions = self._wrangle_result_for_graph(result['candles'][
-            ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
-        ].copy())
-        df_positions = pd.merge(df_positions, pl_gross_df, on='time', how='left')
+        df_positions: pd.DataFrame = self._wrangle_result_for_graph(
+            result['candles'][
+                ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
+            ].copy()
+        )
+        df_positions: pd.DataFrame = pd.merge(df_positions, pl_gross_df, on='time', how='left')
         df_positions['gross'].fillna(method='ffill', inplace=True)
 
         return df_positions
