@@ -80,7 +80,9 @@ def identify_trend_type(c_price, sma, ema):
     -------
     string or None
     '''
-    if sma < ema < c_price:  # and parabo < c_price:
+    if np.any(np.isnan([sma, ema, c_price])):
+        return None
+    elif sma < ema < c_price:  # and parabo < c_price:
         return 'bull'
     elif sma > ema > c_price:  # and parabo > c_price:
         return 'bear'
