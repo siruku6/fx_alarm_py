@@ -15,13 +15,16 @@ def generate_repulsion_column(candles, ema):
     return result
 
 
-def set_entryable_prices(candles, spread):
+def generate_entryable_prices(candles: pd.DataFrame, spread: float) -> np.ndarray:
     ''' entry した場合の price を candles dataframe に設定 '''
-    long_index = candles.entryable == 'long'
-    short_index = candles.entryable == 'short'
-    candles.loc[long_index, 'entryable_price'] = candles[long_index].open + spread
+    result: np.ndarray = np.full_like(candles['open'], np.nan, dtype=np.float64)
+    long_index: pd.Series = candles['entryable'] == 'long'
+    short_index: pd.Series = candles['entryable'] == 'short'
+
     # TODO: 実際には open で entry することはなかなかできない
-    candles.loc[short_index, 'entryable_price'] = candles[short_index].open
+    result[long_index] = candles.loc[long_index, 'open'] + spread
+    result[short_index] = candles.loc[short_index, 'open']
+    return result
 
 
 def commit_positions_by_loop(factor_dicts):
