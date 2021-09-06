@@ -1,11 +1,9 @@
 import datetime
-import os
 from pprint import pprint
 import numpy as np
 
 from models.candle_storage import FXBase
 from models.trader import Trader
-# import models.trade_rules.base as rules
 import models.trade_rules.scalping as scalping
 
 
@@ -13,10 +11,6 @@ class RealTrader(Trader):
     ''' トレードルールに基づいてOandaへの発注を行うclass '''
     def __init__(self, operation):
         print('[Trader] -------- start --------')
-        self._instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
-        self._static_spread = 0.0
-        self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
-
         super(RealTrader, self).__init__(operation=operation, days=60)
 
     #
@@ -25,7 +19,7 @@ class RealTrader(Trader):
     def apply_trading_rule(self):
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
-        candles['preconditions_allows'] = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
+        candles['preconditions_allows'] = np.all(candles[self.config.get_entry_rules('entry_filter')], axis=1)
         candles = self._merge_long_indicators(candles)
         # self.__play_swing_trade(candles)
         self.__play_scalping_trade(candles)
@@ -39,7 +33,7 @@ class RealTrader(Trader):
         '''
         if direction == 'long':
             sign = ''
-            stoploss = previous_candle['low'] - self._stoploss_buffer_pips
+            stoploss = previous_candle['low'] - self.config._stoploss_buffer_pips
             if last_indicators is not None:
                 stoploss = last_indicators['support']
         elif direction == 'short':
@@ -51,7 +45,7 @@ class RealTrader(Trader):
         self._client.order_oanda(method_type='entry', posi_nega_sign=sign, stoploss_price=stoploss)
 
     def __stoploss_in_short(self, previous_high):
-        return previous_high + self._stoploss_buffer_pips + self._static_spread
+        return previous_high + self.config._stoploss_buffer_pips + self.config._static_spread
 
     def _trail_stoploss(self, new_stop):
         '''
@@ -90,7 +84,7 @@ class RealTrader(Trader):
                 'sma_follow_trend', 'band_expansion', 'in_the_band',
                 'ma_gap_expanding', 'stoc_allows'
             ]
-            self.set_entry_rules('entry_filter', value=entry_rules)
+            self.config.set_entry_rules('entry_filter', value=entry_rules)
             precondition = np.all(candles[entry_rules], axis=1).iloc[-1]
             if last_candle['trend'] is None or not precondition:
                 self.__show_why_not_entry(candles)
@@ -113,7 +107,7 @@ class RealTrader(Trader):
         possible_stoploss = None
 
         if position_type == 'long':
-            possible_stoploss = candles.low[index - 1] - self._stoploss_buffer_pips
+            possible_stoploss = candles.low[index - 1] - self.config._stoploss_buffer_pips
             if possible_stoploss > stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(new_stop=possible_stoploss)
@@ -125,7 +119,7 @@ class RealTrader(Trader):
             if possible_stoploss < stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(new_stop=possible_stoploss)
-            elif parabolic[index] < c_price + self._static_spread:
+            elif parabolic[index] < c_price + self.config._static_spread:
                 self.__settle_position()
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
@@ -187,8 +181,8 @@ class RealTrader(Trader):
         #     previous_low=candles.at[last_index - 1, 'low'],
         #     previous_high=candles.at[last_index - 1, 'high'],
         #     old_stoploss=self._position.get('stoploss', np.nan),
-        #     stoploss_buf=self._stoploss_buffer_pips,
-        #     static_spread=self._static_spread
+        #     stoploss_buf=self.config._stoploss_buffer_pips,
+        #     static_spread=self.config._static_spread
         # )
         # INFO: 2. 緩いstoploss設定: exitable_by_stoccross 用
         new_stop = scalping.new_stoploss_price(
@@ -268,7 +262,7 @@ class RealTrader(Trader):
         if conditions_df.trend.iat[-1] is None:
             self._log_skip_reason('c. {}: "trend" is None !'.format(time))
 
-        columns = self.get_entry_rules('entry_filter')
+        columns = self.config.get_entry_rules('entry_filter')
         vals = conditions_df[columns].iloc[-1].values
         for reason, val in zip(columns, vals):
             if not val:
