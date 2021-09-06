@@ -28,3 +28,4 @@ allow_prereleases = true
 [scripts]
 beta = "pipenv run python beta_cord.py"
 test = "pytest -vv"
+check = "bash -c 'pytest -vv && flake8'"
