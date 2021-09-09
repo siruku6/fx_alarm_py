@@ -17,7 +17,7 @@ class AlphaTrader(Trader):
     def backtest(self, candles):
         ''' スキャルピングのentry pointを検出 '''
         candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
-        entryable = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
+        entryable = np.all(candles[self.config.get_entry_rules('entry_filter')], axis=1)
         candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
 
         candles = self._merge_long_indicators(candles)
@@ -32,7 +32,9 @@ class AlphaTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def __generate_entry_column(self, candles):
         print('[Trader] judging entryable or not ...')
-        scalping.set_entryable_prices(candles, self._static_spread)
+        candles['entryable_price'] = scalping.generate_entryable_prices(
+            candles[['open', 'entryable']], self.config._static_spread
+        )
 
         # INFO: 1. 厳し目のstoploss設定: commit_positions_by_loop で is_exitable_by_bollinger を使うときはコチラが良い
         # entry_direction = candles.entryable.fillna(method='ffill')

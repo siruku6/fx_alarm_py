@@ -95,7 +95,7 @@ def test__create_position_with_indicators(real_trader_client, dummy_market_order
 
     mock.assert_called_with(
         accountID=os.environ.get('OANDA_ACCOUNT_ID'),
-        data=_order_response_dummy('', last_indicators['support'], real_trader_client._instrument)
+        data=_order_response_dummy('', last_indicators['support'], real_trader_client.config.get_instrument())
     )
 
     # short
@@ -105,7 +105,7 @@ def test__create_position_with_indicators(real_trader_client, dummy_market_order
 
     mock.assert_called_with(
         accountID=os.environ.get('OANDA_ACCOUNT_ID'),
-        data=_order_response_dummy('-', last_indicators['regist'], real_trader_client._instrument)
+        data=_order_response_dummy('-', last_indicators['regist'], real_trader_client.config.get_instrument())
     )
 
 
@@ -117,10 +117,10 @@ def test__create_position_without_indicators(real_trader_client, dummy_market_or
         with patch('oandapyV20.API.request', return_value=dummy_response):
             real_trader_client._create_position(_previous_candle_dummy(), 'long')
 
-    long_stoploss = _previous_candle_dummy()['low'] - real_trader_client._stoploss_buffer_pips
+    long_stoploss = _previous_candle_dummy()['low'] - real_trader_client.config._stoploss_buffer_pips
     mock.assert_called_with(
         accountID=os.environ.get('OANDA_ACCOUNT_ID'),
-        data=_order_response_dummy('', long_stoploss, real_trader_client._instrument)
+        data=_order_response_dummy('', long_stoploss, real_trader_client.config.get_instrument())
     )
 
     # short
@@ -131,7 +131,7 @@ def test__create_position_without_indicators(real_trader_client, dummy_market_or
     short_stoploss = real_trader_client._RealTrader__stoploss_in_short(_previous_candle_dummy()['high'])
     mock.assert_called_with(
         accountID=os.environ.get('OANDA_ACCOUNT_ID'),
-        data=_order_response_dummy('-', short_stoploss, real_trader_client._instrument)
+        data=_order_response_dummy('-', short_stoploss, real_trader_client.config.get_instrument())
     )
 
 
@@ -236,7 +236,7 @@ def test___since_last_loss(real_trader_client):
 
 def test___show_why_not_entry(real_trader_client):
     entry_filters = statistics.FILTER_ELEMENTS
-    real_trader_client.set_entry_rules('entry_filter', entry_filters)
+    real_trader_client.config.set_entry_rules('entry_filter', entry_filters)
 
     columns = entry_filters.copy()
     columns.extend(['trend', 'time'])

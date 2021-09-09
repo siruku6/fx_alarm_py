@@ -1,9 +1,9 @@
-import os
 from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
+from models.trader_config import TraderConfig
 from models.candle_storage import FXBase
 from models.client_manager import ClientManager
 from models.analyzer import Analyzer
@@ -20,37 +20,35 @@ class Trader():
     MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
-    def __init__(self, operation: str = 'backtest', days: Optional[int] = None):
+    def __init__(self, operation: str = 'backtest', days: Optional[int] = None) -> None:
         '''
         Parameters
         ----------
         operation : str
-            'backtest', 'forward_test' or 'live'
+            Available Values: ['backtest', 'forward_test', 'live', 'unittest']
+        days : Optional[int]
 
         Returns
         -------
         None
         '''
-        need_request: bool = False if operation == 'unittest' else True
+        self.config: TraderConfig = TraderConfig(operation, days)
+        self._ana: Analyzer = Analyzer()
+        self._client: ClientManager = ClientManager(
+            instrument=self.config.get_instrument(), test=operation in ('backtest', 'forward_test')
+        )
+        self._drawer = None
         if operation in ('backtest', 'forward_test'):
-            selected_inst: List[str, float] = ClientManager.select_instrument()
-            self._instrument: str = selected_inst[0]
-            self._static_spread: float = selected_inst[1]['spread']
             self.__set_drawing_option()
-            self._stoploss_buffer_pips: float = i_face.select_stoploss_digit() * 5
-            need_request: bool = i_face.ask_true_or_false(
-                msg='[Trader] Which do you use ?  [1]: current_candles, [2]: static_candles :'
-            )
-            days: int = i_face.ask_number(msg='何日分のデータを取得する？(半角数字): ', limit=365)
-        self.__init_common_params(operation, days=days)
+
         self.__m10_candles: Optional[pd.DataFrame] = None
-        result: Dict[str, str] = self.__prepare_candles(operation, need_request, days).get('info')
+        result: Dict[str, str] = self.__prepare_candles(days=self.config.get_entry_rules('days')).get('info')
 
         if result is not None:
             print(result)
             return
 
-        self.__prepare_long_span_candles(days=days, need_request=need_request)
+        self.__prepare_long_span_candles(days=self.config.get_entry_rules('days'))
         self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
         self._indicators = self._ana.get_indicators()
         self._initialize_position_variables()
@@ -62,47 +60,32 @@ class Trader():
         )
         self._drawer = None
 
-    def __init_common_params(self, operation: str, days: int):
-        self._operation: str = operation
-        self._ana: Analyzer = Analyzer()
-        self._client: ClientManager = ClientManager(
-            instrument=self.get_instrument(), test=operation in ('backtest', 'forward_test')
-        )
-        self._entry_rules = {
-            'days': days,
-            'granularity': os.environ.get('GRANULARITY') or 'M5',
-            # default-filter: かなりhigh performance
-            'entry_filter': ['in_the_band', 'stoc_allows', 'band_expansion']
-        }
-        self._drawer = None
-        self._position = None
-
-    def __prepare_candles(self, operation: str, need_request: bool = True, days: int = None) -> Dict[str, str]:
-        if need_request is False:
+    def __prepare_candles(self, days: int = None) -> Dict[str, str]:
+        if self.config.need_request is False:
             candles = pd.read_csv('tests/fixtures/sample_candles.csv')
-        elif operation in ('backtest', 'forward_test'):
-            self._entry_rules['granularity'] = i_face.ask_granularity()
+        elif self.config.operation in ('backtest', 'forward_test'):
+            self.config.set_entry_rules('granularity', value=i_face.ask_granularity())
             candles = self._client.load_long_chart(
-                days=self.get_entry_rules('days'), granularity=self.get_entry_rules('granularity')
+                days=self.config.get_entry_rules('days'), granularity=self.config.get_entry_rules('granularity')
             )['candles']
-        elif operation == 'live':
+        elif self.config.operation == 'live':
             self.tradeable = self._client.call_oanda('is_tradeable')['tradeable']
             if not self.tradeable:
                 return {'info': 'exit at once'}
 
             candles = self._client.load_specify_length_candles(
-                length=70, granularity=self.get_entry_rules('granularity')
+                length=70, granularity=self.config.get_entry_rules('granularity')
             )['candles']
         else:
             return {'info': 'exit at once'}
 
         FXBase.set_candles(candles)
-        if need_request is False: return {}
+        if self.config.need_request is False: return {'info': None}
 
         latest_candle = self._client.call_oanda('current_price')
         self.__update_latest_candle(latest_candle)
 
-        return {}
+        return {'info': None}
 
     def __update_latest_candle(self, latest_candle) -> None:
         '''
@@ -118,21 +101,13 @@ class Trader():
         print('[Client] New_H4: {}'.format(FXBase.get_candles().iloc[-1].to_dict()))
 
     def _initialize_position_variables(self) -> None:
+        self._position = None
         self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
 
     # - - - - - - - - - - - - - - - - - - - - - - - -
     #                getter & setter
     # - - - - - - - - - - - - - - - - - - - - - - - -
-    def get_instrument(self):
-        return self._instrument
-
-    def get_entry_rules(self, rule_property):
-        return self._entry_rules[rule_property]
-
-    def set_entry_rules(self, rule_property, value):
-        self._entry_rules[rule_property] = value
-
     @property
     def m10_candles(self) -> pd.DataFrame:
         return self.__m10_candles
@@ -159,7 +134,7 @@ class Trader():
         filters.sort()
         for _filter in filters:
             print('[Trader] ** Now trying filter -> {} **', _filter)
-            self.set_entry_rules('entry_filter', value=_filter)
+            self.config.set_entry_rules('entry_filter', value=_filter)
             self.verify_various_stoploss(rule=rule)
 
     def verify_various_stoploss(self, rule):
@@ -170,7 +145,7 @@ class Trader():
 
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
-            self._stoploss_buffer_pips = stoploss_buf
+            self.config._stoploss_buffer_pips = stoploss_buf
             df_positions = self.auto_verify_trading_rule(rule=rule)
             verification_dataframes_array.append(df_positions)
 
@@ -179,7 +154,7 @@ class Trader():
             axis=1, keys=stoploss_buffer_list,
             names=['SL_buffer']
         )
-        result.to_csv('./tmp/csvs/sl_verify_{inst}.csv'.format(inst=self.get_instrument()))
+        result.to_csv('./tmp/csvs/sl_verify_{inst}.csv'.format(inst=self.config.get_instrument()))
 
     def auto_verify_trading_rule(self, rule='swing'):
         ''' tradeルールを自動検証 '''
@@ -187,8 +162,8 @@ class Trader():
 
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
-        if self.get_entry_rules('entry_filter') == []:
-            self.set_entry_rules('entry_filter', value=statistics.FILTER_ELEMENTS)
+        if self.config.get_entry_rules('entry_filter') == []:
+            self.config.set_entry_rules('entry_filter', value=statistics.FILTER_ELEMENTS)
 
         if rule in ('swing', 'scalping'):
             result = self.backtest(candles)
@@ -303,15 +278,15 @@ class Trader():
     def _reset_drawer(self):
         if self.__static_options['figure_option'] > 1:
             self._drawer = FigureDrawer(
-                rows_num=self.__static_options['figure_option'], instrument=self.get_instrument()
+                rows_num=self.__static_options['figure_option'], instrument=self.config.get_instrument()
             )
 
-    def __prepare_long_span_candles(self, days: int, need_request: bool = True) -> None:
+    def __prepare_long_span_candles(self, days: int) -> None:
         if not isinstance(days, int):
             return
 
         result: pd.DataFrame
-        if need_request is False:
+        if self.config.need_request is False:
             result = pd.read_csv('tests/fixtures/sample_candles_h4.csv')
         else:
             result = self._client.load_long_chart(days=days, granularity='D')['candles']
@@ -324,7 +299,7 @@ class Trader():
     def _prepare_trade_signs(self, candles):
         print('[Trader] preparing base-data for judging ...')
 
-        if self._operation in ['live', 'forward_test']:
+        if self.config.operation in ['live', 'forward_test']:
             comparison_prices_with_bands = candles.close
         else:
             comparison_prices_with_bands = candles.open
@@ -358,10 +333,10 @@ class Trader():
         pl_gross_df: pd.DataFrame = statistics.aggregate_backtest_result(
             rule=rule,
             df_positions=result['candles'].loc[:, positions_columns],
-            granularity=self.get_entry_rules('granularity'),
-            stoploss_buffer=self._stoploss_buffer_pips,
-            spread=self._static_spread,
-            entry_filter=self.get_entry_rules('entry_filter')
+            granularity=self.config.get_entry_rules('granularity'),
+            stoploss_buffer=self.config._stoploss_buffer_pips,
+            spread=self.config._static_spread,
+            entry_filter=self.config.get_entry_rules('entry_filter')
         )
         df_positions: pd.DataFrame = self._wrangle_result_for_graph(
             result['candles'][
@@ -434,7 +409,7 @@ class Trader():
             drwr.draw_df(positions_df[['profit']], names=['profit'])
 
         result = drwr.create_png(
-            granularity=self.get_entry_rules('granularity'),
+            granularity=self.config.get_entry_rules('granularity'),
             sr_time=sr_time, num=df_index, filename='test'
         )
 

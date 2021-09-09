@@ -44,7 +44,7 @@ class SwingTrader(Trader):
     def __generate_entry_column(self, candles):
         print('[Trader] judging entryable or not ...')
         self.__judge_entryable(candles)
-        base_rules.set_entryable_prices(candles, self._static_spread)
+        base_rules.set_entryable_prices(candles, self.config._static_spread)
 
         entry_direction = candles.entryable.fillna(method='ffill')
         long_direction_index = entry_direction == 'long'
@@ -59,20 +59,20 @@ class SwingTrader(Trader):
             candles,
             long_indexes=long_direction_index,
             short_indexes=short_direction_index,
-            spread=self._static_spread
+            spread=self.config._static_spread
         )
 
     def __judge_entryable(self, candles):
         ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
-        satisfy_preconditions = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
+        satisfy_preconditions = np.all(candles[self.config.get_entry_rules('entry_filter')], axis=1)
         candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions]['thrust']
         candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions]['thrust'].copy()
 
     def __generate_entry_column_for_wait_close(self, candles):
         print('[Trader] judging entryable or not ...')
-        entryable = np.all(candles[self.get_entry_rules('entry_filter')], axis=1)
+        entryable = np.all(candles[self.config.get_entry_rules('entry_filter')], axis=1)
         candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
-        base_rules.set_entryable_prices(candles, self._static_spread)
+        base_rules.set_entryable_prices(candles, self.config._static_spread)
 
         entry_direction = candles.entryable.fillna(method='ffill')
         long_direction_index = entry_direction == 'long'
@@ -87,19 +87,19 @@ class SwingTrader(Trader):
             candles,
             long_indexes=long_direction_index,
             short_indexes=short_direction_index,
-            spread=self._static_spread
+            spread=self.config._static_spread
         )
 
     def __set_stoploss_prices(self, candles, long_indexes, short_indexes):
         ''' trail した場合の stoploss 価格を candles dataframe に設定 '''
         # INFO: long-stoploss
-        long_stoploss_prices = candles.shift(1)[long_indexes].low - self._stoploss_buffer_pips
+        long_stoploss_prices = candles.shift(1)[long_indexes].low - self.config._stoploss_buffer_pips
         candles.loc[long_indexes, 'possible_stoploss'] = long_stoploss_prices
 
         # INFO: short-stoploss
         short_stoploss_prices = candles.shift(1)[short_indexes].high \
-            + self._stoploss_buffer_pips \
-            + self._static_spread
+            + self.config._stoploss_buffer_pips \
+            + self.config._static_spread
         candles.loc[short_indexes, 'possible_stoploss'] = short_stoploss_prices
 
     def __slide_prices_to_really_possible(self, candles):
@@ -128,7 +128,7 @@ class SwingTrader(Trader):
 
         m10_candles = self.m10_candles
         m10_candles['time'] = m10_candles.index
-        spread = self._static_spread
+        spread = self.config._static_spread
 
         len_of_rows = len(position_rows)
         for i, row in enumerate(position_rows):
@@ -161,7 +161,7 @@ class SwingTrader(Trader):
 
     def __add_candle_duration(self, start_string):
         start_time = converter.str_to_datetime(start_string)
-        candle_duration = converter.granularity_to_timedelta(self.get_entry_rules('granularity'))
+        candle_duration = converter.granularity_to_timedelta(self.config.get_entry_rules('granularity'))
 
         a_minute = datetime.timedelta(minutes=1)
         result = (start_time + candle_duration - a_minute).strftime(Trader.TIME_STRING_FMT)
