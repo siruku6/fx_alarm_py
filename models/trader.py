@@ -145,7 +145,7 @@ class Trader():
 
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
-            self.config._stoploss_buffer_pips = stoploss_buf
+            self.config.stoploss_buffer_pips = stoploss_buf
             df_positions = self.auto_verify_trading_rule(rule=rule)
             verification_dataframes_array.append(df_positions)
 
@@ -334,8 +334,8 @@ class Trader():
             rule=rule,
             df_positions=result['candles'].loc[:, positions_columns],
             granularity=self.config.get_entry_rules('granularity'),
-            stoploss_buffer=self.config._stoploss_buffer_pips,
-            spread=self.config._static_spread,
+            stoploss_buffer=self.config.stoploss_buffer_pips,
+            spread=self.config.static_spread,
             entry_filter=self.config.get_entry_rules('entry_filter')
         )
         df_positions: pd.DataFrame = self._wrangle_result_for_graph(

@@ -10,6 +10,24 @@ def load_env() -> None:
     yield
 
 
+@pytest.fixture(name='instrument', scope='module')
+def fixture_instrument():
+    return 'DUMMY_JPY'
+
+
+@pytest.fixture(name='stoploss_buffer', scope='module')
+def fixture_stoploss_buffer():
+    return 0.02
+
+
+@pytest.fixture(name='set_envs', scope='module')
+def fixture_set_envs(instrument, stoploss_buffer):
+    os.environ['GRANULARITY'] = ''
+    os.environ['INSTRUMENT'] = str(instrument)
+    os.environ['STOPLOSS_BUFFER'] = str(stoploss_buffer)
+    yield
+
+
 @pytest.fixture(scope='session')
 def dummy_instruments():
     return {

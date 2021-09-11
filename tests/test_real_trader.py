@@ -117,7 +117,7 @@ def test__create_position_without_indicators(real_trader_client, dummy_market_or
         with patch('oandapyV20.API.request', return_value=dummy_response):
             real_trader_client._create_position(_previous_candle_dummy(), 'long')
 
-    long_stoploss = _previous_candle_dummy()['low'] - real_trader_client.config._stoploss_buffer_pips
+    long_stoploss = _previous_candle_dummy()['low'] - real_trader_client.config.stoploss_buffer_pips
     mock.assert_called_with(
         accountID=os.environ.get('OANDA_ACCOUNT_ID'),
         data=_order_response_dummy('', long_stoploss, real_trader_client.config.get_instrument())

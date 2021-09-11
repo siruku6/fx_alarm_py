@@ -12,21 +12,21 @@ from models.real_trader import RealTrader
 
 
 @pytest.fixture(name='trader_instance', scope='module')
-def fixture_trader_instance() -> Trader:
-    with patch('models.trader_config.TraderConfig.get_instrument', return_value='USD_JPY'):
-        _trader: Trader = Trader(operation='unittest')
-        _trader.config._stoploss_buffer_pips = 0.05
-        _trader.config._static_spread = 0.04
-        yield _trader
-        _trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
+def fixture_trader_instance(set_envs) -> Trader:
+    set_envs
+
+    _trader: Trader = Trader(operation='unittest')
+    yield _trader
+    _trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
 
 
 @pytest.fixture(name='real_trader_instance', scope='module')
-def fixture_real_trader_instance() -> RealTrader:
-    with patch('models.trader_config.TraderConfig.get_instrument', return_value='USD_JPY'):
-        real_trader: RealTrader = RealTrader(operation='unittest')
-        yield real_trader
-        real_trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
+def fixture_real_trader_instance(set_envs) -> RealTrader:
+    set_envs
+
+    real_trader: RealTrader = RealTrader(operation='unittest')
+    yield real_trader
+    real_trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
 
 
 @pytest.fixture(scope='module')
