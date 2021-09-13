@@ -2,6 +2,8 @@ import os
 from dotenv import load_dotenv
 import pytest
 
+from models.trader_config import TraderConfig
+
 
 @pytest.fixture(scope='session', autouse=True)
 def load_env() -> None:
@@ -26,6 +28,12 @@ def fixture_set_envs(instrument, stoploss_buffer):
     os.environ['INSTRUMENT'] = str(instrument)
     os.environ['STOPLOSS_BUFFER'] = str(stoploss_buffer)
     yield
+
+
+@pytest.fixture(name='config', scope='function')
+def fixture_config(set_envs) -> TraderConfig:
+    set_envs
+    yield TraderConfig(operation='unittest')
 
 
 @pytest.fixture(scope='session')

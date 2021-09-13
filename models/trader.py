@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -7,7 +7,7 @@ from models.trader_config import TraderConfig
 from models.candle_storage import FXBase
 from models.client_manager import ClientManager
 from models.analyzer import Analyzer
-from models.drawer import FigureDrawer
+from models.result_processor import ResultProcessor
 from models.tools.mathematics import range_2nd_decimal
 import models.trade_rules.base as base_rules
 import models.tools.interface as i_face
@@ -17,7 +17,6 @@ import models.tools.statistics_module as statistics
 
 
 class Trader():
-    MAX_ROWS_COUNT = 200
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
     def __init__(self, operation: str = 'backtest', days: Optional[int] = None) -> None:
@@ -37,10 +36,7 @@ class Trader():
         self._client: ClientManager = ClientManager(
             instrument=self.config.get_instrument(), test=operation in ('backtest', 'forward_test')
         )
-        self._drawer = None
-        if operation in ('backtest', 'forward_test'):
-            self.__set_drawing_option()
-
+        self._result_processor: ResultProcessor = ResultProcessor(operation, self.config)
         self.__m10_candles: Optional[pd.DataFrame] = None
         result: Dict[str, str] = self.__prepare_candles(days=self.config.get_entry_rules('days')).get('info')
 
@@ -50,15 +46,8 @@ class Trader():
 
         self.__prepare_long_span_candles(days=self.config.get_entry_rules('days'))
         self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
-        self._indicators = self._ana.get_indicators()
+        self._indicators: pd.DataFrame = self._ana.get_indicators()
         self._initialize_position_variables()
-
-    def __set_drawing_option(self):
-        self.__static_options = {}
-        self.__static_options['figure_option'] = i_face.ask_number(
-            msg='[Trader] 画像描画する？ [1]: No, [2]: Yes, [3]: with_P/L ', limit=3
-        )
-        self._drawer = None
 
     def __prepare_candles(self, days: int = None) -> Dict[str, str]:
         if self.config.need_request is False:
@@ -158,7 +147,7 @@ class Trader():
 
     def auto_verify_trading_rule(self, rule='swing'):
         ''' tradeルールを自動検証 '''
-        self._reset_drawer()
+        self._result_processor.reset_drawer()
 
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
@@ -175,8 +164,7 @@ class Trader():
 
         print('{} ... (auto_verify_trading_rule)'.format(result['result']))
 
-        df_positions = self._preprocess_backtest_result(rule, result)
-        self._drive_drawing_charts(df_positions=df_positions)
+        df_positions = self._result_processor.run(rule, result, self._indicators)
         return df_positions
 
     #
@@ -275,12 +263,6 @@ class Trader():
     #
     # private
     #
-    def _reset_drawer(self):
-        if self.__static_options['figure_option'] > 1:
-            self._drawer = FigureDrawer(
-                rows_num=self.__static_options['figure_option'], instrument=self.config.get_instrument()
-            )
-
     def __prepare_long_span_candles(self, days: int) -> None:
         if not isinstance(days, int):
             return
@@ -323,149 +305,5 @@ class Trader():
             indicators, sr_trend=candles['trend']
         )
 
-    def _preprocess_backtest_result(
-        self, rule: str, result: Dict[str, Union[str, pd.DataFrame]]
-    ) -> pd.DataFrame:
-        positions_columns: List[str] = ['time', 'position', 'entry_price', 'exitable_price']
-        if result['result'] == 'no position':
-            return pd.DataFrame([], columns=positions_columns)
-
-        pl_gross_df: pd.DataFrame = statistics.aggregate_backtest_result(
-            rule=rule,
-            df_positions=result['candles'].loc[:, positions_columns],
-            granularity=self.config.get_entry_rules('granularity'),
-            stoploss_buffer=self.config.stoploss_buffer_pips,
-            spread=self.config.static_spread,
-            entry_filter=self.config.get_entry_rules('entry_filter')
-        )
-        df_positions: pd.DataFrame = self._wrangle_result_for_graph(
-            result['candles'][
-                ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
-            ].copy()
-        )
-        df_positions: pd.DataFrame = pd.merge(df_positions, pl_gross_df, on='time', how='left')
-        df_positions['gross'].fillna(method='ffill', inplace=True)
-
-        return df_positions
-
-    def _drive_drawing_charts(self, df_positions):
-        drwr = self._drawer
-        if drwr is None: return
-
-        df_len = len(df_positions)
-        dfs_indicator = self.__split_df_by_200rows(self._indicators)
-        dfs_position = self.__split_df_by_200sequences(df_positions, df_len)
-
-        df_segments_count = len(dfs_indicator)
-        for i in range(0, df_segments_count):
-            self.__draw_one_chart(
-                drwr, df_segments_count, df_len, i, indicators=dfs_indicator[i], positions_df=dfs_position[i]
-            )
-
-    def __draw_one_chart(self, drwr, df_segments_count, df_len, df_index, indicators, positions_df):
-        def query_entry_rows(position_df, position_type, exit_type):
-            entry_rows = position_df[
-                position_df.position.isin([position_type, exit_type]) & (~position_df.price.isna())
-            ][['sequence', 'price']]
-            return entry_rows
-
-        start = df_len - Trader.MAX_ROWS_COUNT * (df_index + 1)
-        if start < 0:
-            start = 0
-        end = df_len - Trader.MAX_ROWS_COUNT * df_index
-        target_candles = FXBase.get_candles(start=start, end=end)
-        sr_time = drwr.draw_candles(target_candles)['time']
-
-        # indicators
-        drwr.draw_indicators(d_frame=indicators)
-        drwr.draw_long_indicators(candles=target_candles, min_point=indicators['sigma*-2_band'].min(skipna=True))
-
-        # positions
-        # INFO: exitable_price などの列が残っていると、後 draw_positions_df の dropna で行が消される
-        long_entry_df = query_entry_rows(positions_df, position_type='long', exit_type='sell_exit')
-        short_entry_df = query_entry_rows(positions_df, position_type='short', exit_type='buy_exit')
-        close_df = positions_df[positions_df.position.isin(['sell_exit', 'buy_exit'])] \
-            .drop('price', axis=1) \
-            .rename(columns={'exitable_price': 'price'})
-        trail_df = positions_df[positions_df.position != '-'][['sequence', 'stoploss']] \
-            .rename(columns={'stoploss': 'price'})
-
-        drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
-        drwr.draw_positions_df(positions_df=short_entry_df, plot_type=drwr.PLOT_TYPE['short'])
-        drwr.draw_positions_df(positions_df=close_df, plot_type=drwr.PLOT_TYPE['exit'])
-        drwr.draw_positions_df(positions_df=trail_df, plot_type=drwr.PLOT_TYPE['trail'])
-
-        drwr.draw_vertical_lines(
-            indexes=np.concatenate(
-                [long_entry_df.sequence.values, short_entry_df.sequence.values]
-            ),
-            vmin=indicators['sigma*-2_band'].min(skipna=True),
-            vmax=indicators['sigma*2_band'].max(skipna=True)
-        )
-
-        # profit(pl) / gross
-        if self.__static_options['figure_option'] > 2:
-            drwr.draw_df(positions_df[['gross']], names=['gross'])
-            drwr.draw_df(positions_df[['profit']], names=['profit'])
-
-        result = drwr.create_png(
-            granularity=self.config.get_entry_rules('granularity'),
-            sr_time=sr_time, num=df_index, filename='test'
-        )
-
-        drwr.close_all()
-        if df_index + 1 != df_segments_count:
-            drwr.init_figure(rows_num=self.__static_options['figure_option'])
-        if 'success' in result:
-            print('{msg} / {count}'.format(msg=result['success'], count=df_segments_count))
-
-    def _wrangle_result_for_graph(self, result):
-        positions_df = result.rename(columns={'entry_price': 'price', 'possible_stoploss': 'stoploss'})
-        positions_df['sequence'] = positions_df.index
-        # INFO: exit直後のrowで、かつposition列が空
-        positions_df.loc[
-            ((positions_df.shift(1).position.isin(['sell_exit', 'buy_exit']))
-             | ((positions_df.shift(1).position.isin(['long', 'short']))
-                & (~positions_df.shift(1).exitable_price.isna())))
-            & (positions_df.position.isna()), 'position'
-        ] = '-'
-        # INFO: entry直後のrowで、かつexit-rowではない
-        positions_df.loc[
-            (positions_df.shift(1).position.isin(['long', 'short']))
-            & (positions_df.shift(1).exitable_price.isna())
-            & (~positions_df.position.isin(['sell_exit', 'buy_exit'])), 'position'
-        ] = '|'
-        positions_df.position.fillna(method='ffill', inplace=True)
-
-        return positions_df
-
     def _log_skip_reason(self, reason):
         print('[Trader] skip: {}'.format(reason))
-
-    def __split_df_by_200rows(self, d_frame):
-        dfs = []
-        df_len = len(d_frame)
-        loop = 0
-
-        while Trader.MAX_ROWS_COUNT * loop < df_len:
-            end = df_len - Trader.MAX_ROWS_COUNT * loop
-            loop += 1
-            start = df_len - Trader.MAX_ROWS_COUNT * loop
-            start = start if start > 0 else 0
-            dfs.append(d_frame[start:end].reset_index(drop=True))
-        return dfs
-
-    def __split_df_by_200sequences(self, d_frame, df_len):
-        dfs = []
-        loop = 0
-
-        while Trader.MAX_ROWS_COUNT * loop < df_len:
-            end = df_len - Trader.MAX_ROWS_COUNT * loop
-            loop += 1
-            start = df_len - Trader.MAX_ROWS_COUNT * loop
-            start = start if start > 0 else 0
-            df_target = d_frame[(start <= d_frame.sequence) & (d_frame.sequence < end)].copy()
-            # 描画は sequence に基づいて行われるので、ずらしておく
-            df_target['sequence'] = df_target.sequence - start
-            dfs.append(df_target)
-        return dfs
