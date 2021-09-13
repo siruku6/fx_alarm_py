@@ -2,12 +2,38 @@ import os
 from dotenv import load_dotenv
 import pytest
 
+from models.trader_config import TraderConfig
+
 
 @pytest.fixture(scope='session', autouse=True)
 def load_env() -> None:
     dotenv_path: str = os.path.join('./.env')
     load_dotenv(dotenv_path)
     yield
+
+
+@pytest.fixture(name='instrument', scope='module')
+def fixture_instrument():
+    return 'DUMMY_JPY'
+
+
+@pytest.fixture(name='stoploss_buffer', scope='module')
+def fixture_stoploss_buffer():
+    return 0.02
+
+
+@pytest.fixture(name='set_envs', scope='module')
+def fixture_set_envs(instrument, stoploss_buffer):
+    os.environ['GRANULARITY'] = ''
+    os.environ['INSTRUMENT'] = str(instrument)
+    os.environ['STOPLOSS_BUFFER'] = str(stoploss_buffer)
+    yield
+
+
+@pytest.fixture(name='config', scope='function')
+def fixture_config(set_envs) -> TraderConfig:
+    set_envs
+    yield TraderConfig(operation='unittest')
 
 
 @pytest.fixture(scope='session')

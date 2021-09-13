@@ -33,7 +33,7 @@ class RealTrader(Trader):
         '''
         if direction == 'long':
             sign = ''
-            stoploss = previous_candle['low'] - self.config._stoploss_buffer_pips
+            stoploss = previous_candle['low'] - self.config.stoploss_buffer_pips
             if last_indicators is not None:
                 stoploss = last_indicators['support']
         elif direction == 'short':
@@ -45,7 +45,7 @@ class RealTrader(Trader):
         self._client.order_oanda(method_type='entry', posi_nega_sign=sign, stoploss_price=stoploss)
 
     def __stoploss_in_short(self, previous_high):
-        return previous_high + self.config._stoploss_buffer_pips + self.config._static_spread
+        return previous_high + self.config.stoploss_buffer_pips + self.config.static_spread
 
     def _trail_stoploss(self, new_stop):
         '''
@@ -107,7 +107,7 @@ class RealTrader(Trader):
         possible_stoploss = None
 
         if position_type == 'long':
-            possible_stoploss = candles.low[index - 1] - self.config._stoploss_buffer_pips
+            possible_stoploss = candles.low[index - 1] - self.config.stoploss_buffer_pips
             if possible_stoploss > stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(new_stop=possible_stoploss)
@@ -119,7 +119,7 @@ class RealTrader(Trader):
             if possible_stoploss < stoploss_price:
                 stoploss_price = possible_stoploss
                 self._trail_stoploss(new_stop=possible_stoploss)
-            elif parabolic[index] < c_price + self.config._static_spread:
+            elif parabolic[index] < c_price + self.config.static_spread:
                 self.__settle_position()
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
@@ -181,8 +181,8 @@ class RealTrader(Trader):
         #     previous_low=candles.at[last_index - 1, 'low'],
         #     previous_high=candles.at[last_index - 1, 'high'],
         #     old_stoploss=self._position.get('stoploss', np.nan),
-        #     stoploss_buf=self.config._stoploss_buffer_pips,
-        #     static_spread=self.config._static_spread
+        #     stoploss_buf=self.config.stoploss_buffer_pips,
+        #     static_spread=self.config.static_spread
         # )
         # INFO: 2. 緩いstoploss設定: exitable_by_stoccross 用
         new_stop = scalping.new_stoploss_price(

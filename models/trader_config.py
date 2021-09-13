@@ -1,49 +1,66 @@
 import os
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, TypedDict
 
 from models.client_manager import ClientManager
 import models.tools.interface as i_face
+
+
+class EntryRulesDict(TypedDict):
+    static_spread: float
+    stoploss_buffer_pips: float
+    days: int
+    granularity: str
+    entry_filter: List[str]
 
 
 class TraderConfig:
     ''' Traderなどで必要なパラメータを保持するクラス '''
     def __init__(self, operation: str, days: Optional[int] = None) -> None:
         self.operation: str = operation
-        self.need_request: bool
-        if operation in ('backtest', 'forward_test'):
-            self.need_request = i_face.ask_true_or_false(
+        self.need_request: bool = self.__select_need_request()
+
+        self._instrument: str
+        selected_entry_rules: Dict[str, Union[int, float]]
+        self._instrument, selected_entry_rules = self.__select_configs(days)
+        self._entry_rules: EntryRulesDict = self.__init_entry_rules(selected_entry_rules)
+
+    def __select_need_request(self) -> bool:
+        need_request: bool = True
+        if self.operation in ('backtest', 'forward_test'):
+            need_request = i_face.ask_true_or_false(
                 msg='[Trader] Which do you use ?  [1]: current_candles, [2]: static_candles :'
             )
-        elif operation == 'unittest':
-            self.need_request = False
-        else:
-            self.need_request = True
-        self.__init_common_params(days=days)
+        elif self.operation == 'unittest':
+            need_request = False
+        return need_request
 
-    def __init_common_params(self, days: int):
-        self._instrument: str
-        self._static_spread: float
-        self._stoploss_buffer_pips: float
-
+    def __select_configs(self, days: int) -> List[Union[str, Dict[str, Union[int, float]]]]:
         if self.operation in ('backtest', 'forward_test'):
             selected_inst: List[str, float] = ClientManager.select_instrument()
-            # TODO: the variables declared on following 3 lines is to be moved into _entry_rules
-            self._instrument = selected_inst[0]
-            self._static_spread = selected_inst[1]['spread']
-            self._stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
+            instrument = selected_inst[0]
+            static_spread = selected_inst[1]['spread']
+            stoploss_buffer_pips = i_face.select_stoploss_digit() * 5
             days: int = i_face.ask_number(msg='何日分のデータを取得する？(半角数字): ', limit=365)
         elif self.operation in ('live', 'unittest'):
-            self._instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
-            self._static_spread = 0.0
-            self._stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
+            instrument = os.environ.get('INSTRUMENT') or 'USD_JPY'
+            static_spread = 0.0
+            stoploss_buffer_pips = round(float(os.environ.get('STOPLOSS_BUFFER') or 0.05), 5)
 
-        self._entry_rules: Dict[str, Union[int, str, List[str]]] = {
+        return [instrument, {
+            'static_spread': static_spread,
+            'stoploss_buffer_pips': stoploss_buffer_pips,
             # TODO: the variable 'days' is to be moved out of _entry_rules
-            'days': days,
+            'days': days
+        }]
+
+    def __init_entry_rules(self, selected_entry_rules: Dict[str, Union[int, float]]) -> None:
+        entry_rules: EntryRulesDict = {
             'granularity': os.environ.get('GRANULARITY') or 'M5',
             # default-filter: かなりhigh performance
             'entry_filter': ['in_the_band', 'stoc_allows', 'band_expansion']
         }
+        entry_rules.update(selected_entry_rules)
+        return entry_rules
 
     # - - - - - - - - - - - - - - - - - - - - - - - -
     #                getter & setter
@@ -56,3 +73,11 @@ class TraderConfig:
 
     def set_entry_rules(self, rule_property, value):
         self._entry_rules[rule_property] = value
+
+    @property
+    def static_spread(self) -> float:
+        return self._entry_rules['static_spread']
+
+    @property
+    def stoploss_buffer_pips(self) -> float:
+        return self._entry_rules['stoploss_buffer_pips']
