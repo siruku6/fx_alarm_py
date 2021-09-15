@@ -10,7 +10,18 @@ class EntryRulesDict(TypedDict):
     stoploss_buffer_pips: float
     days: int
     granularity: str
-    entry_filter: List[str]
+    entry_filters: List[Optional[str]]
+
+
+FILTER_ELEMENTS = [
+    'in_the_band',
+    'ma_gap_expanding',
+    'sma_follow_trend',
+    'stoc_allows',
+    # 60EMA is necessary?
+    # 'ema60_allows',
+    'band_expansion'
+]
 
 
 class TraderConfig:
@@ -56,8 +67,7 @@ class TraderConfig:
     def __init_entry_rules(self, selected_entry_rules: Dict[str, Union[int, float]]) -> None:
         entry_rules: EntryRulesDict = {
             'granularity': os.environ.get('GRANULARITY') or 'M5',
-            # default-filter: かなりhigh performance
-            'entry_filter': ['in_the_band', 'stoc_allows', 'band_expansion']
+            'entry_filters': []
         }
         entry_rules.update(selected_entry_rules)
         return entry_rules
@@ -65,13 +75,13 @@ class TraderConfig:
     # - - - - - - - - - - - - - - - - - - - - - - - -
     #                getter & setter
     # - - - - - - - - - - - - - - - - - - - - - - - -
-    def get_instrument(self):
+    def get_instrument(self) -> str:
         return self._instrument
 
-    def get_entry_rules(self, rule_property):
+    def get_entry_rules(self, rule_property: str) -> Optional[Union[int, float, str, List[str]]]:
         return self._entry_rules[rule_property]
 
-    def set_entry_rules(self, rule_property, value):
+    def set_entry_rules(self, rule_property: str, value: Union[int, float, str, List[str]]) -> None:
         self._entry_rules[rule_property] = value
 
     @property

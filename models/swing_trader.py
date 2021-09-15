@@ -64,13 +64,13 @@ class SwingTrader(Trader):
 
     def __judge_entryable(self, candles):
         ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
-        satisfy_preconditions = np.all(candles[self.config.get_entry_rules('entry_filter')], axis=1)
+        satisfy_preconditions = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
         candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions]['thrust']
         candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions]['thrust'].copy()
 
     def __generate_entry_column_for_wait_close(self, candles):
         print('[Trader] judging entryable or not ...')
-        entryable = np.all(candles[self.config.get_entry_rules('entry_filter')], axis=1)
+        entryable = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
         candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
         base_rules.set_entryable_prices(candles, self.config.static_spread)
 

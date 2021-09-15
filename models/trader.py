@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -11,12 +11,12 @@ from models.result_processor import ResultProcessor
 from models.tools.mathematics import range_2nd_decimal
 import models.trade_rules.base as base_rules
 import models.tools.interface as i_face
-import models.tools.statistics_module as statistics
+from models.trader_config import FILTER_ELEMENTS
 
 # pd.set_option('display.max_rows', 400)
 
 
-class Trader():
+class Trader:
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
     def __init__(self, operation: str = 'backtest', days: Optional[int] = None) -> None:
@@ -109,10 +109,11 @@ class Trader():
     # public
     #
     # TODO: 作成中の処理
-    def verify_various_entry_filters(self, rule):
+    def verify_various_entry_filters(self, rule: str):
         ''' entry_filterの全パターンを検証する '''
         filters = [[]]
-        filter_elements = statistics.FILTER_ELEMENTS
+        filter_elements = FILTER_ELEMENTS
+        # OPTIMIZE: We maybe can implement this more easily with module `collections` or so on.
         for elem in filter_elements:
             tmp_filters = filters.copy()
             for tmp_filter in tmp_filters:
@@ -122,11 +123,10 @@ class Trader():
 
         filters.sort()
         for _filter in filters:
-            print('[Trader] ** Now trying filter -> {} **', _filter)
-            self.config.set_entry_rules('entry_filter', value=_filter)
-            self.verify_various_stoploss(rule=rule)
+            print('[Trader] ** Now trying filter -> {} **'.format(_filter))
+            self.verify_various_stoploss(rule=rule, entry_filters=_filter)
 
-    def verify_various_stoploss(self, rule):
+    def verify_various_stoploss(self, rule: str, entry_filters: List[str] = []):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
         verification_dataframes_array = []
         stoploss_digit = i_face.select_stoploss_digit()
@@ -134,8 +134,8 @@ class Trader():
 
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
-            self.config.stoploss_buffer_pips = stoploss_buf
-            df_positions = self.auto_verify_trading_rule(rule=rule)
+            self.config.set_entry_rules('stoploss_buffer_pips', stoploss_buf)
+            df_positions = self.perform(rule=rule, entry_filters=entry_filters)
             verification_dataframes_array.append(df_positions)
 
         result = pd.concat(
@@ -145,14 +145,15 @@ class Trader():
         )
         result.to_csv('./tmp/csvs/sl_verify_{inst}.csv'.format(inst=self.config.get_instrument()))
 
-    def auto_verify_trading_rule(self, rule='swing'):
+    def perform(self, rule='swing', entry_filters: List = []):
         ''' tradeルールを自動検証 '''
         self._result_processor.reset_drawer()
 
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
-        if self.config.get_entry_rules('entry_filter') == []:
-            self.config.set_entry_rules('entry_filter', value=statistics.FILTER_ELEMENTS)
+
+        filters: List = FILTER_ELEMENTS if entry_filters == [] else entry_filters
+        self.config.set_entry_rules('entry_filters', value=filters)
 
         if rule in ('swing', 'scalping'):
             result = self.backtest(candles)
@@ -162,7 +163,7 @@ class Trader():
             print('Rule {} is not exist ...'.format(rule))
             exit()
 
-        print('{} ... (auto_verify_trading_rule)'.format(result['result']))
+        print('{} ... (perform)'.format(result['result']))
 
         df_positions = self._result_processor.run(rule, result, self._indicators)
         return df_positions
