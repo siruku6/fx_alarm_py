@@ -1,3 +1,5 @@
+import itertools
+from typing import Any, List, Optional, Tuple
 import math
 
 
@@ -42,6 +44,14 @@ def generate_float_digits_of(digit):
     generate_float_digits_of(-3) -> 0.001
     '''
     return float('0.' + '0' * (-digit - 1) + '1')
+
+
+def generate_different_length_combinations(items: List[Any]) -> Tuple[List[Optional[Any]]]:
+    different_length_comb: List[Tuple[Optional[Any]]] = [()]
+    for num in range(1, len(items) + 1):
+        different_length_comb += list(itertools.combinations(items, num))
+
+    return (list(combination) for combination in different_length_comb)
 
 
 def range_2nd_decimal(begin, end, step):

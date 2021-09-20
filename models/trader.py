@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -9,9 +9,11 @@ from models.client_manager import ClientManager
 from models.candle_loader import CandleLoader
 from models.analyzer import Analyzer
 from models.result_processor import ResultProcessor
-from models.tools.mathematics import range_2nd_decimal
+from models.tools.mathematics import (
+    range_2nd_decimal,
+    generate_different_length_combinations
+)
 import models.trade_rules.base as base_rules
-import models.tools.interface as i_face
 from models.trader_config import FILTER_ELEMENTS
 
 # pd.set_option('display.max_rows', 400)
@@ -40,8 +42,9 @@ class Trader:
         self._candle_loader: CandleLoader = CandleLoader(self.config, self._client)
         self._result_processor: ResultProcessor = ResultProcessor(operation, self.config)
         self.__m10_candles: Optional[pd.DataFrame] = None
-        result: Dict[str, str] = self._candle_loader.run().get('info')
+        self._initialize_position_variables()
 
+        result: Dict[str, str] = self._candle_loader.run().get('info')
         if result is not None:
             print(result)
             return
@@ -49,7 +52,9 @@ class Trader:
         self._candle_loader.load_long_span_candles()
         self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
         self._indicators: pd.DataFrame = self._ana.get_indicators()
-        self._initialize_position_variables()
+
+        candles: pd.DataFrame = self._merge_long_indicators(FXBase.get_candles())
+        FXBase.set_candles(candles)
 
     def _initialize_position_variables(self) -> None:
         self._position = None
@@ -70,30 +75,24 @@ class Trader:
     #
     # public
     #
-    # TODO: 作成中の処理
     def verify_various_entry_filters(self, rule: str):
         ''' entry_filterの全パターンを検証する '''
-        filters = [[]]
-        filter_elements = FILTER_ELEMENTS
-        # OPTIMIZE: We maybe can implement this more easily with module `collections` or so on.
-        for elem in filter_elements:
-            tmp_filters = filters.copy()
-            for tmp_filter in tmp_filters:
-                filter_copy = tmp_filter.copy()
-                filter_copy.append(elem)
-                filters.append(filter_copy)
+        filter_sets: Tuple[List[Optional[str]]] = generate_different_length_combinations(
+            items=FILTER_ELEMENTS
+        )
 
-        filters.sort()
-        for _filter in filters:
-            print('[Trader] ** Now trying filter -> {} **'.format(_filter))
-            self.verify_various_stoploss(rule=rule, entry_filters=_filter)
+        for filter_set in filter_sets:
+            print('[Trader] ** Now trying filter -> {} **'.format(filter_set))
+            self.verify_various_stoploss(rule=rule, entry_filters=filter_set)
 
     def verify_various_stoploss(self, rule: str, entry_filters: List[str] = []):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
-        verification_dataframes_array = []
-        stoploss_digit = i_face.select_stoploss_digit()
-        stoploss_buffer_list = range_2nd_decimal(stoploss_digit, stoploss_digit * 20, stoploss_digit * 2)
+        stoploss_digit: float = self.config.stoploss_buffer_base
+        stoploss_buffer_list: List[float] = range_2nd_decimal(
+            stoploss_digit, stoploss_digit * 20, stoploss_digit * 2
+        )
 
+        verification_dataframes_array: List[Optional[pd.DataFrame]] = []
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
             self.config.set_entry_rules('stoploss_buffer_pips', stoploss_buf)
@@ -140,9 +139,8 @@ class Trader:
         tmp_df = candles.merge(self._ana.get_long_indicators(), on='time', how='left')
         # tmp_df['long_stoD'].fillna(method='ffill', inplace=True)
         # tmp_df['long_stoSD'].fillna(method='ffill', inplace=True)
-        tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
-        tmp_df['stoD_over_stoSD'].fillna({'stoD_over_stoSD': False}, inplace=True)
-        tmp_df.loc[:, 'stoD_over_stoSD'] = tmp_df['stoD_over_stoSD'].astype(bool)
+        tmp_df.loc[:, 'stoD_over_stoSD'] = tmp_df['stoD_over_stoSD'].fillna(method='ffill') \
+                                                                    .fillna(False)
 
         tmp_df['long_20SMA'].fillna(method='ffill', inplace=True)
         tmp_df['long_10EMA'].fillna(method='ffill', inplace=True)
