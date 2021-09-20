@@ -23,12 +23,12 @@ def granularity_to_timedelta(granularity):
     return candle_duration
 
 
-def to_oanda_format(target_datetime):
+def to_oanda_format(target_datetime: datetime.datetime) -> str:
     # datetime.datetime(2020,10,1).isoformat(timespec='microseconds') + 'Z'
     return target_datetime.strftime('%Y-%m-%dT%H:%M:00.000000Z')
 
 
-def to_timestamp(oanda_str):
+def to_timestamp(oanda_str: str) -> pd.Timestamp:
     return pd.to_datetime(oanda_str[:19], format='%Y-%m-%dT%H:%M:%S')
 
 
@@ -37,10 +37,10 @@ def to_candles_from_dynamo(records: List[Dict[str, Any]]) -> pd.DataFrame:
     if records == []:
         return result
 
-    time_series: pd.DataFrame = result['time'].copy()
+    time_series: pd.Series = result['time'].copy()
     result.drop(['time', 'pareName'], axis=1, inplace=True)
     result: pd.DataFrame = result.applymap(float)
-    result['time']: pd.Series = time_series.map(convert_to_m10)
+    result['time'] = time_series.map(convert_to_m10)
     return result
 
 
