@@ -11,7 +11,7 @@ from models.drawer import FigureDrawer
 import models.tools.format_converter as converter
 
 
-class Librarian():
+class Visualizer():
     DRAWABLE_ROWS = 200
 
     def __init__(self, from_iso: str, to_iso: str, instrument: str = None, indicator_names: Tuple[str] = None):
@@ -30,23 +30,23 @@ class Librarian():
     def indicators(self, indicators):
         self._indicators = indicators
 
-    def visualize_latest_hist(self, granularity):
-        transactions = self.__client.prepare_one_page_transactions()
-        result = self.__collect_full_dataframe(transactions, granularity=granularity)
+    def run(self) -> pd.DataFrame:
+        transactions: pd.DataFrame = self.__client.request_massive_transactions(self.__from_iso, self.__to_iso)
+        result: pd.DataFrame = self.__collect_full_dataframe(transactions, granularity='H1')
+        return result
+
+    def visualize_latest_hist(self, granularity: str) -> None:
+        transactions: pd.DataFrame = self.__client.prepare_one_page_transactions()
+        result: pd.DataFrame = self.__collect_full_dataframe(transactions, granularity=granularity)
 
         # INFO: Visualization
         result.to_csv('./tmp/csvs/oanda_trade_hist.csv', index=False)
         self.__draw_history()
 
-    def serve_analysis_object(self) -> pd.DataFrame:
-        transactions: pd.DataFrame = self.__client.request_massive_transactions(self.__from_iso, self.__to_iso)
-        result: pd.DataFrame = self.__collect_full_dataframe(transactions, granularity='H1')
-        return result
-
     #
     # Private
     #
-    def __collect_full_dataframe(self, history_df, granularity='M10'):
+    def __collect_full_dataframe(self, history_df: pd.DataFrame, granularity: str = 'M10') -> pd.DataFrame:
         '''
         create dataframe which includes trade-history & time-series currency price
 
@@ -57,11 +57,12 @@ class Librarian():
 
         Returns
         -------
-        dataframe
+        pd.DataFrame
         '''
-        candles = self.__prepare_candles(granularity=granularity)
+        candles: pd.DataFrame = self.__prepare_candles(granularity=granularity)
         print('[Libra] candles and trade-logs are loaded')
 
+        result: pd.DataFrame
         if len(history_df) == 0:
             result = candles
         else:
@@ -72,7 +73,7 @@ class Librarian():
 
         # prepare indicators
         self.__ana.calc_indicators(candles=result)
-        self.indicators = self.__ana.get_indicators()
+        self.indicators: pd.DataFrame = self.__ana.get_indicators()
         print('[Libra] and indicators are merged')
 
         return pd.merge(result, self.indicators, on='time', how='left')
@@ -92,14 +93,11 @@ class Librarian():
         return result
 
     def __prepare_candles(self, granularity: str) -> pd.DataFrame:
-        from_str: str = str(converter.to_timestamp(self.__from_iso))
-        to_str: str = str(converter.to_timestamp(self.__to_iso))
-
         buffer_td: timedelta = converter.granularity_to_timedelta(granularity)
-        possible_start_dt: pd.Timestamp = pd.to_datetime(from_str) - buffer_td * 20
-        end_dt: pd.Timestamp = pd.to_datetime(to_str)
+        possible_start_dt: pd.Timestamp = converter.to_timestamp(self.__from_iso) - buffer_td * 20
         # TODO: 400 が適切かどうかはよく検討が必要
         #   400本分なのに、220本しか出てこない。なんか足りない。（休日分の足が存在しないからかも）
+        end_dt: pd.Timestamp = converter.to_timestamp(self.__to_iso)
         min_end_dt: pd.Timestamp = end_dt - buffer_td * 400
         start_dt: pd.Timestamp = max(possible_start_dt, min_end_dt)
 
@@ -267,10 +265,10 @@ class Librarian():
 
     def __draw_history(self):
         # INFO: データ準備
-        candles_and_hist = FXBase.get_candles(start=-Librarian.DRAWABLE_ROWS, end=None) \
+        candles_and_hist = FXBase.get_candles(start=-Visualizer.DRAWABLE_ROWS, end=None) \
                                  .copy().reset_index(drop=True)
         # TODO: candles_and_hist にも indicators データが丸々入っているので、次の行は修正した方がよい
-        drawn_indicators = self.indicators[-Librarian.DRAWABLE_ROWS:None]
+        drawn_indicators = self.indicators[-Visualizer.DRAWABLE_ROWS:None]
 
         # - - - - - - - - - - - - - - - - - - - -
         #                  描画
@@ -282,7 +280,7 @@ class Librarian():
         if 'long' in candles_and_hist.columns:
             self.__draw_hists(drawer, drawn_indicators, candles_and_hist)
 
-        target_candles = candles_and_hist.iloc[-Librarian.DRAWABLE_ROWS:, :]  # 200本より古い足は消している
+        target_candles = candles_and_hist.iloc[-Visualizer.DRAWABLE_ROWS:, :]  # 200本より古い足は消している
         drawer.draw_candles(target_candles)
         result = drawer.create_png(
             granularity='real-trade',

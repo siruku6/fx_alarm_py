@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -6,17 +6,20 @@ import pandas as pd
 from models.trader_config import TraderConfig
 from models.candle_storage import FXBase
 from models.client_manager import ClientManager
+from models.candle_loader import CandleLoader
 from models.analyzer import Analyzer
 from models.result_processor import ResultProcessor
-from models.tools.mathematics import range_2nd_decimal
+from models.tools.mathematics import (
+    range_2nd_decimal,
+    generate_different_length_combinations
+)
 import models.trade_rules.base as base_rules
-import models.tools.interface as i_face
-import models.tools.statistics_module as statistics
+from models.trader_config import FILTER_ELEMENTS
 
 # pd.set_option('display.max_rows', 400)
 
 
-class Trader():
+class Trader:
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
     def __init__(self, operation: str = 'backtest', days: Optional[int] = None) -> None:
@@ -36,58 +39,22 @@ class Trader():
         self._client: ClientManager = ClientManager(
             instrument=self.config.get_instrument(), test=operation in ('backtest', 'forward_test')
         )
+        self._candle_loader: CandleLoader = CandleLoader(self.config, self._client)
         self._result_processor: ResultProcessor = ResultProcessor(operation, self.config)
         self.__m10_candles: Optional[pd.DataFrame] = None
-        result: Dict[str, str] = self.__prepare_candles(days=self.config.get_entry_rules('days')).get('info')
+        self._initialize_position_variables()
 
+        result: Dict[str, str] = self._candle_loader.run().get('info')
         if result is not None:
             print(result)
             return
 
-        self.__prepare_long_span_candles(days=self.config.get_entry_rules('days'))
+        self._candle_loader.load_long_span_candles()
         self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
         self._indicators: pd.DataFrame = self._ana.get_indicators()
-        self._initialize_position_variables()
 
-    def __prepare_candles(self, days: int = None) -> Dict[str, str]:
-        if self.config.need_request is False:
-            candles = pd.read_csv('tests/fixtures/sample_candles.csv')
-        elif self.config.operation in ('backtest', 'forward_test'):
-            self.config.set_entry_rules('granularity', value=i_face.ask_granularity())
-            candles = self._client.load_long_chart(
-                days=self.config.get_entry_rules('days'), granularity=self.config.get_entry_rules('granularity')
-            )['candles']
-        elif self.config.operation == 'live':
-            self.tradeable = self._client.call_oanda('is_tradeable')['tradeable']
-            if not self.tradeable:
-                return {'info': 'exit at once'}
-
-            candles = self._client.load_specify_length_candles(
-                length=70, granularity=self.config.get_entry_rules('granularity')
-            )['candles']
-        else:
-            return {'info': 'exit at once'}
-
+        candles: pd.DataFrame = self._merge_long_indicators(FXBase.get_candles())
         FXBase.set_candles(candles)
-        if self.config.need_request is False: return {'info': None}
-
-        latest_candle = self._client.call_oanda('current_price')
-        self.__update_latest_candle(latest_candle)
-
-        return {'info': None}
-
-    def __update_latest_candle(self, latest_candle) -> None:
-        '''
-        最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き
-        '''
-        candle_dict = FXBase.get_candles().iloc[-1].to_dict()
-        FXBase.replace_latest_price('close', latest_candle['close'])
-        if candle_dict['high'] < latest_candle['high']:
-            FXBase.replace_latest_price('high', latest_candle['high'])
-        if candle_dict['low'] > latest_candle['low']:
-            FXBase.replace_latest_price('low', latest_candle['low'])
-        print('[Client] Last_H4: {}, Current_M1: {}'.format(candle_dict, latest_candle))
-        print('[Client] New_H4: {}'.format(FXBase.get_candles().iloc[-1].to_dict()))
 
     def _initialize_position_variables(self) -> None:
         self._position = None
@@ -108,34 +75,28 @@ class Trader():
     #
     # public
     #
-    # TODO: 作成中の処理
-    def verify_various_entry_filters(self, rule):
+    def verify_various_entry_filters(self, rule: str):
         ''' entry_filterの全パターンを検証する '''
-        filters = [[]]
-        filter_elements = statistics.FILTER_ELEMENTS
-        for elem in filter_elements:
-            tmp_filters = filters.copy()
-            for tmp_filter in tmp_filters:
-                filter_copy = tmp_filter.copy()
-                filter_copy.append(elem)
-                filters.append(filter_copy)
+        filter_sets: Tuple[List[Optional[str]]] = generate_different_length_combinations(
+            items=FILTER_ELEMENTS
+        )
 
-        filters.sort()
-        for _filter in filters:
-            print('[Trader] ** Now trying filter -> {} **', _filter)
-            self.config.set_entry_rules('entry_filter', value=_filter)
-            self.verify_various_stoploss(rule=rule)
+        for filter_set in filter_sets:
+            print('[Trader] ** Now trying filter -> {} **'.format(filter_set))
+            self.verify_various_stoploss(rule=rule, entry_filters=filter_set)
 
-    def verify_various_stoploss(self, rule):
+    def verify_various_stoploss(self, rule: str, entry_filters: List[str] = []):
         ''' StopLossの設定値を自動でスライドさせて損益を検証 '''
-        verification_dataframes_array = []
-        stoploss_digit = i_face.select_stoploss_digit()
-        stoploss_buffer_list = range_2nd_decimal(stoploss_digit, stoploss_digit * 20, stoploss_digit * 2)
+        stoploss_digit: float = self.config.stoploss_buffer_base
+        stoploss_buffer_list: List[float] = range_2nd_decimal(
+            stoploss_digit, stoploss_digit * 20, stoploss_digit * 2
+        )
 
+        verification_dataframes_array: List[Optional[pd.DataFrame]] = []
         for stoploss_buf in stoploss_buffer_list:
             print('[Trader] stoploss buffer: {}pipsで検証開始...'.format(stoploss_buf))
-            self.config.stoploss_buffer_pips = stoploss_buf
-            df_positions = self.auto_verify_trading_rule(rule=rule)
+            self.config.set_entry_rules('stoploss_buffer_pips', stoploss_buf)
+            df_positions = self.perform(rule=rule, entry_filters=entry_filters)
             verification_dataframes_array.append(df_positions)
 
         result = pd.concat(
@@ -145,14 +106,15 @@ class Trader():
         )
         result.to_csv('./tmp/csvs/sl_verify_{inst}.csv'.format(inst=self.config.get_instrument()))
 
-    def auto_verify_trading_rule(self, rule='swing'):
+    def perform(self, rule='swing', entry_filters: List = []):
         ''' tradeルールを自動検証 '''
         self._result_processor.reset_drawer()
 
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
-        if self.config.get_entry_rules('entry_filter') == []:
-            self.config.set_entry_rules('entry_filter', value=statistics.FILTER_ELEMENTS)
+
+        filters: List = FILTER_ELEMENTS if entry_filters == [] else entry_filters
+        self.config.set_entry_rules('entry_filters', value=filters)
 
         if rule in ('swing', 'scalping'):
             result = self.backtest(candles)
@@ -162,7 +124,7 @@ class Trader():
             print('Rule {} is not exist ...'.format(rule))
             exit()
 
-        print('{} ... (auto_verify_trading_rule)'.format(result['result']))
+        print('{} ... (perform)'.format(result['result']))
 
         df_positions = self._result_processor.run(rule, result, self._indicators)
         return df_positions
@@ -177,9 +139,8 @@ class Trader():
         tmp_df = candles.merge(self._ana.get_long_indicators(), on='time', how='left')
         # tmp_df['long_stoD'].fillna(method='ffill', inplace=True)
         # tmp_df['long_stoSD'].fillna(method='ffill', inplace=True)
-        tmp_df['stoD_over_stoSD'].fillna(method='ffill', inplace=True)
-        tmp_df['stoD_over_stoSD'].fillna({'stoD_over_stoSD': False}, inplace=True)
-        tmp_df.loc[:, 'stoD_over_stoSD'] = tmp_df['stoD_over_stoSD'].astype(bool)
+        tmp_df.loc[:, 'stoD_over_stoSD'] = tmp_df['stoD_over_stoSD'].fillna(method='ffill') \
+                                                                    .fillna(False)
 
         tmp_df['long_20SMA'].fillna(method='ffill', inplace=True)
         tmp_df['long_10EMA'].fillna(method='ffill', inplace=True)
@@ -263,21 +224,6 @@ class Trader():
     #
     # private
     #
-    def __prepare_long_span_candles(self, days: int) -> None:
-        if not isinstance(days, int):
-            return
-
-        result: pd.DataFrame
-        if self.config.need_request is False:
-            result = pd.read_csv('tests/fixtures/sample_candles_h4.csv')
-        else:
-            result = self._client.load_long_chart(days=days, granularity='D')['candles']
-
-        result['time'] = pd.to_datetime(result['time'])
-        result.set_index('time', inplace=True)
-        FXBase.set_long_span_candles(result)
-        # result.resample('4H').ffill() # upsamplingしようとしたがいらなかった。
-
     def _prepare_trade_signs(self, candles):
         print('[Trader] preparing base-data for judging ...')
 

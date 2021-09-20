@@ -2,6 +2,8 @@ from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP  # , ROUND_HALF_EVEN
 import numpy as np
 import pandas as pd
+from models.trader_config import FILTER_ELEMENTS
+
 
 TRADE_RESULT_ITEMS = [
     'DoneTime', 'Rule', 'Granularity', 'StoplossBuf', 'Spread',
@@ -9,18 +11,9 @@ TRADE_RESULT_ITEMS = [
     'Gross', 'GrossProfit', 'GrossLoss', 'MaxProfit', 'MaxLoss',
     'MaxDrawdown', 'Profit Factor', 'Recovery Factor', 'Sharp Ratio', 'Sortino Ratio'
 ]
-FILTER_ELEMENTS = [
-    'in_the_band',
-    'ma_gap_expanding',
-    'sma_follow_trend',
-    'stoc_allows',
-    # 60EMA is necessary?
-    # 'ema60_allows',
-    'band_expansion'
-]
 
 
-def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, spread, entry_filter):
+def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, spread, entry_filters):
     '''
     トレード履歴の統計情報計算処理を呼び出す(new)
     params:
@@ -36,7 +29,7 @@ def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, 
                 'exitable_price' # float64
             ]
     '''
-    filter_boolean = __filter_to_boolean(entry_filter)
+    filter_boolean = __filter_to_boolean(entry_filters)
 
     positions = df_positions.loc[df_positions.position.notnull(), :].copy()
     positions = __calc_profit(copied_positions=positions)
@@ -178,7 +171,7 @@ def __append_performance_result_to_csv(rule, granularity, sl_buf, spread, candle
     ]
     result_df = pd.DataFrame([result_row + filter_boolean], columns=TRADE_RESULT_ITEMS + FILTER_ELEMENTS)
     result_df.to_csv('tmp/csvs/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
-    print('[Trader] トレード統計(vectorized)をcsv追記完了')
+    print('[Trader] Added the result of backtest in \'verify_results.csv\'!')
 
 
 def __round_really(x):

@@ -50,7 +50,7 @@ class ResultProcessor:
             granularity=self._config.get_entry_rules('granularity'),
             stoploss_buffer=self._config.stoploss_buffer_pips,
             spread=self._config.static_spread,
-            entry_filter=self._config.get_entry_rules('entry_filter')
+            entry_filters=self._config.get_entry_rules('entry_filters')
         )
         df_positions: pd.DataFrame = self._wrangle_result_for_graph(
             result['candles'][

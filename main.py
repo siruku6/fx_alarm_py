@@ -5,7 +5,7 @@ import pandas as pd
 
 from models.analyzer import Analyzer
 from models.real_trader import RealTrader
-from models.history_librarian import Librarian
+from models.history_visualizer import Visualizer
 
 
 # For auto trader
@@ -98,8 +98,8 @@ def __drive_generating_tradehist(params: Dict[str, str], multi_value_params: Dic
     to_str: str = params['to']
     indicator_names: List[str] = multi_value_params.get('indicator_names[]') or []
 
-    libra: Librarian = Librarian(from_str, to_str, instrument=pare_name, indicator_names=tuple(indicator_names))
-    tradehist: pd.DataFrame = libra.serve_analysis_object()
+    visualizer: Visualizer = Visualizer(from_str, to_str, instrument=pare_name, indicator_names=tuple(indicator_names))
+    tradehist: pd.DataFrame = visualizer.run()
     result: str = json.dumps({
         # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
         #   to_json ならこの問題は起きないが、dumps と組み合わせると文字列になってしまうのでしない

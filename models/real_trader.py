@@ -19,7 +19,7 @@ class RealTrader(Trader):
     def apply_trading_rule(self):
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
-        candles['preconditions_allows'] = np.all(candles[self.config.get_entry_rules('entry_filter')], axis=1)
+        candles['preconditions_allows'] = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
         candles = self._merge_long_indicators(candles)
         # self.__play_swing_trade(candles)
         self.__play_scalping_trade(candles)
@@ -84,7 +84,7 @@ class RealTrader(Trader):
                 'sma_follow_trend', 'band_expansion', 'in_the_band',
                 'ma_gap_expanding', 'stoc_allows'
             ]
-            self.config.set_entry_rules('entry_filter', value=entry_rules)
+            self.config.set_entry_rules('entry_filters', value=entry_rules)
             precondition = np.all(candles[entry_rules], axis=1).iloc[-1]
             if last_candle['trend'] is None or not precondition:
                 self.__show_why_not_entry(candles)
@@ -262,7 +262,7 @@ class RealTrader(Trader):
         if conditions_df.trend.iat[-1] is None:
             self._log_skip_reason('c. {}: "trend" is None !'.format(time))
 
-        columns = self.config.get_entry_rules('entry_filter')
+        columns = self.config.get_entry_rules('entry_filters')
         vals = conditions_df[columns].iloc[-1].values
         for reason, val in zip(columns, vals):
             if not val:

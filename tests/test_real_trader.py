@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 import models.real_trader as real
-import models.tools.statistics_module as statistics
+from models.trader_config import FILTER_ELEMENTS
 
 
 @pytest.fixture(scope='module')
@@ -46,7 +46,7 @@ def test_not_entry(real_trader_client, dummy_candles, dummy_indicators):
 
     # Example: 最後の損失から1時間が経過しているが、Entry条件を満たしていない(preconditions_allows が False)
     two_hours_since_lastloss = datetime.timedelta(hours=2)
-    columns = ['trend', 'preconditions_allows', 'time'] + statistics.FILTER_ELEMENTS.copy()
+    columns = ['trend', 'preconditions_allows', 'time'] + FILTER_ELEMENTS.copy()
     tmp_dummy_candles = pd.DataFrame([[False for _ in columns]], columns=columns)
     with patch('models.real_trader.RealTrader._RealTrader__since_last_loss', return_value=two_hours_since_lastloss):
         result = real_trader_client._RealTrader__drive_entry_process(
@@ -235,8 +235,8 @@ def test___since_last_loss(real_trader_client):
 
 
 def test___show_why_not_entry(real_trader_client):
-    entry_filters = statistics.FILTER_ELEMENTS
-    real_trader_client.config.set_entry_rules('entry_filter', entry_filters)
+    entry_filters = FILTER_ELEMENTS
+    real_trader_client.config.set_entry_rules('entry_filters', entry_filters)
 
     columns = entry_filters.copy()
     columns.extend(['trend', 'time'])

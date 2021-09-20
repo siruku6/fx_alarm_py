@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from _pytest.fixtures import SubRequest
 
-from models.trader_config import TraderConfig, EntryRulesDict
+from models.trader_config import EntryRulesDict, FILTER_ELEMENTS, TraderConfig
 
 
 @pytest.fixture(name='days', scope='module')
@@ -27,7 +27,9 @@ def fixture_config(set_envs) -> TraderConfig:
 @pytest.fixture(name='selected_entry_rules', scope='module')
 def fixture_selected_entry_rules(days, stoploss_buffer) -> Dict[str, Union[int, float]]:
     return {
+        # TODO: remove magic numbers
         'static_spread': 0.0,
+        'stoploss_buffer_base': 0.01,
         'stoploss_buffer_pips': stoploss_buffer,
         'days': days
     }
@@ -51,7 +53,7 @@ class TestSelectConfigs:
 def fixture_additional_entry_rules() -> Dict[str, Union[str, List[str]]]:
     return {
         'granularity': 'M5',
-        'entry_filter': ['in_the_band', 'stoc_allows', 'band_expansion']
+        'entry_filters': []
     }
 
 
@@ -83,7 +85,8 @@ def get_fixture_values(request):
 class TestGetEntryRules:
 
     @pytest.fixture(params=[
-        'static_spread', 'stoploss_buffer_pips', 'days', 'granularity', 'entry_filter'
+        'static_spread', 'stoploss_buffer_pips', 'stoploss_buffer_base',
+        'days', 'granularity', 'entry_filters'
     ])
     def entry_rule_items(
         self, request: SubRequest, selected_entry_rules, additional_entry_rules
@@ -92,7 +95,20 @@ class TestGetEntryRules:
         rules.update(additional_entry_rules)
         return (request.param, rules[request.param])
 
-    def test_basic(self, entry_rule_items, config: TraderConfig):
+    def test_get_each_entry_rules(self, entry_rule_items, config: TraderConfig):
         target_rule, expected = entry_rule_items
         config.set_entry_rules('days', 120)
         assert config.get_entry_rules(target_rule) == expected
+
+
+class TestSetEntryRules:
+
+    def test_basic(self, config: TraderConfig):
+        config.set_entry_rules('entry_filters', FILTER_ELEMENTS)
+        assert config.get_entry_rules('entry_filters') == FILTER_ELEMENTS
+
+
+class TestGetStoplossBufferBase:
+
+    def test_basic(self, config: TraderConfig, selected_entry_rules: Dict[str, Union[int, float]]):
+        assert config.stoploss_buffer_base == selected_entry_rules['stoploss_buffer_base']

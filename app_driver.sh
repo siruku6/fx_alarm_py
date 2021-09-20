@@ -1,20 +1,20 @@
 #!/bin/bash
 menu=$(cat << EOS
 / / / / / / / / / / / / / / / /
-/         開発用シェル         /
+/     Dev Assistance Menu     /
 / / / / / / / / / / / / / / / /
-操作を選択してください。
+Select an operation from below.
 {1} :python main.py
-{2} :betaコード実行
+{2} :execute beta_cord
 {5} :find (find ./[dir] -type f -print | xargs grep [str])
-{6} :unittest全実行
+{6} :pytest -vv
 
-{10}:tradehist関数のみdeploy
-{11}:Lambdaアップ用zip作成
-{80}:date, hwclock を合わせる
+{10}:deploy the function 'tradehist' only
+{11}:make a zip for being uploaded to Lambda
+{80}:adjust date and hwclock
 {99}:LINUX shutdown
 {*} :exit
-数字を選択：
+Select a number：
 EOS
 )
 
@@ -128,12 +128,12 @@ while true; do
 
   case $select in
     1)
-      echo 'main.pyファイル実行'
+      echo 'running main.py'
       python main.py
       wait_display
       ;;
     2)
-      echo 'beta_cord.pyファイル実行'
+      echo 'running beta_cord.py'
       python beta_cord.py
       wait_display
       ;;
@@ -142,8 +142,8 @@ while true; do
       wait_display
       ;;
     6)
-      echo 'unittest実行準備中...'
-      python -m unittest
+      echo 'running pytest ...'
+      pytest -vv
       wait_display
       ;;
     10)
