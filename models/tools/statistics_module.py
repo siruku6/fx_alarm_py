@@ -171,7 +171,7 @@ def __append_performance_result_to_csv(rule, granularity, sl_buf, spread, candle
     ]
     result_df = pd.DataFrame([result_row + filter_boolean], columns=TRADE_RESULT_ITEMS + FILTER_ELEMENTS)
     result_df.to_csv('tmp/csvs/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
-    print('[Trader] トレード統計(vectorized)をcsv追記完了')
+    print('[Trader] Added the result of backtest in \'verify_results.csv\'!')
 
 
 def __round_really(x):

@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 
-from models.candle_storage import FXBase
 from models.trader import Trader
 import models.trade_rules.scalping as scalping
 
@@ -19,13 +18,10 @@ class AlphaTrader(Trader):
         candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
         entryable = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
         candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
-
-        candles = self._merge_long_indicators(candles)
         self.__generate_entry_column(candles)
-        # HACK: 長期足 indicators をcandlesに保持させるための実装
-        FXBase.set_candles(candles)
+
         candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
-        return {'result': '[Trader] 売買判定終了', 'candles': candles}
+        return {'result': '[Trader] Finsihed a series of backtest!', 'candles': candles}
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Private

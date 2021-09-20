@@ -27,7 +27,9 @@ def fixture_config(set_envs) -> TraderConfig:
 @pytest.fixture(name='selected_entry_rules', scope='module')
 def fixture_selected_entry_rules(days, stoploss_buffer) -> Dict[str, Union[int, float]]:
     return {
+        # TODO: remove magic numbers
         'static_spread': 0.0,
+        'stoploss_buffer_base': 0.01,
         'stoploss_buffer_pips': stoploss_buffer,
         'days': days
     }
