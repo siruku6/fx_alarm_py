@@ -6,6 +6,7 @@ import pandas as pd
 from models.trader_config import TraderConfig
 from models.candle_storage import FXBase
 from models.client_manager import ClientManager
+from models.candle_loader import CandleLoader
 from models.analyzer import Analyzer
 from models.result_processor import ResultProcessor
 from models.tools.mathematics import range_2nd_decimal
@@ -36,58 +37,19 @@ class Trader:
         self._client: ClientManager = ClientManager(
             instrument=self.config.get_instrument(), test=operation in ('backtest', 'forward_test')
         )
+        self._candle_loader: CandleLoader = CandleLoader(self.config, self._client)
         self._result_processor: ResultProcessor = ResultProcessor(operation, self.config)
         self.__m10_candles: Optional[pd.DataFrame] = None
-        result: Dict[str, str] = self.__prepare_candles(days=self.config.get_entry_rules('days')).get('info')
+        result: Dict[str, str] = self._candle_loader.run().get('info')
 
         if result is not None:
             print(result)
             return
 
-        self.__prepare_long_span_candles(days=self.config.get_entry_rules('days'))
+        self._candle_loader.load_long_span_candles()
         self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
         self._indicators: pd.DataFrame = self._ana.get_indicators()
         self._initialize_position_variables()
-
-    def __prepare_candles(self, days: int = None) -> Dict[str, str]:
-        if self.config.need_request is False:
-            candles = pd.read_csv('tests/fixtures/sample_candles.csv')
-        elif self.config.operation in ('backtest', 'forward_test'):
-            self.config.set_entry_rules('granularity', value=i_face.ask_granularity())
-            candles = self._client.load_long_chart(
-                days=self.config.get_entry_rules('days'), granularity=self.config.get_entry_rules('granularity')
-            )['candles']
-        elif self.config.operation == 'live':
-            self.tradeable = self._client.call_oanda('is_tradeable')['tradeable']
-            if not self.tradeable:
-                return {'info': 'exit at once'}
-
-            candles = self._client.load_specify_length_candles(
-                length=70, granularity=self.config.get_entry_rules('granularity')
-            )['candles']
-        else:
-            return {'info': 'exit at once'}
-
-        FXBase.set_candles(candles)
-        if self.config.need_request is False: return {'info': None}
-
-        latest_candle = self._client.call_oanda('current_price')
-        self.__update_latest_candle(latest_candle)
-
-        return {'info': None}
-
-    def __update_latest_candle(self, latest_candle) -> None:
-        '''
-        最新の値がgranurarity毎のpriceの上下限を抜いていたら、抜けた値で上書き
-        '''
-        candle_dict = FXBase.get_candles().iloc[-1].to_dict()
-        FXBase.replace_latest_price('close', latest_candle['close'])
-        if candle_dict['high'] < latest_candle['high']:
-            FXBase.replace_latest_price('high', latest_candle['high'])
-        if candle_dict['low'] > latest_candle['low']:
-            FXBase.replace_latest_price('low', latest_candle['low'])
-        print('[Client] Last_H4: {}, Current_M1: {}'.format(candle_dict, latest_candle))
-        print('[Client] New_H4: {}'.format(FXBase.get_candles().iloc[-1].to_dict()))
 
     def _initialize_position_variables(self) -> None:
         self._position = None
@@ -264,21 +226,6 @@ class Trader:
     #
     # private
     #
-    def __prepare_long_span_candles(self, days: int) -> None:
-        if not isinstance(days, int):
-            return
-
-        result: pd.DataFrame
-        if self.config.need_request is False:
-            result = pd.read_csv('tests/fixtures/sample_candles_h4.csv')
-        else:
-            result = self._client.load_long_chart(days=days, granularity='D')['candles']
-
-        result['time'] = pd.to_datetime(result['time'])
-        result.set_index('time', inplace=True)
-        FXBase.set_long_span_candles(result)
-        # result.resample('4H').ffill() # upsamplingしようとしたがいらなかった。
-
     def _prepare_trade_signs(self, candles):
         print('[Trader] preparing base-data for judging ...')
 
