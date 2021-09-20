@@ -85,7 +85,8 @@ def get_fixture_values(request):
 class TestGetEntryRules:
 
     @pytest.fixture(params=[
-        'static_spread', 'stoploss_buffer_pips', 'days', 'granularity', 'entry_filters'
+        'static_spread', 'stoploss_buffer_pips', 'stoploss_buffer_base',
+        'days', 'granularity', 'entry_filters'
     ])
     def entry_rule_items(
         self, request: SubRequest, selected_entry_rules, additional_entry_rules
@@ -94,7 +95,7 @@ class TestGetEntryRules:
         rules.update(additional_entry_rules)
         return (request.param, rules[request.param])
 
-    def test_basic(self, entry_rule_items, config: TraderConfig):
+    def test_get_each_entry_rules(self, entry_rule_items, config: TraderConfig):
         target_rule, expected = entry_rule_items
         config.set_entry_rules('days', 120)
         assert config.get_entry_rules(target_rule) == expected
@@ -105,3 +106,9 @@ class TestSetEntryRules:
     def test_basic(self, config: TraderConfig):
         config.set_entry_rules('entry_filters', FILTER_ELEMENTS)
         assert config.get_entry_rules('entry_filters') == FILTER_ELEMENTS
+
+
+class TestGetStoplossBufferBase:
+
+    def test_basic(self, config: TraderConfig, selected_entry_rules: Dict[str, Union[int, float]]):
+        assert config.stoploss_buffer_base == selected_entry_rules['stoploss_buffer_base']

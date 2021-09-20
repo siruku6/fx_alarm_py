@@ -1,4 +1,3 @@
-import itertools
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -10,7 +9,10 @@ from models.client_manager import ClientManager
 from models.candle_loader import CandleLoader
 from models.analyzer import Analyzer
 from models.result_processor import ResultProcessor
-from models.tools.mathematics import range_2nd_decimal
+from models.tools.mathematics import (
+    range_2nd_decimal,
+    generate_different_length_combinations
+)
 import models.trade_rules.base as base_rules
 from models.trader_config import FILTER_ELEMENTS
 
@@ -75,7 +77,9 @@ class Trader:
     #
     def verify_various_entry_filters(self, rule: str):
         ''' entry_filterの全パターンを検証する '''
-        filter_sets: Tuple[List[Optional[str]]] = self.__generate_filter_set_combinations()
+        filter_sets: Tuple[List[Optional[str]]] = generate_different_length_combinations(
+            items=FILTER_ELEMENTS
+        )
 
         for filter_set in filter_sets:
             print('[Trader] ** Now trying filter -> {} **'.format(filter_set))
@@ -145,13 +149,6 @@ class Trader:
         tmp_df['long_trend'] = base_rules.generate_trend_column(long_ma, candles.close)
 
         return tmp_df
-
-    def __generate_filter_set_combinations(self) -> Tuple[List[Optional[str]]]:
-        filter_sets: List[Tuple[Optional[str]]] = [()]
-        for num in range(1, len(FILTER_ELEMENTS) + 1):
-            filter_sets += list(itertools.combinations(FILTER_ELEMENTS, num))
-
-        return (list(filter_set) for filter_set in filter_sets)
 
     def __generate_thrust_column(self, candles, trend):
         # INFO: if high == the max of recent-10-candles: True is set !

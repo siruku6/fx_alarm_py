@@ -21,6 +21,17 @@ def test_generate_float_digits_of():
         assert math.isclose(result, expected)
 
 
+def test_generate_different_length_combinations():
+    result = mtmtcs.generate_different_length_combinations(items=[1, 2, 3])
+    expected = (
+        [],
+        [1], [2], [3],
+        [1, 2], [1, 3], [2, 3],
+        [1, 2, 3]
+    )
+    assert tuple(result) == expected
+
+
 def test_range_2nd_decimal():
     dummy_inputs = [
         {'begin': 0.0, 'end': 1.0, 'step': 0.3}

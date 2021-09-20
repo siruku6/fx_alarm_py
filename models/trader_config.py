@@ -7,6 +7,7 @@ import models.tools.interface as i_face
 
 class EntryRulesDict(TypedDict):
     static_spread: float
+    stoploss_buffer_base: float
     stoploss_buffer_pips: float
     days: int
     granularity: str

@@ -1,3 +1,4 @@
+from typing import Dict, Union
 import numpy as np
 import pandas as pd
 
@@ -13,11 +14,10 @@ class AlphaTrader(Trader):
     #
     # Public
     #
-    def backtest(self, candles):
+    def backtest(self, candles) -> Dict[str, Union[str, pd.DataFrame]]:
         ''' スキャルピングのentry pointを検出 '''
         candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
-        entryable = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
-        candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
+        self.__set_entriable_price(candles)
         self.__generate_entry_column(candles)
 
         candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
@@ -26,12 +26,15 @@ class AlphaTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Private
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __generate_entry_column(self, candles):
-        print('[Trader] judging entryable or not ...')
+    def __set_entriable_price(self, candles: pd.DataFrame) -> None:
+        # OPTIMIZE: maybe candles[self.config.get_entry_rules('entry_filters') + 'thrust'] works well (?)
+        entryable = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
+        candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
         candles['entryable_price'] = scalping.generate_entryable_prices(
             candles[['open', 'entryable']], self.config.static_spread
         )
 
+    def __generate_entry_column(self, candles: pd.DataFrame) -> pd.DataFrame:
         # INFO: 1. 厳し目のstoploss設定: commit_positions_by_loop で is_exitable_by_bollinger を使うときはコチラが良い
         # entry_direction = candles.entryable.fillna(method='ffill')
         # long_direction_index = entry_direction == 'long'
@@ -51,8 +54,13 @@ class AlphaTrader(Trader):
             left_index=True, right_index=True
         )
         commited_df = scalping.commit_positions_by_loop(factor_dicts=base_df.to_dict('records'))
+        # OPTIMIZE: We may be able to  merge two dataframes by the way written in following article.
+        #   https://ymt-lab.com/post/2020/python-pandas-insert-columns/
+        # like this (but this doesn't work anyway)
+        # return pd.concat([candles, commited_df], axis=1) \
+        #          .rename(columns={'entryable_price': 'entry_price'})
+        candles.loc[:, 'entry_price'] = commited_df['entryable_price']
         candles.loc[:, 'position'] = commited_df['position']
         candles.loc[:, 'exitable_price'] = commited_df['exitable_price']
         candles.loc[:, 'exit_reason'] = commited_df['exit_reason']
-        candles.loc[:, 'entry_price'] = commited_df['entryable_price']
         candles.loc[:, 'possible_stoploss'] = commited_df['possible_stoploss']
