@@ -1,5 +1,4 @@
 # from typing import Dict, List, Union
-from numpy import float64
 
 import numpy as np
 import pandas as pd
@@ -48,7 +47,7 @@ class TestSetStoplossPrices:
             long_indexes=[False, True], short_indexes=[False, False]
         )
         np.testing.assert_array_equal(result.columns, ['high', 'low', 'possible_stoploss'])
-        assert result['possible_stoploss'].dtype == float64
+        assert result['possible_stoploss'].dtype == np.float64
 
     def test_basic(self, swing_client: SwingTrader, stoploss_buffer: float):
         dummy_candles: pd.DataFrame = pd.DataFrame(

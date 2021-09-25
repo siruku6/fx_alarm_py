@@ -1,7 +1,35 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 import models.trade_rules.base as base
+
+
+@pytest.fixture(name='spread', scope='module')
+def fixture_spread() -> float:
+    return 0.005
+
+
+class TestSetEntryablePrices:
+    @pytest.fixture(name='dummy_candles', scope='module')
+    def fixture_dummy_candles(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                'open': [101.000, 101.000, 124.000, 101.000, 99.999],
+                'high': [123.456, 123.456, 123.456, 123.456, 123.456],
+                'low': [100.000, 100.000, 100.000, 100.000, 100.000],
+                'entryable': [None, 'long', 'long', 'short', 'short']
+            }
+        )
+
+    def test_basic(self, dummy_candles: pd.DataFrame, spread: float):
+        candles: pd.DataFrame = dummy_candles.copy()
+        base.set_entryable_prices(candles, spread=spread)
+
+        expected: pd.Series = pd.Series(
+            [np.nan, 123.461, 124.005, 100.000, 99.999], name='entryable_price'
+        )
+        pd.testing.assert_series_equal(candles['entryable_price'], expected)
 
 
 def test_generate_trend_column():
