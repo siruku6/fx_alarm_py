@@ -24,6 +24,7 @@ def set_entryable_prices(candles: pd.DataFrame, spread: float):
         'current_open': candles.loc[short_index, 'open']
     }).min(axis=1)
     candles.loc[short_index, 'entryable_price'] = short_entry_prices
+    return candles
 
 
 def commit_positions(candles, long_indexes, short_indexes, spread):

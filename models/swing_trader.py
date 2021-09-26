@@ -17,10 +17,10 @@ class SwingTrader(Trader):
     # Public
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def backtest(self, candles):
-        ''' スイングトレードのentry pointを検出 '''
+        ''' backtest swing trade '''
         # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする いらなくない？
         self._initialize_position_variables()
-
+        self.__judge_entryable(candles)
         self.__generate_entry_column(candles=candles)
         sliding_result = self.__slide_prices_to_really_possible(candles=candles)
         candles.to_csv('./tmp/csvs/full_data_dump.csv')
@@ -34,33 +34,16 @@ class SwingTrader(Trader):
     def _backtest_wait_close(self, candles):
         ''' swingでH4 close直後のみにentryする場合のentry pointを検出 '''
         candles['thrust'] = wait_close.generate_thrust_column(candles)
-        self.__generate_entry_column_for_wait_close(candles)
+
+        entryable: np.ndarray = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
+        candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
+
+        self.__generate_entry_column(candles)
         sliding_result = self.__slide_prices_to_really_possible(candles=candles)
         candles.to_csv('./tmp/csvs/wait_close_data_dump.csv')
 
         result = 'no position' if sliding_result['result'] == 'no position' else '[Trader] 売買判定終了'
         return {'result': result, 'candles': candles}
-
-    def __generate_entry_column(self, candles):
-        print('[Trader] judging entryable or not ...')
-        self.__judge_entryable(candles)
-        base_rules.set_entryable_prices(candles, self.config.static_spread)
-
-        entry_direction = candles.entryable.fillna(method='ffill')
-        long_direction_index = entry_direction == 'long'
-        short_direction_index = entry_direction == 'short'
-
-        self.__set_stoploss_prices(
-            candles,
-            long_indexes=long_direction_index,
-            short_indexes=short_direction_index
-        )
-        base_rules.commit_positions(
-            candles,
-            long_indexes=long_direction_index,
-            short_indexes=short_direction_index,
-            spread=self.config.static_spread
-        )
 
     def __judge_entryable(self, candles):
         ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
@@ -68,11 +51,9 @@ class SwingTrader(Trader):
         candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions]['thrust']
         candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions]['thrust'].copy()
 
-    def __generate_entry_column_for_wait_close(self, candles: pd.DataFrame):
+    def __generate_entry_column(self, candles: pd.DataFrame):
         print('[Trader] judging entryable or not ...')
-        entryable = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
-        candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
-        base_rules.set_entryable_prices(candles, self.config.static_spread)
+        candles: pd.DataFrame = base_rules.set_entryable_prices(candles, self.config.static_spread)
 
         entry_direction = candles.entryable.fillna(method='ffill')
         long_direction_index = entry_direction == 'long'

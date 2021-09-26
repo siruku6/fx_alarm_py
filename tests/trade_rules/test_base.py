@@ -24,12 +24,12 @@ class TestSetEntryablePrices:
 
     def test_basic(self, dummy_candles: pd.DataFrame, spread: float):
         candles: pd.DataFrame = dummy_candles.copy()
-        base.set_entryable_prices(candles, spread=spread)
+        result: pd.Series = base.set_entryable_prices(candles, spread=spread)['entryable_price']
 
         expected: pd.Series = pd.Series(
             [np.nan, 123.461, 124.005, 100.000, 99.999], name='entryable_price'
         )
-        pd.testing.assert_series_equal(candles['entryable_price'], expected)
+        pd.testing.assert_series_equal(result, expected)
 
 
 def test_generate_trend_column():
