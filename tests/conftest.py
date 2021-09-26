@@ -1,4 +1,6 @@
 import os
+from typing import Dict, List, Union
+
 from dotenv import load_dotenv
 import pytest
 
@@ -779,7 +781,7 @@ def no_pl_transactions():
 
 # INFO: past_transactions と一緒に使いやすい： time が一致するデータになっている
 @pytest.fixture(scope='session')
-def past_usd_candles():
+def past_usd_candles() -> List[Dict[str, Union[float, str, int]]]:
     return [
         {'close': 107.662, 'high': 107.678, 'low': 107.574, 'open': 107.59, 'time': '2020-07-06 00:00:00', 'volume': 2705},
         {'close': 107.722, 'high': 107.742, 'low': 107.66, 'open': 107.661, 'time': '2020-07-06 01:00:00', 'volume': 3089},

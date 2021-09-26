@@ -4,7 +4,6 @@ boto3
 matplotlib
 numpy
 python-dotenv
-# pymongo
 requests
 # scipy # trendline生成時には必要
 

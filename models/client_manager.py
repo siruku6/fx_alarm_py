@@ -6,7 +6,6 @@ import pandas as pd
 
 from models.clients.oanda_client import OandaClient
 from models.clients.dynamodb_accessor import DynamodbAccessor
-# from models.clients.mongodb_accessor import MongodbAccessor
 import models.tools.format_converter as converter
 import models.tools.interface as i_face
 import models.tools.preprocessor as prepro
@@ -69,40 +68,6 @@ class ClientManager():
             time.sleep(1)
 
         return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
-
-    # def load_or_query_candles(self, start_time, end_time, granularity):
-    #     ''' (10分足用) 取得済みであれば mongodb から candles を取得してくれる '''
-    #     candles_accessor = MongodbAccessor(db_name='candles')
-    #     stocked_first_time, stocked_last_time = candles_accessor.edge_datetimes_of(currency_pare=self.__instrument)
-
-    #     print('[MongoDB] slide用10分足の不足分を解析・request中....')
-    #     if start_time < stocked_first_time:
-    #         candles_supplement = self.load_candles_by_duration(
-    #             start=start_time, end=stocked_first_time - datetime.timedelta(minutes=10),
-    #             granularity=granularity
-    #         )['candles'].rename(columns={'time': '_id'})
-    #         candles_supplement['_id'] = pd.to_datetime(candles_supplement['_id'])
-    #         candles_dict = candles_supplement.to_dict('records')
-    #         candles_accessor.bulk_insert(currency_pare=self.__instrument, dict_array=candles_dict)
-
-    #     if stocked_last_time < end_time:
-    #         candles_supplement = self.load_candles_by_duration(
-    #             start=stocked_last_time + datetime.timedelta(minutes=10), end=end_time,
-    #             granularity=granularity
-    #         )['candles'].rename(columns={'time': '_id'})
-    #         candles_supplement['_id'] = pd.to_datetime(candles_supplement['_id'])
-    #         candles_dict = candles_supplement.to_dict('records')
-    #         candles_accessor.bulk_insert(currency_pare=self.__instrument, dict_array=candles_dict)
-
-    #     print('[MongoDB] querying m10_candles ...')
-    #     stocked_candles = candles_accessor.query_candles(
-    #         currency_pare=self.__instrument,
-    #         start_dt=start_time, end_dt=end_time
-    #     )
-    #     del candles_accessor
-    #     print('[MongoDB] m10_candles are loaded !')
-
-    #     return stocked_candles
 
     def load_candles_by_duration(self, start, end, granularity):
         ''' 広範囲期間チャート取得用の複数回リクエスト '''

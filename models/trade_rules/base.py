@@ -7,23 +7,24 @@ from models.candle_storage import FXBase
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                       Multople rows Processor
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def set_entryable_prices(candles, spread):
-    ''' entry した場合の price を candles dataframe に設定 '''
+def set_entryable_prices(candles: pd.DataFrame, spread: float):
+    ''' set possible prices in candles assuming that entries are done '''
     # INFO: long-entry
-    long_index = candles.entryable == 'long'
-    long_entry_prices = pd.DataFrame({
-        'previous_high': candles.shift(1)[long_index].high,
-        'current_open': candles[long_index].open
+    long_index: pd.Series = candles['entryable'] == 'long'
+    long_entry_prices: pd.Series = pd.DataFrame({
+        'previous_high': candles.shift(1).loc[long_index, 'high'],
+        'current_open': candles.loc[long_index, 'open']
     }).max(axis=1) + spread
     candles.loc[long_index, 'entryable_price'] = long_entry_prices
 
     # INFO: short-entry
-    short_index = candles.entryable == 'short'
-    short_entry_prices = pd.DataFrame({
-        'previous_low': candles.shift(1)[short_index].low,
-        'current_open': candles[short_index].open
+    short_index: pd.Series = candles['entryable'] == 'short'
+    short_entry_prices: pd.Series = pd.DataFrame({
+        'previous_low': candles.shift(1).loc[short_index, 'low'],
+        'current_open': candles.loc[short_index, 'open']
     }).min(axis=1)
     candles.loc[short_index, 'entryable_price'] = short_entry_prices
+    return candles
 
 
 def commit_positions(candles, long_indexes, short_indexes, spread):
