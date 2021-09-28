@@ -1,4 +1,4 @@
-import abc
+# import abc
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -130,13 +130,13 @@ class Trader:
         df_positions = self._result_processor.run(rule, result, self._indicators)
         return df_positions
 
-    @abc.abstractmethod
-    def backtest(self):
-        pass
+    # @abc.abstractmethod
+    # def backtest(self):
+    #     pass
 
-    @abc.abstractmethod
-    def __generate_entry_column(self):
-        pass
+    # @abc.abstractmethod
+    # def __generate_entry_column(self):
+    #     pass
 
     #
     # Methods for judging Entry or Close
@@ -159,23 +159,20 @@ class Trader:
 
         return tmp_df
 
-    def __generate_thrust_column(self, candles, trend):
-        # INFO: if high == the max of recent-10-candles: True is set !
-        sr_highest_in_10candles = (candles.high == candles.high.rolling(window=10).max())
-        sr_lowest_in_10candles = (candles.low == candles.low.rolling(window=10).min())
-        sr_up_thrust = np.all(
-            pd.DataFrame({'highest': sr_highest_in_10candles, 'bull': trend['bull']}),
-            axis=1
-        )
-        sr_down_thrust = np.all(
-            pd.DataFrame({'lowest': sr_lowest_in_10candles, 'bear': trend['bear']}),
-            axis=1
-        )
-        method_thrust_checker = np.frompyfunc(base_rules.detect_thrust2, 2, 1)
-        result = method_thrust_checker(sr_up_thrust, sr_down_thrust)
-        return result
+    def __generate_thrust_column(self, candles: pd.DataFrame, trend: pd.DataFrame) -> pd.Series:
+        # INFO: the most highest or lowest in last 10 candles
+        recent_highests: pd.Series = (candles['high'] == candles['high'].rolling(window=10).max())
+        recent_lowests: pd.Series = (candles['low'] == candles['low'].rolling(window=10).min())
 
-        # INFO: shift(1)との比較のみでthrustを判定する場合
+        up_thrusts: pd.Series = recent_highests & trend['bull']
+        down_thrusts: pd.Series = recent_lowests & trend['bear']
+
+        thrust_type_series: pd.Series = pd.Series(np.full(len(candles), None))
+        thrust_type_series[up_thrusts] = 'long'
+        thrust_type_series[down_thrusts] = 'short'
+        return thrust_type_series
+
+        # INFO: decide 'thrust' by only comparing with shift(1)
         # method_thrust_checker = np.frompyfunc(base_rules.detect_thrust, 5, 1)
         # result = method_thrust_checker(
         #     candles.trend,
