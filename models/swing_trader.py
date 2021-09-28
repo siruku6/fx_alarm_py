@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -16,48 +16,56 @@ class SwingTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Public
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def backtest(self, candles):
+    def backtest(self, candles: pd.DataFrame) -> Dict[str, Union[str, pd.DataFrame]]:
         ''' backtest swing trade '''
         # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする いらなくない？
         self._initialize_position_variables()
-        self.__judge_entryable(candles)
-        self.__generate_entry_column(candles=candles)
-        sliding_result = self.__slide_prices_to_really_possible(candles=candles)
-        candles.to_csv('./tmp/csvs/full_data_dump.csv')
 
-        result = 'no position' if sliding_result['result'] == 'no position' else '[Trader] 売買判定終了'
-        return {'result': result, 'candles': candles}
+        result_msg: str = self.__backtest_common_flow(candles)
+
+        candles.to_csv('./tmp/csvs/full_data_dump.csv')
+        return {'result': result_msg, 'candles': candles}
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Private
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def _backtest_wait_close(self, candles):
-        ''' swingでH4 close直後のみにentryする場合のentry pointを検出 '''
+    def _backtest_wait_close(self, candles: pd.DataFrame) -> Dict[str, Union[str, pd.DataFrame]]:
+        '''
+        (the difference from 'backtest' above)
+        entry is gonna be done just after the close of each candle is determined
+        '''
         candles['thrust'] = wait_close.generate_thrust_column(candles)
 
-        entryable: np.ndarray = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
+        result_msg: str = self.__backtest_common_flow(candles)
+
+        candles.to_csv('./tmp/csvs/wait_close_data_dump.csv')
+        return {'result': result_msg, 'candles': candles}
+
+    def __backtest_common_flow(self, candles: pd.DataFrame) -> str:
+        self.__mark_entryable_rows(candles)
+        candles: pd.DataFrame = base_rules.set_entryable_prices(candles, self.config.static_spread)
+        self.__generate_entry_column(candles=candles)
+        sliding_result = self.__slide_to_reasonable_prices(candles=candles)
+
+        result_msg: str = self.__result_message(sliding_result['result'])
+        return result_msg
+
+    # TODO: Merge with similar method
+    #   This is almost same as the method '__set_entryable_price' of alpha_trader
+    def __mark_entryable_rows(self, candles: pd.DataFrame) -> None:
+        '''
+        Judge whether it is entryable or not on each row.
+        Then set the result in the column 'entryable'.
+        '''
+        entryable = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
         candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
 
-        self.__generate_entry_column(candles)
-        sliding_result = self.__slide_prices_to_really_possible(candles=candles)
-        candles.to_csv('./tmp/csvs/wait_close_data_dump.csv')
-
-        result = 'no position' if sliding_result['result'] == 'no position' else '[Trader] 売買判定終了'
-        return {'result': result, 'candles': candles}
-
-    def __judge_entryable(self, candles):
-        ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
-        satisfy_preconditions = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
-        candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions]['thrust']
-        candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions]['thrust'].copy()
-
-    def __generate_entry_column(self, candles: pd.DataFrame):
+    def __generate_entry_column(self, candles: pd.DataFrame) -> None:
         print('[Trader] judging entryable or not ...')
-        candles: pd.DataFrame = base_rules.set_entryable_prices(candles, self.config.static_spread)
 
-        entry_direction = candles.entryable.fillna(method='ffill')
-        long_direction_index = entry_direction == 'long'
-        short_direction_index = entry_direction == 'short'
+        entry_direction: pd.Series = candles['entryable'].fillna(method='ffill')
+        long_direction_index: pd.Series = entry_direction == 'long'
+        short_direction_index: pd.Series = entry_direction == 'short'
 
         candles_with_stoploss: pd.DataFrame = self.__set_stoploss_prices(
             candles,
@@ -88,7 +96,7 @@ class SwingTrader(Trader):
         candles.loc[short_indexes, 'possible_stoploss'] = short_stoploss_prices
         return candles
 
-    def __slide_prices_to_really_possible(self, candles):
+    def __slide_to_reasonable_prices(self, candles):
         print('[Trader] start sliding ...')
 
         position_index = candles.position.isin(['long', 'short']) \
@@ -108,6 +116,12 @@ class SwingTrader(Trader):
 
         print('[Trader] finished sliding !')
         return {'result': 'success'}
+
+    def __result_message(self, result: str) -> str:
+        if result == 'no position':
+            return 'no position'
+
+        return '[Trader] 1 series of trading is FINISHED!'
 
     # def __slide_prices_in_dicts(self, time_series, position_rows):
     #     if self.m10_candles is None:

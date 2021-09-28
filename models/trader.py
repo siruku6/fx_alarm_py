@@ -1,3 +1,4 @@
+import abc
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -128,6 +129,14 @@ class Trader:
 
         df_positions = self._result_processor.run(rule, result, self._indicators)
         return df_positions
+
+    @abc.abstractmethod
+    def backtest(self):
+        pass
+
+    @abc.abstractmethod
+    def __generate_entry_column(self):
+        pass
 
     #
     # Methods for judging Entry or Close
