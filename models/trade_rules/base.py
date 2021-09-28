@@ -7,7 +7,7 @@ from models.candle_storage import FXBase
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                       Multople rows Processor
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def set_entryable_prices(candles: pd.DataFrame, spread: float):
+def set_entryable_prices(candles: pd.DataFrame, spread: float) -> pd.DataFrame:
     ''' set possible prices in candles assuming that entries are done '''
     # INFO: long-entry
     long_index: pd.Series = candles['entryable'] == 'long'
