@@ -32,6 +32,37 @@ class TestSetEntryablePrices:
         pd.testing.assert_series_equal(result, expected)
 
 
+class TestCommitPositions:
+    @pytest.fixture(name='dummy_candles', scope='module')
+    def fixture_dummy_candles(self):
+        return pd.DataFrame(
+            [
+                [123.456, 123.123, 123.333, 123.122, 'long'],
+                [123.456, 123.123, 123.333, 123.124, None],
+                [123.456, 123.123, 123.333, 123.462, 'short'],
+                [123.456, 123.123, 123.333, 123.462, 'short'],
+                [123.456, 123.123, 123.333, 123.460, np.nan],
+            ], columns=[
+                'high', 'low', 'entryable_price', 'possible_stoploss', 'entryable'  # , 'time'
+            ]
+        )
+
+    def test_basic(self, dummy_candles: pd.DataFrame, spread: float):
+        entry_direction: pd.Series = dummy_candles['entryable'].fillna(method='ffill')
+        long_direction_index: pd.Series = entry_direction == 'long'
+        short_direction_index: pd.Series = entry_direction == 'short'
+
+        base.commit_positions(
+            dummy_candles, long_direction_index, short_direction_index, spread
+        )
+
+        expected_positions: pd.Series = pd.Series(['long', 'sell_exit', 'short', None, 'buy_exit'], name='position')
+        pd.testing.assert_series_equal(dummy_candles['position'], expected_positions)
+
+        expected_exitable_prices: pd.Series = pd.Series([None, 123.124, None, None, 123.460], name='exitable_price')
+        pd.testing.assert_series_equal(dummy_candles['exitable_price'], expected_exitable_prices)
+
+
 def test_generate_trend_column():
     sample_data = pd.DataFrame.from_dict(
         {

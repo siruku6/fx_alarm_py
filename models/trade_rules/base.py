@@ -27,22 +27,46 @@ def set_entryable_prices(candles: pd.DataFrame, spread: float):
     return candles
 
 
-def commit_positions(candles, long_indexes, short_indexes, spread):
-    ''' set exit-timing, price '''
-    long_exits = long_indexes & (candles.low < candles.possible_stoploss)
-    candles.loc[long_exits, 'position'] = 'sell_exit'
-    candles.loc[long_exits, 'exitable_price'] = candles[long_exits].possible_stoploss
+def commit_positions(
+    candles: pd.DataFrame, long_indexes: pd.Series, short_indexes: pd.Series, spread: float
+) -> None:
+    '''
+    set timing and price of exit
 
-    short_exits = short_indexes & (candles.high + spread > candles.possible_stoploss)
+    Parameters
+    ----------
+    candles : pd.DataFrame
+        Index:
+            Any
+        Columns:
+            Name: high,              dtype: float64 (required)
+            Name: low,               dtype: float64 (required)
+            Name: entryable,         dtype: object  (required)
+            Name: entryable_price,   dtype: float64 (required)
+            Name: possible_stoploss, dtype: float64 (required)
+            Name: time,              dtype: object  # datetime64[ns]
+
+    Returns
+    -------
+    None
+    '''
+    candles.loc[:, 'position'] = candles['entryable'].copy()
+
+    long_exits = long_indexes & (candles['low'] < candles['possible_stoploss'])
+    candles.loc[long_exits, 'position'] = 'sell_exit'
+    candles.loc[long_exits, 'exitable_price'] = candles.loc[long_exits, 'possible_stoploss']
+
+    short_exits = short_indexes & (candles['high'] + spread > candles['possible_stoploss'])
     candles.loc[short_exits, 'position'] = 'buy_exit'
-    candles.loc[short_exits, 'exitable_price'] = candles[short_exits].possible_stoploss
+    candles.loc[short_exits, 'exitable_price'] = candles.loc[short_exits, 'possible_stoploss']
 
     # INFO: position column の整理
-    candles.position.fillna(method='ffill', inplace=True)
+    candles['position'].fillna(method='ffill', inplace=True)
+
     # INFO: 2連続entry, entryなしでのexitを除去
     no_position_index = \
-        (candles.position == candles.position.shift(1)) \
-        & (candles.entryable_price.isna() | candles.exitable_price.isna())
+        (candles['position'] == candles['position'].shift(1)) \
+        & (candles['entryable_price'].isna() | candles['exitable_price'].isna())
     candles.loc[no_position_index, 'position'] = None
 
 

@@ -49,13 +49,14 @@ class SwingTrader(Trader):
         ''' 各足において entry 可能かどうかを判定し、 candles dataframe に設定 '''
         satisfy_preconditions = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
         candles.loc[satisfy_preconditions, 'entryable'] = candles[satisfy_preconditions]['thrust']
-        candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions]['thrust'].copy()
+        # OPTIMIZE: the column 'position' may be not necessary now
+        # candles.loc[satisfy_preconditions, 'position'] = candles[satisfy_preconditions]['thrust'].copy()
 
     def __generate_entry_column(self, candles: pd.DataFrame):
         print('[Trader] judging entryable or not ...')
         candles: pd.DataFrame = base_rules.set_entryable_prices(candles, self.config.static_spread)
 
-        entry_direction = candles.entryable.fillna(method='ffill')
+        entry_direction = candles['entryable'].fillna(method='ffill')
         long_direction_index = entry_direction == 'long'
         short_direction_index = entry_direction == 'short'
 
