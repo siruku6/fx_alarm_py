@@ -58,18 +58,18 @@ def select_stoploss_digit() -> float:
         return 0.00001
 
 
-def select_from_dict(dictionary: t.Dict[str, str], menumsg='選択して下さい') -> str:
+def select_from_dict(dictionary: t.Dict[str, str], menumsg: str = 'Please select one from followings!') -> str:
     menu: str = '[interface] {}'.format(menumsg)
     for i, (key, _) in enumerate(dictionary.items()):
-        menu: str = '{menu} [{i}]: {key},'.format(menu=menu, i=i, key=key)
-    menu: str = menu[0:-1] + ': '
+        menu: str = '{menu} [{i}]: {key},'.format(menu=menu, i=i + 1, key=key)
+    menu: str = menu + ': '
 
     dict_len: int = len(dictionary)
     keys: t.List[str] = list(dictionary.keys())
     while True:
         print(menu, end='')
-        digit_id: int = prompt_inputting_decimal()
-        if digit_id < dict_len:
+        digit_id: int = prompt_inputting_decimal() - 1
+        if 0 <= digit_id < dict_len:
             key: str = keys[digit_id]
             return key
         else:

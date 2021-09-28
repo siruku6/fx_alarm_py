@@ -57,9 +57,9 @@ class TestInterface(unittest.TestCase):
         )
         with patch('models.tools.interface.print'):
             for i, (key, _val) in enumerate(dict_for_testcase.items()):
-                with patch('models.tools.interface.prompt_inputting_decimal', return_value=i):
+                with patch('models.tools.interface.prompt_inputting_decimal', return_value=i + 1):
                     result = interface.select_from_dict(dict_for_testcase)
-                    self.assertEqual(result, key, '選択に対応するkeyを得る')
+                self.assertEqual(result, key, 'Get the name of key which is selected')
 
 
 if __name__ == '__main__':
