@@ -1,4 +1,5 @@
 from typing import Dict, Union
+import numpy as np
 import pandas as pd
 
 from models.trader import Trader
@@ -15,7 +16,7 @@ class AlphaTrader(Trader):
     #
     def backtest(self, candles) -> Dict[str, Union[str, pd.DataFrame]]:
         ''' backtest scalping trade '''
-        self.__set_entriable_price(candles)
+        candles['entryable_price'] = self._generate_entryable_price(candles)
         self.__generate_entry_column(candles)
 
         candles.to_csv('./tmp/csvs/scalping_data_dump.csv')
@@ -27,8 +28,8 @@ class AlphaTrader(Trader):
     def _generate_thrust_column(self, candles: pd.DataFrame, _: pd.Series = None) -> pd.Series:
         return scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
 
-    def __set_entriable_price(self, candles: pd.DataFrame) -> None:
-        candles['entryable_price'] = scalping.generate_entryable_prices(
+    def _generate_entryable_price(self, candles: pd.DataFrame) -> np.ndarray:
+        return scalping.generate_entryable_prices(
             candles[['open', 'entryable']], self.config.static_spread
         )
 

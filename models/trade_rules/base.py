@@ -22,8 +22,6 @@ def generate_entryable_prices(candles: pd.DataFrame, spread: float) -> np.ndarra
             Name: low,       dtype: float64 (required)
             Name: entryable, dtype: object  (required)
     spread : float
-        Example:
-            0.014
 
     Returns
     -------

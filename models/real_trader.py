@@ -267,3 +267,6 @@ class RealTrader(Trader):
         for reason, val in zip(columns, vals):
             if not val:
                 self._log_skip_reason('c. {}: "{}" is not satisfied !'.format(time, reason))
+
+    def _generate_entryable_price(self, _) -> np.ndarray:
+        pass

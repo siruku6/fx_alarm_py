@@ -43,6 +43,11 @@ class SwingTrader(Trader):
         result_msg: str = self.__result_message(sliding_result['result'])
         return result_msg
 
+    def _generate_entryable_price(self, candles: pd.DataFrame) -> np.ndarray:
+        return base_rules.generate_entryable_prices(
+            candles[['open', 'high', 'low', 'entryable']], self.config.static_spread
+        )
+
     def __generate_entry_column(self, candles: pd.DataFrame) -> None:
         print('[Trader] judging entryable or not ...')
 

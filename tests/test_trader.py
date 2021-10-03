@@ -1,17 +1,18 @@
 import pytest
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
-from pandas.testing import assert_series_equal
 
-from models.trader import Trader
+from models.swing_trader import SwingTrader
 from models.real_trader import RealTrader
 
 
 @pytest.fixture(name='trader_instance', scope='module')
-def fixture_trader_instance(set_envs) -> Trader:
+def fixture_trader_instance(set_envs) -> SwingTrader:
     set_envs
 
-    _trader: Trader = Trader(operation='unittest')
+    _trader: SwingTrader = SwingTrader(operation='unittest')
     yield _trader
     _trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
 
@@ -64,7 +65,7 @@ def test__generate_thrust_column(real_trader_instance, dummy_trend_candles):
     result: pd.Series = real_trader_instance._generate_thrust_column(
         candles=dummy_df[['high', 'low']], trend=dummy_df[['bull', 'bear']]
     )
-    assert_series_equal(dummy_df['thrust'].rename(None), result)
+    pd.testing.assert_series_equal(dummy_df['thrust'].rename(None), result)
 
 
 @pytest.fixture(name='dummy_sigmas', scope='module')
@@ -78,18 +79,28 @@ def fixture_dummy_sigmas() -> pd.DataFrame:
 
 
 class TestGenerateInBandsColumn:
-    @pytest.fixture(name='dummy_prices', scope='module')
-    def fixture_dummy_prices(self) -> pd.Series:
-        return pd.Series([109.2, 108.58, 110.02, 110.191], name='price')
+    @pytest.fixture(name='dummy_candles', scope='module')
+    def fixture_dummy_candles(self) -> pd.DataFrame:
+        return pd.DataFrame({
+            'close': [109.2, 108.58, 110.02, 110.191],
+            'thrust': ['dummy', 'dummy', 'dummy', 'dummy']
+        })
+
+    @pytest.fixture(name='dummy_entrybale_prices', scope='module')
+    def fixture_entrybale_prices(self) -> pd.Series:
+        return pd.Series([109.2, 108.58, 110.02, 110.191])
 
     def test_4_patterns(
-        self, trader_instance: Trader,
-        dummy_sigmas: pd.DataFrame, dummy_prices: pd.DataFrame
+        self, trader_instance: SwingTrader,
+        dummy_sigmas: pd.DataFrame,
+        dummy_entrybale_prices: pd.DataFrame,
+        dummy_candles: pd.DataFrame
     ):
         trader_instance._indicators = pd.DataFrame([])
         trader_instance._indicators['sigma*2_band'] = dummy_sigmas['sigma*2_band']
         trader_instance._indicators['sigma*-2_band'] = dummy_sigmas['sigma*-2_band']
-        result: np.ndarray = trader_instance._Trader__generate_in_bands_column(dummy_prices)
+        with patch('models.swing_trader.SwingTrader._generate_entryable_price', return_value=dummy_entrybale_prices):
+            result: np.ndarray = trader_instance._Trader__generate_in_bands_column(dummy_candles)
         expected: np.ndarray = np.array([True, False, False, False])
 
         np.testing.assert_array_equal(result, expected)
@@ -119,7 +130,7 @@ def fixture_dummy_trend() -> pd.DataFrame:
 
 class TestGenerateGettingSteeperColumn:
     def test_5_patterns(
-        self, trader_instance: Trader,
+        self, trader_instance: SwingTrader,
         dummy_mas: pd.DataFrame, dummy_trends: pd.DataFrame
     ):
         trader_instance._indicators = dummy_mas
@@ -131,7 +142,7 @@ class TestGenerateGettingSteeperColumn:
 
 class TestGenerateFollowingTrendColumn:
     def test_5_patterns(
-        self, trader_instance: Trader,
+        self, trader_instance: SwingTrader,
         dummy_mas: pd.DataFrame, dummy_trends: pd.DataFrame
     ):
         trader_instance._indicators = dummy_mas
@@ -142,7 +153,7 @@ class TestGenerateFollowingTrendColumn:
 
 
 class TestMarkEntryableRows:
-    def test_default(self, trader_instance: Trader, dummy_trend_candles: pd.DataFrame):
+    def test_default(self, trader_instance: SwingTrader, dummy_trend_candles: pd.DataFrame):
         trader_instance.config.set_entry_rules('entry_filters', ['in_the_band', 'band_expansion'])
 
         candles: pd.DataFrame = dummy_trend_candles.copy()
