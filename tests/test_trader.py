@@ -28,21 +28,21 @@ def fixture_real_trader_instance(set_envs) -> RealTrader:
 @pytest.fixture(scope='module')
 def dummy_trend_candles():
     return pd.DataFrame.from_dict([
-        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
-        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
-        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
-        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
-        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
-        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
-        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
-        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
-        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
-        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'result': None},
-        {'high': 111.0, 'low': 108.5, 'bull': True, 'bear': False, 'result': 'long'},
-        {'high': 110.0, 'low': 107.5, 'bull': False, 'bear': True, 'result': 'short'},
-        {'high': 111.0, 'low': 108.5, 'bull': True, 'bear': False, 'result': 'long'},
-        {'high': 110.0, 'low': 107.5, 'bull': False, 'bear': True, 'result': 'short'},
-        {'high': 112.0, 'low': 106.5, 'bull': False, 'bear': False, 'result': None}
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'thrust': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'thrust': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'thrust': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'thrust': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'thrust': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'thrust': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'thrust': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'thrust': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'thrust': None},
+        {'high': 110.0, 'low': 108.5, 'bull': False, 'bear': False, 'thrust': None},
+        {'high': 111.0, 'low': 108.5, 'bull': True, 'bear': False, 'thrust': 'long'},
+        {'high': 110.0, 'low': 107.5, 'bull': False, 'bear': True, 'thrust': 'short'},
+        {'high': 111.0, 'low': 108.5, 'bull': True, 'bear': False, 'thrust': 'long'},
+        {'high': 110.0, 'low': 107.5, 'bull': False, 'bear': True, 'thrust': 'short'},
+        {'high': 112.0, 'low': 106.5, 'bull': False, 'bear': False, 'thrust': None}
     ], orient='columns')
 
 
@@ -59,12 +59,12 @@ def fixture_dummy_candles():
     ])
 
 
-def test___generate_thrust_column(real_trader_instance, dummy_trend_candles):
+def test__generate_thrust_column(real_trader_instance, dummy_trend_candles):
     dummy_df = dummy_trend_candles
-    result = real_trader_instance._Trader__generate_thrust_column(
+    result: pd.Series = real_trader_instance._generate_thrust_column(
         candles=dummy_df[['high', 'low']], trend=dummy_df[['bull', 'bear']]
-    ).rename('result')
-    assert_series_equal(dummy_df['result'], result)
+    )
+    assert_series_equal(dummy_df['thrust'].rename(None), result)
 
 
 @pytest.fixture(name='dummy_sigmas', scope='module')
@@ -77,7 +77,7 @@ def fixture_dummy_sigmas() -> pd.DataFrame:
     ], orient='columns')
 
 
-class TestGenerateInBandsColumn():
+class TestGenerateInBandsColumn:
     @pytest.fixture(name='dummy_prices', scope='module')
     def fixture_dummy_prices(self) -> pd.Series:
         return pd.Series([109.2, 108.58, 110.02, 110.191], name='price')
@@ -117,7 +117,7 @@ def fixture_dummy_trend() -> pd.DataFrame:
     })
 
 
-class TestGenerateGettingSteeperColumn():
+class TestGenerateGettingSteeperColumn:
     def test_5_patterns(
         self, trader_instance: Trader,
         dummy_mas: pd.DataFrame, dummy_trends: pd.DataFrame
@@ -129,7 +129,7 @@ class TestGenerateGettingSteeperColumn():
         np.testing.assert_array_equal(result, expected)
 
 
-class TestGenerateFollowingTrendColumn():
+class TestGenerateFollowingTrendColumn:
     def test_5_patterns(
         self, trader_instance: Trader,
         dummy_mas: pd.DataFrame, dummy_trends: pd.DataFrame
@@ -139,3 +139,25 @@ class TestGenerateFollowingTrendColumn():
         expected: np.ndarray = np.array([False, True, False, True, False])
 
         np.testing.assert_array_equal(result, expected)
+
+
+class TestMarkEntryableRows:
+    def test_default(self, trader_instance: Trader, dummy_trend_candles: pd.DataFrame):
+        trader_instance.config.set_entry_rules('entry_filters', ['in_the_band', 'band_expansion'])
+
+        candles: pd.DataFrame = dummy_trend_candles.copy()
+        candles: pd.DataFrame = candles.assign(in_the_band=False, band_expansion=False)
+        candles.loc[10:12, 'in_the_band'] = True
+        candles.loc[11:, 'band_expansion'] = True
+
+        trader_instance._mark_entryable_rows(candles)
+        expected: pd.Series = pd.Series(
+            [
+                None, None, None, None, None,
+                None, None, None, None, None,
+                None, candles.loc[11, 'thrust'], candles.loc[12, 'thrust'], None, None
+            ],
+            name='entryable'
+        )
+
+        pd.testing.assert_series_equal(candles['entryable'], expected)

@@ -108,7 +108,7 @@ class Trader:
         result.to_csv('./tmp/csvs/sl_verify_{inst}.csv'.format(inst=self.config.get_instrument()))
 
     def perform(self, rule='swing', entry_filters: List = []):
-        ''' tradeルールを自動検証 '''
+        ''' automatically test trade rule '''
         self._result_processor.reset_drawer()
 
         candles = FXBase.get_candles().copy()
@@ -159,7 +159,7 @@ class Trader:
 
         return tmp_df
 
-    def __generate_thrust_column(self, candles: pd.DataFrame, trend: pd.DataFrame) -> pd.Series:
+    def _generate_thrust_column(self, candles: pd.DataFrame, trend: pd.DataFrame) -> pd.Series:
         # INFO: the most highest or lowest in last 10 candles
         recent_highests: pd.Series = (candles['high'] == candles['high'].rolling(window=3).max())
         recent_lowests: pd.Series = (candles['low'] == candles['low'].rolling(window=3).min())
@@ -244,7 +244,8 @@ class Trader:
             'bull': np.where(candles['trend'] == 'bull', True, False),
             'bear': np.where(candles['trend'] == 'bear', True, False)
         })
-        candles['thrust'] = self.__generate_thrust_column(candles=candles, trend=trend)
+        # NOTE: _generate_thrust_column varies by the super class
+        candles['thrust'] = self._generate_thrust_column(candles, trend)
         # 60EMA is necessary?
         # candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
         candles['in_the_band'] = self.__generate_in_bands_column(price_series=comparison_prices_with_bands)
@@ -256,6 +257,14 @@ class Trader:
         candles['stoc_allows'] = base_rules.generate_stoc_allows_column(
             indicators, sr_trend=candles['trend']
         )
+
+    def _mark_entryable_rows(self, candles: pd.DataFrame) -> None:
+        '''
+        Judge whether it is entryable or not on each row.
+        Then set the result in the column 'entryable'.
+        '''
+        entryable = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
+        candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
 
     def _log_skip_reason(self, reason):
         print('[Trader] skip: {}'.format(reason))
