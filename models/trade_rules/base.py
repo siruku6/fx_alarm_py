@@ -7,15 +7,35 @@ from models.candle_storage import FXBase
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                       Multople rows Processor
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def set_entryable_prices(candles: pd.DataFrame, spread: float) -> pd.DataFrame:
-    ''' set possible prices in candles assuming that entries are done '''
+def generate_entryable_prices(candles: pd.DataFrame, spread: float) -> np.ndarray:
+    '''
+    Generate possible prices assuming that entries are done
+
+    Parameters
+    ----------
+    candles : pd.DataFrame
+        Index:
+            Any
+        Columns:
+            Name: open,      dtype: float64 (required)
+            Name: high,      dtype: float64 (required)
+            Name: low,       dtype: float64 (required)
+            Name: entryable, dtype: object  (required)
+    spread : float
+
+    Returns
+    -------
+    np.ndarray
+    '''
+    entryable_prices: np.ndarray = np.full_like(candles['open'], np.nan)
+
     # INFO: long-entry
     long_index: pd.Series = candles['entryable'] == 'long'
     long_entry_prices: pd.Series = pd.DataFrame({
         'previous_high': candles.shift(1).loc[long_index, 'high'],
         'current_open': candles.loc[long_index, 'open']
     }).max(axis=1) + spread
-    candles.loc[long_index, 'entryable_price'] = long_entry_prices
+    entryable_prices[long_index] = long_entry_prices
 
     # INFO: short-entry
     short_index: pd.Series = candles['entryable'] == 'short'
@@ -23,8 +43,8 @@ def set_entryable_prices(candles: pd.DataFrame, spread: float) -> pd.DataFrame:
         'previous_low': candles.shift(1).loc[short_index, 'low'],
         'current_open': candles.loc[short_index, 'open']
     }).min(axis=1)
-    candles.loc[short_index, 'entryable_price'] = short_entry_prices
-    return candles
+    entryable_prices[short_index] = short_entry_prices
+    return entryable_prices
 
 
 def commit_positions(
@@ -169,41 +189,3 @@ def over_2_sigma(self, index, price):
         return True
 
     return False
-
-
-def find_thrust(self, index, candles, trend):
-    '''
-    thrust発生の有無と方向を判定して返却する
-    '''
-    direction = None
-    if trend == 'bull' and candles[:index + 1].tail(10).high.idxmax() == index:
-        direction = 'long'
-    elif trend == 'bear' and candles[:index + 1].tail(10).low.idxmin() == index:
-        direction = 'short'
-
-    if direction is not None:
-        return direction
-
-    if self._operation == 'live':
-        print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
-            trend,
-            candles.high[index - 1], candles.high[index],
-            candles.low[index - 1], candles.low[index]
-        ))
-        self._log_skip_reason('3. There isn`t thrust')
-
-    # INFO: shift(1)との比較だけでthrust判定したい場合はこちら
-    # candles_h = candles.high
-    # candles_l = candles.low
-    # direction = rules.detect_thrust(
-    #     trend,
-    #     previous_high=candles_h[index - 1], high=candles_h[index],
-    #     previous_low=candles_l[index - 1], low=candles_l[index]
-    # )
-
-    # if direction = None and self._operation == 'live':
-    #     print('[Trader] Trend: {}, high-1: {}, high: {}, low-1: {}, low: {}'.format(
-    #         trend, candles_h[index - 1], candles_h[index], candles_l[index - 1], candles_l[index]
-    #     ))
-    #     self._log_skip_reason('3. There isn`t thrust')
-    # return direction

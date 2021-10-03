@@ -18,18 +18,6 @@ def fixture_swing_client(set_envs):
         _trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
 
 
-# def test___add_candle_duration(swing_client):
-#     with patch('models.trader_config.TraderConfig.get_entry_rules', return_value='M5'):
-#         result = swing_client._SwingTrader__add_candle_duration('2020-04-10 10:10:18')
-#         assert result == '2020-04-10 10:14:18'
-#     with patch('models.trader_config.TraderConfig.get_entry_rules', return_value='H4'):
-#         result = swing_client._SwingTrader__add_candle_duration('2020-04-10 10:10:18')
-#         assert result == '2020-04-10 14:09:18'
-#     with patch('models.trader_config.TraderConfig.get_entry_rules', return_value='D'):
-#         result = swing_client._SwingTrader__add_candle_duration('2020-04-10 10:10:18')
-#         assert result == '2020-04-11 10:09:18'
-
-
 class TestSetStoplossPrices:
     # @pytest.fixture(name='h1_candles', scope='module')
     # def fixture_h1_candles(self, past_usd_candles: List[Dict[str, Union[float, str, int]]]) -> pd.DataFrame:

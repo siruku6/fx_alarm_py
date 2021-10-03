@@ -1,5 +1,6 @@
-# import abc
-from typing import Dict, List, Optional, Tuple
+import abc
+from collections.abc import Callable
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -20,7 +21,7 @@ from models.trader_config import FILTER_ELEMENTS
 # pd.set_option('display.max_rows', 400)
 
 
-class Trader:
+class Trader(metaclass=abc.ABCMeta):
     TIME_STRING_FMT = '%Y-%m-%d %H:%M:%S'
 
     def __init__(self, operation: str = 'backtest', days: Optional[int] = None) -> None:
@@ -62,17 +63,6 @@ class Trader:
         self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
 
-    # - - - - - - - - - - - - - - - - - - - - - - - -
-    #                getter & setter
-    # - - - - - - - - - - - - - - - - - - - - - - - -
-    @property
-    def m10_candles(self) -> pd.DataFrame:
-        return self.__m10_candles
-
-    @m10_candles.setter
-    def m10_candles(self, arg: pd.DataFrame) -> None:
-        self.__m10_candles: pd.DataFrame = arg
-
     #
     # public
     #
@@ -107,36 +97,56 @@ class Trader:
         )
         result.to_csv('./tmp/csvs/sl_verify_{inst}.csv'.format(inst=self.config.get_instrument()))
 
-    def perform(self, rule='swing', entry_filters: List = []):
+    def perform(self, rule: str = 'swing', entry_filters: List[str] = []) -> pd.DataFrame:
         ''' automatically test trade rule '''
+        # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする いらなくない？
+        self._initialize_position_variables()
         self._result_processor.reset_drawer()
-
-        candles = FXBase.get_candles().copy()
-        self._prepare_trade_signs(candles)
-
-        filters: List = FILTER_ELEMENTS if entry_filters == [] else entry_filters
+        filters: List[str] = FILTER_ELEMENTS if entry_filters == [] else entry_filters
         self.config.set_entry_rules('entry_filters', value=filters)
 
+        backtest: Callable[[pd.DataFrame], Dict[str, Union[str, pd.DataFrame]]]
         if rule in ('swing', 'scalping'):
-            result = self.backtest(candles)
+            backtest = self.backtest
         elif rule == 'wait_close':
-            result = self._backtest_wait_close(candles)
+            backtest = self._backtest_wait_close
         else:
             print('Rule {} is not exist ...'.format(rule))
             exit()
 
-        print('{} ... (perform)'.format(result['result']))
+        candles: pd.DataFrame = FXBase.get_candles().copy()
+        self._prepare_trade_signs(candles)
+        result: Dict[str, Union[str, pd.DataFrame]] = backtest(candles)
 
-        df_positions = self._result_processor.run(rule, result, self._indicators)
+        print('{} ... (perform)'.format(result['result']))
+        df_positions: pd.DataFrame = self._result_processor.run(rule, result, self._indicators)
         return df_positions
 
     # @abc.abstractmethod
     # def backtest(self):
     #     pass
 
-    # @abc.abstractmethod
-    # def __generate_entry_column(self):
-    #     pass
+    @abc.abstractmethod
+    def _generate_entryable_price(self, candles: pd.DataFrame) -> np.ndarray:
+        '''
+        Generate possible prices assuming that entries are done
+
+        Parameters
+        ----------
+        candles : pd.DataFrame
+            Index:
+                Any
+            Columns:
+                Name: open,      dtype: float64 (required)
+                Name: high,      dtype: float64 (required)
+                Name: low,       dtype: float64 (required)
+                Name: entryable, dtype: object  (required)
+
+        Returns
+        -------
+        np.ndarray
+        '''
+        pass
 
     #
     # Methods for judging Entry or Close
@@ -188,11 +198,21 @@ class Trader:
         ema60_allows_bear = np.all(np.array([candles.bear, ema60 > candles.close]), axis=0)
         return np.any(np.array([ema60_allows_bull, ema60_allows_bear]), axis=0)
 
-    def __generate_in_bands_column(self, price_series: pd.Series) -> np.ndarray:
-        ''' 2-sigma-band内にレートが収まっていることを判定するcolumnを生成 '''
+    def __generate_in_bands_column(self, candles: pd.DataFrame) -> np.ndarray:
+        '''
+        Generate the column shows whether if the price is remaining between 2-sigma-bands
+        '''
+        entryable_prices: Union[np.ndarray, pd.Series]
+        if self.config.operation in ['live', 'forward_test']:
+            entryable_prices = candles['close']
+        else:
+            entryable_prices = self._generate_entryable_price(
+                candles.rename(columns={'thrust': 'entryable'})
+            )
+
         df_over_band_detection = pd.DataFrame({
-            'under_positive_band': self._indicators['sigma*2_band'] > price_series,
-            'above_negative_band': self._indicators['sigma*-2_band'] < price_series
+            'under_positive_band': self._indicators['sigma*2_band'] > entryable_prices,
+            'above_negative_band': self._indicators['sigma*-2_band'] < entryable_prices
         })
         return np.all(df_over_band_detection, axis=1)
 
@@ -230,13 +250,8 @@ class Trader:
     #
     # private
     #
-    def _prepare_trade_signs(self, candles):
+    def _prepare_trade_signs(self, candles: pd.DataFrame):
         print('[Trader] preparing base-data for judging ...')
-
-        if self.config.operation in ['live', 'forward_test']:
-            comparison_prices_with_bands = candles.close
-        else:
-            comparison_prices_with_bands = candles.open
 
         indicators = self._indicators
         candles['trend'] = base_rules.generate_trend_column(indicators, candles.close)
@@ -248,7 +263,7 @@ class Trader:
         candles['thrust'] = self._generate_thrust_column(candles, trend)
         # 60EMA is necessary?
         # candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
-        candles['in_the_band'] = self.__generate_in_bands_column(price_series=comparison_prices_with_bands)
+        candles['in_the_band'] = self.__generate_in_bands_column(candles)
         candles['band_expansion'] = self.__generate_band_expansion_column(
             df_bands=indicators[['sigma*2_band', 'sigma*-2_band']]
         )
@@ -257,6 +272,7 @@ class Trader:
         candles['stoc_allows'] = base_rules.generate_stoc_allows_column(
             indicators, sr_trend=candles['trend']
         )
+        self._mark_entryable_rows(candles)  # This needs 'thrust'
 
     def _mark_entryable_rows(self, candles: pd.DataFrame) -> None:
         '''
