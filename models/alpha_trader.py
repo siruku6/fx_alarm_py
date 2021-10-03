@@ -15,8 +15,6 @@ class AlphaTrader(Trader):
     #
     def backtest(self, candles) -> Dict[str, Union[str, pd.DataFrame]]:
         ''' backtest scalping trade '''
-        candles['thrust'] = self._generate_thrust_column(candles)
-        self._mark_entryable_rows(candles)  # This needs 'thrust'
         self.__set_entriable_price(candles)
         self.__generate_entry_column(candles)
 

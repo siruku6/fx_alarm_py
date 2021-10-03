@@ -16,7 +16,25 @@ def generate_repulsion_column(candles, ema):
 
 
 def generate_entryable_prices(candles: pd.DataFrame, spread: float) -> np.ndarray:
-    ''' entry した場合の price を candles dataframe に設定 '''
+    '''
+    Generate possible prices assuming that entries are done
+
+    Parameters
+    ----------
+    candles : pd.DataFrame
+        Index:
+            Any
+        Columns:
+            Name: open,      dtype: float64 (required)
+            Name: entryable, dtype: object  (required)
+    spread : float
+        Example:
+            0.014
+
+    Returns
+    -------
+    np.ndarray
+    '''
     result: np.ndarray = np.full_like(candles['open'], np.nan, dtype=np.float64)
     long_index: pd.Series = candles['entryable'] == 'long'
     short_index: pd.Series = candles['entryable'] == 'short'

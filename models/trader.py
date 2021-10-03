@@ -1,5 +1,6 @@
 # import abc
-from typing import Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -107,27 +108,29 @@ class Trader:
         )
         result.to_csv('./tmp/csvs/sl_verify_{inst}.csv'.format(inst=self.config.get_instrument()))
 
-    def perform(self, rule='swing', entry_filters: List = []):
+    def perform(self, rule: str = 'swing', entry_filters: List[str] = []) -> pd.DataFrame:
         ''' automatically test trade rule '''
+        # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする いらなくない？
+        self._initialize_position_variables()
         self._result_processor.reset_drawer()
-
-        candles = FXBase.get_candles().copy()
-        self._prepare_trade_signs(candles)
-
-        filters: List = FILTER_ELEMENTS if entry_filters == [] else entry_filters
+        filters: List[str] = FILTER_ELEMENTS if entry_filters == [] else entry_filters
         self.config.set_entry_rules('entry_filters', value=filters)
 
+        backtest: Callable[[pd.DataFrame], Dict[str, Union[str, pd.DataFrame]]]
         if rule in ('swing', 'scalping'):
-            result = self.backtest(candles)
+            backtest = self.backtest
         elif rule == 'wait_close':
-            result = self._backtest_wait_close(candles)
+            backtest = self._backtest_wait_close
         else:
             print('Rule {} is not exist ...'.format(rule))
             exit()
 
-        print('{} ... (perform)'.format(result['result']))
+        candles: pd.DataFrame = FXBase.get_candles().copy()
+        self._prepare_trade_signs(candles)
+        result: Dict[str, Union[str, pd.DataFrame]] = backtest(candles)
 
-        df_positions = self._result_processor.run(rule, result, self._indicators)
+        print('{} ... (perform)'.format(result['result']))
+        df_positions: pd.DataFrame = self._result_processor.run(rule, result, self._indicators)
         return df_positions
 
     # @abc.abstractmethod
@@ -230,13 +233,13 @@ class Trader:
     #
     # private
     #
-    def _prepare_trade_signs(self, candles):
+    def _prepare_trade_signs(self, candles: pd.DataFrame):
         print('[Trader] preparing base-data for judging ...')
 
         if self.config.operation in ['live', 'forward_test']:
-            comparison_prices_with_bands = candles.close
+            entryable_prices = candles['close']
         else:
-            comparison_prices_with_bands = candles.open
+            entryable_prices = candles['open']
 
         indicators = self._indicators
         candles['trend'] = base_rules.generate_trend_column(indicators, candles.close)
@@ -248,7 +251,7 @@ class Trader:
         candles['thrust'] = self._generate_thrust_column(candles, trend)
         # 60EMA is necessary?
         # candles['ema60_allows'] = self.__generate_ema_allows_column(candles=candles)
-        candles['in_the_band'] = self.__generate_in_bands_column(price_series=comparison_prices_with_bands)
+        candles['in_the_band'] = self.__generate_in_bands_column(price_series=entryable_prices)
         candles['band_expansion'] = self.__generate_band_expansion_column(
             df_bands=indicators[['sigma*2_band', 'sigma*-2_band']]
         )
@@ -257,6 +260,7 @@ class Trader:
         candles['stoc_allows'] = base_rules.generate_stoc_allows_column(
             indicators, sr_trend=candles['trend']
         )
+        self._mark_entryable_rows(candles)  # This needs 'thrust'
 
     def _mark_entryable_rows(self, candles: pd.DataFrame) -> None:
         '''

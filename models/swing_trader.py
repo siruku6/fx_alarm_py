@@ -18,12 +18,7 @@ class SwingTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def backtest(self, candles: pd.DataFrame) -> Dict[str, Union[str, pd.DataFrame]]:
         ''' backtest swing trade '''
-        # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする いらなくない？
-        self._initialize_position_variables()
-
         result_msg: str = self.__backtest_common_flow(candles)
-
-        candles.to_csv('./tmp/csvs/full_data_dump.csv')
         return {'result': result_msg, 'candles': candles}
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -37,16 +32,14 @@ class SwingTrader(Trader):
         candles['thrust'] = wait_close.generate_thrust_column(candles)
 
         result_msg: str = self.__backtest_common_flow(candles)
-
-        candles.to_csv('./tmp/csvs/wait_close_data_dump.csv')
         return {'result': result_msg, 'candles': candles}
 
     def __backtest_common_flow(self, candles: pd.DataFrame) -> str:
-        self._mark_entryable_rows(candles)  # This needs 'thrust'
-        candles: pd.DataFrame = base_rules.set_entryable_prices(candles, self.config.static_spread)
+        candles.loc[:, 'entryable_price'] = base_rules.generate_entryable_prices(candles, self.config.static_spread)
         self.__generate_entry_column(candles=candles)
         sliding_result = self.__slide_to_reasonable_prices(candles=candles)
 
+        candles.to_csv('./tmp/csvs/full_data_dump.csv')
         result_msg: str = self.__result_message(sliding_result['result'])
         return result_msg
 
@@ -86,6 +79,7 @@ class SwingTrader(Trader):
         candles.loc[short_indexes, 'possible_stoploss'] = short_stoploss_prices
         return candles
 
+    # OPTIMIZE: probably this method has many unnecessary processings!
     def __slide_to_reasonable_prices(self, candles):
         print('[Trader] start sliding ...')
 
@@ -98,11 +92,10 @@ class SwingTrader(Trader):
             print('[Trader] no positions ...')
             return {'result': 'no position'}
 
-        # position_rows = self.__slide_prices_in_dicts(time_series=candles['time'], position_rows=position_rows)
-        slided_positions = pd.DataFrame.from_dict(position_rows)
+        df_with_positions = pd.DataFrame.from_dict(position_rows)
 
-        candles.loc[position_index, 'entry_price'] = slided_positions['entryable_price'].to_numpy(copy=True)
-        candles.loc[position_index, 'time'] = slided_positions['time'].astype(str).to_numpy(copy=True)
+        candles.loc[position_index, 'entry_price'] = df_with_positions['entryable_price'].to_numpy(copy=True)
+        candles.loc[position_index, 'time'] = df_with_positions['time'].astype(str).to_numpy(copy=True)
 
         print('[Trader] finished sliding !')
         return {'result': 'success'}
@@ -112,48 +105,3 @@ class SwingTrader(Trader):
             return 'no position'
 
         return '[Trader] 1 series of trading is FINISHED!'
-
-    # def __slide_prices_in_dicts(self, time_series, position_rows):
-    #     if self.m10_candles is None:
-    #         self.m10_candles = self.__load_m10_candles(time_series)
-
-    #     m10_candles = self.m10_candles
-    #     m10_candles['time'] = m10_candles.index
-    #     spread = self.config.static_spread
-
-    #     len_of_rows = len(position_rows)
-    #     for i, row in enumerate(position_rows):
-    #         print('[Trader] sliding price .. {}/{}'.format(i + 1, len_of_rows))
-    #         start = row['time']
-    #         end = self.__add_candle_duration(start[:19])
-    #         candles_in_granularity = m10_candles.loc[start:end, :].to_dict('records')
-
-    #         if row['position'] in ['long', 'sell_exit']:
-    #             for m10_candle in candles_in_granularity:
-    #                 if row['entryable_price'] < m10_candle['high'] + spread:
-    #                     row['price'] = m10_candle['high'] + spread
-    #                     row['time'] = m10_candle['time']
-    #                     break
-    #         elif row['position'] in ['short', 'buy_exit']:
-    #             for m10_candle in candles_in_granularity:
-    #                 if row['entryable_price'] > m10_candle['low']:
-    #                     row['price'] = m10_candle['low']
-    #                     row['time'] = m10_candle['time']
-    #                     break
-    #         if 'price' not in row:
-    #             row['price'] = row['entryable_price']
-    #     return position_rows
-
-    # def __load_m10_candles(self, time_series):
-    #     first_time = converter.str_to_datetime(time_series.iat[0][:19])
-    #     last_time = converter.str_to_datetime(time_series.iat[-1][:19])
-    #     # INFO: 実は、candlesのlastrow分のm10candlesがない
-    #     return self._client.load_or_query_candles(first_time, last_time, granularity='M10')[['high', 'low']]
-
-    # def __add_candle_duration(self, start_string):
-    #     start_time = converter.str_to_datetime(start_string)
-    #     candle_duration = converter.granularity_to_timedelta(self.config.get_entry_rules('granularity'))
-
-    #     a_minute = datetime.timedelta(minutes=1)
-    #     result = (start_time + candle_duration - a_minute).strftime(Trader.TIME_STRING_FMT)
-    #     return result
