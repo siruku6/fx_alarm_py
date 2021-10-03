@@ -1,5 +1,4 @@
 from typing import Dict, Union
-import numpy as np
 import pandas as pd
 
 from models.trader import Trader
@@ -15,8 +14,9 @@ class AlphaTrader(Trader):
     # Public
     #
     def backtest(self, candles) -> Dict[str, Union[str, pd.DataFrame]]:
-        ''' スキャルピングのentry pointを検出 '''
-        candles['thrust'] = scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
+        ''' backtest scalping trade '''
+        candles['thrust'] = self._generate_thrust_column(candles)
+        self._mark_entryable_rows(candles)  # This needs 'thrust'
         self.__set_entriable_price(candles)
         self.__generate_entry_column(candles)
 
@@ -26,10 +26,10 @@ class AlphaTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Private
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    def _generate_thrust_column(self, candles: pd.DataFrame, _: pd.Series = None) -> pd.Series:
+        return scalping.generate_repulsion_column(candles, ema=self._indicators['10EMA'])
+
     def __set_entriable_price(self, candles: pd.DataFrame) -> None:
-        # OPTIMIZE: maybe candles[self.config.get_entry_rules('entry_filters') + 'thrust'] works well (?)
-        entryable = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
-        candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
         candles['entryable_price'] = scalping.generate_entryable_prices(
             candles[['open', 'entryable']], self.config.static_spread
         )

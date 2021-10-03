@@ -124,15 +124,6 @@ def detect_thrust(trend, previous_high, high, previous_low, low):
         return None
 
 
-def detect_thrust2(up_thrust, down_thrust):
-    if up_thrust:
-        return 'long'
-    elif down_thrust:
-        return 'short'
-    else:
-        return None
-
-
 def stoc_allows_entry(stod, stosd, trend):
     if trend == 'bull' and (stod > stosd or stod > 80):
         return True

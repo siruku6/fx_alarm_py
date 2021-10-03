@@ -1,5 +1,7 @@
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP  # , ROUND_HALF_EVEN
+import os
+
 import numpy as np
 import pandas as pd
 from models.trader_config import FILTER_ELEMENTS
@@ -170,7 +172,10 @@ def __append_performance_result_to_csv(rule, granularity, sl_buf, spread, candle
         performance_result['sortino_ratio']                  # 'Sortino Ratio'
     ]
     result_df = pd.DataFrame([result_row + filter_boolean], columns=TRADE_RESULT_ITEMS + FILTER_ELEMENTS)
-    result_df.to_csv('tmp/csvs/verify_results.csv', encoding='shift-jis', mode='a', index=False, header=False)
+
+    filepath: str = 'tmp/csvs/verify_results.csv'
+    need_header: bool = not os.path.isfile(filepath)
+    result_df.to_csv(filepath, encoding='shift-jis', mode='a', index=False, header=need_header)
     print('[Trader] Added the result of backtest in \'verify_results.csv\'!')
 
 

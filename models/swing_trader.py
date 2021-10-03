@@ -42,23 +42,13 @@ class SwingTrader(Trader):
         return {'result': result_msg, 'candles': candles}
 
     def __backtest_common_flow(self, candles: pd.DataFrame) -> str:
-        self.__mark_entryable_rows(candles)
+        self._mark_entryable_rows(candles)  # This needs 'thrust'
         candles: pd.DataFrame = base_rules.set_entryable_prices(candles, self.config.static_spread)
         self.__generate_entry_column(candles=candles)
         sliding_result = self.__slide_to_reasonable_prices(candles=candles)
 
         result_msg: str = self.__result_message(sliding_result['result'])
         return result_msg
-
-    # TODO: Merge with similar method
-    #   This is almost same as the method '__set_entryable_price' of alpha_trader
-    def __mark_entryable_rows(self, candles: pd.DataFrame) -> None:
-        '''
-        Judge whether it is entryable or not on each row.
-        Then set the result in the column 'entryable'.
-        '''
-        entryable = np.all(candles[self.config.get_entry_rules('entry_filters')], axis=1)
-        candles.loc[entryable, 'entryable'] = candles[entryable]['thrust']
 
     def __generate_entry_column(self, candles: pd.DataFrame) -> None:
         print('[Trader] judging entryable or not ...')
