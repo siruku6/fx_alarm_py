@@ -26,7 +26,7 @@ FILTER_ELEMENTS = [
 
 
 class TraderConfig:
-    ''' Traderなどで必要なパラメータを保持するクラス '''
+    ''' Class holding parameters necessary for Traders '''
     def __init__(self, operation: str, days: Optional[int] = None) -> None:
         self.operation: str = operation
         self.need_request: bool = self.__select_need_request()
@@ -88,6 +88,19 @@ class TraderConfig:
         return self._instrument
 
     def get_entry_rules(self, rule_property: str) -> Optional[Union[int, float, str, List[str]]]:
+        '''
+        Parameters
+        ----------
+        rule_property : str
+            Available Values: [
+                'granularity', 'entry_filters', 'static_spread',
+                'stoploss_buffer_base', 'stoploss_buffer_pips', 'days'
+            ]
+
+        Returns
+        -------
+        Optional[Union[int, float, str, List[str]]]
+        '''
         return self._entry_rules[rule_property]
 
     def set_entry_rules(self, rule_property: str, value: Union[int, float, str, List[str]]) -> None:
