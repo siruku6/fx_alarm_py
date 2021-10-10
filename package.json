@@ -1,0 +1,28 @@
+{
+  "name": "fx_alarm_py",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "pipenv run test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siruku6/fx_alarm_py.git"
+  },
+  "author": "siruku6",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/siruku6/fx_alarm_py/issues"
+  },
+  "homepage": "https://github.com/siruku6/fx_alarm_py#readme",
+  "dependencies": {
+    "npm": "^7.22.0",
+    "serverless-api-gateway-throttling": "^1.1.1",
+    "serverless-aws-documentation": "^1.1.0",
+    "serverless-reqvalidator-plugin": "^2.0.0"
+  }
+}
