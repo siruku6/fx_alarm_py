@@ -27,11 +27,12 @@ QueryResult = t.Dict[str, t.Union[t.List[CandleRecord], int, t.Dict]]
 
 class DynamodbAccessor():
     def __init__(self, pare_name: str, table_name: str = 'H1_CANDLES'):
-        # HACK: env:DYNAMO_ENDPOINT(endpoint_url) が
-        #   設定されている場合 => localhost の DynamoDB テーブルを参照
-        #   設定されていない場合 => AWS上の DynamoDB テーブルを参照する
+        # HACK: env:DYNAMO_ENDPOINT(endpoint_url)
+        #   is None     => refer to the table of DynamoDB on AWS
+        #   is not None => refer to the table of DynamoDB on localhost
         self._endpoint_url: str = os.environ.get('DYNAMO_ENDPOINT')
-        self._region: str = 'us-east-2'
+        # TODO: Maybe this is not necessary
+        self._region: str = os.environ.get('AWS_DEFAULT_REGION')
         self.pare_name: str = pare_name
         self._table: 'boto3.resources.factory.dynamodb.Table' = self.__init_table(table_name)
 

@@ -19,13 +19,9 @@ plugins:
   - serverless-reqvalidator-plugin
   - serverless-aws-documentation
 
+useDotenv: true
 custom:
   prefix: ${self:service}-${self:provider.stage}
-  config:
-    default: ${file(./config/default.yml)}
-    stages:
-      dev: ${file(./config/stages/dev.yml)}
-      production: ${file(./config/stages/production.yml)}
   # INFO: plugin - serverless-api-gateway-throttling
   apiGatewayThrottling:
     maxRequestsPerSecond: 10
@@ -50,7 +46,7 @@ provider:
   region: us-east-2
   # INFO: refer to iamRoleStatements
   #   なるべくserverless frameworkのみで完結できるよう、使用するroleはiamRoleStatementsで定義した
-  # role: arn:aws:iam::${self:custom.config.default.AWS_ACCOUNT_ID}:role/service-role/lambda_for_trade
+  # role: arn:aws:iam::${env:AWS_ACCOUNT_ID}:role/service-role/lambda_for_trade
   runtime: python3.8
   stage: ${opt:stage, 'dev'}
   timeout: 20

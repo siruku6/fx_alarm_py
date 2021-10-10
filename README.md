@@ -16,49 +16,36 @@
 In development ...
 
 ## Requirement
+
+You have to introduce following packages before start developing.
+
 - python3.8 or python3.9
 - pip modules
     ```bash
-    # 詳細は requirements.txt を参照
+    # Refer to requirements.txt
     $ pip install -r requirements.txt
+
+    # Or
+    $ pipenv install -d
     ```
 
-- 環境変数
-    ```
-    $ vim ~/.bash_profile
-
-    #  - - - Necessary - - -
-    # Client
-    export OANDA_ACCESS_TOKEN=YOUR TOKEN
-    export OANDA_ACCOUNT_ID=YOUR Account ID
-
-    #  - - - Option - - -
-    # Client
-    export OANDA_ENVIRONMENT=OANDA側の環境    # default: practice
-    export UNITS=注文毎の購入通貨数           # default: 1
-
-    # Trader
-    export GRANULARITY=取引時に利用する足     # default: M5
-    export INSTRUMENT=取引する通貨ペア        # default: USD_JPY
-    export STOPLOSS_BUFFER=stoplossまでの間隔 # default: 0.05
-    
-    # DynamoDB: ローカルで開発する場合は、DynamoDB Localのendpointを設定。本番では何も設定しない
-    export DYNAMO_ENDPOINT=http://localhost:8000 # defaut: null 
-    ```
+- awscli
+- node
+    - serverless
+- DynamoDB Local (and, though it is optional, DynamoDB Admin)
 
 ## Deployment
 
-- Copy config file
+1. Set Environment Variables
+
     ```bash
-    $ cp config/_default.yml config/default.yml
-    ```
-- Set Environment Variables
-    ```bash
-    $ vim default.yml
+    $ cp .env.sample .env
     ```
 
-    |*Variable*|*Example*|*Explanation*|
-    |----------|---------|-------------|
-    |OANDA_ACCESS_TOKEN|a30z-a30z (65 digits)|Get on Oanda<br>[OANDA REST API DOCS](https://developer.oanda.com/docs/jp/)|
-    |OANDA_ACCOUNT_ID  |100-000-1234567-000  |"|
-    |AWS_ACCOUNT_ID    |123456789012         |Your Account ID of AWS|
+    change [these variables](https://github.com/siruku6/fx_alarm_py/blob/develop/env_variables.md)
+
+2. Deploy with serverless framework
+
+    ```bash
+    $ sls deploy
+    ```

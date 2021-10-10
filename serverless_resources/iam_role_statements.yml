@@ -7,7 +7,7 @@
     - dynamodb:BatchWriteItem
     - dynamodb:PutItem
   Resource:
-    - arn:aws:dynamodb:${self:provider.region}:${self:custom.config.default.AWS_ACCOUNT_ID}:table/*
+    - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*
 # - Effect: "Allow"
 #   Action:
 #     - "s3:ListBucket"
