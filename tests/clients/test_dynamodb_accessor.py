@@ -56,7 +56,7 @@ def fixture_import_dummy_records():
 
 @mock_dynamodb2
 def test___init_table(dynamo_client, table_name):
-    region = 'us-east-2'
+    region = 'us-east-1'
     # Case1: There is no table
     table_names = boto3.client('dynamodb', region_name=region).list_tables()['TableNames']
     assert table_names == []
