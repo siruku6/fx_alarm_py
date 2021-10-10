@@ -55,21 +55,20 @@ def fixture_import_dummy_records():
 
 
 @mock_dynamodb2
-def test___init_table(dynamo_client, table_name):
-    region = 'us-east-1'
-    # Case1: There is no table
-    table_names = boto3.client('dynamodb', region_name=region).list_tables()['TableNames']
-    assert table_names == []
+class TestInitTable:
+    def test_no_table(self):
+        table_names = boto3.client('dynamodb').list_tables()['TableNames']
+        assert table_names == []
 
-    # Case2: There is one table
-    dynamo_client._DynamodbAccessor__init_table(table_name=table_name)
-    table_names = boto3.client('dynamodb', region_name=region).list_tables()['TableNames']
-    assert table_name in table_names
+    def test_one_table(self, dynamo_client, table_name):
+        dynamo_client._DynamodbAccessor__init_table(table_name=table_name)
+        table_names = boto3.client('dynamodb').list_tables()['TableNames']
+        assert table_name in table_names
 
-    # Case3: There is only one table even if `__init_table()` was called twice
-    dynamo_client._DynamodbAccessor__init_table(table_name=table_name)
-    table_names = boto3.client('dynamodb', region_name=region).list_tables()['TableNames']
-    assert len(table_names) == 1
+    def test_duplicate_table(self, dynamo_client, table_name):
+        dynamo_client._DynamodbAccessor__init_table(table_name=table_name)
+        table_names = boto3.client('dynamodb').list_tables()['TableNames']
+        assert len(table_names) == 1
 
 
 @mock_dynamodb2
