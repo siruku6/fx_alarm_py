@@ -2,7 +2,7 @@ description: testing serverless framework
 # handler: handler.hello
 handler: main.api_handler
 name: ${self:custom.prefix}-dump
-layers: arn:aws:lambda:us-east-2:${self:custom.config.default.AWS_ACCOUNT_ID}:layer:trader_modules:3
+layers: arn:aws:lambda:us-east-2:${env:AWS_ACCOUNT_ID}:layer:trader_modules:3
 events:
   - http:
       path: tradehist
@@ -85,12 +85,13 @@ events:
 
 # Define environment variables
 environment:
-  GRANULARITY: H1
+  INSTRUMENT: ${env:INSTRUMENT}
+  GRANULARITY: ${env:GRANULARITY}
+  STOPLOSS_BUFFER: ${env:STOPLOSS_BUFFER}
+  UNITS: ${env:UNITS}
+  OANDA_ACCESS_TOKEN: ${env:OANDA_ACCESS_TOKEN}
+  OANDA_ACCOUNT_ID: ${env:OANDA_ACCOUNT_ID}
   OANDA_ENVIRONMENT: practice
-  STOPLOSS_BUFFER: '0.000005'
-  TZ: Asia/Tokyo
-  UNITS: '10000'
-  OANDA_ACCESS_TOKEN: ${self:custom.config.default.OANDA_ACCESS_TOKEN}
-  OANDA_ACCOUNT_ID: ${self:custom.config.default.OANDA_ACCOUNT_ID}
   STAGE: ${self:provider.stage}
+  TZ: Asia/Tokyo
   MPLCONFIGDIR: '/tmp/mpl_graph'

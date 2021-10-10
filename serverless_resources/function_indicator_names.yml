@@ -1,7 +1,7 @@
 description: return indicator name list
 handler: main.indicator_names_handler
 name: ${self:custom.prefix}-indicator_names
-layers: arn:aws:lambda:us-east-2:${self:custom.config.default.AWS_ACCOUNT_ID}:layer:trader_modules:3
+layers: arn:aws:lambda:us-east-2:${env:AWS_ACCOUNT_ID}:layer:trader_modules:3
 events:
   - http:
       path: indicator_names
@@ -25,4 +25,4 @@ events:
 # Define environment variables
 environment:
   TZ: Asia/Tokyo
-  STAGE: ${self:custom.config.stages.${self:provider.stage}.test}
+  STAGE: ${self:provider.stage}
