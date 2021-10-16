@@ -23,7 +23,7 @@ class SuperTrend:
         df['is_up_trend'] = np.full(len(df), False)
 
         st_upper_band, st_lower_band, is_up_trend = self.__adjust_bands_and_trend(df)
-        st_upper_band, st_lower_band = self.__erase_unnecessary_band_points(st_upper_band, st_lower_band, is_up_trend)
+        st_upper_band, st_lower_band = self.__erase_unnecessary_band(st_upper_band, st_lower_band, is_up_trend)
         ema_200: pd.Series = df['close'].ewm(span=200).mean()
         return pd.concat([st_upper_band, st_lower_band, ema_200], axis=1, join='inner')
 
@@ -66,8 +66,10 @@ class SuperTrend:
 
         return tmp_df['st_upper_band'], tmp_df['st_lower_band'], tmp_df['is_up_trend']
 
-    def __erase_unnecessary_band_points(self, st_upper_band, st_lower_band, is_up_trend) -> Tuple[pd.Series, pd.Series]:
-        # 上昇トレンドの場合はバンド上限を消し、下降トレンドの場合はバンド下限を消す
+    def __erase_unnecessary_band(self, st_upper_band, st_lower_band, is_up_trend) -> Tuple[pd.Series, pd.Series]:
+        """
+        Erase upper_band at up trend, and erase lower_band at down trend
+        """
         for i in range(len(st_upper_band)):
             if is_up_trend[i]:
                 st_upper_band[i] = np.nan
