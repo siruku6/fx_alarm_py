@@ -12,7 +12,24 @@ def fixture_super_trend():
     yield SuperTrend()
 
 
-class TestGenerateAverageTrueRange:
+class TestGenerateBaseIndicators:
+    def test_default(self, st_instance: SuperTrend, past_usd_candles):
+        dummy_candles: pd.DataFrame = pd.DataFrame(past_usd_candles)
+        result: pd.DataFrame = st_instance.generate_base_indicators(dummy_candles)[
+            ['st_upper_band', 'st_lower_band', 'is_up_trend', 'ema_200']
+        ].iloc[28:32]
+        expected: pd.DataFrame = pd.DataFrame(
+            {
+                'st_upper_band': [107.53823, 107.53823, np.nan, np.nan],
+                'st_lower_band': [np.nan, np.nan, 107.29544, 107.335340],
+                'is_up_trend': [False, False, True, True],
+                'ema_200': [107.48426, 107.48586, 107.48922, 107.49441],
+            }
+        )
+        pd.testing.assert_frame_equal(result.reset_index(drop=True), expected, check_like=True)
+
+
+class TestGenerateAtr:
     @pytest.fixture(name='dummy_candles', scope='module', autouse=False)
     def fixture_dummy_candles(self) -> pd.DataFrame:
         df_prepend: pd.DataFrame = pd.DataFrame(np.full([10, 3], 100.0), columns=['high', 'low', 'close'])
@@ -27,7 +44,7 @@ class TestGenerateAverageTrueRange:
         return df_prepend.append(dummy)
 
     def test_default(self, st_instance: SuperTrend, dummy_candles: pd.DataFrame):
-        result: pd.Series = st_instance._SuperTrend__generate_average_true_range(dummy_candles)
+        result: pd.Series = st_instance._SuperTrend__generate_atr(dummy_candles)
         expected: pd.Series = dummy_candles['expected_atr']
         pd.testing.assert_series_equal(result[-3:], expected[-3:], check_names=False)
 
@@ -59,18 +76,15 @@ class TestAdjustBandsAndTrend:
         return dummy_df
 
     def test_default(self, st_instance: SuperTrend, dummy_df: pd.DataFrame):
-        upper_band: pd.Series
-        lower_band: pd.Series
-        is_up_trend: pd.Series
-        upper_band, lower_band, is_up_trend = st_instance._SuperTrend__adjust_bands_and_trend(dummy_df)
+        result: pd.DataFrame = st_instance._SuperTrend__adjust_bands_and_trend(dummy_df)
 
         expected_upper_band: pd.Series = dummy_df['expected_upper_band']
         expected_lower_band: pd.Series = dummy_df['expected_lower_band']
         expected_is_up_trend: pd.Series = dummy_df['expected_is_up_trend']
 
-        pd.testing.assert_series_equal(upper_band, expected_upper_band, check_names=False)
-        pd.testing.assert_series_equal(lower_band, expected_lower_band, check_names=False)
-        pd.testing.assert_series_equal(is_up_trend, expected_is_up_trend, check_names=False)
+        pd.testing.assert_series_equal(result['st_upper_band'], expected_upper_band, check_names=False)
+        pd.testing.assert_series_equal(result['st_lower_band'], expected_lower_band, check_names=False)
+        pd.testing.assert_series_equal(result['is_up_trend'], expected_is_up_trend, check_names=False)
 
 
 class TestEraseUnnecessaryBand:
@@ -88,15 +102,9 @@ class TestEraseUnnecessaryBand:
         return dummy_df
 
     def test_default(self, st_instance: SuperTrend, dummy_df: pd.DataFrame):
-        upper_band: pd.Series
-        lower_band: pd.Series
-        upper_band, lower_band = st_instance._SuperTrend__erase_unnecessary_band(
-            dummy_df['st_upper_band'],
-            dummy_df['st_lower_band'],
-            dummy_df['is_up_trend'],
-        )
+        result: pd.DataFrame = st_instance._SuperTrend__erase_unnecessary_band(dummy_df)
         expected_upper_band: pd.Series = dummy_df['expected_upper_band']
         expected_lower_band: pd.Series = dummy_df['expected_lower_band']
 
-        pd.testing.assert_series_equal(upper_band, expected_upper_band, check_names=False)
-        pd.testing.assert_series_equal(lower_band, expected_lower_band, check_names=False)
+        pd.testing.assert_series_equal(result['st_upper_band'], expected_upper_band, check_names=False)
+        pd.testing.assert_series_equal(result['st_lower_band'], expected_lower_band, check_names=False)

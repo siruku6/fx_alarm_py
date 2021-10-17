@@ -9,12 +9,26 @@ class SuperTrend:
     def __init__(self):
         pass
 
-    # OPTIMIZE: too slow !!!
-    def generate_base_indicators(self, df, look_back: int = 10, multiplier: int = 3) -> pd.DataFrame:
+    def generate_base_indicators(self, df: pd.DataFrame, window_size: int = 10, multiplier: int = 3) -> pd.DataFrame:
         '''
         Generate upper and lower band for Super Trend
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Index:
+                Any
+            Columns:
+                Name: high,  dtype: float64 (required)
+                Name: low,   dtype: float64 (required)
+                Name: close, dtype: float64 (required)
+
+        Returns
+        -------
+        pd.DataFrame
         '''
-        atr: pd.Series = self.__generate_average_true_range(df, look_back)
+
+        atr: pd.Series = self.__generate_atr(df[['high', 'low', 'close']], window_size)
 
         # Temporary both bands and trend
         hl_avg: pd.Series = (df['high'] + df['low']) / 2
@@ -22,12 +36,12 @@ class SuperTrend:
         df['st_lower_band'] = (hl_avg - multiplier * atr)
         df['is_up_trend'] = np.full(len(df), False)
 
-        st_upper_band, st_lower_band, is_up_trend = self.__adjust_bands_and_trend(df)
-        st_upper_band, st_lower_band = self.__erase_unnecessary_band(st_upper_band, st_lower_band, is_up_trend)
-        ema_200: pd.Series = df['close'].ewm(span=200).mean()
-        return pd.concat([st_upper_band, st_lower_band, ema_200], axis=1, join='inner')
+        tmp_df: pd.DataFrame = self.__adjust_bands_and_trend(df)
+        bands: pd.DataFrame = self.__erase_unnecessary_band(tmp_df)
+        ema_200: pd.Series = df['close'].ewm(span=200).mean().rename('ema_200')
+        return pd.concat([bands, ema_200], axis=1, join='inner')
 
-    def __generate_average_true_range(self, df: pd.DataFrame, look_back: int = 10) -> pd.Series:
+    def __generate_atr(self, df: pd.DataFrame, window_size: int = 10) -> pd.Series:
         '''
         ATR (Average True Raneg)
             True Range is the biggest in
@@ -40,40 +54,40 @@ class SuperTrend:
         tr2: pd.Series = abs(df['high'] - df['close'].shift(1))
         tr3: pd.Series = abs(df['low'] - df['close'].shift(1))
         tr: pd.Series = pd.concat([tr1, tr2, tr3], axis=1, join='inner').max(axis=1)
-        atr: pd.Series = tr.ewm(look_back).mean()
+        atr: pd.Series = tr.ewm(window_size).mean()
         return atr
 
     def __adjust_bands_and_trend(self, df: pd.DataFrame) -> Tuple[pd.Series, pd.Series, pd.Series]:
         tmp_df = df[['close', 'st_upper_band', 'st_lower_band', 'is_up_trend']].copy()
+        tmp_dict = tmp_df.to_dict(orient='records')
 
-        len_df: int = len(tmp_df.index)
-        for i in range(1, len_df):
-            current: int = i
-            previous: int = i - 1
+        for current, row in enumerate(tmp_dict):
+            previous: int = current - 1
 
-            # print(i, st_upper_band.index.values)
-            if tmp_df['close'][current] > tmp_df['st_upper_band'][previous]:  # 現在の終値が前のバンド上限を上回っていた場合は上昇トレンドと判定
-                tmp_df['is_up_trend'][current] = True
-            elif tmp_df['close'][current] < tmp_df['st_lower_band'][previous]:  # 現在の終値が前のバンド下限を下回っていた場合は下降トレンドと判定
-                tmp_df['is_up_trend'][current] = False
+            if row['close'] > tmp_dict[previous]['st_upper_band']:
+                row['is_up_trend'] = True  # change to up trend
+            elif row['close'] < tmp_dict[previous]['st_lower_band']:
+                row['is_up_trend'] = False  # change to down trend
             else:
-                tmp_df['is_up_trend'][current] = tmp_df['is_up_trend'][previous]
+                row['is_up_trend'] = tmp_dict[previous]['is_up_trend']
 
-                if tmp_df['is_up_trend'][current] and tmp_df['st_lower_band'][current] < tmp_df['st_lower_band'][previous]:  # 上昇トレンドかつ現在のバンド下限が前のバンド下限を下回っていた場合は前のバンド下限が継続
-                    tmp_df['st_lower_band'][current] = tmp_df['st_lower_band'][previous]
-                elif (not tmp_df['is_up_trend'][current]) and tmp_df['st_upper_band'][current] > tmp_df['st_upper_band'][previous]:  # 下降トレンドかつ現在のバンド上限が前のバンド上限を上回っていた場合は前のバンド上限が継続
-                    tmp_df['st_upper_band'][current] = tmp_df['st_upper_band'][previous]
+                # At up trend, if lower_band is lower than previous lower_band, previous lower_band continues
+                if row['is_up_trend'] \
+                        and row['st_lower_band'] < tmp_dict[previous]['st_lower_band']:
+                    row['st_lower_band'] = tmp_dict[previous]['st_lower_band']
+                # At down trend, if upper_band is upper than previous upper_band, previous upper_band continues
+                elif (not row['is_up_trend']) \
+                        and row['st_upper_band'] > tmp_dict[previous]['st_upper_band']:
+                    row['st_upper_band'] = tmp_dict[previous]['st_upper_band']
 
-        return tmp_df['st_upper_band'], tmp_df['st_lower_band'], tmp_df['is_up_trend']
+        return pd.DataFrame.from_dict(tmp_dict)
 
-    def __erase_unnecessary_band(self, st_upper_band, st_lower_band, is_up_trend) -> Tuple[pd.Series, pd.Series]:
-        """
+    def __erase_unnecessary_band(self, tmp_df) -> pd.DataFrame:
+        '''
         Erase upper_band at up trend, and erase lower_band at down trend
-        """
-        for i in range(len(st_upper_band)):
-            if is_up_trend[i]:
-                st_upper_band[i] = np.nan
-            elif not is_up_trend[i]:
-                st_lower_band[i] = np.nan
+        '''
+        result: pd.DataFrame = tmp_df.copy()
+        result.loc[result['is_up_trend'], 'st_upper_band'] = np.nan
+        result.loc[~result['is_up_trend'], 'st_lower_band'] = np.nan
 
-        return st_upper_band, st_lower_band
+        return result
