@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from models.trader_config import FILTER_ELEMENTS
+from models.trader_config import TraderConfig, FILTER_ELEMENTS
 
 
 TRADE_RESULT_ITEMS = [
@@ -15,23 +15,26 @@ TRADE_RESULT_ITEMS = [
 ]
 
 
-def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, spread, entry_filters):
+def aggregate_backtest_result(rule: str, df_positions: pd.DataFrame, config: TraderConfig) -> pd.DataFrame:
     '''
-    トレード履歴の統計情報計算処理を呼び出す(new)
-    params:
-        rule
-            type:    string
-            example: 'swing', 'scalping', ... etc
-        df_positions
-            type:    DataFrame
-            columns: [
-                'time',          # str ('2xxx/xx/xx hh:MM:ss')
-                'position',      # str ('long', 'short', 'sell_exit', 'buy_exit' or None)
-                'entry_price',   # float64
-                'exitable_price' # float64
-            ]
+    Calculate statistics from the result of trading
+
+    Parameters
+    ----------
+    rule : string
+        Example: 'swing', 'scalping', ... etc
+    df_positions : pd.DataFrame
+        Columns:
+            Name: time,          dtype: object ('yyyy-MM-dd HH:mm:ss')
+            Name: position,      dtype: object ('long', 'short', 'sell_exit', 'buy_exit' or None)
+            Name: entry_price,   dtype: float64
+            Name: exitable_price dtype: float64
+
+    Returns
+    -------
+    pd.DataFrame
     '''
-    filter_boolean = __filter_to_boolean(entry_filters)
+    filter_boolean = __filter_to_boolean(config.get_entry_rules('entry_filters'))
 
     positions = df_positions.loc[df_positions.position.notnull(), :].copy()
     positions = __calc_profit(copied_positions=positions)
@@ -41,14 +44,14 @@ def aggregate_backtest_result(rule, df_positions, granularity, stoploss_buffer, 
     performance_result = __calc_performance_indicators(positions)
     __append_performance_result_to_csv(
         rule=rule,
-        granularity=granularity,
-        sl_buf=stoploss_buffer,
-        spread=spread,
+        granularity=config.get_entry_rules('granularity'),
+        sl_buf=config.stoploss_buffer_pips,
+        spread=config.static_spread,
         candles=df_positions,
         performance_result=performance_result,
         filter_boolean=filter_boolean
     )
-    # TODO: 要削除 一時的なコード
+    # TODO: Remove - this is a temporary line of cord.
     positions.to_csv('./tmp/csvs/positions_dump.csv')
     return positions[['time', 'profit', 'gross']].copy()
 

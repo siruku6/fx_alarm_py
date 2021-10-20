@@ -47,10 +47,7 @@ class ResultProcessor:
         pl_gross_df: pd.DataFrame = statistics.aggregate_backtest_result(
             rule=rule,
             df_positions=result['candles'].loc[:, positions_columns],
-            granularity=self._config.get_entry_rules('granularity'),
-            stoploss_buffer=self._config.stoploss_buffer_pips,
-            spread=self._config.static_spread,
-            entry_filters=self._config.get_entry_rules('entry_filters')
+            config=self._config
         )
         df_positions: pd.DataFrame = self._wrangle_result_for_graph(
             result['candles'][
