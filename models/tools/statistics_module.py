@@ -25,14 +25,18 @@ def aggregate_backtest_result(rule: str, df_positions: pd.DataFrame, config: Tra
         Example: 'swing', 'scalping', ... etc
     df_positions : pd.DataFrame
         Columns:
-            Name: time,          dtype: object ('yyyy-MM-dd HH:mm:ss')
-            Name: position,      dtype: object ('long', 'short', 'sell_exit', 'buy_exit' or None)
-            Name: entry_price,   dtype: float64
-            Name: exitable_price dtype: float64
+            Name: time,          dtype=object ('yyyy-MM-dd HH:mm:ss')
+            Name: position,      dtype=object ('long', 'short', 'sell_exit', 'buy_exit' or None)
+            Name: entry_price,   dtype=float64
+            Name: exitable_price dtype=float64
 
     Returns
     -------
     pd.DataFrame
+        Columns:
+            Name: time,   dtype=object
+            Name: profit, dtype=float64
+            Name: gross,  dtype=float64
     '''
     filter_boolean = __filter_to_boolean(config.get_entry_rules('entry_filters'))
 

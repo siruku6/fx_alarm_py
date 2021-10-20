@@ -32,32 +32,79 @@ class ResultProcessor:
             )
 
     def run(self, rule: str, result: Dict[str, Union[str, pd.DataFrame]], indicators: pd.DataFrame) -> pd.DataFrame:
-        df_positions: pd.DataFrame = self._preprocess_backtest_result(rule, result)
+        '''
+        Start postprocesses following trading
+
+        Parameters
+        ----------
+        result : pd.DataFrame
+            Columns:
+                Name: time,              dtype=object  (required)
+                Name: position,          dtype=object  (required)
+                Name: entry_price,       dtype=float64 (required)
+                Name: possible_stoploss, dtype=float64 (required)
+                Name: exitable_price,    dtype=float64 (required)
+
+        Returns
+        -------
+        pd.DataFrame
+        '''
+        positions_columns: List[str] = ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
+        if result['result'] == 'no position':
+            return pd.DataFrame([], columns=positions_columns)
+
+        df_positions: pd.DataFrame = self._preprocess_backtest_result(rule, result['candles'][positions_columns])
+        df_positions: pd.DataFrame = self._wrangle_result_for_graph(df_positions.copy())
         self._drive_drawing_charts(df_positions=df_positions, indicators=indicators)
 
         return df_positions
 
-    def _preprocess_backtest_result(
-        self, rule: str, result: Dict[str, Union[str, pd.DataFrame]]
-    ) -> pd.DataFrame:
-        positions_columns: List[str] = ['time', 'position', 'entry_price', 'exitable_price']
-        if result['result'] == 'no position':
-            return pd.DataFrame([], columns=positions_columns)
-
+    def _preprocess_backtest_result(self, rule: str, df_result: pd.DataFrame) -> pd.DataFrame:
         pl_gross_df: pd.DataFrame = statistics.aggregate_backtest_result(
             rule=rule,
-            df_positions=result['candles'].loc[:, positions_columns],
+            df_positions=df_result.loc[:, ['time', 'position', 'entry_price', 'exitable_price']],
             config=self._config
         )
-        df_positions: pd.DataFrame = self._wrangle_result_for_graph(
-            result['candles'][
-                ['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price']
-            ].copy()
-        )
-        df_positions: pd.DataFrame = pd.merge(df_positions, pl_gross_df, on='time', how='left')
+        df_positions: pd.DataFrame = pd.merge(df_result, pl_gross_df, on='time', how='left')
         df_positions['gross'].fillna(method='ffill', inplace=True)
 
         return df_positions
+
+    def _wrangle_result_for_graph(self, result: pd.DataFrame) -> pd.DataFrame:
+        '''
+        Preprocess the dataframe to adapt it into the format which can be drawn
+
+        Parameters
+        ----------
+        result : pd.DataFrame
+            Columns:
+                Name: position,          dtype=object
+                Name: entry_price,       dtype=float64
+                Name: possible_stoploss, dtype=float64
+                Name: exitable_price,    dtype=float64
+
+        Returns
+        -------
+        pd.DataFrame
+        '''
+        positions_df: pd.DataFrame = result.rename(columns={'entry_price': 'price', 'possible_stoploss': 'stoploss'})
+        positions_df['sequence'] = positions_df.index
+        # INFO: exit直後のrowで、かつposition列が空
+        positions_df.loc[
+            ((positions_df.shift(1)['position'].isin(['sell_exit', 'buy_exit']))
+             | ((positions_df.shift(1)['position'].isin(['long', 'short']))
+                & (~positions_df.shift(1)['exitable_price'].isna())))
+            & (positions_df['position'].isna()), 'position'
+        ] = '-'
+        # INFO: entry直後のrowで、かつexit-rowではない
+        positions_df.loc[
+            (positions_df.shift(1)['position'].isin(['long', 'short']))
+            & (positions_df.shift(1)['exitable_price'].isna())
+            & (~positions_df['position'].isin(['sell_exit', 'buy_exit'])), 'position'
+        ] = '|'
+        positions_df['position'].fillna(method='ffill', inplace=True)
+
+        return positions_df
 
     def _drive_drawing_charts(self, df_positions: pd.DataFrame, indicators: pd.DataFrame):
         if self._drawer is None: return
@@ -79,7 +126,7 @@ class ResultProcessor:
     ):
         def query_entry_rows(position_df: pd.DataFrame, position_type: str, exit_type: str) -> pd.DataFrame:
             entry_rows: pd.DataFrame = position_df[
-                position_df.position.isin([position_type, exit_type]) & (~position_df.price.isna())
+                position_df['position'].isin([position_type, exit_type]) & (~position_df.price.isna())
             ][['sequence', 'price']]
             return entry_rows
 
@@ -98,10 +145,10 @@ class ResultProcessor:
         # INFO: exitable_price などの列が残っていると、後 draw_positions_df の dropna で行が消される
         long_entry_df = query_entry_rows(positions_df, position_type='long', exit_type='sell_exit')
         short_entry_df = query_entry_rows(positions_df, position_type='short', exit_type='buy_exit')
-        close_df = positions_df[positions_df.position.isin(['sell_exit', 'buy_exit'])] \
+        close_df = positions_df[positions_df['position'].isin(['sell_exit', 'buy_exit'])] \
             .drop('price', axis=1) \
             .rename(columns={'exitable_price': 'price'})
-        trail_df = positions_df[positions_df.position != '-'][['sequence', 'stoploss']] \
+        trail_df = positions_df[positions_df['position'] != '-'][['sequence', 'stoploss']] \
             .rename(columns={'stoploss': 'price'})
 
         drwr.draw_positions_df(positions_df=long_entry_df, plot_type=drwr.PLOT_TYPE['long'])
@@ -132,26 +179,6 @@ class ResultProcessor:
             drwr.init_figure(rows_num=self.__static_options['figure_option'])
         if 'success' in result:
             print('{msg} / {count}'.format(msg=result['success'], count=df_segments_count))
-
-    def _wrangle_result_for_graph(self, result: pd.DataFrame) -> pd.DataFrame:
-        positions_df: pd.DataFrame = result.rename(columns={'entry_price': 'price', 'possible_stoploss': 'stoploss'})
-        positions_df['sequence'] = positions_df.index
-        # INFO: exit直後のrowで、かつposition列が空
-        positions_df.loc[
-            ((positions_df.shift(1).position.isin(['sell_exit', 'buy_exit']))
-             | ((positions_df.shift(1).position.isin(['long', 'short']))
-                & (~positions_df.shift(1).exitable_price.isna())))
-            & (positions_df.position.isna()), 'position'
-        ] = '-'
-        # INFO: entry直後のrowで、かつexit-rowではない
-        positions_df.loc[
-            (positions_df.shift(1).position.isin(['long', 'short']))
-            & (positions_df.shift(1).exitable_price.isna())
-            & (~positions_df.position.isin(['sell_exit', 'buy_exit'])), 'position'
-        ] = '|'
-        positions_df.position.fillna(method='ffill', inplace=True)
-
-        return positions_df
 
     def __split_df_by_200rows(self, d_frame: pd.DataFrame) -> List[pd.DataFrame]:
         dfs: List[Optional[pd.DataFrame]] = []
