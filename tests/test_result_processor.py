@@ -1,5 +1,5 @@
 from unittest.mock import patch
-from typing import Dict, Union
+from typing import Dict, List, Union
 
 import numpy as np
 import pandas as pd
@@ -14,41 +14,48 @@ def fixture_trader_instance(config) -> ResultProcessor:
     yield _result_processor
 
 
-class TestPreprocessBacktestResult():
+@pytest.fixture(name='dummy_positions', scope='module')
+def fixture_dummy_positions() -> pd.DataFrame:
+    return pd.DataFrame({
+        'time': pd.date_range(start='2019/09/03', periods=12, freq='1H')
+                  .astype(str),
+        'position': (
+            'buy_exit', None, 'long', None, None, 'sell_exit',
+            'short', None, None, 'buy_exit', None, 'long',
+        ),
+        'entry_price': (
+            10.01, None, 10.03, None, None, None,
+            11.02, None, None, None, None, 10.05,
+        ),
+        'possible_stoploss': (
+            9.01, 9.11, 9.31, 9.81, 10.81, 11.01,
+            9.01, 9.11, 9.31, 9.81, 10.81, 11.01,
+        ),
+        'exitable_price': (
+            9.91, None, None, None, None, 11.13,
+            None, None, None, 10.02, None, None,
+        )
+    })
 
-    @pytest.fixture(name='dummy_positions', scope='module')
-    def fixture_dummy_positions(self):
-        return pd.DataFrame({
-            'time': pd.date_range(start='2019/09/03', periods=12, freq='1H')
-                      .astype(str),
-            'position': (
-                'buy_exit', None, 'long', None, None, 'sell_exit',
-                'short', None, None, 'buy_exit', None, 'long',
-            ),
-            'entry_price': (
-                10.01, None, 10.03, None, None, None,
-                11.02, None, None, None, None, 10.05,
-            ),
-            'possible_stoploss': (
-                9.01, 9.11, 9.31, 9.81, 10.81, 11.01,
-                9.01, 9.11, 9.31, 9.81, 10.81, 11.01,
-            ),
-            'exitable_price': (
-                9.91, None, None, None, None, 11.13,
-                None, None, None, 10.02, None, None,
-            )
-        })
+
+@pytest.fixture(name='expected_positions', scope='module')
+def fixture_expected_positions() -> List[str]:
+    return [
+        'buy_exit', '-', 'long', '|', '|', 'sell_exit',
+        'short', '|', '|', 'buy_exit', '-', 'long'
+    ]
+
+
+class TestRun:
 
     def test_without_position(self, result_processor: ResultProcessor):
-        result: pd.DataFrame = result_processor._preprocess_backtest_result(
-            rule='', result={'result': 'no position'}
-        )
+        result: pd.DataFrame = result_processor.run('', {'result': 'no position'}, pd.DataFrame({}))
 
         pd.testing.assert_frame_equal(
-            result, pd.DataFrame([], columns=['time', 'position', 'entry_price', 'exitable_price'])
+            result, pd.DataFrame([], columns=['time', 'position', 'entry_price', 'possible_stoploss', 'exitable_price'])
         )
 
-    def test_with_positions(self, result_processor: ResultProcessor, dummy_positions: pd.DataFrame):
+    def test_with_positions(self, result_processor: ResultProcessor, dummy_positions: pd.DataFrame, expected_positions):
         expected_gross_df: pd.DataFrame = pd.DataFrame({
             'time': pd.date_range(start='2019/09/03', periods=12, freq='1H')
                       .astype(str),
@@ -58,10 +65,7 @@ class TestPreprocessBacktestResult():
         expected: pd.DataFrame = \
             pd.merge(dummy_positions, expected_gross_df, on='time', how='left') \
               .rename(columns={'entry_price': 'price', 'possible_stoploss': 'stoploss'}) \
-              .assign(position=[
-                  'buy_exit', '-', 'long', '|', '|', 'sell_exit',
-                  'short', '|', '|', 'buy_exit', '-', 'long'
-              ])
+              .assign(position=expected_positions)
 
         backtest_result: Dict[str, Union[str, pd.DataFrame]] = {'result': '', 'candles': dummy_positions}
 
@@ -70,6 +74,16 @@ class TestPreprocessBacktestResult():
             return_value=None
         ):
             result: pd.DataFrame = \
-                result_processor._preprocess_backtest_result('scalping', backtest_result)
+                result_processor.run('scalping', backtest_result, pd.DataFrame({}))
 
         pd.testing.assert_frame_equal(result.drop(['sequence'], axis=1), expected)
+
+
+class TestWrangleResultForGraph:
+    def test_default(
+        self, result_processor: ResultProcessor, dummy_positions: pd.DataFrame, expected_positions
+    ):
+        result: pd.DataFrame = result_processor._wrangle_result_for_graph(
+            dummy_positions[['position', 'possible_stoploss', 'entry_price', 'exitable_price']]
+        )['position']
+        pd.testing.assert_series_equal(result, pd.Series(expected_positions, name='position'))
