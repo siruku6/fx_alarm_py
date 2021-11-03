@@ -2,11 +2,11 @@ from decimal import Decimal
 import json
 import os
 import typing as t
-from typing import TypedDict
+from typing import Dict, Optional, TypedDict
 
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
-from botocore.exceptions import ClientError, EndpointConnectionError
+from botocore.exceptions import ClientError, EndpointConnectionError, WaiterError
 from numpy import nan
 import pandas as pd
 
@@ -27,12 +27,12 @@ QueryResult = t.Dict[str, t.Union[t.List[CandleRecord], int, t.Dict]]
 
 class DynamodbAccessor():
     def __init__(self, pare_name: str, table_name: str = 'H1_CANDLES'):
-        # HACK: env:DYNAMO_ENDPOINT(endpoint_url)
-        #   is None     => refer to the table of DynamoDB on AWS
-        #   is not None => refer to the table of DynamoDB on localhost
+        self._environment: str = os.environ.get('EXECTION_ENVIRONMENT')
+
+        # NOTE: This is necessary only for accessing AWS Resources from localhost.
         self._endpoint_url: str = os.environ.get('DYNAMO_ENDPOINT')
-        # TODO: Maybe this is not necessary
-        self._region: str = os.environ.get('AWS_DEFAULT_REGION')
+        # self._region: str = os.environ.get('AWS_DEFAULT_REGION')
+
         self.pare_name: str = pare_name
         self._table: 'boto3.resources.factory.dynamodb.Table' = self.__init_table(table_name)
 
@@ -118,26 +118,33 @@ class DynamodbAccessor():
             self.batch_insert(sample_candles)
 
     def __init_table(self, table_name: str) -> 'boto3.resources.factory.dynamodb.Table':
-        dynamodb: 'boto3.resources.factory.dynamodb.ServiceResource' = boto3.resource(
-            'dynamodb',
-            region_name=self._region, endpoint_url=self._endpoint_url,
-            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
-        )
+        dynamodb: 'boto3.resources.factory.dynamodb.ServiceResource' = self.__init_dynamo_resource()
 
         try:
-            table_names: t.List[str] = boto3.client(
-                'dynamodb', region_name=self._region, endpoint_url=self._endpoint_url
-            ).list_tables()['TableNames']
+            table_names: t.List[str] = self.__init_dynamo_client().list_tables()['TableNames']
             if table_name not in table_names:
                 table: 'boto3.resources.factory.dynamodb.Table' = self.__create_table(dynamodb, table_name)
             else:
                 table: 'boto3.resources.factory.dynamodb.Table' = dynamodb.Table(table_name)
-        except EndpointConnectionError as error:
+        except(ClientError, EndpointConnectionError, WaiterError) as error:
             print(error)
             raise Exception('[Dynamo] can`t have reached DynamoDB !')
 
         return table
+
+    def __init_dynamo_resource(self) -> 'boto3.resources.factory.dynamodb.ServiceResource':
+        resource_info: Dict[str, Optional[str]] = {}
+        if self._environment == 'localhost':
+            resource_info = {'endpoint_url': self._endpoint_url}
+
+        return boto3.resource('dynamodb', **resource_info)
+
+    def __init_dynamo_client(self):
+        resource_info: Dict[str, Optional[str]] = {}
+        if self._environment == 'localhost':
+            resource_info = {'endpoint_url': self._endpoint_url}
+
+        return boto3.client('dynamodb', **resource_info)
 
     def __create_table(self, dynamodb, table_name: str) -> 'boto3.resources.factory.dynamodb.Table':
         table: 'boto3.resources.factory.dynamodb.Table' = dynamodb.create_table(
