@@ -53,24 +53,25 @@ provider:
   versionFunctions: false
 
   # you can add statements to the Lambda function's IAM Role here
-  iamRoleStatements: ${file(./serverless_resources/iam_role_statements.yml)}
+  iamRoleStatements: ${file(./serverless_resources/iam.yml)}
 
 # you can add packaging information here
 package:
-  exclude:
-    - ./**
+  patterns:
+    - '!./**'
+    - 'main.py'
+    - 'models/**'
   # artifact: tmp/zips/app/fx_archive.zip
   # Create an individual zip-file for each function
   # individually: true # default is `false`
-  include:
-    - main.py
-    - models/**
+
   # INFO: 'excludeDevDependencies: true' => ignore modules in package.json devDependencies
   excludeDevDependencies: false
 
 functions:
-  tradehist: ${file(./serverless_resources/function_tradehist.yml)}
-  indicator_names: ${file(./serverless_resources/function_indicator_names.yml)}
+  AutoTrade: ${file(./serverless_resources/functions/auto_trade.yml)}
+  Tradehist: ${file(./serverless_resources/functions/tradehist.yml)}
+  IndicatorNames: ${file(./serverless_resources/functions/indicator_names.yml)}
 
 resources:
   Resources:

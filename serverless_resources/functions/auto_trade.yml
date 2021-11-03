@@ -1,0 +1,21 @@
+description: execute automatic trading
+handler: main.lambda_handler
+name: ${self:custom.prefix}-auto-trade
+layers: arn:aws:lambda:us-east-2:${env:AWS_ACCOUNT_ID}:layer:trader_modules:3
+events:
+  - schedule:
+      enabled: true
+      rate: cron(0/10 * * * ? *)
+      name: ${self:custom.prefix}--auto-trade-event
+
+# Define environment variables
+environment:
+  INSTRUMENT: ${env:INSTRUMENT}
+  GRANULARITY: ${env:GRANULARITY}
+  STOPLOSS_BUFFER: ${env:STOPLOSS_BUFFER}
+  UNITS: ${env:UNITS}
+  OANDA_ACCESS_TOKEN: ${env:OANDA_ACCESS_TOKEN}
+  OANDA_ACCOUNT_ID: ${env:OANDA_ACCOUNT_ID}
+  OANDA_ENVIRONMENT: practice
+  STAGE: ${self:provider.stage}
+  TZ: Asia/Tokyo

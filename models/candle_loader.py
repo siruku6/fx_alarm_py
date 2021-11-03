@@ -12,6 +12,7 @@ class CandleLoader:
     def __init__(self, config: TraderConfig, client_manager: ClientManager) -> None:
         self.config: TraderConfig = config
         self.client_manager: ClientManager = client_manager
+        self.tradeable: bool = False
 
     def run(self) -> Dict[str, str]:
         candles: pd.DataFrame
@@ -24,9 +25,9 @@ class CandleLoader:
                 granularity=self.config.get_entry_rules('granularity')
             )['candles']
         elif self.config.operation == 'live':
-            self.tradeable: bool = self.client_manager.call_oanda('is_tradeable')['tradeable']
+            self.tradeable = self.client_manager.call_oanda('is_tradeable')['tradeable']
             if not self.tradeable:
-                return {'info': 'exit at once'}
+                return {'info': 'Now the trading market is closed.'}
 
             candles = self.client_manager.load_specify_length_candles(
                 length=70, granularity=self.config.get_entry_rules('granularity')
