@@ -1,7 +1,12 @@
 - Effect: Allow
   Action:
-    - dynamodb:CreateTable
     - dynamodb:ListTables
+  Resource:
+    - "*"
+- Effect: Allow
+  Action:
+    - dynamodb:CreateTable
+    - dynamodb:DescribeTable
     - dynamodb:Query
     - dynamodb:Scan
     - dynamodb:BatchWriteItem

@@ -1,11 +1,11 @@
 description: execute automatic trading
 handler: main.lambda_handler
-name: ${self:custom.prefix}-auto-trade
+name: ${self:custom.prefix}--auto-trade
 layers: arn:aws:lambda:us-east-2:${env:AWS_ACCOUNT_ID}:layer:trader_modules:3
 events:
   - schedule:
       enabled: true
-      rate: cron(0/10 * * * ? *)
+      rate: cron(0/10 * ? * SUN-FRI *)
       name: ${self:custom.prefix}--auto-trade-event
 
 # Define environment variables
