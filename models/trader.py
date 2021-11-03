@@ -49,7 +49,7 @@ class Trader(metaclass=abc.ABCMeta):
         result: Dict[str, str] = self._candle_loader.run().get('info')
         if result is not None:
             print(result)
-            return
+            exit()
 
         self._candle_loader.load_long_span_candles()
         self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())

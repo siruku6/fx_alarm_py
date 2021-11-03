@@ -5,7 +5,7 @@ import pandas as pd
 
 from models.trader import Trader
 import models.trade_rules.base as base_rules
-import models.trade_rules.wait_close as wait_close
+# import models.trade_rules.wait_close as wait_close
 
 
 class SwingTrader(Trader):
