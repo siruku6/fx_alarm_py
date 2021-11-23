@@ -148,6 +148,24 @@ def dummy_open_trades():
     }]
 
 
+@pytest.fixture(scope='session')
+def dummy_long_without_stoploss_trades():
+    return [{
+        'currentUnits': '1',
+        'financing': '0.0000',
+        'id': '699',
+        'initialMarginRequired': '5.0332',
+        'initialUnits': '1',
+        'instrument': 'EUR_USD',
+        'marginUsed': '5.0333',
+        'openTime': '2019-04-18T14:05:59.912794035Z',
+        'price': '1.12488',
+        'realizedPL': '0.0000',
+        'state': 'OPEN',
+        'unrealizedPL': '0.0090'
+    }]
+
+
 # TODO:
 #   この辺の記事によると、 dummy_stoploss_price はここではなく、各testメソッド内に記載して簡略化できそう
 #   そうすれば、 dummy_stoploss_price というメソッドその物がいらなくなる

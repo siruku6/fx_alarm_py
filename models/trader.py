@@ -49,7 +49,7 @@ class Trader(metaclass=abc.ABCMeta):
         result: Dict[str, str] = self._candle_loader.run().get('info')
         if result is not None:
             print(result)
-            return
+            exit()
 
         self._candle_loader.load_long_span_candles()
         self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
@@ -59,8 +59,6 @@ class Trader(metaclass=abc.ABCMeta):
         FXBase.set_candles(candles)
 
     def _initialize_position_variables(self) -> None:
-        self._position = None
-        self._set_position({'type': 'none'})
         self.__hist_positions = {'long': [], 'short': []}
 
     #
@@ -151,9 +149,6 @@ class Trader(metaclass=abc.ABCMeta):
     #
     # Methods for judging Entry or Close
     #
-    def _set_position(self, position_dict):
-        self._position = position_dict
-
     def _merge_long_indicators(self, candles):
         tmp_df = candles.merge(self._ana.get_long_indicators(), on='time', how='left')
         # tmp_df['long_stoD'].fillna(method='ffill', inplace=True)

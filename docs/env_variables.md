@@ -7,6 +7,7 @@
     |AWS_ACCESS_KEY_ID     |A18Z (20 digits)     ||
     |AWS_SECRET_ACCESS_KEY |a38Z (40 digits)     ||
     |DYNAMO_ENDPOINT       |http://localhost:8000|1. When developing on localhost,<br>it is better to set the endpoint of `DynamoDB Local`<br>2. On AWS Lambda, you don't have to set this.|
+    |EXECTION_ENVIRONMENT  |localhost            |You can select either of these:<br>1. localhost<br>2. aws|
 
 2. **Settings for Oanda infromation**
 

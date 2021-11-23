@@ -59,7 +59,7 @@ examples_for_exitable = (
 @pytest.mark.parametrize('position_type, stod, stosd, exitable', examples_for_exitable)
 def test_exitable_by_stoccross(position_type, stod, stosd, exitable):
     # for row in test_dicts:
-    is_exitable = scalping.exitable_by_stoccross(
+    is_exitable = scalping._exitable_by_stoccross(
         position_type=position_type,
         stod=stod,
         stosd=stosd

@@ -197,17 +197,33 @@ def test___drive_exit_process_golden_cross(real_trader_client):
     # TODO: testcase 不足
 
 
-def test___load_position(real_trader_client, dummy_open_trades):
-    with patch('models.clients.oanda_client.OandaClient.request_open_trades', return_value=[]):
-        pos = real_trader_client._RealTrader__load_position()
-    assert pos == {'type': 'none'}
+class TestFetchCurrentPosition():
+    def test_none_position(self, real_trader_client):
+        with patch('models.clients.oanda_client.OandaClient.request_open_trades', return_value=[]):
+            pos = real_trader_client._RealTrader__fetch_current_position()
+        assert pos == {'type': 'none'}
 
-    with patch('models.clients.oanda_client.OandaClient.request_open_trades', return_value=dummy_open_trades):
-        pos = real_trader_client._RealTrader__load_position()
-    assert isinstance(pos, dict)
-    assert 'type' in pos
-    assert 'price' in pos
-    assert 'stoploss' in pos
+    def test_short_position(self, real_trader_client, dummy_open_trades):
+        with patch(
+            'models.clients.oanda_client.OandaClient.request_open_trades',
+            return_value=dummy_open_trades
+        ):
+            pos = real_trader_client._RealTrader__fetch_current_position()
+        assert isinstance(pos, dict)
+        assert pos['type'] == 'short'
+        assert isinstance(pos['price'], float)
+        assert isinstance(pos['stoploss'], float)
+
+    def test_long_position(self, real_trader_client, dummy_long_without_stoploss_trades):
+        with patch(
+            'models.clients.oanda_client.OandaClient.request_open_trades',
+            return_value=dummy_long_without_stoploss_trades
+        ):
+            pos = real_trader_client._RealTrader__fetch_current_position()
+        assert isinstance(pos, dict)
+        assert pos['type'] == 'long'
+        assert isinstance(pos['price'], float)
+        assert 'stoploss' not in pos
 
 
 def test___since_last_loss(real_trader_client):

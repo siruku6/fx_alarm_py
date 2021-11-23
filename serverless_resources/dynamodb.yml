@@ -1,6 +1,6 @@
 Type: 'AWS::DynamoDB::Table'
 Properties:
-  TableName: H1_CANDLES
+  TableName: ${self:custom.prefix}-H1_CANDLES
   # TableName: H1_CANDLES_${self:provider.stage}
   # キーの種類(schema: hash or range)と型(atttribute)を指定
   KeySchema:

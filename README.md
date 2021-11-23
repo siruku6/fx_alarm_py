@@ -42,10 +42,16 @@ You have to introduce following packages before start developing.
     $ cp .env.sample .env
     ```
 
-    change [these variables](https://github.com/siruku6/fx_alarm_py/blob/develop/env_variables.md)
+    change [these variables](https://github.com/siruku6/fx_alarm_py/blob/develop/docs/env_variables.md)
 
 2. Deploy with serverless framework
 
     ```bash
     $ sls deploy
+
+    # Display the detailed progress
+    $ sls deploy --verbose
+
+    # Specifying stage of AWS resources
+    $ sls deploy --stage demo
     ```
