@@ -34,19 +34,7 @@ class AlphaTrader(Trader):
         )
 
     def __generate_entry_column(self, candles: pd.DataFrame) -> pd.DataFrame:
-        # INFO: 1. 厳し目のstoploss設定: commit_positions_by_loop で is_exitable_by_bollinger を使うときはコチラが良い
-        # entry_direction = candles.entryable.fillna(method='ffill')
-        # long_direction_index = entry_direction == 'long'
-        # short_direction_index = entry_direction == 'short'
-        # self.__set_stoploss_prices(
-        #     candles,
-        #     long_indexes=long_direction_index,
-        #     short_indexes=short_direction_index
-        # )
-        # INFO: 2. 緩いstoploss設定: exitable_by_stoccross 用
-        #   廃止 -> scalping.__decide_exit_price 内で計算している
-
-        # INFO: Entry / Exit のタイミングを確定
+        # INFO: Commit when Entry / Exit is done
         base_df = pd.merge(
             candles[['open', 'high', 'low', 'close', 'time', 'entryable', 'entryable_price', 'stoD_over_stoSD']],
             self._indicators[['sigma*2_band', 'sigma*-2_band', 'stoD_3', 'stoSD_3', 'support', 'regist']],

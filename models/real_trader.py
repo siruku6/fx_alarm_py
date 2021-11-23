@@ -1,5 +1,7 @@
 import datetime
 from pprint import pprint
+from typing import TypedDict
+
 import numpy as np
 
 from models.candle_storage import FXBase
@@ -7,11 +9,26 @@ from models.trader import Trader
 import models.trade_rules.scalping as scalping
 
 
+class PositionRequired(TypedDict):
+    ''' Required keys '''
+    type: str
+
+
+class Position(PositionRequired, total=False):
+    ''' Optional keys '''
+    price: float
+    openTime: str
+    stoploss: float
+
+
 class RealTrader(Trader):
-    ''' トレードルールに基づいてOandaへの発注を行うclass '''
+    ''' This class orders trading to Oanda following trading rules. '''
     def __init__(self, operation):
         print('[Trader] -------- start --------')
         super(RealTrader, self).__init__(operation=operation, days=60)
+
+        self._position: Position = {'type': 'none'}
+        # self._set_position({'type': 'none'})
 
     #
     # Public
@@ -24,12 +41,15 @@ class RealTrader(Trader):
         # self.__play_swing_trade(candles)
         self.__play_scalping_trade(candles)
 
+    def _set_position(self, position_dict: Position):
+        self._position: Position = position_dict
+
     #
     # Override shared methods
     #
     def _create_position(self, previous_candle, direction, last_indicators=None):
         '''
-        ルールに基づいてポジションをとる(Oanda通信有)
+        Order Oanda to create position
         '''
         if direction == 'long':
             sign = ''
@@ -49,17 +69,17 @@ class RealTrader(Trader):
 
     def _trail_stoploss(self, new_stop):
         '''
-        ポジションのstoploss-priceを強気方向へ修正する
+        Order Oanda to trail stoploss-price
         Parameters
         ----------
         new_stop : float
-            新しいstoploss-price
+            New stoploss price which is going to be set
 
         Returns
         -------
         None
         '''
-        # INFO: trail先の価格を既に突破していたら自動でcloseしてくれた OandaAPI は優秀
+        # NOTE: trail先の価格を既に突破していたら自動でcloseしてくれた OandaAPI は優秀
         result = self._client.order_oanda(method_type='trail', stoploss_price=new_stop)
         print('[Trader] Trailing-result: {}'.format(result))
 
@@ -78,7 +98,7 @@ class RealTrader(Trader):
         last_index = len(self._indicators) - 1
         last_candle = candles.iloc[-1, :]
 
-        self._set_position(self.__load_position())
+        self._set_position(self.__fetch_current_position())
         if self._position['type'] == 'none':
             entry_rules = [
                 'sma_follow_trend', 'band_expansion', 'in_the_band',
@@ -130,18 +150,18 @@ class RealTrader(Trader):
     #                       Scalping
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def __play_scalping_trade(self, candles):
-        ''' 現在のレートにおいて、scalpingルールでトレード '''
+        ''' Trade with scalping rule '''
         indicators = self._indicators
         last_candle = candles.iloc[-1]
         last_indicators = indicators.iloc[-1]
 
-        self._set_position(self.__load_position())
+        self._set_position(self.__fetch_current_position())
 
-        if self._position['type'] == 'none':
-            self.__drive_entry_process(candles, last_candle, indicators, last_indicators)
-        else:
-            new_stop = self.__drive_trail_process(candles, last_indicators)
+        if self._position['type'] != 'none':
+            new_stop: float = self.__drive_trail_process(candles, last_indicators)
             self.__drive_exit_process(self._position['type'], indicators, last_candle)
+        else:
+            self.__drive_entry_process(candles, last_candle, indicators, last_indicators)
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
             self._position['type'], new_stop if 'new_stop' in locals() else '-', self._position.get('stoploss', None)
@@ -174,22 +194,14 @@ class RealTrader(Trader):
         self._create_position(candles.iloc[-2], direction, last_indicators)
         return direction
 
-    def __drive_trail_process(self, candles, last_indicators):
-        # # INFO: 1.厳しいstoploss設定: is_exitable_by_bollinger 用
-        # new_stop = rules.new_stoploss_price(
-        #     position_type=self._position['type'],
-        #     previous_low=candles.at[last_index - 1, 'low'],
-        #     previous_high=candles.at[last_index - 1, 'high'],
-        #     old_stoploss=self._position.get('stoploss', np.nan),
-        #     stoploss_buf=self.config.stoploss_buffer_pips,
-        #     static_spread=self.config.static_spread
-        # )
-        # INFO: 2. 緩いstoploss設定: exitable_by_stoccross 用
-        new_stop = scalping.new_stoploss_price(
-            position_type=self._position['type'], old_stoploss=self._position.get('stoploss', np.nan),
+    def __drive_trail_process(self, candles, last_indicators) -> float:
+        old_stoploss: float = self._position.get('stoploss', np.nan)
+
+        new_stop: float = scalping.new_stoploss_price(
+            position_type=self._position['type'], old_stoploss=old_stoploss,
             current_sup=last_indicators['support'], current_regist=last_indicators['regist']
         )
-        if new_stop != self._position.get('stoploss', np.nan) and new_stop is not np.nan:
+        if new_stop != old_stoploss and new_stop is not np.nan:
             self._trail_stoploss(new_stop=new_stop)
 
         return new_stop
@@ -204,9 +216,9 @@ class RealTrader(Trader):
         previous_indicator = indicators.iloc[-2]
 
         # stod_over_stosd_on_long = last_candle['stoD_over_stoSD']
-        if scalping.drive_exitable_judge_with_stocs(position_type, current_indicator, previous_indicator):
-            # if scalping.exitable_by_long_stoccross(position_type, stod_over_stosd_on_long) \
-            #         and scalping.exitable_by_stoccross(
+        if scalping.is_exitable(position_type, current_indicator, previous_indicator):
+            # if scalping._exitable_by_long_stoccross(position_type, stod_over_stosd_on_long) \
+            #         and scalping._exitable_by_stoccross(
             #             position_type, previous_indicator['stoD_3'], previous_indicator['stoSD_3']
             #         ):
             if preliminary: return True
@@ -214,13 +226,13 @@ class RealTrader(Trader):
             reason = 'stoc crossed at {} ! position_type: {}'.format(last_candle['time'], position_type)
             self.__settle_position(reason=reason)
 
-    def __load_position(self):
-        pos = {'type': 'none'}
+    def __fetch_current_position(self) -> Position:
+        pos: Position = {'type': 'none'}
         open_trades = self._client.call_oanda('open_trades')
         if open_trades == []:
             return pos
 
-        # Open position の情報抽出
+        # Extract only the necessary information of open position
         target = open_trades[0]
         pos['price'] = float(target['price'])
         pos['openTime'] = target['openTime']
@@ -236,7 +248,7 @@ class RealTrader(Trader):
 
     def __since_last_loss(self):
         '''
-        最も最近の損失からの経過時間を返す
+        Return the elapsed time since the most recent lose
 
         Parameters
         ----------
