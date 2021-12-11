@@ -8,6 +8,7 @@ import pytest
 
 import models.real_trader as real
 from models.trader_config import FILTER_ELEMENTS
+from models.trade_rules.stoploss import step_trailing, support_or_registance
 
 
 @pytest.fixture(scope='module')
@@ -30,6 +31,11 @@ def dummy_candles(d1_stoc_dummy):
 def dummy_indicators(real_trader_client, dummy_candles):
     real_trader_client._ana.calc_indicators(dummy_candles, long_span_candles=dummy_candles)
     yield real_trader_client._ana.get_indicators()
+
+
+@pytest.fixture(name='df_support_and_resistance', scope='session')
+def fixture_support_and_resistance() -> pd.DataFrame:
+    yield pd.DataFrame({'support': [98.0, 100.0], 'regist': [123.456, 112.233]})
 
 
 def test_not_entry(real_trader_client, dummy_candles, dummy_indicators):
@@ -156,58 +162,73 @@ def test__trail_stoploss(real_trader_client):
     )
 
 
-class TestJudgeSettlePosition:
-    def test_no_position(self, real_trader_client, dummy_candles):
+# class TestDriveTrailForSwing:
+class TestDriveTrailProcess:
+    # NOTE: stoploss is going to be set by step_trailing
+    def test_no_position_with_step_trailing(self, real_trader_client, dummy_candles, df_support_and_resistance):
         real_trader_client._set_position({'type': 'none'})
 
-        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
-            real_trader_client._judge_settle_position(len(dummy_candles) - 1, dummy_candles)
+        with patch('models.real_trader.RealTrader.stoploss_method', return_value=step_trailing):
+            with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+                real_trader_client._RealTrader__drive_trail_process(
+                    dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+                )
 
-            mock.assert_not_called()
+                mock.assert_not_called()
 
-    def test_long_position(self, real_trader_client, dummy_candles):
+    def test_long_position_with_step_trailing(self, real_trader_client, dummy_candles, df_support_and_resistance):
         real_trader_client._set_position({'type': 'long', 'stoploss': 123.456})
 
-        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
-            real_trader_client._judge_settle_position(len(dummy_candles) - 1, dummy_candles)
-            new_stop: float = dummy_candles.iloc[-2]['low'] - real_trader_client.config.stoploss_buffer_pips
+        with patch('models.real_trader.RealTrader.stoploss_method', return_value=step_trailing):
+            with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+                real_trader_client._RealTrader__drive_trail_process(
+                    dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+                )
+                new_stop: float = dummy_candles.iloc[-2]['low'] - real_trader_client.config.stoploss_buffer_pips
 
-            mock.assert_called_once_with(new_stop=round(new_stop, 3))
+                mock.assert_called_once_with(new_stop=round(new_stop, 3))
 
-    def test_short_position(self, real_trader_client, dummy_candles):
+    def test_short_position_with_step_trailing(self, real_trader_client, dummy_candles, df_support_and_resistance):
         real_trader_client._set_position({'type': 'short', 'stoploss': 140.012})
 
-        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
-            real_trader_client._judge_settle_position(len(dummy_candles) - 1, dummy_candles)
-            new_stop: float = dummy_candles.iloc[-2]['high'] \
-                + real_trader_client.config.stoploss_buffer_pips \
-                + real_trader_client.config.static_spread
+        with patch('models.real_trader.RealTrader.stoploss_method', return_value=step_trailing):
+            with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+                real_trader_client._RealTrader__drive_trail_process(
+                    dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+                )
+                new_stop: float = dummy_candles.iloc[-2]['high'] \
+                    + real_trader_client.config.stoploss_buffer_pips \
+                    + real_trader_client.config.static_spread
 
-            mock.assert_called_once_with(new_stop=round(new_stop, 3))
+                mock.assert_called_once_with(new_stop=round(new_stop, 3))
 
-
-class TestDriveTrailProcess:
-    @pytest.fixture(name='df_support_and_resistance', scope='module')
-    def fixture_support_and_resistance(self) -> pd.DataFrame:
-        yield pd.DataFrame({'support': [98.0, 100.0], 'regist': [123.456, 112.233]})
-
-    def test_no_position(self, real_trader_client, df_support_and_resistance):
+    # NOTE: stoploss is going to be set by support_or_resistance
+    def test_no_position_with_support(self, real_trader_client, dummy_candles, df_support_and_resistance):
         real_trader_client._position = {'type': 'none'}
-        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
-            real_trader_client._RealTrader__drive_trail_process(df_support_and_resistance.iloc[-1])
-            mock.assert_not_called()
+        with patch('models.real_trader.RealTrader.stoploss_method', return_value=support_or_registance):
+            with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+                real_trader_client._RealTrader__drive_trail_process(
+                    dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+                )
+                mock.assert_not_called()
 
-    def test_long_position(self, real_trader_client, df_support_and_resistance):
+    def test_long_position_with_support(self, real_trader_client, dummy_candles, df_support_and_resistance):
         real_trader_client._position = {'type': 'long', 'stoploss': 99.5}
-        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
-            real_trader_client._RealTrader__drive_trail_process(df_support_and_resistance.iloc[-1])
-            mock.assert_called_once_with(new_stop=100.0)
+        with patch('models.real_trader.RealTrader.stoploss_method', return_value=support_or_registance):
+            with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+                real_trader_client._RealTrader__drive_trail_process(
+                    dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+                )
+                mock.assert_called_once_with(new_stop=100.0)
 
-    def test_short_position(self, real_trader_client, df_support_and_resistance):
+    def test_short_position_with_support(self, real_trader_client, dummy_candles, df_support_and_resistance):
         real_trader_client._position = {'type': 'short', 'stoploss': 113.5}
-        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
-            real_trader_client._RealTrader__drive_trail_process(df_support_and_resistance.iloc[-1])
-            mock.assert_called_once_with(new_stop=112.233)
+        with patch('models.real_trader.RealTrader.stoploss_method', return_value=support_or_registance):
+            with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+                real_trader_client._RealTrader__drive_trail_process(
+                    dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+                )
+                mock.assert_called_once_with(new_stop=112.233)
 
 
 def test___drive_exit_process_dead_cross(real_trader_client):

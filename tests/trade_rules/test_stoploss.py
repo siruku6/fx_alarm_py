@@ -4,7 +4,7 @@ import pytest
 import models.trade_rules.stoploss as stoploss_strategy
 
 
-class TestPreviousCandleOtherside():
+class TestStepTrailing():
     PARAMETERS = (
         (None, 101.001, 101.988, None),
         ('long', 101.001, 101.988, 100.971),
@@ -22,7 +22,7 @@ class TestPreviousCandleOtherside():
         config.set_entry_rules('static_spread', 0.014)
         config.set_entry_rules('stoploss_buffer_pips', 0.03)
 
-        result: float = stoploss_strategy.previous_candle_otherside(
+        result: float = stoploss_strategy.step_trailing(
             position_type, previous_low, previous_high, config
         )
         if result is None:

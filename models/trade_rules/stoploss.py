@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 
@@ -19,7 +21,10 @@ def previous_candle_othersides(
     return possible_stoploss
 
 
-def previous_candle_otherside(position_type, previous_low, previous_high, config):
+def step_trailing(
+    position_type: str, previous_low: float, previous_high: float, config: TraderConfig, **_
+) -> Optional[float]:
+    new_stoploss: float
     if position_type == 'long':
         new_stoploss = previous_low - config.stoploss_buffer_pips
         return round(new_stoploss, 3)
@@ -28,10 +33,17 @@ def previous_candle_otherside(position_type, previous_low, previous_high, config
         return round(new_stoploss, 3)
 
 
-def support_or_registance(position_type, current_sup, current_regist):
+def support_or_registance(position_type: str, current_sup: float, current_regist: float, **_) -> Optional[float]:
+    stoploss: float
     if position_type == 'long':
         stoploss = current_sup
         return stoploss
     elif position_type == 'short':
         stoploss = current_regist
         return stoploss
+
+
+STRATEGIES = {
+    'step': step_trailing,
+    'support': support_or_registance,
+}
