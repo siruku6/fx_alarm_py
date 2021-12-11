@@ -123,17 +123,22 @@ class RealTrader(Trader):
         stoploss_price = self._position.get('stoploss')
 
         possible_stoploss = stoploss_strategy.previous_candle_otherside(
-            position_type, candles.low[index - 1], candles.high[index - 1],
-            old_stoploss=stoploss_price, config=self.config
+            position_type, candles.low[index - 1], candles.high[index - 1], config=self.config
         )
 
-        if ((position_type == 'long') and (possible_stoploss > stoploss_price)) \
-                or ((position_type == 'short') and (possible_stoploss < stoploss_price)):
+        if self.__new_stoploss_is_closer(position_type, possible_stoploss, stoploss_price):
             self._trail_stoploss(new_stop=possible_stoploss)
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
             position_type, possible_stoploss, stoploss_price
         ))
+
+    def __new_stoploss_is_closer(self, position_type, possible_stoploss, old_stoploss):
+        if position_type in ['long', 'short'] and old_stoploss in [np.nan, None]:
+            return True
+
+        return ((position_type == 'long') and (possible_stoploss > old_stoploss)) \
+            or ((position_type == 'short') and (possible_stoploss < old_stoploss))
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     #                       Scalping
@@ -147,7 +152,7 @@ class RealTrader(Trader):
         self._set_position(self.__fetch_current_position())
 
         if self._position['type'] != 'none':
-            new_stop: float = self.__drive_trail_process(candles, last_indicators)
+            new_stop: float = self.__drive_trail_process(last_indicators)
             self.__drive_exit_process(self._position['type'], indicators, last_candle)
         else:
             self.__drive_entry_process(candles, last_candle, indicators, last_indicators)
@@ -183,17 +188,18 @@ class RealTrader(Trader):
         self._create_position(candles.iloc[-2], direction, last_indicators)
         return direction
 
-    def __drive_trail_process(self, candles, last_indicators) -> float:
+    def __drive_trail_process(self, last_indicators) -> float:
         old_stoploss: float = self._position.get('stoploss', np.nan)
 
-        new_stop: float = stoploss_strategy.support_or_registance(
-            position_type=self._position['type'], old_stoploss=old_stoploss,
-            current_sup=last_indicators['support'], current_regist=last_indicators['regist']
+        possible_stoploss: float = stoploss_strategy.support_or_registance(
+            position_type=self._position['type'],
+            current_sup=last_indicators['support'],
+            current_regist=last_indicators['regist']
         )
-        if new_stop != old_stoploss and new_stop is not np.nan:
-            self._trail_stoploss(new_stop=new_stop)
+        if self.__new_stoploss_is_closer(self._position['type'], possible_stoploss, old_stoploss):
+            self._trail_stoploss(new_stop=possible_stoploss)
 
-        return new_stop
+        return possible_stoploss
 
     def __drive_exit_process(self, position_type, indicators, last_candle, preliminary=False):
         # plus_2sigma = last_indicators['sigma*2_band']

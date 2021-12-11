@@ -163,7 +163,7 @@ def test___decide_exit_price():
 def test___exit_by_stoploss():
     def test_stoploss(candles):
         for row in candles:
-            exit_price, exit_reason = scalping.__exit_by_stoploss(row['entry_direction'], row)
+            exit_price, exit_reason = scalping.__exit_by_stoploss(row)
 
             if exit_price is None:
                 assert exit_price is row['expected_exitprice']

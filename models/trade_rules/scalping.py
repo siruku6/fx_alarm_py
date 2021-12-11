@@ -75,7 +75,7 @@ def __trade_routine(entry_direction, factor_dicts, index, one_frame):
 
     previous_frame = factor_dicts[index - 1]
     one_frame['possible_stoploss'] = stoploss_strategy.support_or_registance(
-        entry_direction, previous_frame['support'], previous_frame['regist'], np.nan
+        entry_direction, previous_frame['support'], previous_frame['regist']
     )
 
     exit_price, exit_type, exit_reason = __decide_exit_price(
@@ -107,7 +107,7 @@ def __decide_exit_price(entry_direction, one_frame, previous_frame):
     elif entry_direction == 'short':
         # edge_price = one_frame['low']
         exit_type = 'buy_exit'
-    exit_price, exit_reason = __exit_by_stoploss(entry_direction, one_frame)
+    exit_price, exit_reason = __exit_by_stoploss(one_frame)
     if exit_price is not None:
         return exit_price, exit_type, exit_reason
 
@@ -119,7 +119,7 @@ def __decide_exit_price(entry_direction, one_frame, previous_frame):
     return exit_price, exit_type, exit_reason
 
 
-def __exit_by_stoploss(entry_direction, one_frame):
+def __exit_by_stoploss(one_frame):
     ''' stoploss による exit の判定 '''
     exit_price = None
     exit_reason = None

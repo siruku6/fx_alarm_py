@@ -19,22 +19,19 @@ def previous_candle_othersides(
     return possible_stoploss
 
 
-def previous_candle_otherside(position_type, previous_low, previous_high, old_stoploss, config):
+def previous_candle_otherside(position_type, previous_low, previous_high, config):
     if position_type == 'long':
         new_stoploss = previous_low - config.stoploss_buffer_pips
-        return round(max(new_stoploss, old_stoploss), 3)
+        return round(new_stoploss, 3)
     elif position_type == 'short':
         new_stoploss = previous_high + config.stoploss_buffer_pips + config.static_spread
-        return round(min(new_stoploss, old_stoploss), 3)
+        return round(new_stoploss, 3)
 
 
-def support_or_registance(position_type, current_sup, current_regist, old_stoploss):
-    stoploss = np.nan
-    is_old_stoploss_empty = np.isnan(old_stoploss)
-
-    if position_type == 'long' and (is_old_stoploss_empty or old_stoploss < current_sup):
+def support_or_registance(position_type, current_sup, current_regist):
+    if position_type == 'long':
         stoploss = current_sup
-    elif position_type == 'short' and (is_old_stoploss_empty or old_stoploss > current_regist):
+        return stoploss
+    elif position_type == 'short':
         stoploss = current_regist
-
-    return stoploss
+        return stoploss

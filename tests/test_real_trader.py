@@ -186,6 +186,30 @@ class TestJudgeSettlePosition:
             mock.assert_called_once_with(new_stop=round(new_stop, 3))
 
 
+class TestDriveTrailProcess:
+    @pytest.fixture(name='df_support_and_resistance', scope='module')
+    def fixture_support_and_resistance(self) -> pd.DataFrame:
+        yield pd.DataFrame({'support': [98.0, 100.0], 'regist': [123.456, 112.233]})
+
+    def test_no_position(self, real_trader_client, df_support_and_resistance):
+        real_trader_client._position = {'type': 'none'}
+        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+            real_trader_client._RealTrader__drive_trail_process(df_support_and_resistance.iloc[-1])
+            mock.assert_not_called()
+
+    def test_long_position(self, real_trader_client, df_support_and_resistance):
+        real_trader_client._position = {'type': 'long', 'stoploss': 99.5}
+        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+            real_trader_client._RealTrader__drive_trail_process(df_support_and_resistance.iloc[-1])
+            mock.assert_called_once_with(new_stop=100.0)
+
+    def test_short_position(self, real_trader_client, df_support_and_resistance):
+        real_trader_client._position = {'type': 'short', 'stoploss': 113.5}
+        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+            real_trader_client._RealTrader__drive_trail_process(df_support_and_resistance.iloc[-1])
+            mock.assert_called_once_with(new_stop=112.233)
+
+
 def test___drive_exit_process_dead_cross(real_trader_client):
     # Example: stoD_3 < stoSD_3, stoD_over_stoSD => False
     indicators = pd.DataFrame({'stoD_3': [10.000, 10.000], 'stoSD_3': [30.000, 30.000]})
