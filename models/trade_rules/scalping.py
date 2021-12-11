@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+import models.trade_rules.stoploss as stoploss_strategy
+
 
 # - - - - - - - - - - - - - - - - - - - - - - - -
 #                Driver of logics
@@ -72,7 +74,7 @@ def __trade_routine(entry_direction, factor_dicts, index, one_frame):
         return entry_direction
 
     previous_frame = factor_dicts[index - 1]
-    one_frame['possible_stoploss'] = new_stoploss_price(
+    one_frame['possible_stoploss'] = stoploss_strategy.support_or_registance(
         entry_direction, previous_frame['support'], previous_frame['regist'], np.nan
     )
 
@@ -162,18 +164,6 @@ def repulsion_exist(trend, previous_ema, two_before_high, previous_high, two_bef
         if leave_from_ema and touch_ema:
             return 'short'
     return None
-
-
-def new_stoploss_price(position_type, current_sup, current_regist, old_stoploss):
-    stoploss = np.nan
-    is_old_stoploss_empty = np.isnan(old_stoploss)
-
-    if position_type == 'long' and (is_old_stoploss_empty or old_stoploss < current_sup):
-        stoploss = current_sup
-    elif position_type == 'short' and (is_old_stoploss_empty or old_stoploss > current_regist):
-        stoploss = current_regist
-
-    return stoploss
 
 
 def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):

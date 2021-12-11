@@ -74,7 +74,7 @@ class SwingTrader(Trader):
         )
 
     def __set_stoploss_prices(self, candles: pd.DataFrame, entry_direction: pd.Series) -> pd.DataFrame:
-        candles.loc[:, 'possible_stoploss'] = stoploss_strategy.previous_candle_otherside(
+        candles.loc[:, 'possible_stoploss'] = stoploss_strategy.previous_candle_othersides(
             candles, entry_direction, self.config
         )
         return candles

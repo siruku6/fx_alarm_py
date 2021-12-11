@@ -7,6 +7,7 @@ import numpy as np
 from models.candle_storage import FXBase
 from models.trader import Trader
 import models.trade_rules.scalping as scalping
+import models.trade_rules.stoploss as stoploss_strategy
 
 
 class PositionRequired(TypedDict):
@@ -197,7 +198,7 @@ class RealTrader(Trader):
     def __drive_trail_process(self, candles, last_indicators) -> float:
         old_stoploss: float = self._position.get('stoploss', np.nan)
 
-        new_stop: float = scalping.new_stoploss_price(
+        new_stop: float = stoploss_strategy.support_or_registance(
             position_type=self._position['type'], old_stoploss=old_stoploss,
             current_sup=last_indicators['support'], current_regist=last_indicators['regist']
         )

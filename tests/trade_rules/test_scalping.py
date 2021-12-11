@@ -197,25 +197,3 @@ def test___exit_by_stoploss():
     ]
     test_stoploss(long_candles)
     test_stoploss(short_candles)
-
-
-def test_new_stoploss_price():
-    case_dicts = [
-        {'position_type': 'long', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': np.nan},
-        {'position_type': 'long', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': 110.0},
-        {'position_type': 'long', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': 130.0},
-        {'position_type': 'short', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': np.nan},
-        {'position_type': 'short', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': 150.0},
-        {'position_type': 'short', 'current_sup': 120.0, 'current_regist': 140.0, 'old_stoploss': 130.0}
-    ]
-    results = [
-        case_dicts[0]['current_sup'],
-        case_dicts[1]['current_sup'],
-        np.nan,
-        case_dicts[3]['current_regist'],
-        case_dicts[4]['current_regist'],
-        np.nan
-    ]
-    for case_dict, result in zip(case_dicts, results):
-        stoploss = scalping.new_stoploss_price(**case_dict)
-        assert stoploss == result or stoploss is result
