@@ -32,7 +32,7 @@ class TestSetStoplossPrices:
         )
         result: pd.DataFrame = swing_client._SwingTrader__set_stoploss_prices(
             dummy_candles.copy(),
-            long_indexes=[False, True], short_indexes=[False, False]
+            entry_direction=np.array([np.nan, 'long'])
         )
         np.testing.assert_array_equal(result.columns, ['high', 'low', 'possible_stoploss'])
         assert result['possible_stoploss'].dtype == np.float64
@@ -48,7 +48,7 @@ class TestSetStoplossPrices:
         )
         result: pd.DataFrame = swing_client._SwingTrader__set_stoploss_prices(
             dummy_candles.copy(),
-            long_indexes=[False, True, False, False], short_indexes=[False, False, True, True]
+            entry_direction=np.array([np.nan, 'long', 'short', 'short'])
         )
 
         expected: pd.DataFrame = dummy_candles
