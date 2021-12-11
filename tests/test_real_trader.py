@@ -128,7 +128,8 @@ def test__create_position_without_indicators(real_trader_client, dummy_market_or
         with patch('oandapyV20.API.request', return_value=dummy_response):
             real_trader_client._create_position(_previous_candle_dummy(), 'short')
 
-    short_stoploss = real_trader_client._RealTrader__stoploss_in_short(_previous_candle_dummy()['high'])
+    short_stoploss = _previous_candle_dummy()['high'] \
+        + real_trader_client.config.stoploss_buffer_pips + real_trader_client.config.static_spread
     mock.assert_called_with(
         accountID=os.environ.get('OANDA_ACCOUNT_ID'),
         data=_order_response_dummy('-', short_stoploss, real_trader_client.config.get_instrument())
@@ -153,6 +154,36 @@ def test__trail_stoploss(real_trader_client):
         tradeID=dummy_trade_id,
         data=data
     )
+
+
+class TestJudgeSettlePosition:
+    def test_no_position(self, real_trader_client, dummy_candles):
+        real_trader_client._set_position({'type': 'none'})
+
+        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+            real_trader_client._judge_settle_position(len(dummy_candles) - 1, dummy_candles)
+
+            mock.assert_not_called()
+
+    def test_long_position(self, real_trader_client, dummy_candles):
+        real_trader_client._set_position({'type': 'long', 'stoploss': 123.456})
+
+        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+            real_trader_client._judge_settle_position(len(dummy_candles) - 1, dummy_candles)
+            new_stop: float = dummy_candles.iloc[-2]['low'] - real_trader_client.config.stoploss_buffer_pips
+
+            mock.assert_called_once_with(new_stop=round(new_stop, 3))
+
+    def test_short_position(self, real_trader_client, dummy_candles):
+        real_trader_client._set_position({'type': 'short', 'stoploss': 140.012})
+
+        with patch('models.real_trader.RealTrader._trail_stoploss') as mock:
+            real_trader_client._judge_settle_position(len(dummy_candles) - 1, dummy_candles)
+            new_stop: float = dummy_candles.iloc[-2]['high'] \
+                + real_trader_client.config.stoploss_buffer_pips \
+                + real_trader_client.config.static_spread
+
+            mock.assert_called_once_with(new_stop=round(new_stop, 3))
 
 
 def test___drive_exit_process_dead_cross(real_trader_client):

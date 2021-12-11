@@ -59,14 +59,11 @@ class RealTrader(Trader):
                 stoploss = last_indicators['support']
         elif direction == 'short':
             sign = '-'
-            stoploss = self.__stoploss_in_short(previous_high=previous_candle['high'])
+            stoploss = previous_candle['high'] + self.config.stoploss_buffer_pips + self.config.static_spread
             if last_indicators is not None:
                 stoploss = last_indicators['regist']
 
         self._client.order_oanda(method_type='entry', posi_nega_sign=sign, stoploss_price=stoploss)
-
-    def __stoploss_in_short(self, previous_high):
-        return previous_high + self.config.stoploss_buffer_pips + self.config.static_spread
 
     def _trail_stoploss(self, new_stop):
         '''
@@ -117,31 +114,22 @@ class RealTrader(Trader):
 
             self._create_position(candles.iloc[-2], direction)
         else:
-            self._judge_settle_position(last_index, last_candle.close, candles)
+            self._judge_settle_position(last_index, candles)
 
         return None
 
-    def _judge_settle_position(self, index, c_price, candles):
-        parabolic = self._indicators['SAR']
-        position_type = self._position['type']
-        stoploss_price = self._position['stoploss']
-        possible_stoploss = None
+    def _judge_settle_position(self, index, candles):
+        position_type = self._position.get('type')
+        stoploss_price = self._position.get('stoploss')
 
-        if position_type == 'long':
-            possible_stoploss = candles.low[index - 1] - self.config.stoploss_buffer_pips
-            if possible_stoploss > stoploss_price:
-                stoploss_price = possible_stoploss
-                self._trail_stoploss(new_stop=possible_stoploss)
-            elif parabolic[index] > c_price:
-                self.__settle_position()
+        possible_stoploss = stoploss_strategy.previous_candle_otherside(
+            position_type, candles.low[index - 1], candles.high[index - 1],
+            old_stoploss=stoploss_price, config=self.config
+        )
 
-        elif position_type == 'short':
-            possible_stoploss = self.__stoploss_in_short(previous_high=candles.high[index - 1])
-            if possible_stoploss < stoploss_price:
-                stoploss_price = possible_stoploss
-                self._trail_stoploss(new_stop=possible_stoploss)
-            elif parabolic[index] < c_price + self.config.static_spread:
-                self.__settle_position()
+        if ((position_type == 'long') and (possible_stoploss > stoploss_price)) \
+                or ((position_type == 'short') and (possible_stoploss < stoploss_price)):
+            self._trail_stoploss(new_stop=possible_stoploss)
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
             position_type, possible_stoploss, stoploss_price
