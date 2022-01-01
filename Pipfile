@@ -18,6 +18,7 @@ python-dotenv = "*"
 moto = "*"
 pytest = "*"
 flake8 = "*"
+coverage = "*"
 
 [requires]
 python_version = "3.8"
