@@ -118,3 +118,7 @@ class TraderConfig:
     @property
     def stoploss_buffer_base(self) -> float:
         return self._entry_rules['stoploss_buffer_base']
+
+    @property
+    def stoploss_strategy_name(self) -> str:
+        return self._stoploss_strategy_name
