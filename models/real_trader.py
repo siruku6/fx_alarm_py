@@ -178,8 +178,7 @@ class RealTrader(Trader):
 
     def __drive_trail_process(self, previous_candle: pd.Series, last_indicators: pd.Series) -> float:
         old_stoploss: float = self._position.get('stoploss', np.nan)
-
-        possible_stoploss: float = self.stoploss_method()(
+        possible_stoploss: float = self.stoploss_method(
             position_type=self._position['type'],
             previous_low=previous_candle['low'], previous_high=previous_candle['high'],
             config=self.config,
