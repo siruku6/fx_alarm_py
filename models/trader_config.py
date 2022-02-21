@@ -33,6 +33,7 @@ class TraderConfig:
 
         self._instrument: str
         selected_entry_rules: Dict[str, Union[int, float]]
+        self._stoploss_strategy_name: str = os.environ.get('STOPLOSS_STRATEGY')
         self._instrument, selected_entry_rules = self.__select_configs(days)
         self._entry_rules: EntryRulesDict = self.__init_entry_rules(selected_entry_rules)
 
@@ -117,3 +118,7 @@ class TraderConfig:
     @property
     def stoploss_buffer_base(self) -> float:
         return self._entry_rules['stoploss_buffer_base']
+
+    @property
+    def stoploss_strategy_name(self) -> str:
+        return self._stoploss_strategy_name

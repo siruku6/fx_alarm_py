@@ -97,31 +97,3 @@ def test_generate_stoc_allows_column():
 
     result = base.generate_stoc_allows_column(indicators, indicators['trend'])
     assert np.all(result == indicators['expected_result'])
-
-
-class TestNewStoplossPrice():
-    PARAMETERS = (
-        (None, 101.001, 101.988, 100.882, None),
-        ('long', 101.001, 101.988, 100.970, 100.971),
-        ('long', 101.001, 101.988, 100.972, 100.972),
-        ('short', 101.001, 101.988, 102.033, 102.032),
-        ('short', 101.001, 101.988, 102.031, 102.031),
-        (np.nan, 101.001, 101.988, 102.031, None)
-    )
-
-    @pytest.mark.parametrize(
-        'position_type, previous_low, previous_high, old_stoploss, expected',
-        PARAMETERS
-    )
-    def test_basic(
-        self, position_type, previous_low, previous_high, old_stoploss, expected
-    ):
-        stoploss_buff: float = 0.03
-        static_spread: float = 0.014
-        result: float = base.new_stoploss_price(
-            position_type, previous_low, previous_high, old_stoploss, stoploss_buff, static_spread
-        )
-        if result is None:
-            assert result is expected
-        else:
-            np.testing.assert_almost_equal(result, expected)

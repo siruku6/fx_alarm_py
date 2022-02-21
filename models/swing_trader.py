@@ -5,6 +5,7 @@ import pandas as pd
 
 from models.trader import Trader
 import models.trade_rules.base as base_rules
+import models.trade_rules.stoploss as stoploss_strategy
 # import models.trade_rules.wait_close as wait_close
 
 
@@ -64,36 +65,18 @@ class SwingTrader(Trader):
         print('[Trader] judging entryable or not ...')
 
         entry_direction: pd.Series = candles['entryable'].fillna(method='ffill')
-        long_direction_index: pd.Series = entry_direction == 'long'
-        short_direction_index: pd.Series = entry_direction == 'short'
-
-        candles_with_stoploss: pd.DataFrame = self.__set_stoploss_prices(
-            candles,
-            long_indexes=long_direction_index,
-            short_indexes=short_direction_index
-        )
+        candles_with_stoploss: pd.DataFrame = self.__set_stoploss_prices(candles, entry_direction)
         base_rules.commit_positions(
             candles_with_stoploss,
-            long_indexes=long_direction_index,
-            short_indexes=short_direction_index,
+            long_indexes=(entry_direction == 'long'),
+            short_indexes=(entry_direction == 'short'),
             spread=self.config.static_spread
         )
 
-    def __set_stoploss_prices(
-        self, candles: pd.DataFrame,
-        long_indexes: Union[List[bool], np.ndarray],
-        short_indexes: Union[List[bool], np.ndarray]
-    ) -> pd.DataFrame:
-        ''' trail した場合の stoploss 価格を candles dataframe に設定 '''
-        # INFO: long-stoploss
-        long_stoploss_prices: pd.Series = candles.shift(1)[long_indexes]['low'] - self.config.stoploss_buffer_pips
-        candles.loc[long_indexes, 'possible_stoploss'] = long_stoploss_prices
-
-        # INFO: short-stoploss
-        short_stoploss_prices: pd.Series = candles.shift(1)[short_indexes]['high'] \
-            + self.config.stoploss_buffer_pips \
-            + self.config.static_spread
-        candles.loc[short_indexes, 'possible_stoploss'] = short_stoploss_prices
+    def __set_stoploss_prices(self, candles: pd.DataFrame, entry_direction: pd.Series) -> pd.DataFrame:
+        candles.loc[:, 'possible_stoploss'] = stoploss_strategy.previous_candle_othersides(
+            candles, entry_direction, self.config
+        )
         return candles
 
     # OPTIMIZE: probably this method has many unnecessary processings!

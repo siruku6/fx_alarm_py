@@ -24,4 +24,5 @@
     |INSTRUMENT            |USD_JPY              |The name of currency pair you would like to trade|
     |GRANULARITY           |H4                   |The time unit of candles you rely on|
     |STOPLOSS_BUFFER       |0.05                 |This is the buffer for setting stoploss price.<br>For example, if the low price of previous candle is `104.123`,<br>stoploss price is going to be `104.073`.|
+    |STOPLOSS_STRATEGY     |step (or 'support')  |How to trail your stoploss price|
     |UNITS                 |1000                 |How much you would like to exchange per one trade|

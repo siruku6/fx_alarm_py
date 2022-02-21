@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List, Union
 from unittest.mock import patch
 import pytest
@@ -112,3 +113,13 @@ class TestGetStoplossBufferBase:
 
     def test_basic(self, config: TraderConfig, selected_entry_rules: Dict[str, Union[int, float]]):
         assert config.stoploss_buffer_base == selected_entry_rules['stoploss_buffer_base']
+
+
+class TestGetStoplossStrategyName:
+    @pytest.fixture(name='set_stoploss_strategy', scope='class')
+    def fixture_set_stoploss_strategy(self):
+        os.environ['STOPLOSS_STRATEGY'] = 'hoge'
+        yield
+
+    def test_basic(self, config: TraderConfig):
+        assert config.stoploss_strategy_name == os.environ.get('STOPLOSS_STRATEGY')

@@ -1,12 +1,14 @@
 import datetime
 from pprint import pprint
-from typing import TypedDict
+from typing import Any, Callable, TypedDict, Union
 
 import numpy as np
+import pandas as pd
 
 from models.candle_storage import FXBase
 from models.trader import Trader
 import models.trade_rules.scalping as scalping
+import models.trade_rules.stoploss as stoploss_strategy
 
 
 class PositionRequired(TypedDict):
@@ -29,6 +31,13 @@ class RealTrader(Trader):
 
         self._position: Position = {'type': 'none'}
         # self._set_position({'type': 'none'})
+
+    @property
+    def stoploss_method(self) -> Union[
+        Callable[[str, float, float], float],
+        Callable[[str, float, float, Any], float]
+    ]:
+        return stoploss_strategy.STRATEGIES[self.config.stoploss_strategy_name]
 
     #
     # Public
@@ -58,14 +67,11 @@ class RealTrader(Trader):
                 stoploss = last_indicators['support']
         elif direction == 'short':
             sign = '-'
-            stoploss = self.__stoploss_in_short(previous_high=previous_candle['high'])
+            stoploss = previous_candle['high'] + self.config.stoploss_buffer_pips + self.config.static_spread
             if last_indicators is not None:
                 stoploss = last_indicators['regist']
 
         self._client.order_oanda(method_type='entry', posi_nega_sign=sign, stoploss_price=stoploss)
-
-    def __stoploss_in_short(self, previous_high):
-        return previous_high + self.config.stoploss_buffer_pips + self.config.static_spread
 
     def _trail_stoploss(self, new_stop):
         '''
@@ -95,7 +101,6 @@ class RealTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def __play_swing_trade(self, candles):
         ''' 現在のレートにおいて、スイングトレードルールでトレード '''
-        last_index = len(self._indicators) - 1
         last_candle = candles.iloc[-1, :]
 
         self._set_position(self.__fetch_current_position())
@@ -116,35 +121,12 @@ class RealTrader(Trader):
 
             self._create_position(candles.iloc[-2], direction)
         else:
-            self._judge_settle_position(last_index, last_candle.close, candles)
-
-        return None
-
-    def _judge_settle_position(self, index, c_price, candles):
-        parabolic = self._indicators['SAR']
-        position_type = self._position['type']
-        stoploss_price = self._position['stoploss']
-        possible_stoploss = None
-
-        if position_type == 'long':
-            possible_stoploss = candles.low[index - 1] - self.config.stoploss_buffer_pips
-            if possible_stoploss > stoploss_price:
-                stoploss_price = possible_stoploss
-                self._trail_stoploss(new_stop=possible_stoploss)
-            elif parabolic[index] > c_price:
-                self.__settle_position()
-
-        elif position_type == 'short':
-            possible_stoploss = self.__stoploss_in_short(previous_high=candles.high[index - 1])
-            if possible_stoploss < stoploss_price:
-                stoploss_price = possible_stoploss
-                self._trail_stoploss(new_stop=possible_stoploss)
-            elif parabolic[index] < c_price + self.config.static_spread:
-                self.__settle_position()
+            new_stop = self.__drive_trail_process(candles.iloc[-2, :], self._indicators.iloc[-1])
 
         print('[Trader] position: {}, possible_SL: {}, stoploss: {}'.format(
-            position_type, possible_stoploss, stoploss_price
+            self._position['type'], new_stop if 'new_stop' in locals() else '-', self._position.get('stoploss', None)
         ))
+        return None
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     #                       Scalping
@@ -158,7 +140,7 @@ class RealTrader(Trader):
         self._set_position(self.__fetch_current_position())
 
         if self._position['type'] != 'none':
-            new_stop: float = self.__drive_trail_process(candles, last_indicators)
+            new_stop: float = self.__drive_trail_process(candles.iloc[-2], last_indicators)
             self.__drive_exit_process(self._position['type'], indicators, last_candle)
         else:
             self.__drive_entry_process(candles, last_candle, indicators, last_indicators)
@@ -194,17 +176,27 @@ class RealTrader(Trader):
         self._create_position(candles.iloc[-2], direction, last_indicators)
         return direction
 
-    def __drive_trail_process(self, candles, last_indicators) -> float:
+    def __drive_trail_process(self, previous_candle: pd.Series, last_indicators: pd.Series) -> float:
         old_stoploss: float = self._position.get('stoploss', np.nan)
-
-        new_stop: float = scalping.new_stoploss_price(
-            position_type=self._position['type'], old_stoploss=old_stoploss,
+        possible_stoploss: float = self.stoploss_method(
+            position_type=self._position['type'],
+            previous_low=previous_candle['low'], previous_high=previous_candle['high'],
+            config=self.config,
             current_sup=last_indicators['support'], current_regist=last_indicators['regist']
         )
-        if new_stop != old_stoploss and new_stop is not np.nan:
-            self._trail_stoploss(new_stop=new_stop)
+        if self.__new_stoploss_is_closer(self._position['type'], possible_stoploss, old_stoploss):
+            self._trail_stoploss(new_stop=possible_stoploss)
+        else:
+            possible_stoploss = old_stoploss
 
-        return new_stop
+        return possible_stoploss
+
+    def __new_stoploss_is_closer(self, position_type, possible_stoploss, old_stoploss):
+        if position_type in ['long', 'short'] and old_stoploss in [np.nan, None]:
+            return True
+
+        return ((position_type == 'long') and (possible_stoploss > old_stoploss)) \
+            or ((position_type == 'short') and (possible_stoploss < old_stoploss))
 
     def __drive_exit_process(self, position_type, indicators, last_candle, preliminary=False):
         # plus_2sigma = last_indicators['sigma*2_band']
