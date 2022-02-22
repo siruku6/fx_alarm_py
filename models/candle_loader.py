@@ -1,10 +1,14 @@
 from typing import Dict  # , List, Optional
+
+from aws_lambda_powertools import Logger
 import pandas as pd
 
 import models.tools.interface as i_face
 from models.candle_storage import FXBase
 from models.trader_config import TraderConfig
 from models.client_manager import ClientManager
+
+LOGGER = Logger()
 
 
 class CandleLoader:
@@ -74,5 +78,5 @@ class CandleLoader:
             FXBase.replace_latest_price('high', latest_candle['high'])
         if candle_dict['low'] > latest_candle['low']:
             FXBase.replace_latest_price('low', latest_candle['low'])
-        print('[Client] Last_H4: {}, Current_M1: {}'.format(candle_dict, latest_candle))
-        print('[Client] New_H4: {}'.format(FXBase.get_candles().iloc[-1].to_dict()))
+        LOGGER.info({'[Client] Last_H4': candle_dict, 'Current_M1': latest_candle})
+        LOGGER.info({'[Client] New_H4': FXBase.get_candles().iloc[-1].to_dict()})

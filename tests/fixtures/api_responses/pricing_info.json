@@ -1,0 +1,20 @@
+{
+    "time": "2022-02-22T11:24:56.338309841Z",
+    "prices": [
+        {
+            "type": "PRICE",
+            "time": "2022-02-22T11:24:53.769754092Z",
+            "bids": [{"price": "114.928", "liquidity": 250000}],
+            "asks": [{"price": "114.932", "liquidity": 250000}],
+            "closeoutBid": "114.923",
+            "closeoutAsk": "114.937",
+            "status": "tradeable",
+            "tradeable": true,
+            "quoteHomeConversionFactors": {
+                "positiveUnits": "1.00000000",
+                "negativeUnits": "1.00000000"
+            },
+            "instrument": "USD_JPY"
+        }
+    ]
+}

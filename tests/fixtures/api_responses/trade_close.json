@@ -1,0 +1,42 @@
+{
+    "orderFillTransaction": {
+        "price": "1.09289",
+        "batchID": "2316",
+        "accountBalance": "33848.1208",
+        "reason": "MARKET_ORDER_TRADE_CLOSE",
+        "tradesClosed": [
+            {
+                "units": "-100",
+                "financing": "0.0000",
+                "realizedPL": "-0.1455",
+                "tradeID": "2313"
+            }
+        ],
+        "id": "2317",
+        "orderID": "2316",
+        "financing": "0.0000",
+        "userID": 1435156,
+        "instrument": "EUR_USD",
+        "time": "2016-10-28T15:11:58.023004583Z",
+        "units": "-100",
+        "type": "ORDER_FILL",
+        "pl": "-0.1455",
+        "accountID": "101-004-1435156-001"
+    },
+    "orderCreateTransaction": {
+        "timeInForce": "FOK",
+        "reason": "TRADE_CLOSE",
+        "tradeClose": {"units": "100", "tradeID": "2313"},
+        "id": "2316",
+        "batchID": "2316",
+        "positionFill": "REDUCE_ONLY",
+        "userID": 1435156,
+        "instrument": "EUR_USD",
+        "time": "2016-10-28T15:11:58.023004583Z",
+        "units": "-100",
+        "type": "MARKET_ORDER",
+        "accountID": "101-004-1435156-001"
+    },
+    "lastTransactionID": "2317",
+    "relatedTransactionIDs": ["2316", "2317"]
+}
