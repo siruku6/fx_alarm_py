@@ -13,12 +13,14 @@ urllib3 = ">=1.26.5"
 pandas = ">=1.2.0"
 oandapyV20 = "*"
 python-dotenv = "*"
+aws-lambda-powertools = "*"
 
 [dev-packages]
 moto = "*"
 pytest = "*"
 flake8 = "*"
 coverage = "*"
+responses = "*"
 
 [requires]
 python_version = "3.8"

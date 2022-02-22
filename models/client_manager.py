@@ -178,7 +178,7 @@ class ClientManager():
         method_dict = {
             'entry': self.__oanda_client.request_market_ordering,
             'trail': self.__oanda_client.request_trailing_stoploss,
-            'exit': self.__oanda_client.request_closing_position
+            'exit': self.__oanda_client.request_closing
         }
         return method_dict.get(method_type)(**kwargs)
 

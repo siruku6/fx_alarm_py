@@ -1,9 +1,8 @@
-import logging
 import os
-import pprint
 import sys
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
+from aws_lambda_powertools import Logger
 import requests
 
 # For trading
@@ -17,8 +16,7 @@ import oandapyV20.endpoints.transactions as transactions
 
 import models.tools.preprocessor as prepro
 
-LOGGER = logging.getLogger()
-LOGGER.setLevel(logging.INFO)
+LOGGER = Logger()
 
 
 # granularity list
@@ -37,7 +35,7 @@ class OandaClient():
         self.__accessable: bool = True
         self.__instrument: str = instrument
         self.__units: str = os.environ.get('UNITS') or '1'
-        self.__trade_ids: List = []
+        self.__trade_ids: List[Optional[str]] = []
         self.__test: bool = test
 
     @property
@@ -51,7 +49,7 @@ class OandaClient():
     # Public
     #
     # INFO: request-something (excluding candles)
-    def request_is_tradeable(self):
+    def request_is_tradeable(self) -> Dict[str, Union[str, bool]]:
         params = {'instruments': self.__instrument}  # 'USD_JPY,EUR_USD,EUR_JPY'
         request_obj = pricing.PricingInfo(
             accountID=os.environ['OANDA_ACCOUNT_ID'], params=params
@@ -94,7 +92,7 @@ class OandaClient():
             } for trade in extracted_trades
         ]
         print('[Client] open_trades: {}'.format(open_position_for_diplay != []))
-        pprint.pprint(open_position_for_diplay, compact=True)
+        LOGGER.info({'[Client] position': open_position_for_diplay})
         return extracted_trades
 
     def request_market_ordering(self, posi_nega_sign='', stoploss_price=None):
@@ -129,10 +127,10 @@ class OandaClient():
             'time': response.get('time'),
             'stopLossOnFill': response.get('stopLossOnFill')
         }
-        LOGGER.info('[Client] market-order: %s', response_for_display)
+        LOGGER.info({'[Client] market-order': response_for_display})
         return response
 
-    def request_closing_position(self, reason=''):
+    def request_closing(self, reason=''):
         ''' ポジションをclose '''
         if self.__trade_ids == []: return {'error': '[Client] closeすべきポジションが見つかりませんでした。'}
         if self.__test:
@@ -145,33 +143,25 @@ class OandaClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_trade_id  # , data=data
         )
         response = self.__request(request_obj)
-        LOGGER.info('[Client] close-reason: %s', reason)
-        LOGGER.info('[Client] close-position: %s', response)
+        LOGGER.info({
+            '[Client] close-reason': reason, '[Client] close-position': response
+        })
         if response.get('orderFillTransaction') is None and response.get('orderCancelTransaction') is not None:
             return 'The exit order was canceled because of {}'.format(
                 response.get('orderCancelTransaction').get('reason')
             )
 
-        response_for_display = {
-            'price': response['orderFillTransaction'].get('price'),
-            'profit': response['orderFillTransaction'].get('pl'),
-            'units': response['orderFillTransaction'].get('units'),
-            'reason': response['orderFillTransaction'].get('reason')
-        }
-        return response_for_display
+        return response['orderFillTransaction']
 
-    def request_trailing_stoploss(self, stoploss_price=None):
-        ''' ポジションのstoplossを強気方向に修正 '''
-        if self.__trade_ids == []: return {'error': '[Client] trailすべきポジションが見つかりませんでした。'}
-        if stoploss_price is None: return {'error': '[Client] StopLoss価格がなく、trailできませんでした。'}
+    def request_trailing_stoploss(self, stoploss_price: float):
+        ''' change stoploss price toward the direction helping us get revenue '''
+        if self.__trade_ids == []:
+            return {'error': '[Client] There is no position'}
 
         data = {
             # 'takeProfit': {'timeInForce': 'GTC', 'price': '1.3'},
             'stopLoss': {'timeInForce': 'GTC', 'price': str(stoploss_price)[:7]}
         }
-        if self.__test:
-            print('[Test] trailing: {}'.format(data))
-            return
 
         request_obj = trades.TradeCRCDO(
             accountID=os.environ['OANDA_ACCOUNT_ID'],
@@ -179,7 +169,7 @@ class OandaClient():
             data=data
         )
         response = self.__request(request_obj)
-        LOGGER.info('[Client] trail: %s', response)
+        LOGGER.info({'[Client] trail': response})
         return response
 
     def request_transactions_once(self, from_id: str, to_id: str) -> Dict[str, Any]:
@@ -214,11 +204,11 @@ class OandaClient():
         try:
             response = self.__api_client.request(obj)
         except V20Error as error:
-            LOGGER.error('[%s] V20Error: %s', sys._getframe().f_back.f_code.co_name, error)
+            LOGGER.error({f'[{sys._getframe().f_back.f_code.co_name}] V20Error': error})
             # error.msg
             return {'error': error.code}
         except requests.exceptions.ConnectionError as error:
-            LOGGER.error('[%s] requests.exceptions.ConnectionError: %s', sys._getframe().f_code.co_name, error)
+            LOGGER.error({f'[{sys._getframe().f_code.co_name}] requests.exceptions.ConnectionError': error})
             return {'error': 500}
         else:
             return response
