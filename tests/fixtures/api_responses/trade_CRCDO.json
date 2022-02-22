@@ -1,0 +1,33 @@
+{
+    "stopLossOrderCancelTransaction": {
+        "id": "805",
+        "accountID": "101-009-20941083-001",
+        "userID": 20941083,
+        "batchID": "805",
+        "requestID": "24916226576602308",
+        "time": "2022-02-22T10:00:40.165602229Z",
+        "type": "ORDER_CANCEL",
+        "orderID": "803",
+        "replacedByOrderID": "806",
+        "reason": "CLIENT_REQUEST_REPLACED"
+    },
+    "stopLossOrderTransaction": {
+        "id": "806",
+        "accountID": "101-009-20941083-001",
+        "userID": 20941083,
+        "batchID": "805",
+        "requestID": "24916226576602308",
+        "time": "2022-02-22T10:00:40.165602229Z",
+        "type": "STOP_LOSS_ORDER",
+        "tradeID": "802",
+        "timeInForce": "GTC",
+        "triggerCondition": "DEFAULT",
+        "triggerMode": "TOP_OF_BOOK",
+        "price": "156.087",
+        "reason": "REPLACEMENT",
+        "replacesOrderID": "803",
+        "cancellingTransactionID": "805"
+    },
+    "relatedTransactionIDs": ["805", "806"],
+    "lastTransactionID": "806"
+}

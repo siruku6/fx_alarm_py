@@ -1,6 +1,10 @@
+from typing import Any, Dict, Union
+import json
 import os
 from unittest.mock import patch
+
 from oandapyV20.exceptions import V20Error
+import responses
 import pytest
 
 # My-made modules
@@ -9,7 +13,7 @@ from tests.fixtures.past_transactions import TRANSACTION_IDS
 
 
 @pytest.fixture(name='client', scope='module', autouse=True)
-def oanda_client():
+def oanda_client() -> watcher.OandaClient:
     client = watcher.OandaClient(instrument='USD_JPY')
     yield client
     # INFO: Preventing ResourceWarning: unclosed <ssl.SSLSocket
@@ -17,9 +21,46 @@ def oanda_client():
     client._OandaClient__api_client.client.close()
 
 
+def add_simple_get_response(responses, url: str, response_json: Dict[str, Any]):
+    responses.add(
+        responses.GET,
+        url=url,
+        json=response_json,
+        content_type="application/json",
+        status=200,
+    )
+
+
+def add_simple_put_response(responses, url: str, response_json: Dict[str, Any]):
+    responses.add(
+        responses.PUT,
+        url=url,
+        json=response_json,
+        content_type="application/json",
+        status=200,
+    )
+
+
+@pytest.fixture(name='dummy_pricing_info')
+def fixture_dummy_pricing_info() -> Dict[str, Any]:
+    with open('tests/fixtures/api_responses/pricing_info.json', 'r') as f:
+        dic_pricing_info: Dict[str, Any] = json.load(f)
+    return dic_pricing_info
+
+
 #  - - - - - - - - - - -
 #    Public methods
 #  - - - - - - - - - - -
+class TestRequestIsTradeable:
+    @responses.activate
+    def test_default(self, client: watcher.OandaClient, dummy_pricing_info: Dict[str, Any]):
+        url: str = f"https://api-fxpractice.oanda.com/v3/accounts/{os.environ['OANDA_ACCOUNT_ID']}/pricing"
+        add_simple_get_response(responses, url, response_json=dummy_pricing_info)
+
+        res: Dict[str, Union[str, bool]] = client.request_is_tradeable()
+        assert res == {'instrument': 'USD_JPY', 'tradeable': True}
+
+
 def test_request_open_trades(client, dummy_raw_open_trades):
     assert client.last_transaction_id is None
 
@@ -72,14 +113,48 @@ def test_market_order_args(client, dummy_market_order_response, dummy_stoploss_p
     )
 
 
-def test_request_trailing_stoploss(client):
-    result = client.request_trailing_stoploss()
-    assert 'error' in result
+class TestRequestTrailingStoploss:
+    @pytest.fixture(name='dummy_crcdo_result')
+    def fixture_dummy_crcdo_result(self) -> Dict[str, Any]:
+        with open('tests/fixtures/api_responses/trade_CRCDO.json', 'r') as f:
+            dic_crcdo_result: Dict[str, Any] = json.load(f)
+        return dic_crcdo_result
+
+    @responses.activate
+    def test_default(
+        self, client: watcher.OandaClient,
+        dummy_crcdo_result: Dict[str, Any], dummy_pricing_info: Dict[str, Any]
+    ):
+        # NOTE: mock APIs
+        url: str = f"https://api-fxpractice.oanda.com/v3/accounts/{os.environ['OANDA_ACCOUNT_ID']}/pricing"
+        add_simple_get_response(responses, url, response_json=dummy_pricing_info)
+
+        client._OandaClient__trade_ids = ["999"]
+        url: str = f"https://api-fxpractice.oanda.com/v3/accounts/{os.environ['OANDA_ACCOUNT_ID']}/trades/999/orders"
+        add_simple_put_response(responses, url, response_json=dummy_crcdo_result)
+
+        # test
+        res: Dict[str, Union[str, bool]] = client.request_trailing_stoploss(stoploss_price=123.45)
+        assert res == dummy_crcdo_result
 
 
-def test_request_closing_position(client):
-    result = client.request_closing_position()
-    assert 'error' in result
+class TestRequestClosing:
+    @pytest.fixture(name='dummy_closing_result')
+    def fixture_dummy_crcdo_result(self) -> Dict[str, Any]:
+        with open('tests/fixtures/api_responses/trade_close.json', 'r') as f:
+            dic_closing_result: Dict[str, Any] = json.load(f)
+        return dic_closing_result
+
+    @responses.activate
+    def test_default(self, client: watcher.OandaClient, dummy_closing_result: Dict[str, Any]):
+        # NOTE: mock APIs
+        client._OandaClient__trade_ids = ["999"]
+        url: str = f"https://api-fxpractice.oanda.com/v3/accounts/{os.environ['OANDA_ACCOUNT_ID']}/trades/999/close"
+        add_simple_put_response(responses, url, response_json=dummy_closing_result)
+
+        # test
+        res: Dict[str, Union[str, bool]] = client.request_closing(reason='test')
+        assert res == dummy_closing_result['orderFillTransaction']
 
 
 # TODO: request_latest_transactions

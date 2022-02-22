@@ -86,8 +86,7 @@ class RealTrader(Trader):
         None
         '''
         # NOTE: trail先の価格を既に突破していたら自動でcloseしてくれた OandaAPI は優秀
-        result = self._client.order_oanda(method_type='trail', stoploss_price=new_stop)
-        print('[Trader] Trailing-result: {}'.format(result))
+        self._client.order_oanda(method_type='trail', stoploss_price=new_stop)
 
     def __settle_position(self, reason=''):
         ''' ポジションをcloseする '''

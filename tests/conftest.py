@@ -24,8 +24,10 @@ def fixture_stoploss_buffer():
     return 0.02
 
 
-@pytest.fixture(name='set_envs', scope='module')
+@pytest.fixture(name='set_envs', scope='module', autouse=True)
 def fixture_set_envs(instrument, stoploss_buffer):
+    os.environ['OANDA_ACCOUNT_ID'] = 'dummy_account_id'
+    os.environ['OANDA_ACCESS_TOKEN'] = 'dummy_accecc_token'
     os.environ['GRANULARITY'] = ''
     os.environ['INSTRUMENT'] = str(instrument)
     os.environ['STOPLOSS_BUFFER'] = str(stoploss_buffer)
