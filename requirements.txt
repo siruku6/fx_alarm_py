@@ -1,5 +1,6 @@
 ###### Requirements without Version Specifiers ######
 # General
+aws-lambda-powertools
 boto3
 matplotlib
 numpy
@@ -18,6 +19,3 @@ oandapyV20
 # ERROR: botocore 1.19.40 requires urllib3<1.27,>=1.25.4; python_version != "3.4", but you'll have urllib3 1.24.2 which is incompatible.
 urllib3>=1.26.5
 pandas>=1.2.0
-
-###### [For only development environment]
-moto

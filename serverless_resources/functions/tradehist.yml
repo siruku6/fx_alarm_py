@@ -2,7 +2,7 @@ description: testing serverless framework
 # handler: handler.hello
 handler: main.api_handler
 name: ${self:custom.prefix}--tradehist
-layers: arn:aws:lambda:us-east-2:${env:AWS_ACCOUNT_ID}:layer:trader_modules:3
+layers: arn:aws:lambda:us-east-2:${env:AWS_ACCOUNT_ID}:layer:trader_modules:4
 events:
   - http:
       path: tradehist
@@ -16,7 +16,7 @@ events:
           - X-Api-Key
           - X-Amz-Security-Token
           # - X-Amz-User-Agent
-        allowCredentials: true
+        # allowCredentials: true
         methods:
           - GET
           - OPTIONS
