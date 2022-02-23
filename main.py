@@ -1,6 +1,7 @@
 import datetime
 import json
 from typing import Dict, List, Tuple
+import numpy as np
 import pandas as pd
 
 from models.analyzer import Analyzer
@@ -104,7 +105,7 @@ def __drive_generating_tradehist(params: Dict[str, str], multi_value_params: Dic
         # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
         #   to_json ならこの問題は起きないが、dumps と組み合わせると文字列になってしまうのでしない
         'history': (
-            tradehist.where((pd.notnull(tradehist)), None)
+            tradehist.replace({np.nan: None})
                      .to_dict(orient='records')
         )
     })
