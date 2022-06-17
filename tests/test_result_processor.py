@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from models.trader import ResultProcessor
+from src.trader import ResultProcessor
 
 
 @pytest.fixture(name='result_processor', scope='function')
@@ -70,7 +70,7 @@ class TestRun:
         backtest_result: Dict[str, Union[str, pd.DataFrame]] = {'result': '', 'candles': dummy_positions}
 
         with patch(
-            'models.tools.statistics_module.__append_performance_result_to_csv',
+            'src.tools.statistics_module.__append_performance_result_to_csv',
             return_value=None
         ):
             result: pd.DataFrame = \

@@ -3,10 +3,10 @@ from typing import Dict, List, Union
 import numpy as np
 import pandas as pd
 
-from models.trader import Trader
-import models.trade_rules.base as base_rules
-import models.trade_rules.stoploss as stoploss_strategy
-# import models.trade_rules.wait_close as wait_close
+from src.trader import Trader
+import src.trade_rules.base as base_rules
+import src.trade_rules.stoploss as stoploss_strategy
+# import src.trade_rules.wait_close as wait_close
 
 
 class SwingTrader(Trader):

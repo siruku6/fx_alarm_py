@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 
-import models.history_visualizer as libra
-import models.tools.format_converter as converter
-import models.tools.preprocessor as prepro
+import src.history_visualizer as libra
+import src.tools.format_converter as converter
+import src.tools.preprocessor as prepro
 
 
 #  - - - - - - - - - - - - - -
@@ -26,7 +26,7 @@ def fixture_to_iso():
 
 @pytest.fixture(scope='module', name='libra_client', autouse=True)
 def fixture_libra_client(from_iso, to_iso):
-    with patch('models.client_manager.ClientManager.select_instrument',
+    with patch('src.client_manager.ClientManager.select_instrument',
                return_value=['USD_JPY', {'spread': 0.0}]):
         yield libra.Visualizer(from_iso, to_iso)
 
@@ -77,7 +77,7 @@ def test___prepare_candles(libra_client, from_iso, to_iso):
     from_with_spare = pd.Timestamp(to_iso[:19]) - datetime.timedelta(hours=1600)
     to_converted = pd.Timestamp(to_iso[:19])
 
-    with patch('models.client_manager.ClientManager.load_candles_by_duration_for_hist',
+    with patch('src.client_manager.ClientManager.load_candles_by_duration_for_hist',
                return_value=pd.DataFrame()) as mock:
         _: pd.DataFrame = libra_client._Visualizer__prepare_candles(granularity=granularity)
     mock.assert_called_with(start=from_with_spare, end=to_converted, granularity=granularity)
@@ -89,7 +89,7 @@ def test___prepare_candles(libra_client, from_iso, to_iso):
     from_with_spare = to_converted - datetime.timedelta(hours=400)
     to_converted = pd.Timestamp(to_iso[:19])
 
-    with patch('models.client_manager.ClientManager.load_candles_by_duration_for_hist',
+    with patch('src.client_manager.ClientManager.load_candles_by_duration_for_hist',
                return_value=pd.DataFrame()) as mock:
         _: pd.DataFrame = libra_client._Visualizer__prepare_candles(granularity=granularity)
     mock.assert_called_with(start=from_with_spare, end=to_converted, granularity=granularity)

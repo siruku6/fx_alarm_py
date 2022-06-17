@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from models.trader_config import TraderConfig, FILTER_ELEMENTS
+from src.trader_config import TraderConfig, FILTER_ELEMENTS
 
 
 TRADE_RESULT_ITEMS = [

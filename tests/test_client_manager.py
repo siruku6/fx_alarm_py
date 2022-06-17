@@ -3,8 +3,8 @@ import pandas as pd
 from unittest.mock import patch
 import pytest
 
-import models.client_manager as manager
-from models.clients.oanda_client import OandaClient
+import src.client_manager as manager
+from src.clients.oanda_client import OandaClient
 
 
 @pytest.fixture(name='client', scope='module', autouse=True)
@@ -89,7 +89,7 @@ def test_prepare_one_page_transactions(client, dummy_raw_open_trades, past_trans
     # INFO: Skip requesting open_trades
     with patch('oandapyV20.API.request', return_value=dummy_raw_open_trades):
         # INFO: Skip requesting transactions
-        with patch('models.clients.oanda_client.OandaClient.request_transactions_once', return_value=past_transactions):
+        with patch('src.clients.oanda_client.OandaClient.request_transactions_once', return_value=past_transactions):
             with patch('pandas.DataFrame.to_csv', return_value=None):
                 # 2317
                 result: pd.DataFrame = client.prepare_one_page_transactions()

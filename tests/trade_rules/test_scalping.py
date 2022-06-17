@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import models.trade_rules.scalping as scalping
+import src.trade_rules.scalping as scalping
 from tests.fixtures.factor_dicts import DUMMY_FACTOR_DICTS
 
 

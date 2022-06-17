@@ -5,12 +5,12 @@ import pandas as pd
 import pytest
 from unittest.mock import patch
 
-from models.swing_trader import SwingTrader
+from src.swing_trader import SwingTrader
 
 
 @pytest.fixture(name='swing_client', scope='module', autouse=True)
 def fixture_swing_client(set_envs):
-    with patch('models.trader_config.TraderConfig.get_instrument', return_value='USD_JPY'):
+    with patch('src.trader_config.TraderConfig.get_instrument', return_value='USD_JPY'):
         set_envs
 
         _trader: SwingTrader = SwingTrader(operation='unittest')

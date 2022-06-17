@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from models.trader_config import TraderConfig
+from src.trader_config import TraderConfig
 
 
 def previous_candle_othersides(

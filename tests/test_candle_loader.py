@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
-from models.candle_storage import FXBase
-from models.candle_loader import CandleLoader
+from src.candle_storage import FXBase
+from src.candle_loader import CandleLoader
 
 
 @pytest.fixture(name='loader_instance', scope='module')

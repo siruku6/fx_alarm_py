@@ -3,7 +3,7 @@ import pytest
 
 import numpy as np
 import pandas as pd
-from models.analyzer import Analyzer
+from src.analyzer import Analyzer
 
 
 @pytest.fixture(name='analyzer', scope='module', autouse=True)

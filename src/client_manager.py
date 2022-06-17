@@ -4,11 +4,11 @@ from typing import List
 from collections import OrderedDict
 import pandas as pd
 
-from models.clients.oanda_client import OandaClient
-from models.clients.dynamodb_accessor import DynamodbAccessor
-import models.tools.format_converter as converter
-import models.tools.interface as i_face
-import models.tools.preprocessor as prepro
+from src.clients.oanda_client import OandaClient
+from src.clients.dynamodb_accessor import DynamodbAccessor
+import src.tools.format_converter as converter
+import src.tools.interface as i_face
+import src.tools.preprocessor as prepro
 
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
 

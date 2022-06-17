@@ -40,7 +40,7 @@ make_zip_for_lambda () {
   # Clean up directory
   result=`find ${DirName} -maxdepth 1 -name "*.py" 2>/dev/null`
   if [ -n "$result" ]; then
-    yes | rm -r ${DirName}/models
+    yes | rm -r ${DirName}/src
     yes | rm ${DirName}/main.py
   fi
 
@@ -60,7 +60,7 @@ make_zip_for_lambda () {
     rm ${ModuleDirName}/python/THIRD-PARTY-LICENSES
   fi
   cp main.py ${DirName}/
-  cp -r models ${DirName}/
+  cp -r src ${DirName}/
 
   # Create Archive
   echo -e 'Make zip now? y(yes) n(no):'

@@ -5,18 +5,18 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from models.trader_config import TraderConfig
-from models.candle_storage import FXBase
-from models.client_manager import ClientManager
-from models.candle_loader import CandleLoader
-from models.analyzer import Analyzer
-from models.result_processor import ResultProcessor
-from models.tools.mathematics import (
+from src.trader_config import TraderConfig
+from src.candle_storage import FXBase
+from src.client_manager import ClientManager
+from src.candle_loader import CandleLoader
+from src.analyzer import Analyzer
+from src.result_processor import ResultProcessor
+from src.tools.mathematics import (
     range_2nd_decimal,
     generate_different_length_combinations
 )
-import models.trade_rules.base as base_rules
-from models.trader_config import FILTER_ELEMENTS
+import src.trade_rules.base as base_rules
+from src.trader_config import FILTER_ELEMENTS
 
 # pd.set_option('display.max_rows', 400)
 

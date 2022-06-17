@@ -1,8 +1,8 @@
 import os
 from typing import Dict, List, Optional, Union, TypedDict
 
-from models.client_manager import ClientManager
-import models.tools.interface as i_face
+from src.client_manager import ClientManager
+import src.tools.interface as i_face
 
 
 class EntryRulesDict(TypedDict):

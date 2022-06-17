@@ -3,7 +3,7 @@ from decimal import Decimal
 import json
 import pandas as pd
 
-import models.tools.format_converter as converter
+import src.tools.format_converter as converter
 
 
 def test_granularity_to_timedelta():

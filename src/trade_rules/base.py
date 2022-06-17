@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from models.candle_storage import FXBase
+from src.candle_storage import FXBase
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

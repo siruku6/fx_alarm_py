@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 # import pytest
 
-import models.tools.statistics_module as stat
+import src.tools.statistics_module as stat
 
 
 def test___calc_profit():

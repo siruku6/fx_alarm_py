@@ -4,9 +4,9 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
-from models.analyzer import Analyzer
-from models.real_trader import RealTrader
-from models.history_visualizer import Visualizer
+from src.analyzer import Analyzer
+from src.real_trader import RealTrader
+from src.history_visualizer import Visualizer
 
 
 # For auto trader

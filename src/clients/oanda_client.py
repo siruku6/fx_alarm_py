@@ -14,7 +14,7 @@ import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
 
-import models.tools.preprocessor as prepro
+import src.tools.preprocessor as prepro
 
 LOGGER = Logger()
 
