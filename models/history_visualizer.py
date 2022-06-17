@@ -35,6 +35,7 @@ class Visualizer():
         result: pd.DataFrame = self.__collect_full_dataframe(transactions, granularity='H1')
         return result
 
+    # NOTE: This is not used on AWS Lambda
     def visualize_latest_hist(self, granularity: str) -> None:
         transactions: pd.DataFrame = self.__client.prepare_one_page_transactions()
         result: pd.DataFrame = self.__collect_full_dataframe(transactions, granularity=granularity)

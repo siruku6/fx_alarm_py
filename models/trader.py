@@ -43,7 +43,6 @@ class Trader(metaclass=abc.ABCMeta):
         )
         self._candle_loader: CandleLoader = CandleLoader(self.config, self._client)
         self._result_processor: ResultProcessor = ResultProcessor(operation, self.config)
-        self.__m10_candles: Optional[pd.DataFrame] = None
         self._initialize_position_variables()
 
         result: Dict[str, str] = self._candle_loader.run().get('info')
