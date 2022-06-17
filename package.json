@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/siruku6/fx_alarm_py#readme",
   "dependencies": {
-    "npm": "^7.22.0",
+    "npm": "^8.11.0",
     "serverless-api-gateway-throttling": "^1.1.1",
     "serverless-aws-documentation": "^1.1.0",
     "serverless-reqvalidator-plugin": "^2.0.0"
