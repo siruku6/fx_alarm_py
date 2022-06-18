@@ -16,7 +16,7 @@ import src.tools.preprocessor as prepro
 class ClientManager():
     @classmethod
     def select_instrument(cls, instrument=None):
-        # TODO: 正しいspreadを後で確認して設定する
+        # TODO: configure reasonable and corret spread
         instruments = OrderedDict(
             USD_JPY={'spread': 0.004},
             EUR_USD={'spread': 0.00014},
@@ -26,7 +26,7 @@ class ClientManager():
         if instrument is not None:
             return instrument, instruments[instrument]
 
-        instrument = i_face.select_from_dict(instruments, menumsg='通貨ペアは？\n')
+        instrument = i_face.select_from_dict(instruments, menumsg='Which currency you want to trade ?\n')
         return instrument, instruments[instrument]
 
     def __init__(self, instrument, test=False):
@@ -35,17 +35,17 @@ class ClientManager():
 
     # INFO: request-candles
     def load_specify_length_candles(self, length=60, granularity='M5'):
-        ''' チャート情報を更新 '''
+        ''' load candles for specified length '''
         response = self.__oanda_client.query_instruments(
             candles_count=length,
             granularity=granularity,
         )
 
         candles = prepro.to_candle_df(response)
-        return {'success': '[Watcher] Oandaからのレート取得に成功', 'candles': candles}
+        return {'success': '[Watcher] Succeeded to request to Oanda', 'candles': candles}
 
     def load_long_chart(self, days=0, granularity='M5'):
-        ''' 長期間のチャート取得のために複数回APIリクエスト '''
+        ''' load long days candles using multiple API requests '''
         remaining_days = days
         candles = None
         requestable_max_days = self.__calc_requestable_max_days(granularity=granularity)
@@ -64,13 +64,13 @@ class ClientManager():
             )
             tmp_candles = prepro.to_candle_df(response)
             candles = self.__union_candles_distinct(candles, tmp_candles)
-            print('[Client] Remaining: {remaining_days} days'.format(remaining_days=remaining_days))
+            print('[Manager] Remaining: {remaining_days} days'.format(remaining_days=remaining_days))
             time.sleep(1)
 
-        return {'success': '[Watcher] APIリクエスト成功', 'candles': candles}
+        return {'success': '[Manager] Succeeded to request API', 'candles': candles}
 
     def load_candles_by_duration(self, start, end, granularity):
-        ''' 広範囲期間チャート取得用の複数回リクエスト '''
+        ''' load long period candles using multiple API requests '''
         candles = None
         requestable_duration = self.__calc_requestable_time_duration(granularity)
         next_starttime = start
@@ -86,47 +86,48 @@ class ClientManager():
             )
             tmp_candles = prepro.to_candle_df(response)
             candles = self.__union_candles_distinct(candles, tmp_candles)
-            print('取得済み: {datetime}まで'.format(datetime=next_endtime))
+            print('Loaded: up to {datetime}'.format(datetime=next_endtime))
             time.sleep(1)
 
             next_starttime += requestable_duration
             next_endtime += requestable_duration
 
-        return {'success': '[Client] APIリクエスト成功', 'candles': candles}
+        return {'success': '[Manager] Succeeded to request API', 'candles': candles}
 
     def __minimize_period(self, start: datetime, end: datetime, requestable_duration) -> datetime:
         possible_end: datetime = start + requestable_duration
         next_end: datetime = possible_end if possible_end < end else end
         return next_end
 
-    def load_candles_by_duration_for_hist(self, start, end, granularity):
+    def load_candles_by_duration_for_hist(
+        self, start: datetime.datetime, end: datetime.datetime, granularity: str
+    ):
         ''' Prepare candles with specifying the range of datetime '''
-        # 1. DynamoDBからのデータ取得
+        # 1. query from DynamoDB
         table_name = '{}_CANDLES'.format(granularity)
         dynamo = DynamodbAccessor(self.__instrument, table_name=table_name)
-        records = dynamo.list_records(
+        candles: pd.DataFrame = dynamo.list_candles(
             # INFO: 若干広めの時間をとっている
             #   休日やらタイミングやらで、start, endを割り込むデータしか取得できないことがありそうなため
             # TODO: 範囲は3日などでなく、granuralityに応じて可変にした方が良い
             (start - datetime.timedelta(days=3)).isoformat(),
             (end + datetime.timedelta(days=1)).isoformat()
         )
-        candles = converter.to_candles_from_dynamo(records)
         if self.__oanda_client.accessable is False:
             print('[Manager] Skipped requesting candles from Oanda')
             return candles
 
-        # 2. データが不足している期間を特定する
+        # 2. detect period of missing candles
         missing_start, missing_end = self.__detect_missings(candles, start, end)
         if missing_end <= missing_start:
             return candles
 
-        # 3. 不足があった場合は補う
+        # 3. complement missing candles using API
         missed_candles = self.load_candles_by_duration(
             missing_start, missing_end, granularity=granularity
         )['candles']
-        # INFO: start, endともに市場停止時間帯にだった場合、missed_candles は空配列になる
-        #   その場合は insert, union をスキップ
+        # INFO: If it is closed time between start and end, `missed_candles` is gonna be [].
+        #   Then, skip insert and union.
         if len(missed_candles) > 0:
             dynamo.batch_insert(items=missed_candles.copy())
             candles = self.__union_candles_distinct(candles, missed_candles)
