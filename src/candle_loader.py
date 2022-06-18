@@ -5,8 +5,9 @@ import pandas as pd
 
 import src.tools.interface as i_face
 from src.candle_storage import FXBase
-from src.trader_config import TraderConfig
 from src.client_manager import ClientManager
+from src import logic
+from src.trader_config import TraderConfig
 
 LOGGER = Logger()
 
@@ -32,6 +33,8 @@ class CandleLoader:
             self.tradeable = self.client_manager.call_oanda('is_tradeable')['tradeable']
             if not self.tradeable:
                 return {'info': 'Now the trading market is closed.'}
+            if logic.is_reasonable() is False:
+                return {'info': 'Now it is not reasonable to trade.'}
 
             candles = self.client_manager.load_specify_length_candles(
                 length=70, granularity=self.config.get_entry_rules('granularity')
