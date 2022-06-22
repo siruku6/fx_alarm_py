@@ -4,8 +4,8 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
-from models.swing_trader import SwingTrader
-from models.real_trader import RealTrader
+from src.swing_trader import SwingTrader
+from src.real_trader import RealTrader
 
 
 @pytest.fixture(name='trader_instance', scope='module')
@@ -99,7 +99,7 @@ class TestGenerateInBandsColumn:
         trader_instance._indicators = pd.DataFrame([])
         trader_instance._indicators['sigma*2_band'] = dummy_sigmas['sigma*2_band']
         trader_instance._indicators['sigma*-2_band'] = dummy_sigmas['sigma*-2_band']
-        with patch('models.swing_trader.SwingTrader._generate_entryable_price', return_value=dummy_entrybale_prices):
+        with patch('src.swing_trader.SwingTrader._generate_entryable_price', return_value=dummy_entrybale_prices):
             result: np.ndarray = trader_instance._Trader__generate_in_bands_column(dummy_candles)
         expected: np.ndarray = np.array([True, False, False, False])
 

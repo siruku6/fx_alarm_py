@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import models.trade_rules.base as base
+import src.trade_rules.base as base
 
 
 @pytest.fixture(name='spread', scope='module')

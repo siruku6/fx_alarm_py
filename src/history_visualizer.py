@@ -4,11 +4,11 @@ from typing import Tuple
 
 import pandas as pd
 
-from models.candle_storage import FXBase
-from models.client_manager import ClientManager
-from models.analyzer import Analyzer
-from models.drawer import FigureDrawer
-import models.tools.format_converter as converter
+from src.candle_storage import FXBase
+from src.client_manager import ClientManager
+from src.analyzer import Analyzer
+from src.drawer import FigureDrawer
+import src.tools.format_converter as converter
 
 
 class Visualizer():
@@ -35,6 +35,7 @@ class Visualizer():
         result: pd.DataFrame = self.__collect_full_dataframe(transactions, granularity='H1')
         return result
 
+    # NOTE: This is not used on AWS Lambda
     def visualize_latest_hist(self, granularity: str) -> None:
         transactions: pd.DataFrame = self.__client.prepare_one_page_transactions()
         result: pd.DataFrame = self.__collect_full_dataframe(transactions, granularity=granularity)

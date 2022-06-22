@@ -5,10 +5,10 @@ from typing import Any, Callable, TypedDict, Union
 import numpy as np
 import pandas as pd
 
-from models.candle_storage import FXBase
-from models.trader import Trader
-import models.trade_rules.scalping as scalping
-import models.trade_rules.stoploss as stoploss_strategy
+from src.candle_storage import FXBase
+from src.trader import Trader
+import src.trade_rules.scalping as scalping
+import src.trade_rules.stoploss as stoploss_strategy
 
 
 class PositionRequired(TypedDict):

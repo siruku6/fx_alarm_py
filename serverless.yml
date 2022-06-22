@@ -60,7 +60,7 @@ package:
   patterns:
     - '!./**'
     - 'main.py'
-    - 'models/**'
+    - 'src/**'
   # artifact: tmp/zips/app/fx_archive.zip
   # Create an individual zip-file for each function
   # individually: true # default is `false`

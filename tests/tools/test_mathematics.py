@@ -1,6 +1,6 @@
 import math
 
-import models.tools.mathematics as mtmtcs
+import src.tools.mathematics as mtmtcs
 
 
 def test_int_log10():

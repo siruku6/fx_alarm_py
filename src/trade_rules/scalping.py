@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-import models.trade_rules.stoploss as stoploss_strategy
+import src.trade_rules.stoploss as stoploss_strategy
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - -

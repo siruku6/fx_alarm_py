@@ -3,8 +3,8 @@ import pytest
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
-from models.candle_storage import FXBase
-from models.alpha_trader import AlphaTrader
+from src.candle_storage import FXBase
+from src.alpha_trader import AlphaTrader
 
 
 @pytest.fixture(name='trader_instance', scope='module')
@@ -39,7 +39,7 @@ class TestGenerateEntryColumn:
 
         # TODO: The result of merge should be also tested!
         with patch('pandas.merge', return_value=candles):
-            with patch('models.trade_rules.scalping.commit_positions_by_loop', return_value=commited_df):  # as mock:
+            with patch('src.trade_rules.scalping.commit_positions_by_loop', return_value=commited_df):  # as mock:
                 trader_instance._AlphaTrader__generate_entry_column(candles)
 
         expected: pd.DataFrame = commited_df.rename(columns={'entryable_price': 'entry_price'})

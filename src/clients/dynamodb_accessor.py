@@ -10,6 +10,8 @@ from botocore.exceptions import ClientError, EndpointConnectionError, WaiterErro
 from numpy import nan
 import pandas as pd
 
+import src.tools.format_converter as converter
+
 
 class CandleRecord(TypedDict, total=False):
     pareName: str
@@ -21,8 +23,6 @@ class CandleRecord(TypedDict, total=False):
 
 
 QueryResult = t.Dict[str, t.Union[t.List[CandleRecord], int, t.Dict]]
-
-# import pdb; pdb.set_trace()
 
 
 class DynamodbAccessor():
@@ -98,6 +98,10 @@ class DynamodbAccessor():
             records: t.List[CandleRecord] = response['Items']
             return records
 
+    def list_candles(self, from_str: str, to_str: str) -> pd.DataFrame:
+        records: t.List[CandleRecord] = self.list_records(from_str, to_str)
+        return converter.to_candles_from_dynamo(records)
+
     def setup_dummy_data(self) -> None:
         '''
         Generate dummy candles into dynamodb for backtest
@@ -164,3 +168,19 @@ class DynamodbAccessor():
              .get_waiter('table_exists') \
              .wait(TableName=table_name)
         return table
+
+
+def loading_sample():
+    """
+    Usage example of this class
+    """
+    from datetime import datetime
+
+    granularity: str = 'H1'
+    table_name = '{}_CANDLES'.format(granularity)
+    dynamo = DynamodbAccessor('GBP_JPY', table_name=table_name)
+    candles = dynamo.list_candles(
+        datetime(2020, 1, 1).isoformat(),
+        datetime(2021, 12, 31).isoformat()
+    )
+    print(candles)

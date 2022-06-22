@@ -32,6 +32,9 @@ You have to introduce following packages before start developing.
 - awscli
 - node
     - serverless
+    ```bash
+    $ npm -g install serverless@2
+    ```
 - DynamoDB Local (and, though it is optional, DynamoDB Admin)
 
 ## Deployment

@@ -7,7 +7,7 @@ import pandas as pd
 
 from moto import mock_dynamodb2
 import pytest
-import models.clients.dynamodb_accessor as dn_accessor
+import src.clients.dynamodb_accessor as dn_accessor
 
 
 @pytest.fixture(name='table_name', scope='module', autouse=True)

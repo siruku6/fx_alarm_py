@@ -1,12 +1,12 @@
-from models.trader_config import TraderConfig
+from src.trader_config import TraderConfig
 from typing import Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 
-from models.candle_storage import FXBase
-from models.drawer import FigureDrawer
-import models.tools.interface as i_face
-import models.tools.statistics_module as statistics
+from src.candle_storage import FXBase
+from src.drawer import FigureDrawer
+import src.tools.interface as i_face
+import src.tools.statistics_module as statistics
 
 
 class ResultProcessor:

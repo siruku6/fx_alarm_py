@@ -2,8 +2,8 @@ from typing import Dict, Union
 import numpy as np
 import pandas as pd
 
-from models.trader import Trader
-import models.trade_rules.scalping as scalping
+from src.trader import Trader
+import src.trade_rules.scalping as scalping
 
 
 class AlphaTrader(Trader):

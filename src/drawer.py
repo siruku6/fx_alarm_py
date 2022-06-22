@@ -5,8 +5,8 @@ import mplfinance.original_flavor as mpf
 import numpy as np
 import pandas as pd
 
-import models.tools.mathematics as mtmtcs
-from models.candle_storage import FXBase
+import src.tools.mathematics as mtmtcs
+from src.candle_storage import FXBase
 
 matplotlib.use('Agg')
 matplotlib.rcParams['axes.xmargin'] = 0

@@ -1,7 +1,7 @@
 from collections import OrderedDict
 import unittest
 from unittest.mock import patch, call
-import models.tools.interface as interface
+import src.tools.interface as interface
 
 
 def test_ask_granularity():
@@ -32,18 +32,18 @@ class TestInterface(unittest.TestCase):
                 self.assertTrue((interface.ask_true_or_false('msg')))
 
     def test_select_stoploss_digit(self):
-        with patch('models.tools.interface.print'):
-            with patch('models.tools.interface.prompt_inputting_decimal', return_value=1):
+        with patch('src.tools.interface.print'):
+            with patch('src.tools.interface.prompt_inputting_decimal', return_value=1):
                 stoploss_digit = interface.select_stoploss_digit()
             self.assertEqual(type(stoploss_digit), float, '戻り値はfloat型')
             self.assertEqual(0.01, stoploss_digit)
 
-            with patch('models.tools.interface.prompt_inputting_decimal', return_value=2):
+            with patch('src.tools.interface.prompt_inputting_decimal', return_value=2):
                 stoploss_digit = interface.select_stoploss_digit()
             self.assertEqual(type(stoploss_digit), float, '戻り値はfloat型')
             self.assertEqual(0.0001, stoploss_digit)
 
-            with patch('models.tools.interface.prompt_inputting_decimal', return_value=3):
+            with patch('src.tools.interface.prompt_inputting_decimal', return_value=3):
                 stoploss_digit = interface.select_stoploss_digit()
             self.assertEqual(type(stoploss_digit), float, '戻り値はfloat型')
             self.assertEqual(0.00001, stoploss_digit)
@@ -55,9 +55,9 @@ class TestInterface(unittest.TestCase):
             GBP_JPY={'spread': 0.014},
             USD_CHF={'spread': 0.00014}
         )
-        with patch('models.tools.interface.print'):
+        with patch('src.tools.interface.print'):
             for i, (key, _val) in enumerate(dict_for_testcase.items()):
-                with patch('models.tools.interface.prompt_inputting_decimal', return_value=i + 1):
+                with patch('src.tools.interface.prompt_inputting_decimal', return_value=i + 1):
                     result = interface.select_from_dict(dict_for_testcase)
                 self.assertEqual(result, key, 'Get the name of key which is selected')
 

@@ -8,7 +8,7 @@ import responses
 import pytest
 
 # My-made modules
-import models.clients.oanda_client as watcher
+import src.clients.oanda_client as watcher
 from tests.fixtures.past_transactions import TRANSACTION_IDS
 
 

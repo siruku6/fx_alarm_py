@@ -4,7 +4,7 @@ from typing import Dict, List, Union
 from dotenv import load_dotenv
 import pytest
 
-from models.trader_config import TraderConfig
+from src.trader_config import TraderConfig
 
 
 @pytest.fixture(scope='session', autouse=True)

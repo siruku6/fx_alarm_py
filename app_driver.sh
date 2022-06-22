@@ -40,7 +40,7 @@ make_zip_for_lambda () {
   # Clean up directory
   result=`find ${DirName} -maxdepth 1 -name "*.py" 2>/dev/null`
   if [ -n "$result" ]; then
-    yes | rm -r ${DirName}/models
+    yes | rm -r ${DirName}/src
     yes | rm ${DirName}/main.py
   fi
 
@@ -54,18 +54,20 @@ make_zip_for_lambda () {
     # INFO: .dist-info, __pycache__ are unnecessary on Lambda
     # https://medium.com/@korniichuk/lambda-with-pandas-fd81aa2ff25e
     rm -r ${ModuleDirName}/python/*.dist-info
-	rm -r ${ModuleDirName}/python/*/__pycache__
-	rm -r ${ModuleDirName}/python/*/tests
+    rm -r ${ModuleDirName}/python/*/__pycache__
+    rm -r ${ModuleDirName}/python/*/tests
+    rm -r ${ModuleDirName}/python/__pycache__
+    rm ${ModuleDirName}/python/THIRD-PARTY-LICENSES
   fi
   cp main.py ${DirName}/
-  cp -r models ${DirName}/
+  cp -r src ${DirName}/
 
   # Create Archive
   echo -e 'Make zip now? y(yes) n(no):'
   read select2
   if test $select2 = 'y'; then
     cd ${DirName}
-    # INFO: *.zip に合致するファイルがあれば削除
+    # INFO: remove *.zip (which is created previously)
     result=`find . -maxdepth 1 -name "*.zip" 2>/dev/null`
     if [ -n "$result" ]; then
       rm ./*.zip
@@ -75,7 +77,7 @@ make_zip_for_lambda () {
 
     if test $select = 10; then
       cd ${ModuleDirName}
-      # INFO: *.zip に合致するファイルがあれば削除
+      # INFO: remove *.zip (which is created previously)
       result=`find . -maxdepth 1 -name "*.zip" 2>/dev/null`
       if [ -n "$result" ]; then
         rm ./*.zip

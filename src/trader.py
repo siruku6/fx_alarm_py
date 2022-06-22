@@ -5,18 +5,18 @@ from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from models.trader_config import TraderConfig
-from models.candle_storage import FXBase
-from models.client_manager import ClientManager
-from models.candle_loader import CandleLoader
-from models.analyzer import Analyzer
-from models.result_processor import ResultProcessor
-from models.tools.mathematics import (
+from src.trader_config import TraderConfig
+from src.candle_storage import FXBase
+from src.client_manager import ClientManager
+from src.candle_loader import CandleLoader
+from src.analyzer import Analyzer
+from src.result_processor import ResultProcessor
+from src.tools.mathematics import (
     range_2nd_decimal,
     generate_different_length_combinations
 )
-import models.trade_rules.base as base_rules
-from models.trader_config import FILTER_ELEMENTS
+import src.trade_rules.base as base_rules
+from src.trader_config import FILTER_ELEMENTS
 
 # pd.set_option('display.max_rows', 400)
 
@@ -43,13 +43,13 @@ class Trader(metaclass=abc.ABCMeta):
         )
         self._candle_loader: CandleLoader = CandleLoader(self.config, self._client)
         self._result_processor: ResultProcessor = ResultProcessor(operation, self.config)
-        self.__m10_candles: Optional[pd.DataFrame] = None
         self._initialize_position_variables()
 
-        result: Dict[str, str] = self._candle_loader.run().get('info')
-        if result is not None:
+        result: Dict[str, str] = self._candle_loader.run()
+        self.tradeable: bool = result.get('tradable')
+        if self.tradeable is False:
             print(result)
-            exit()
+            return
 
         self._candle_loader.load_long_span_candles()
         self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())

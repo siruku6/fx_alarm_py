@@ -1,17 +1,18 @@
 import datetime
 import json
 from typing import Dict, List, Tuple
+import numpy as np
 import pandas as pd
 
-from models.analyzer import Analyzer
-from models.real_trader import RealTrader
-from models.history_visualizer import Visualizer
+from src.analyzer import Analyzer
+from src.real_trader import RealTrader
+from src.history_visualizer import Visualizer
 
 
 # For auto trader
 def lambda_handler(_event, _context):
     trader = RealTrader(operation='live')
-    if not trader._candle_loader.tradeable:
+    if not trader.tradeable:
         msg = '1. lambda function is correctly finished, but now the market is closed.'
         return {
             'statusCode': 204,
@@ -104,7 +105,7 @@ def __drive_generating_tradehist(params: Dict[str, str], multi_value_params: Dic
         # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
         #   to_json ならこの問題は起きないが、dumps と組み合わせると文字列になってしまうのでしない
         'history': (
-            tradehist.where((pd.notnull(tradehist)), None)
+            tradehist.replace({np.nan: None})
                      .to_dict(orient='records')
         )
     })
