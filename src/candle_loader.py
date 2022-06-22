@@ -17,7 +17,6 @@ class CandleLoader:
     def __init__(self, config: TraderConfig, client_manager: ClientManager) -> None:
         self.config: TraderConfig = config
         self.client_manager: ClientManager = client_manager
-        self.tradeable: bool = False
 
     def run(self) -> Dict[str, str]:
         candles: pd.DataFrame
@@ -30,24 +29,24 @@ class CandleLoader:
                 granularity=self.config.get_entry_rules('granularity')
             )['candles']
         elif self.config.operation == 'live':
-            self.tradeable = self.client_manager.call_oanda('is_tradeable')['tradeable']
-            if not self.tradeable:
-                return {'info': 'Now the trading market is closed.'}
+            tradeable = self.client_manager.call_oanda('is_tradeable')['tradeable']
+            if not tradeable:
+                return {'info': 'Now the trading market is closed.', 'tradable': False}
             if logic.is_reasonable() is False:
-                return {'info': 'Now it is not reasonable to trade.'}
+                return {'info': 'Now it is not reasonable to trade.', 'tradable': False}
 
             candles = self.client_manager.load_specify_length_candles(
                 length=70, granularity=self.config.get_entry_rules('granularity')
             )['candles']
         else:
-            return {'info': 'exit at once'}
+            return {'info': 'exit at once', 'tradable': False}
 
         FXBase.set_candles(candles)
-        if self.config.need_request is False: return {'info': None}
+        if self.config.need_request is False: return {'info': None, 'tradable': True}
 
         latest_candle = self.client_manager.call_oanda('current_price')
         self.__update_latest_candle(latest_candle)
-        return {'info': None}
+        return {'info': None, 'tradable': True}
 
     def load_long_span_candles(self) -> None:
         long_span_candles: pd.DataFrame

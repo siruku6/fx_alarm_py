@@ -37,6 +37,13 @@ def fixture_support_and_resistance() -> pd.DataFrame:
     yield pd.DataFrame({'support': [98.0, 100.0], 'regist': [123.456, 112.233]})
 
 
+class TestInit:
+    def test_not_tradeable(self):
+        with patch('src.client_manager.ClientManager.call_oanda', return_value={'tradeable': False}):
+            real_trader: real.RealTrader = real.RealTrader(operation='live')
+        assert real_trader.tradeable is False
+
+
 def test_not_entry(real_trader_client, dummy_candles, dummy_indicators):
     # real_trader_client._ana.calc_indicators(dummy_candles, long_span_candles=dummy_candles)
     indicators = dummy_indicators

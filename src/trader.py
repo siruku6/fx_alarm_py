@@ -45,10 +45,11 @@ class Trader(metaclass=abc.ABCMeta):
         self._result_processor: ResultProcessor = ResultProcessor(operation, self.config)
         self._initialize_position_variables()
 
-        result: Dict[str, str] = self._candle_loader.run().get('info')
-        if result is not None:
+        result: Dict[str, str] = self._candle_loader.run()
+        self.tradeable: bool = result.get('tradable')
+        if self.tradeable is False:
             print(result)
-            exit()
+            return
 
         self._candle_loader.load_long_span_candles()
         self._ana.calc_indicators(FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles())
