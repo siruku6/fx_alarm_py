@@ -12,7 +12,7 @@ from src.history_visualizer import Visualizer
 # For auto trader
 def lambda_handler(_event, _context):
     trader = RealTrader(operation='live')
-    if not trader._candle_loader.tradeable:
+    if not trader.tradeable:
         msg = '1. lambda function is correctly finished, but now the market is closed.'
         return {
             'statusCode': 204,
