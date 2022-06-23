@@ -205,6 +205,7 @@ class OandaClient():
             response = self.__api_client.request(obj)
         except V20Error as error:
             LOGGER.error({f'[{sys._getframe().f_back.f_code.co_name}] V20Error': error})
+            LOGGER.info({f'[{sys._getframe().f_back.f_code.co_name}] dir(error)': dir(error)})
             # error.msg
             return {'error': error.code}
         except requests.exceptions.ConnectionError as error:
