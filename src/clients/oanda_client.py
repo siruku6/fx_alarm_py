@@ -1,8 +1,10 @@
+import json
 import os
 import sys
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from aws_lambda_powertools import Logger
+import boto3
 import requests
 
 # For trading
@@ -91,6 +93,7 @@ class OandaClient():
                 }
             } for trade in extracted_trades
         ]
+
         print('[Client] open_trades: {}'.format(open_position_for_diplay != []))
         LOGGER.info({'[Client] position': open_position_for_diplay})
         return extracted_trades
@@ -127,7 +130,12 @@ class OandaClient():
             'time': response.get('time'),
             'stopLossOnFill': response.get('stopLossOnFill')
         }
+
         LOGGER.info({'[Client] market-order': response_for_display})
+        self._sns_publish({
+            'messsage': 'Market order is done !',
+            'order': response_for_display
+        })
         return response
 
     def request_closing(self, reason=''):
@@ -143,14 +151,18 @@ class OandaClient():
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_trade_id  # , data=data
         )
         response = self.__request(request_obj)
-        LOGGER.info({
-            '[Client] close-reason': reason, '[Client] close-position': response
-        })
-        if response.get('orderFillTransaction') is None and response.get('orderCancelTransaction') is not None:
-            return 'The exit order was canceled because of {}'.format(
-                response.get('orderCancelTransaction').get('reason')
-            )
 
+        dict_close_notification: Dict[str, Any] = {
+            '[Client] message': 'Position is closed', 'reason': reason, 'result': response
+        }
+        LOGGER.info(dict_close_notification)
+        if response.get('orderFillTransaction') is None and response.get('orderCancelTransaction') is not None:
+            LOGGER.warn({'message': 'The exit order was canceled because of {}'.format(
+                response.get('orderCancelTransaction').get('reason')
+            )})
+            return 'Close order is failed'
+
+        self._sns_publish(dict_close_notification)
         return response['orderFillTransaction']
 
     def request_trailing_stoploss(self, stoploss_price: float):
@@ -240,3 +252,10 @@ class OandaClient():
             return {'candles': [], 'error': response['error']}
 
         return response
+
+    def _sns_publish(self, dic: Dict[str, Any]) -> None:
+        sns = boto3.client('sns', region_name=os.environ.get('AWS_DEFAULT_REGION'))
+        sns.publish(
+            TopicArn=os.environ.get('SNS_TOPIC_SEND_MAIL_ARN'),
+            Message=json.dumps(dic),
+        )

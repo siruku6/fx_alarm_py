@@ -1,6 +1,7 @@
 import os
 from typing import Dict, List, Union
 
+import boto3
 from dotenv import load_dotenv
 import pytest
 
@@ -12,6 +13,12 @@ def load_env() -> None:
     dotenv_path: str = os.path.join('./.env')
     load_dotenv(dotenv_path)
     yield
+
+
+def fixture_sns() -> None:
+    conn = boto3.client('sns', region_name='us-east-2')
+    created = conn.create_topic(Name='dummy-topic')
+    os.environ['SNS_TOPIC_SEND_MAIL_ARN'] = created.get('TopicArn')
 
 
 @pytest.fixture(name='instrument', scope='module')

@@ -1,0 +1,18 @@
+# API Gatewayのリクエストの検証有効化
+Resources:
+  noParameter:
+    Type: AWS::ApiGateway::RequestValidator
+    Properties:
+      Name: 'no-parameter'
+      RestApiId:
+        Ref: ApiGatewayRestApi
+      ValidateRequestBody: false
+      ValidateRequestParameters: false
+  onlyStringParameters:
+    Type: AWS::ApiGateway::RequestValidator
+    Properties:
+      Name: 'only-string-parameters'
+      RestApiId:
+        Ref: ApiGatewayRestApi
+      ValidateRequestBody: false
+      ValidateRequestParameters: true
