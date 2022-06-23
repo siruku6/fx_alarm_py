@@ -74,31 +74,17 @@ functions:
   IndicatorNames: ${file(./serverless_resources/functions/indicator_names.yml)}
 
 resources:
-  Resources:
-    # DynamoDBテーブル構築
-    DynamoDbTable: ${file(./serverless_resources/dynamodb.yml)}
+  # - Resources:
+  #     # INFO: comment in if `disableLogs: true` in function is specified
+  #     TradehistLogGroup:
+  #       Type: AWS::Logs::LogGroup
+  #       Properties:
+  #         LogGroupName: /aws/lambda/${self:custom.prefix}
+  #         RetentionInDays: 30
+  # NOTE: DynamoDB Table
+  - ${file(./serverless_resources/dynamodb.yml)}
+  # NOTE: SNS sending Email
+  - ${file(./serverless_resources/sns.yml)}
+  # Enable request validation for API Gateway
+  - ${file(./serverless_resources/validation.yml)}
 
-    # INFO: function に disableLogs: true を設定した場合はこれを有効にする
-    # TradehistLogGroup:
-    #   Type: AWS::Logs::LogGroup
-    #   Properties:
-    #     LogGroupName: /aws/lambda/${self:functions.tradehist.name}
-    #     RetentionInDays: 30
-
-    # API Gatewayのリクエストの検証有効化
-    noParameter:
-      Type: AWS::ApiGateway::RequestValidator
-      Properties:
-        Name: 'no-parameter'
-        RestApiId:
-          Ref: ApiGatewayRestApi
-        ValidateRequestBody: false
-        ValidateRequestParameters: false
-    onlyStringParameters:
-      Type: AWS::ApiGateway::RequestValidator
-      Properties:
-        Name: 'only-string-parameters'
-        RestApiId:
-          Ref: ApiGatewayRestApi
-        ValidateRequestBody: false
-        ValidateRequestParameters: true

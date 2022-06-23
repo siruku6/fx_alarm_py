@@ -2,12 +2,15 @@ import datetime
 import os
 from unittest.mock import patch, call
 
+from moto import mock_sns
 import numpy as np
 import pandas as pd
 import pytest
 
 import src.real_trader as real
 from src.trader_config import FILTER_ELEMENTS
+
+from tests.conftest import fixture_sns
 
 
 @pytest.fixture(scope='module')
@@ -95,10 +98,14 @@ def test_not_entry(real_trader_client, dummy_candles, dummy_indicators):
     pd.testing.assert_series_equal(mock.call_args[0][2], last_indicators)
 
 
-def test__create_position_with_indicators(real_trader_client, dummy_market_order_response):
+@mock_sns
+def test__create_position_with_indicators(
+    real_trader_client, dummy_market_order_response,
+):
     last_indicators = {'support': 120.111, 'regist': 118.999}
     dummy_response = dummy_market_order_response
 
+    fixture_sns()
     # long
     # HACK: patch imported module into mock
     with patch('oandapyV20.endpoints.orders.OrderCreate') as mock:
@@ -121,31 +128,41 @@ def test__create_position_with_indicators(real_trader_client, dummy_market_order
     )
 
 
-def test__create_position_without_indicators(real_trader_client, dummy_market_order_response):
-    dummy_response = dummy_market_order_response
+class TestCreatePositionWithoutIndicators:
+    @mock_sns
+    def test_long(
+        self, real_trader_client, dummy_market_order_response
+    ):
+        fixture_sns()
 
-    # long
-    with patch('oandapyV20.endpoints.orders.OrderCreate') as mock:
-        with patch('oandapyV20.API.request', return_value=dummy_response):
-            real_trader_client._create_position(_previous_candle_dummy(), 'long')
+        dummy_response = dummy_market_order_response
+        with patch('oandapyV20.endpoints.orders.OrderCreate') as mock:
+            with patch('oandapyV20.API.request', return_value=dummy_response):
+                real_trader_client._create_position(_previous_candle_dummy(), 'long')
 
-    long_stoploss = _previous_candle_dummy()['low'] - real_trader_client.config.stoploss_buffer_pips
-    mock.assert_called_with(
-        accountID=os.environ.get('OANDA_ACCOUNT_ID'),
-        data=_order_response_dummy('', long_stoploss, real_trader_client.config.get_instrument())
-    )
+        long_stoploss = _previous_candle_dummy()['low'] - real_trader_client.config.stoploss_buffer_pips
+        mock.assert_called_with(
+            accountID=os.environ.get('OANDA_ACCOUNT_ID'),
+            data=_order_response_dummy('', long_stoploss, real_trader_client.config.get_instrument())
+        )
 
-    # short
-    with patch('oandapyV20.endpoints.orders.OrderCreate') as mock:
-        with patch('oandapyV20.API.request', return_value=dummy_response):
-            real_trader_client._create_position(_previous_candle_dummy(), 'short')
+    @mock_sns
+    def test_short(
+        self, real_trader_client, dummy_market_order_response
+    ):
+        fixture_sns()
+        dummy_response = dummy_market_order_response
 
-    short_stoploss = _previous_candle_dummy()['high'] \
-        + real_trader_client.config.stoploss_buffer_pips + real_trader_client.config.static_spread
-    mock.assert_called_with(
-        accountID=os.environ.get('OANDA_ACCOUNT_ID'),
-        data=_order_response_dummy('-', short_stoploss, real_trader_client.config.get_instrument())
-    )
+        with patch('oandapyV20.endpoints.orders.OrderCreate') as mock:
+            with patch('oandapyV20.API.request', return_value=dummy_response):
+                real_trader_client._create_position(_previous_candle_dummy(), 'short')
+
+        short_stoploss = _previous_candle_dummy()['high'] \
+            + real_trader_client.config.stoploss_buffer_pips + real_trader_client.config.static_spread
+        mock.assert_called_with(
+            accountID=os.environ.get('OANDA_ACCOUNT_ID'),
+            data=_order_response_dummy('-', short_stoploss, real_trader_client.config.get_instrument())
+        )
 
 
 def test__trail_stoploss(real_trader_client):

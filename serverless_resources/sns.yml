@@ -1,0 +1,12 @@
+Resources:
+  SNSTopicSendMail:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: TopicSendMailOnEntry
+      TopicName: ${self:custom.prefix}-topic-send-mail-on-entry
+  SNSSubscriptionSendMail:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: ${env:SNS_TARGET_MAIL}
+      Protocol: email
+      TopicArn: !Ref SNSTopicSendMail
