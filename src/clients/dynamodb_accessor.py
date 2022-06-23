@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 import json
 import os
@@ -168,9 +169,6 @@ class DynamodbAccessor():
              .get_waiter('table_exists') \
              .wait(TableName=table_name)
         return table
-
-
-from datetime import datetime
 
 
 def loading_sample(startdate: str = None, enddate: str = None) -> pd.DataFrame:
