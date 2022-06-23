@@ -81,10 +81,13 @@ resources:
   #       Properties:
   #         LogGroupName: /aws/lambda/${self:custom.prefix}
   #         RetentionInDays: 30
+
   # NOTE: DynamoDB Table
   - ${file(./serverless_resources/dynamodb.yml)}
   # NOTE: SNS sending Email
   - ${file(./serverless_resources/sns.yml)}
-  # Enable request validation for API Gateway
+  # NOTE: Cloudwatch Alarm
+  - ${file(./serverless_resources/alarm.yml)}
+  # NOTE: Enable request validation for API Gateway
   - ${file(./serverless_resources/validation.yml)}
 
