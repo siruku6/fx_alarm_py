@@ -20,5 +20,5 @@ Resources:
       EvaluationPeriods: 1
       DatapointsToAlarm: 1
       Threshold: 1
-      ComparisonOperator: GreaterThanThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: missing
