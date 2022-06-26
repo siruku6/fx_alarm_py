@@ -13,6 +13,12 @@
     - dynamodb:PutItem
   Resource:
     - !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*
+- Effect: Allow
+  Action:
+    - sns:Publish
+  Resource:
+    - !Ref SNSTopicSendMail
+
 # - Effect: "Allow"
 #   Action:
 #     - "s3:ListBucket"
