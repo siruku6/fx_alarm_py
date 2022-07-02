@@ -19,4 +19,5 @@ environment:
   OANDA_ACCOUNT_ID: ${env:OANDA_ACCOUNT_ID}
   OANDA_ENVIRONMENT: practice
   STAGE: ${self:provider.stage}
+  SNS_TOPIC_SEND_MAIL_ARN: !Ref SNSTopicSendMail
   TZ: Asia/Tokyo

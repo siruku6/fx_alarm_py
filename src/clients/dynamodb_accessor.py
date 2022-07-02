@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 import json
 import os
@@ -170,17 +171,18 @@ class DynamodbAccessor():
         return table
 
 
-def loading_sample():
+def loading_sample(startdate: str = None, enddate: str = None) -> pd.DataFrame:
     """
     Usage example of this class
     """
-    from datetime import datetime
+    if startdate is None:
+        startdate = datetime(2020, 1, 1).isoformat()
+    if enddate is None:
+        enddate = datetime(2021, 12, 31).isoformat()
 
     granularity: str = 'H1'
     table_name = '{}_CANDLES'.format(granularity)
     dynamo = DynamodbAccessor('GBP_JPY', table_name=table_name)
-    candles = dynamo.list_candles(
-        datetime(2020, 1, 1).isoformat(),
-        datetime(2021, 12, 31).isoformat()
-    )
+    candles = dynamo.list_candles(startdate, enddate)
     print(candles)
+    return candles

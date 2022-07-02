@@ -1,0 +1,24 @@
+Resources:
+  AlarmAutoTradeError:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: ${self:custom.prefix}-alarm-auto-trade-Error
+      ActionsEnabled: true
+      # OKActions: []
+      AlarmActions:
+        - !Ref SNSTopicSendMail
+      # InsufficientDataActions: []
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Dimensions:
+        - Name: FunctionName
+          Value: ${self:functions.AutoTrade.name}
+        - Name: Resource
+          Value: ${self:functions.AutoTrade.name}
+      Period: 3600
+      EvaluationPeriods: 1
+      DatapointsToAlarm: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: missing

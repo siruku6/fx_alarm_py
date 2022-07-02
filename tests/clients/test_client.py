@@ -3,6 +3,7 @@ import json
 import os
 from unittest.mock import patch
 
+from moto import mock_sns
 from oandapyV20.exceptions import V20Error
 import responses
 import pytest
@@ -10,6 +11,7 @@ import pytest
 # My-made modules
 import src.clients.oanda_client as watcher
 from tests.fixtures.past_transactions import TRANSACTION_IDS
+from tests.conftest import fixture_sns
 
 
 @pytest.fixture(name='client', scope='module', autouse=True)
@@ -77,7 +79,12 @@ def test_failing_market_ordering(client):
     assert 'error' in result
 
 
-def test_market_ordering(client, dummy_market_order_response, dummy_stoploss_price):
+@mock_sns
+def test_market_ordering(
+    client, dummy_market_order_response, dummy_stoploss_price,
+):
+    fixture_sns()
+
     dummy_response = dummy_market_order_response
     with patch('oandapyV20.API.request', return_value=dummy_response):
         response = client.request_market_ordering('', dummy_stoploss_price)
@@ -93,7 +100,12 @@ def test_market_ordering(client, dummy_market_order_response, dummy_stoploss_pri
         assert response == error_response['orderCreateTransaction']  # 'response が空でも動作すること'
 
 
-def test_market_order_args(client, dummy_market_order_response, dummy_stoploss_price):
+@mock_sns
+def test_market_order_args(
+    client, dummy_market_order_response, dummy_stoploss_price,
+):
+    fixture_sns()
+
     data = {
         'order': {
             'stopLossOnFill': {'timeInForce': 'GTC', 'price': str(dummy_stoploss_price)[:7]},
@@ -145,8 +157,13 @@ class TestRequestClosing:
             dic_closing_result: Dict[str, Any] = json.load(f)
         return dic_closing_result
 
+    @mock_sns
     @responses.activate
-    def test_default(self, client: watcher.OandaClient, dummy_closing_result: Dict[str, Any]):
+    def test_default(
+        self, client: watcher.OandaClient, dummy_closing_result: Dict[str, Any],
+    ):
+        fixture_sns()
+
         # NOTE: mock APIs
         client._OandaClient__trade_ids = ["999"]
         url: str = f"https://api-fxpractice.oanda.com/v3/accounts/{os.environ['OANDA_ACCOUNT_ID']}/trades/999/close"
