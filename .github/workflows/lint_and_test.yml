@@ -1,0 +1,79 @@
+name: Python application
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  flake8:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: pip install flake8
+
+      - name: Setup flake8 annotations
+        uses: rbialon/flake8-annotations@v1
+
+      - name: flake8
+        run: flake8
+
+
+  # mypy:
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         fetch-depth: 1
+
+  #     - name: prepare dependencies
+  #       run: pip install mypy types-requests
+
+  #     - name: mypy
+  #       run: mypy .
+
+
+  pytest:
+    runs-on: ubuntu-latest
+    environment:
+      name: CI
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Prepare dependencies
+        uses: ./.github/actions/prepare_dependencies
+        # with:
+        #   some_env: ${{ secrets.SOME_ENV }}
+
+      - name: Preapre tool for CodeClimate
+        run: |
+          curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-test-reporter
+          chmod +x ./cc-test-reporter
+          ./cc-test-reporter before-build
+
+      - name: pytest
+        run: |
+          python3 -m coverage run -m pytest --quiet --tb=line ./tests/
+          python3 -m coverage xml
+        env:
+          UNITS: 1000
+          AWS_ACCESS_KEY_ID: dummy-access-key
+          AWS_SECRET_ACCESS_KEY: dummy-access-key-secret
+          AWS_DEFAULT_REGION: us-east-2
+          AWS_SECURITY_TOKEN: 'testing'
+          AWS_SESSION_TOKEN: 'testing'
+
+      - name: Send coverage to CodeClimate
+        run: ./cc-test-reporter after-build --coverage-input-type coverage.py
+        env:
+          CC_TEST_REPORTER_ID: ${{ secrets.CC_TEST_REPORTER_ID }}
