@@ -15,7 +15,6 @@ runs:
 
     - name: Install pipenv
       run: |
-        pip install --upgrade pip
         pip install pipenv
       shell: bash
 
