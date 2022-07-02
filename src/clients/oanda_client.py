@@ -1,10 +1,8 @@
-import json
 import os
 import sys
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from aws_lambda_powertools import Logger
-import boto3
 import requests
 
 # For trading
@@ -27,7 +25,6 @@ class OandaClient():
     REQUESTABLE_COUNT = 5000
 
     def __init__(self, instrument: str, environment: str = None, test: bool = False):
-        ''' 固定パラメータの設定 '''
         self.__api_client = API(
             access_token=os.environ['OANDA_ACCESS_TOKEN'],
             # 'practice' or 'live' is valid
@@ -68,7 +65,7 @@ class OandaClient():
         request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
         response = self.__request(request_obj)
 
-        # INFO: lastTransactionID は最後に行った売買のID
+        # INFO: lastTransactionID is ID of the last trade transaction.
         self.last_transaction_id = response['lastTransactionID']
         open_trades = response['trades']
 
@@ -98,15 +95,15 @@ class OandaClient():
         LOGGER.info({'[Client] position': open_position_for_diplay})
         return extracted_trades
 
-    def request_market_ordering(self, posi_nega_sign='', stoploss_price=None):
-        ''' 成行注文を実施 '''
+    def request_market_ordering(self, posi_nega_sign='', stoploss_price=None) -> dict:
+        ''' market order '''
         if stoploss_price is None: return {'error': '[Client] StopLoss注文なしでの成り行き注文を禁止します。'}
 
         data = {
             'order': {
                 'stopLossOnFill': {
                     'timeInForce': 'GTC',
-                    'price': str(stoploss_price)[:7]  # TODO: 桁数が少ない通貨ペアも考慮する
+                    'price': str(stoploss_price)[:7]  # TODO: consider currrency pairs whose digits are too small
                 },
                 'instrument': self.__instrument,
                 'units': '{sign}{units}'.format(sign=posi_nega_sign, units=self.__units),
@@ -122,25 +119,29 @@ class OandaClient():
         request_obj = orders.OrderCreate(
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
-        response = self.__request(request_obj)['orderCreateTransaction']
+        res = self.__request(request_obj)
+        LOGGER.info({'[Client] market-order': res})
+
+        response = res['orderCreateTransaction']
+        if response == {}:
+            return {'messsage': 'Market order is failed.', 'result': res}
+
         response_for_display = {
             'instrument': response.get('instrument'),
-            # 'price': response.get('price'),  # market order に price はなかった
+            # 'price': response.get('price'),  # There isn't 'price' in result of market order
             'units': response.get('units'),
             'time': response.get('time'),
             'stopLossOnFill': response.get('stopLossOnFill')
         }
 
-        LOGGER.info({'[Client] market-order': response_for_display})
-        self._sns_publish({
+        return {
             'messsage': 'Market order is done !',
             'order': response_for_display
-        })
-        return response
+        }
 
-    def request_closing(self, reason=''):
-        ''' ポジションをclose '''
-        if self.__trade_ids == []: return {'error': '[Client] closeすべきポジションが見つかりませんでした。'}
+    def request_closing(self, reason: str = '') -> dict:
+        ''' close position '''
+        if self.__trade_ids == []: return {'error': '[Client] The position to be closed was missing.'}
         if self.__test:
             print('[Test] close_order')
             return
@@ -152,20 +153,21 @@ class OandaClient():
         )
         response = self.__request(request_obj)
 
+        if response.get('orderFillTransaction') is None and response.get('orderCancelTransaction') is not None:
+            reason = response.get('orderCancelTransaction').get('reason')
+            LOGGER.warn({
+                'message': 'The exit order was canceled because of {}'.format(reason)
+            })
+            return {'[Client] message': 'Close order is failed', 'reason': reason}
+
         dict_close_notification: Dict[str, Any] = {
-            '[Client] message': 'Position is closed', 'reason': reason, 'result': response
+            '[Client] message': 'Position is closed',
+            'reason': reason, 'result': response
         }
         LOGGER.info(dict_close_notification)
-        if response.get('orderFillTransaction') is None and response.get('orderCancelTransaction') is not None:
-            LOGGER.warn({'message': 'The exit order was canceled because of {}'.format(
-                response.get('orderCancelTransaction').get('reason')
-            )})
-            return 'Close order is failed'
+        return dict_close_notification
 
-        self._sns_publish(dict_close_notification)
-        return response['orderFillTransaction']
-
-    def request_trailing_stoploss(self, stoploss_price: float):
+    def request_trailing_stoploss(self, stoploss_price: float) -> dict:
         ''' change stoploss price toward the direction helping us get revenue '''
         if self.__trade_ids == []:
             return {'error': '[Client] There is no position'}
@@ -229,7 +231,7 @@ class OandaClient():
     def query_instruments(
             self, start=None, end=None, candles_count=None, granularity='M5'
     ):
-        ''' OandaAPIと直接通信し、為替データを取得 '''
+        ''' request price data against OandaAPI '''
         params = {
             'alignmentTimezone': 'Etc/GMT',
             'dailyAlignment': 0,
@@ -252,10 +254,3 @@ class OandaClient():
             return {'candles': [], 'error': response['error']}
 
         return response
-
-    def _sns_publish(self, dic: Dict[str, Any]) -> None:
-        sns = boto3.client('sns', region_name=os.environ.get('AWS_DEFAULT_REGION'))
-        sns.publish(
-            TopicArn=os.environ.get('SNS_TOPIC_SEND_MAIL_ARN'),
-            Message=json.dumps(dic),
-        )

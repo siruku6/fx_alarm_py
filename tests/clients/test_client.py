@@ -79,25 +79,39 @@ def test_failing_market_ordering(client):
     assert 'error' in result
 
 
+@pytest.fixture(name='market_order_response_for_display')
+def fixture_market_order_response(dummy_market_order_response):
+    return {
+        'messsage': 'Market order is done !',
+        'order': dummy_market_order_response['orderCreateTransaction']
+    }
+
+
 @mock_sns
 def test_market_ordering(
     client, dummy_market_order_response, dummy_stoploss_price,
+    market_order_response_for_display,
 ):
     fixture_sns()
 
     dummy_response = dummy_market_order_response
     with patch('oandapyV20.API.request', return_value=dummy_response):
         response = client.request_market_ordering('', dummy_stoploss_price)
-        assert response == dummy_response['orderCreateTransaction']
+        assert response == market_order_response_for_display
 
     with patch('oandapyV20.API.request', return_value=dummy_response):
         response = client.request_market_ordering('-', dummy_stoploss_price)
-        assert response == dummy_response['orderCreateTransaction']
+        assert response == market_order_response_for_display
 
     error_response = {'orderCreateTransaction': {}}
     with patch('oandapyV20.API.request', return_value=error_response):
         response = client.request_market_ordering('', dummy_stoploss_price)
-        assert response == error_response['orderCreateTransaction']  # 'response が空でも動作すること'
+        assert response == {  # 'response が空でも動作すること'
+            'messsage': 'Market order is done !',
+            'order': {
+                'instrument': None, 'stopLossOnFill': None, 'time': None, 'units': None
+            }
+        }
 
 
 @mock_sns
@@ -171,7 +185,10 @@ class TestRequestClosing:
 
         # test
         res: Dict[str, Union[str, bool]] = client.request_closing(reason='test')
-        assert res == dummy_closing_result['orderFillTransaction']
+        assert res == {
+            '[Client] message': 'Position is closed',
+            'reason': 'test', 'result': dummy_closing_result
+        }
 
 
 # TODO: request_latest_transactions

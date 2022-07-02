@@ -1,4 +1,5 @@
 import datetime
+import json
 import time
 from typing import List
 from collections import OrderedDict
@@ -6,6 +7,7 @@ import pandas as pd
 
 from src.clients.oanda_client import OandaClient
 from src.clients.dynamodb_accessor import DynamodbAccessor
+from src.clients import sns
 import src.tools.format_converter as converter
 import src.tools.interface as i_face
 import src.tools.preprocessor as prepro
@@ -166,7 +168,7 @@ class ClientManager():
         missing_end: datetime = required_end if latest == required_end else stocked_first
         return missing_start, missing_end
 
-    def call_oanda(self, method, **kwargs):
+    def call_oanda(self, method: str, **kwargs):
         method_dict = {
             'is_tradeable': self.__oanda_client.request_is_tradeable,
             'open_trades': self.__oanda_client.request_open_trades,
@@ -175,13 +177,16 @@ class ClientManager():
         }
         return method_dict.get(method)(**kwargs)
 
-    def order_oanda(self, method_type, **kwargs):
+    def order_oanda(self, method_type: str, **kwargs) -> dict:
         method_dict = {
             'entry': self.__oanda_client.request_market_ordering,
             'trail': self.__oanda_client.request_trailing_stoploss,
             'exit': self.__oanda_client.request_closing
         }
-        return method_dict.get(method_type)(**kwargs)
+        result: dict = method_dict.get(method_type)(**kwargs)
+        if method_type == 'entry' or method_type == 'exit':
+            sns.publish(json.dumps(result, indent=4))
+        return result
 
     def request_current_price(self):
         # INFO: .to_dictは、単にコンソールログの見やすさ向上のために使用中
