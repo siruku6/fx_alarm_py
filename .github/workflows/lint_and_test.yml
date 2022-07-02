@@ -1,0 +1,64 @@
+name: Python application
+
+on:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  flake8:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: pip install flake8
+
+      - name: Setup flake8 annotations
+        uses: rbialon/flake8-annotations@v1
+
+      - name: flake8
+        run: flake8
+
+
+  # mypy:
+  #   runs-on: ubuntu-latest
+
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         fetch-depth: 1
+
+  #     - name: prepare dependencies
+  #       run: pip install mypy types-requests
+
+  #     - name: mypy
+  #       run: mypy .
+
+
+  pytest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1
+
+      - name: prepare dependencies
+        uses: ./.github/actions/prepare_dependencies
+        # with:
+        #   some_env: ${{ secrets.SOME_ENV }}
+
+      - name: pytest
+        run: python3 -m pytest ./tests/
+        env:
+          UNITS: 1000
+          AWS_ACCESS_KEY_ID: dummy-access-key
+          AWS_SECRET_ACCESS_KEY: dummy-access-key-secret
+          AWS_DEFAULT_REGION: us-east-2
+          AWS_SECURITY_TOKEN: 'testing'
+          AWS_SESSION_TOKEN: 'testing'
