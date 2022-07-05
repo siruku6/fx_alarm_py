@@ -74,55 +74,75 @@ def test_request_open_trades(client, dummy_raw_open_trades):
     assert isinstance(int(client.last_transaction_id), int)
 
 
-def test_failing_market_ordering(client):
-    result = client.request_market_ordering(stoploss_price=None)
-    assert 'error' in result
-
-
-@mock_sns
-def test_market_ordering(
-    client, dummy_market_order_response, dummy_stoploss_price,
-):
-    fixture_sns()
-
-    dummy_response = dummy_market_order_response
-    with patch('oandapyV20.API.request', return_value=dummy_response):
-        response = client.request_market_ordering('', dummy_stoploss_price)
-        assert response == dummy_response['orderCreateTransaction']
-
-    with patch('oandapyV20.API.request', return_value=dummy_response):
-        response = client.request_market_ordering('-', dummy_stoploss_price)
-        assert response == dummy_response['orderCreateTransaction']
-
-    error_response = {'orderCreateTransaction': {}}
-    with patch('oandapyV20.API.request', return_value=error_response):
-        response = client.request_market_ordering('', dummy_stoploss_price)
-        assert response == error_response['orderCreateTransaction']  # 'response が空でも動作すること'
-
-
-@mock_sns
-def test_market_order_args(
-    client, dummy_market_order_response, dummy_stoploss_price,
-):
-    fixture_sns()
-
-    data = {
-        'order': {
-            'stopLossOnFill': {'timeInForce': 'GTC', 'price': str(dummy_stoploss_price)[:7]},
-            'instrument': client._OandaClient__instrument,
-            'units': '-{}'.format(client._OandaClient__units),
-            'type': 'MARKET',
-            'positionFill': 'DEFAULT'
+class TestRequestMarketOrdering:
+    @pytest.fixture(name='market_order_response_for_display')
+    def fixture_market_order_response(self, dummy_market_order_response):
+        return {
+            'messsage': 'Market order is done !',
+            'order': dummy_market_order_response['orderCreateTransaction']
         }
-    }
-    dummy_response = dummy_market_order_response
-    with patch('oandapyV20.endpoints.orders.OrderCreate') as mock:
-        with patch('oandapyV20.API.request', return_value=dummy_response):
-            client.request_market_ordering('-', dummy_stoploss_price)
 
-    mock.assert_called_with(
-        accountID=os.environ.get('OANDA_ACCOUNT_ID'), data=data
-    )
+    @mock_sns
+    def test_positive_market_order(
+        self, client,
+        dummy_market_order_response, dummy_stoploss_price,
+        market_order_response_for_display,
+    ):
+        fixture_sns()
+        dummy_response = dummy_market_order_response
+        with patch('oandapyV20.API.request', return_value=dummy_response):
+            response = client.request_market_ordering('', dummy_stoploss_price)
+            assert response == market_order_response_for_display
+
+    @mock_sns
+    def test_negative_market_order(
+        self, client,
+        dummy_market_order_response, dummy_stoploss_price,
+        market_order_response_for_display,
+    ):
+        fixture_sns()
+        dummy_response = dummy_market_order_response
+        with patch('oandapyV20.API.request', return_value=dummy_response):
+            response = client.request_market_ordering('-', dummy_stoploss_price)
+            assert response == market_order_response_for_display
+
+    @mock_sns
+    def test_error_response(self, client, dummy_stoploss_price):
+        fixture_sns()
+        error_response = {'orderCreateTransaction': {}}
+        with patch('oandapyV20.API.request', return_value=error_response):
+            response = client.request_market_ordering('', dummy_stoploss_price)
+            assert response == {
+                'messsage': 'Market order is failed.', 'result': error_response
+            }
+
+    @mock_sns
+    def test_market_order_args(
+        self, client, dummy_market_order_response, dummy_stoploss_price,
+    ):
+        fixture_sns()
+
+        data = {
+            'order': {
+                'stopLossOnFill': {'timeInForce': 'GTC', 'price': str(dummy_stoploss_price)[:7]},
+                'instrument': client._OandaClient__instrument,
+                'units': '-{}'.format(client._OandaClient__units),
+                'type': 'MARKET',
+                'positionFill': 'DEFAULT'
+            }
+        }
+        dummy_response = dummy_market_order_response
+        with patch('oandapyV20.endpoints.orders.OrderCreate') as mock:
+            with patch('oandapyV20.API.request', return_value=dummy_response):
+                client.request_market_ordering('-', dummy_stoploss_price)
+
+        mock.assert_called_with(
+            accountID=os.environ.get('OANDA_ACCOUNT_ID'), data=data
+        )
+
+    def test_without_stoploss(self, client):
+        result = client.request_market_ordering(stoploss_price=None)
+        assert 'error' in result
 
 
 class TestRequestTrailingStoploss:
@@ -171,7 +191,10 @@ class TestRequestClosing:
 
         # test
         res: Dict[str, Union[str, bool]] = client.request_closing(reason='test')
-        assert res == dummy_closing_result['orderFillTransaction']
+        assert res == {
+            '[Client] message': 'Position is closed',
+            'reason': 'test', 'result': dummy_closing_result
+        }
 
 
 # TODO: request_latest_transactions
@@ -191,63 +214,70 @@ def test_request_transactions_once(client, past_transactions):
         )
 
 
-def test_request_transaction_ids(client):
-    dummy_from_str = 'xxxx-xx-xxT00:00:00.123456789Z'
-    dummy_to_str = 'xxxx-xx-xxT00:00:00.123456789Z'
+class TestRequestTransactionIds:
+    def test_success(self, client):
+        dummy_from_str = 'xxxx-xx-xxT00:00:00.123456789Z'
+        dummy_to_str = 'xxxx-xx-xxT00:00:00.123456789Z'
 
-    with patch('oandapyV20.endpoints.transactions.TransactionList') as mock:
-        with patch('oandapyV20.API.request', return_value=TRANSACTION_IDS):
-            from_id, to_id = client.request_transaction_ids(from_str=dummy_from_str, to_str=dummy_to_str)
-            assert from_id == '2'
-            assert to_id == '400'
+        with patch('oandapyV20.endpoints.transactions.TransactionList') as mock:
+            with patch('oandapyV20.API.request', return_value=TRANSACTION_IDS):
+                from_id, to_id = client.request_transaction_ids(from_str=dummy_from_str, to_str=dummy_to_str)
+                assert from_id == '2'
+                assert to_id == '400'
 
-        mock.assert_called_with(
-            accountID=os.environ.get('OANDA_ACCOUNT_ID'),
-            params={'from': dummy_from_str, 'pageSize': 1000, 'to': dummy_to_str}
-        )
+            mock.assert_called_with(
+                accountID=os.environ.get('OANDA_ACCOUNT_ID'),
+                params={'from': dummy_from_str, 'pageSize': 1000, 'to': dummy_to_str}
+            )
+
+    def test_fail(self, client):
+        with patch(
+            'oandapyV20.API.request',
+            side_effect=V20Error(code=400, msg="Invalid value specified for 'accountID'")
+        ):
+            from_id, to_id = client.request_transaction_ids(from_str='', to_str='')
+            assert from_id is None
+            assert to_id is None
+            assert client.accessable is False
 
 
-def test_request_transaction_ids_failed(client):
-    with patch('oandapyV20.API.request', side_effect=V20Error(code=400, msg="Invalid value specified for 'accountID'")):
-        from_id, to_id = client.request_transaction_ids(from_str='', to_str='')
-        assert from_id is None
-        assert to_id is None
-        assert client.accessable is False
+class TestQueryInstruments:
+    def test_query_by_count(self, client, dummy_instruments):
+        granularity = 'M5'
+        candles_count = 399
 
+        with patch('oandapyV20.endpoints.instruments.InstrumentsCandles') as mock:
+            with patch('oandapyV20.API.request', return_value=dummy_instruments):
+                result = client.query_instruments(granularity=granularity, candles_count=candles_count)
+            assert result == dummy_instruments
 
-def test_query_instruments(client, dummy_instruments):
-    granularity = 'M5'
-    candles_count = 399
-    start = 'xxxx-xx-xxT00:00:00.123456789Z'
-    end = 'xxxx-xx-xxT12:34:56.123456789Z'
+            mock.assert_called_with(
+                instrument=client._OandaClient__instrument,
+                params={
+                    'alignmentTimezone': 'Etc/GMT',
+                    'count': candles_count,
+                    'dailyAlignment': 0,
+                    'granularity': granularity
+                }
+            )
 
-    with patch('oandapyV20.endpoints.instruments.InstrumentsCandles') as mock:
-        with patch('oandapyV20.API.request', return_value=dummy_instruments):
-            result = client.query_instruments(granularity=granularity, candles_count=candles_count)
-        assert result == dummy_instruments
+    def test_query_by_start_and_end(self, client, dummy_instruments):
+        granularity = 'M5'
+        start = 'xxxx-xx-xxT00:00:00.123456789Z'
+        end = 'xxxx-xx-xxT12:34:56.123456789Z'
 
-        mock.assert_called_with(
-            instrument=client._OandaClient__instrument,
-            params={
-                'alignmentTimezone': 'Etc/GMT',
-                'count': candles_count,
-                'dailyAlignment': 0,
-                'granularity': granularity
-            }
-        )
+        with patch('oandapyV20.endpoints.instruments.InstrumentsCandles') as mock:
+            with patch('oandapyV20.API.request', return_value=dummy_instruments):
+                result = client.query_instruments(granularity=granularity, start=start, end=end)
+            assert result == dummy_instruments
 
-    with patch('oandapyV20.endpoints.instruments.InstrumentsCandles') as mock:
-        with patch('oandapyV20.API.request', return_value=dummy_instruments):
-            result = client.query_instruments(granularity=granularity, start=start, end=end)
-        assert result == dummy_instruments
-
-        mock.assert_called_with(
-            instrument=client._OandaClient__instrument,
-            params={
-                'alignmentTimezone': 'Etc/GMT',
-                'from': start,
-                'to': end,
-                'dailyAlignment': 0,
-                'granularity': granularity
-            }
-        )
+            mock.assert_called_with(
+                instrument=client._OandaClient__instrument,
+                params={
+                    'alignmentTimezone': 'Etc/GMT',
+                    'from': start,
+                    'to': end,
+                    'dailyAlignment': 0,
+                    'granularity': granularity
+                }
+            )
