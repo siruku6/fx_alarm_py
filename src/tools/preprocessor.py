@@ -1,14 +1,15 @@
+from typing import Any, Dict, List
 import urllib
 
 import pandas as pd
 
 
-def to_candle_df(response):
+def to_candle_df(response: Dict[str, Any]) -> pd.DataFrame:
     ''' APIレスポンスをチャートデータに整形 '''
     if response['candles'] == []:
         return pd.DataFrame(columns=[])
 
-    candle = pd.DataFrame.from_dict([row['mid'] for row in response['candles']])
+    candle: pd.DataFrame = pd.DataFrame.from_dict([row['mid'] for row in response['candles']])
     candle = candle.astype({
         # INFO: 'float32' の方が速度は早くなるが、不要な小数点4桁目以下が出現するので64を使用
         'c': 'float64', 'h': 'float64', 'l': 'float64', 'o': 'float64'
@@ -25,7 +26,7 @@ def to_candle_df(response):
     return candle
 
 
-def extract_transaction_ids(response):
+def extract_transaction_ids(response: Dict[str, Any]) -> Dict[str, str]:
     top_url = response['pages'][0]
     last_url = response['pages'][-1]
     top_query = urllib.parse.urlparse(top_url).query
@@ -38,7 +39,9 @@ def extract_transaction_ids(response):
     }
 
 
-def filter_and_make_df(response_transactions, instrument):
+def filter_and_make_df(
+    response_transactions: List[Dict[str, Any]], instrument: str
+) -> pd.DataFrame:
     ''' 必要なrecordのみ残してdataframeに変換する '''
     # INFO: filtering by transaction-type
     filtered_transactions = [
@@ -49,7 +52,7 @@ def filter_and_make_df(response_transactions, instrument):
         )
     ]
 
-    hist_df = pd.DataFrame.from_dict(filtered_transactions).fillna({'pl': 0})
+    hist_df: pd.DataFrame = pd.DataFrame.from_dict(filtered_transactions).fillna({'pl': 0})
     hist_columns = [
         'id', 'batchID', 'tradeID',
         'tradeOpened', 'tradesClosed', 'type',
@@ -79,7 +82,7 @@ def filter_and_make_df(response_transactions, instrument):
     return hist_df
 
 
-def __fill_instrument_for_history(hist_df):
+def __fill_instrument_for_history(hist_df: pd.DataFrame) -> pd.DataFrame:
     hist_df_parent = hist_df.set_index(hist_df.id)['instrument']
     result_df = hist_df.merge(
         hist_df_parent, how='left',

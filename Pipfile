@@ -21,6 +21,8 @@ pytest = "*"
 flake8 = "*"
 coverage = "*"
 responses = "*"
+mypy = "*"
+types-requests = "*"
 
 [requires]
 python_version = "3.8"

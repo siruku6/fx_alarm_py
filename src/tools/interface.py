@@ -1,4 +1,4 @@
-import typing as t
+from typing import Dict, List
 
 
 def ask_granularity() -> str:
@@ -20,7 +20,7 @@ def ask_granularity() -> str:
     return granularity
 
 
-def ask_true_or_false(msg) -> bool:
+def ask_true_or_false(msg: str) -> bool:
     ''' True か False を選択させる '''
     while True:
         print(msg, end='')
@@ -33,7 +33,7 @@ def ask_true_or_false(msg) -> bool:
             print('[Trader] please input 1 - 2 ! >д<;')
 
 
-def ask_number(msg, limit) -> int:
+def ask_number(msg: str, limit: int) -> int:
     ''' limit以下の数値を選択させる '''
     while True:
         print(msg, end='')
@@ -46,31 +46,33 @@ def ask_number(msg, limit) -> int:
 
 def select_stoploss_digit() -> float:
     # print('[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', end='')
-    digit_id: int = ask_number('[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', 3)
-
+    digit_id: int = ask_number(
+        '[Trader] 通貨の価格の桁を選択して下さい [1]: 100.000, [2]: 1.00000, [3]: それ以下又は以外:', 3
+    )
+    stoploss_digit: float = 0.01
     if digit_id == 1:
-        return 0.01
+        stoploss_digit = 0.01
+    elif digit_id == 2:
+        stoploss_digit = 0.0001
+    elif digit_id == 3:
+        stoploss_digit = 0.00001
 
-    if digit_id == 2:
-        return 0.0001
-
-    if digit_id == 3:
-        return 0.00001
+    return stoploss_digit
 
 
-def select_from_dict(dictionary: t.Dict[str, str], menumsg: str = 'Please select one from followings!') -> str:
+def select_from_dict(dictionary: Dict[str, str], menumsg: str = 'Please select one from followings!') -> str:
     menu: str = '[interface] {}'.format(menumsg)
     for i, (key, _) in enumerate(dictionary.items()):
-        menu: str = '{menu} [{i}]: {key},'.format(menu=menu, i=i + 1, key=key)
-    menu: str = menu + ': '
+        menu = '{menu} [{i}]: {key},'.format(menu=menu, i=i + 1, key=key)
+    menu = menu + ': '
 
     dict_len: int = len(dictionary)
-    keys: t.List[str] = list(dictionary.keys())
+    keys: List[str] = list(dictionary.keys())
     while True:
         print(menu, end='')
         digit_id: int = prompt_inputting_decimal() - 1
         if 0 <= digit_id < dict_len:
-            key: str = keys[digit_id]
+            key = keys[digit_id]
             return key
         else:
             print('[interface] please input {} - {} ! >д<;'.format(1, dict_len))

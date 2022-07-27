@@ -8,6 +8,7 @@ import requests
 # For trading
 from oandapyV20 import API
 from oandapyV20.exceptions import V20Error
+from oandapyV20.endpoints.apirequest import APIRequest
 import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.trades as trades
@@ -15,6 +16,9 @@ import oandapyV20.endpoints.instruments as module_inst
 import oandapyV20.endpoints.transactions as transactions
 
 import src.tools.preprocessor as prepro
+
+
+ISO_DATETIME_STR = str
 
 LOGGER = Logger()
 
@@ -30,7 +34,7 @@ class OandaClient():
             # 'practice' or 'live' is valid
             environment=environment or os.environ.get('OANDA_ENVIRONMENT') or 'practice'
         )
-        self.last_transaction_id: str = None
+        self.last_transaction_id: Optional[str] = None
         self.__accessable: bool = True
         self.__instrument: str = instrument
         self.__units: str = os.environ.get('UNITS') or '1'
@@ -38,11 +42,11 @@ class OandaClient():
         self.__test: bool = test
 
     @property
-    def accessable(self):
+    def accessable(self) -> bool:
         return self.__accessable
 
-    def __stop_request(self):
-        self.__accessable: bool = False
+    def __stop_request(self) -> None:
+        self.__accessable = False
 
     #
     # Public
@@ -50,7 +54,7 @@ class OandaClient():
     # INFO: request-something (excluding candles)
     def request_is_tradeable(self) -> Dict[str, Union[str, bool]]:
         params = {'instruments': self.__instrument}  # 'USD_JPY,EUR_USD,EUR_JPY'
-        request_obj = pricing.PricingInfo(
+        request_obj: APIRequest = pricing.PricingInfo(
             accountID=os.environ['OANDA_ACCOUNT_ID'], params=params
         )
         response = self.__request(request_obj)
@@ -60,16 +64,16 @@ class OandaClient():
             'tradeable': tradeable
         }
 
-    def request_open_trades(self):
+    def request_open_trades(self) -> List[dict]:
         ''' OANDA上でopenなポジションの情報を取得 '''
-        request_obj = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
+        request_obj: APIRequest = trades.OpenTrades(accountID=os.environ['OANDA_ACCOUNT_ID'])
         response = self.__request(request_obj)
 
         # INFO: lastTransactionID is ID of the last trade transaction.
         self.last_transaction_id = response['lastTransactionID']
         open_trades = response['trades']
 
-        extracted_trades = [
+        extracted_trades: List[dict] = [
             trade for trade in open_trades if (
                 # 'clientExtensions' not in trade.keys() and
                 trade['instrument'] == self.__instrument
@@ -95,7 +99,9 @@ class OandaClient():
         LOGGER.info({'[Client] position': open_position_for_diplay})
         return extracted_trades
 
-    def request_market_ordering(self, posi_nega_sign='', stoploss_price=None) -> dict:
+    def request_market_ordering(
+        self, posi_nega_sign: str = '', stoploss_price: Optional[float] = None
+    ) -> Dict[str, Any]:
         ''' market order '''
         if stoploss_price is None: return {'error': '[Client] StopLoss注文なしでの成り行き注文を禁止します。'}
 
@@ -116,13 +122,13 @@ class OandaClient():
             print('[Test] market_order: {}'.format(data))
             return data
 
-        request_obj = orders.OrderCreate(
+        request_obj: APIRequest = orders.OrderCreate(
             accountID=os.environ['OANDA_ACCOUNT_ID'], data=data
         )
-        res = self.__request(request_obj)
+        res: Dict[str, Any] = self.__request(request_obj)
         LOGGER.info({'[Client] market-order': res})
 
-        response = res['orderCreateTransaction']
+        response: Dict[str, Any] = res['orderCreateTransaction']
         if response == {}:
             return {'messsage': 'Market order is failed.', 'result': res}
 
@@ -139,22 +145,22 @@ class OandaClient():
             'order': response_for_display
         }
 
-    def request_closing(self, reason: str = '') -> dict:
+    def request_closing(self, reason: str = '') -> Dict[str, Any]:
         ''' close position '''
         if self.__trade_ids == []: return {'error': '[Client] The position to be closed was missing.'}
         if self.__test:
             print('[Test] close_order')
-            return
+            return {}
 
         target_trade_id = self.__trade_ids[0]
         # data = {'units': self.__units}
-        request_obj = trades.TradeClose(
+        request_obj: APIRequest = trades.TradeClose(
             accountID=os.environ['OANDA_ACCOUNT_ID'], tradeID=target_trade_id  # , data=data
         )
-        response = self.__request(request_obj)
+        response: Dict[str, Any] = self.__request(request_obj)
 
         if response.get('orderFillTransaction') is None and response.get('orderCancelTransaction') is not None:
-            reason = response.get('orderCancelTransaction').get('reason')
+            reason = response.get('orderCancelTransaction').get('reason')  # type: ignore
             LOGGER.warn({
                 'message': 'The exit order was canceled because of {}'.format(reason)
             })
@@ -167,7 +173,7 @@ class OandaClient():
         LOGGER.info(dict_close_notification)
         return dict_close_notification
 
-    def request_trailing_stoploss(self, stoploss_price: float) -> dict:
+    def request_trailing_stoploss(self, stoploss_price: float) -> Dict[str, Any]:
         ''' change stoploss price toward the direction helping us get revenue '''
         if self.__trade_ids == []:
             return {'error': '[Client] There is no position'}
@@ -177,12 +183,12 @@ class OandaClient():
             'stopLoss': {'timeInForce': 'GTC', 'price': str(stoploss_price)[:7]}
         }
 
-        request_obj = trades.TradeCRCDO(
+        request_obj: APIRequest = trades.TradeCRCDO(
             accountID=os.environ['OANDA_ACCOUNT_ID'],
             tradeID=self.__trade_ids[0],
             data=data
         )
-        response = self.__request(request_obj)
+        response: Dict[str, Any] = self.__request(request_obj)
         LOGGER.info({'[Client] trail': response})
         return response
 
@@ -194,7 +200,9 @@ class OandaClient():
             'type': ['ORDER'],
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
-        request_obj = transactions.TransactionIDRange(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
+        request_obj: APIRequest = transactions.TransactionIDRange(
+            accountID=os.environ['OANDA_ACCOUNT_ID'], params=params
+        )
         response: Dict[str, Any] = self.__request(request_obj)
 
         return response
@@ -202,11 +210,11 @@ class OandaClient():
     # TODO: from_str の扱いを決める必要あり
     def request_transaction_ids(self, from_str: str, to_str: str) -> Tuple[str, str]:
         params: Dict[str, Union[str, int]] = {'from': from_str, 'pageSize': 1000, 'to': to_str}
-        request_obj = transactions.TransactionList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
+        request_obj: APIRequest = transactions.TransactionList(accountID=os.environ['OANDA_ACCOUNT_ID'], params=params)
         response: Dict[str, Any] = self.__request(request_obj)
         if 'error' in response:
             self.__stop_request()
-            return None, None
+            return None, None  # type: ignore
 
         ids: Dict[str, str] = prepro.extract_transaction_ids(response)
         return ids['old_id'], ids['last_id']
@@ -214,12 +222,12 @@ class OandaClient():
     #
     # Private
     #
-    def __request(self, obj):
+    def __request(self, obj: APIRequest) -> Dict[str, Any]:
         try:
-            response = self.__api_client.request(obj)
+            response: Dict[str, Any] = self.__api_client.request(obj)
         except V20Error as error:
-            LOGGER.error({f'[{sys._getframe().f_back.f_code.co_name}] V20Error': error})
-            LOGGER.info({f'[{sys._getframe().f_back.f_code.co_name}] dir(error)': dir(error)})
+            LOGGER.error({f'[{sys._getframe().f_back.f_code.co_name}] V20Error': error})  # type: ignore
+            LOGGER.info({f'[{sys._getframe().f_back.f_code.co_name}] dir(error)': dir(error)})  # type: ignore
             # error.msg
             return {'error': error.code}
         except requests.exceptions.ConnectionError as error:
@@ -229,8 +237,12 @@ class OandaClient():
             return response
 
     def query_instruments(
-            self, start=None, end=None, candles_count=None, granularity='M5'
-    ):
+        self,
+        start: Optional[ISO_DATETIME_STR] = None,
+        end: Optional[ISO_DATETIME_STR] = None,
+        candles_count: Optional[int] = None,
+        granularity: str = 'M5'
+    ) -> Dict[str, Any]:
         ''' request price data against OandaAPI '''
         params = {
             'alignmentTimezone': 'Etc/GMT',
@@ -244,12 +256,12 @@ class OandaClient():
         else:
             params.update({'from': start, 'to': end})
 
-        request_obj = module_inst.InstrumentsCandles(
+        request_obj: APIRequest = module_inst.InstrumentsCandles(
             instrument=self.__instrument,
             params=params
         )
         # HACK: 現在値を取得する際、誤差で将来の時間と扱われてエラーになることがある
-        response = self.__request(request_obj)
+        response: Dict[str, Any] = self.__request(request_obj)
         if 'error' in response:
             return {'candles': [], 'error': response['error']}
 
