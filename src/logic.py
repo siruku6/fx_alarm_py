@@ -1,5 +1,5 @@
-from enum import Enum
 from datetime import datetime
+from enum import Enum
 
 
 class Weekday(Enum):
@@ -24,7 +24,7 @@ def _is_reasonable_hour(hour: int) -> bool:
     because spread is going to be wide and trade volume is little.
     """
     if 20 <= hour < 22:
-        print(f'[INFO] isn\'t reasonable hour: {hour} (UTC)')
+        print(f"[INFO] isn't reasonable hour: {hour} (UTC)")
         return False
 
     return True
@@ -43,5 +43,5 @@ def _is_open(now: datetime) -> bool:
     elif Weekday.Sun.value == weekday_id and 19 <= hour:
         return True
 
-    print(f'[INFO] isn\'t open: {now}')
+    print(f"[INFO] isn't open: {now}")
     return False
