@@ -2,16 +2,17 @@
     "[json][python][ipynb]": {
         "editor.tabSize": 4
     },
-
     "autoDocstring.docstringFormat": "google",
-
     "diffEditor.ignoreTrimWhitespace": true,
+    "editor.formatOnSave": true,
     "editor.minimap.enabled": false,
     "editor.mouseWheelZoom": true,
     "editor.renderLineHighlight": "all",
     "editor.renderWhitespace": "boundary",
-    "editor.rulers": [100, 120],
-
+    "editor.rulers": [
+        100,
+        120
+    ],
     "files.insertFinalNewline": true,
     "files.watcherExclude": {
         "**/vendor/bundle/**": true,
@@ -19,7 +20,6 @@
         "**/node_modules/*/**": true
     },
     "search.searchEditor.defaultNumberOfContextLines": 3,
-
     "python.languageServer": "Pylance",
     "python.linting.enabled": true,
     "python.linting.lintOnSave": true,
@@ -28,4 +28,7 @@
     "python.linting.pylintEnabled": false,
     "python.linting.mypyEnabled": true,
     "python.linting.mypyPath": "${workspaceFolder}/.venv/bin/mypy",
+    "python.formatting.provider": "black",
+    "python.formatting.blackPath": "${workspaceFolder}/.venv/bin/black",
+    "python.sortImports.path": "${workspaceFolder}/.venv/bin/isort",
 }

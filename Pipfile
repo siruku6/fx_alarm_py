@@ -19,10 +19,12 @@ aws-lambda-powertools = "*"
 moto = "*"
 pytest = "*"
 flake8 = "*"
-coverage = "*"
 responses = "*"
 mypy = "*"
 types-requests = "*"
+isort = "*"
+black = "*"
+coverage = "*"
 
 [requires]
 python_version = "3.8"

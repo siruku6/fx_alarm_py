@@ -1,4 +1,5 @@
 from typing import Optional
+
 import pandas as pd
 
 
@@ -15,7 +16,7 @@ class FXBase:
 
     @classmethod
     def set_time_id(cls) -> None:
-        cls.__candles['time_id'] = cls.get_candles().index + 1  # type: ignore
+        cls.__candles["time_id"] = cls.get_candles().index + 1  # type: ignore
 
     @classmethod
     def set_candles(cls, candles: pd.DataFrame) -> None:
@@ -27,7 +28,7 @@ class FXBase:
         cls.__candles.iat[-1, column_num] = new_price
 
     @classmethod
-    def write_candles_on_csv(cls, filename: str = './tmp/candles.csv') -> None:
+    def write_candles_on_csv(cls, filename: str = "./tmp/candles.csv") -> None:
         cls.__candles.to_csv(filename)
 
     # D1 or H4 candles
