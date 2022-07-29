@@ -1,5 +1,5 @@
 description: execute automatic trading
-handler: main.lambda_handler
+handler: src.handlers.main.lambda_handler
 name: ${self:custom.prefix}--auto-trade
 layers: arn:aws:lambda:us-east-2:${env:AWS_ACCOUNT_ID}:layer:trader_modules:4
 events:

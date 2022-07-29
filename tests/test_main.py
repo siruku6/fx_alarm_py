@@ -2,10 +2,9 @@ import json
 
 # from unittest.mock import patch
 from typing import Dict, List
-
 import pytest
 
-import main
+import src.handlers.main as main
 
 
 @pytest.fixture(name="tradehist_event", scope="module", autouse=True)

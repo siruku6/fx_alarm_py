@@ -50,7 +50,7 @@ make_zip_for_lambda () {
     if [ -n "$result" ]; then
       yes | rm -r ${ModuleDirName}/python/*
     fi
-    pip install -t ${ModuleDirName}/python -r requirements.txt
+    pip install -t ${ModuleDirName}/python -r serverless_resources/requirements.txt
     # INFO: .dist-info, __pycache__ are unnecessary on Lambda
     # https://medium.com/@korniichuk/lambda-with-pandas-fd81aa2ff25e
     rm -r ${ModuleDirName}/python/*.dist-info
@@ -59,7 +59,7 @@ make_zip_for_lambda () {
     rm -r ${ModuleDirName}/python/__pycache__
     rm ${ModuleDirName}/python/THIRD-PARTY-LICENSES
   fi
-  cp main.py ${DirName}/
+
   cp -r src ${DirName}/
 
   # Create Archive
@@ -131,7 +131,7 @@ while true; do
   case $select in
     1)
       echo 'running main.py'
-      python main.py
+      python src/handlers/main.py
       wait_display
       ;;
     2)
