@@ -1,7 +1,7 @@
 import json
 
-# from unittest.mock import patch
-from typing import Dict, List
+from typing import Dict, List, Union
+from unittest.mock import patch
 import pytest
 
 import src.handlers.main as main
@@ -61,6 +61,17 @@ def fixture_invalid_tradehist_event():
         },
     }
     yield event
+
+
+class TestLambdaHandler:
+    def test_market_is_closed(self):
+        with patch("src.candle_loader.CandleLoader.run", return_value={"tradable": False}):
+            res: Dict[str, Union[int, str]] = main.lambda_handler({}, {})
+
+        assert res["statusCode"] == 204
+        assert (
+            res["body"] == "1. lambda function is correctly finished, but now the market is closed."
+        )
 
 
 def test_fails_api_handler(invalid_tradehist_event):

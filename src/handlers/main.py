@@ -21,11 +21,11 @@ def lambda_handler(_event: EventBridgeEvent, _context: LambdaContext) -> Dict[st
     trader = RealTrader(operation="live")
     if not trader.tradeable:
         msg = "1. lambda function is correctly finished, but now the market is closed."
-        return {"statusCode": 204, "body": json.dumps(msg)}
+        return {"statusCode": 204, "body": msg}
 
     trader.apply_trading_rule()
     msg = "lambda function is correctly finished."
-    return {"statusCode": 200, "body": json.dumps(msg)}
+    return {"statusCode": 200, "body": msg}
 
 
 # ------------------------------

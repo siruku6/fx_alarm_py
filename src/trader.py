@@ -42,7 +42,6 @@ class Trader(metaclass=abc.ABCMeta):
         )
         self._candle_loader: CandleLoader = CandleLoader(self.config, self._client)
         self._result_processor: ResultProcessor = ResultProcessor(operation, self.config)
-        self._initialize_position_variables()
 
         result: Dict[str, str] = self._candle_loader.run()
         self.tradeable: bool = result.get("tradable")
@@ -58,9 +57,6 @@ class Trader(metaclass=abc.ABCMeta):
 
         candles: pd.DataFrame = self._merge_long_indicators(FXBase.get_candles())
         FXBase.set_candles(candles)
-
-    def _initialize_position_variables(self) -> None:
-        self.__hist_positions = {"long": [], "short": []}
 
     #
     # public
@@ -97,7 +93,6 @@ class Trader(metaclass=abc.ABCMeta):
     def perform(self, rule: str = "swing", entry_filters: List[str] = []) -> pd.DataFrame:
         """automatically test trade rule"""
         # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする いらなくない？
-        self._initialize_position_variables()
         self._result_processor.reset_drawer()
         filters: List[str] = FILTER_ELEMENTS if entry_filters == [] else entry_filters
         self.config.set_entry_rules("entry_filters", value=filters)
