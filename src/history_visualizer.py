@@ -1,6 +1,6 @@
 import datetime
 from datetime import timedelta
-from typing import Tuple
+from typing import List, Optional, Tuple, TypedDict
 
 import pandas as pd
 
@@ -11,11 +11,20 @@ from src.drawer import FigureDrawer
 import src.tools.format_converter as converter
 
 
+class DstSwitch(TypedDict):
+    time: str
+    summer_time: bool
+
+
 class Visualizer:
     DRAWABLE_ROWS = 200
 
     def __init__(
-        self, from_iso: str, to_iso: str, instrument: str = None, indicator_names: Tuple[str] = None
+        self,
+        from_iso: str,
+        to_iso: str,
+        instrument: str = None,
+        indicator_names: Optional[Tuple[str, ...]] = None,
     ):
         self.__instrument: str = instrument or ClientManager.select_instrument()[0]
         self.__from_iso: str = from_iso
@@ -25,11 +34,11 @@ class Visualizer:
         self._indicators: pd.DataFrame = None
 
     @property
-    def indicators(self):
+    def indicators(self) -> pd.DataFrame:
         return self._indicators
 
     @indicators.setter
-    def indicators(self, indicators):
+    def indicators(self, indicators: pd.DataFrame) -> None:
         self._indicators = indicators
 
     def run(self) -> pd.DataFrame:
@@ -85,7 +94,9 @@ class Visualizer:
 
         return pd.merge(result, self.indicators, on="time", how="left")
 
-    def __merge_candles_and_hist(self, candles, history_df, granularity):
+    def __merge_candles_and_hist(
+        self, candles: pd.DataFrame, history_df: pd.DataFrame, granularity: str
+    ) -> pd.DataFrame:
         history_df.loc[:, "price"] = history_df.price.astype("float32")
         history_df = self.__adjust_time_for_merging(candles, history_df, granularity)
 
@@ -114,8 +125,10 @@ class Visualizer:
 
         return result
 
-    def __adjust_time_for_merging(self, candles, history_df, granularity):
-        dict_dst_switches = None
+    def __adjust_time_for_merging(
+        self, candles: pd.DataFrame, history_df: pd.DataFrame, granularity: str
+    ) -> pd.DataFrame:
+        dict_dst_switches: List[DstSwitch] = None
         if granularity in ("H4",) and len(history_df) > 0:
             # TODO: dict_dst_switches は H4 candles でのみしか使えない形になっている
             dict_dst_switches = self.__detect_dst_switches(candles)
@@ -133,7 +146,7 @@ class Visualizer:
             ]
         return history_df
 
-    def __detect_dst_switches(self, candles):
+    def __detect_dst_switches(self, candles: pd.DataFrame) -> List[DstSwitch]:
         """
         daylight saving time の切り替わりタイミングを見つける
         """
@@ -141,9 +154,11 @@ class Visualizer:
         switch_points = candles[candles.summer_time != candles.summer_time.shift(1)][
             ["time", "summer_time"]
         ]
-        return switch_points.to_dict("records")
+        return switch_points.to_dict("records")  # type: ignore
 
-    def __append_dst_column(self, original_df, dst_switches):
+    def __append_dst_column(
+        self, original_df: pd.DataFrame, dst_switches: List[DstSwitch]
+    ) -> pd.DataFrame:
         """
         dst is Daylight Saving Time
 
@@ -172,10 +187,15 @@ class Visualizer:
         hist_df["dst"] = hist_df["dst"].astype(bool)
         return hist_df
 
-    def __convert_time_str_to(self, granularity, oanda_time, dict_dst_switches=None):
-        time_str = oanda_time.replace("T", " ")
+    def __convert_time_str_to(
+        self,
+        granularity: str,
+        oanda_time: str,
+        dict_dst_switches: Optional[List[DstSwitch]],
+    ) -> str:
+        time_str: str = oanda_time.replace("T", " ")
         # INFO: 12文字目までで hour まで取得できる
-        time = datetime.datetime.strptime(time_str[:13], "%Y-%m-%d %H")
+        time: datetime.datetime = datetime.datetime.strptime(time_str[:13], "%Y-%m-%d %H")
 
         # INFO: adjust according to day light saving time
         if granularity in ("H4",):
@@ -186,17 +206,17 @@ class Visualizer:
                 minus = time.hour % 4
             time -= datetime.timedelta(hours=minus)
 
-        hour_str = time.strftime("%Y-%m-%d %H:%M:%S")
+        hour_str: str = time.strftime("%Y-%m-%d %H:%M:%S")
         return hour_str
 
-    def __is_summer_time(self, time_str, dict_dst_switches):
+    def __is_summer_time(self, time_str: str, dict_dst_switches: List[DstSwitch]) -> bool:
         for i, switch_dict in enumerate(dict_dst_switches):
             if dict_dst_switches[-1]["time"] < time_str:
                 return dict_dst_switches[-1]["summer_time"]
             elif switch_dict["time"] < time_str and time_str < dict_dst_switches[i + 1]["time"]:
                 return switch_dict["summer_time"]
 
-    def __extract_pl(self, granularity, original_df):
+    def __extract_pl(self, granularity: str, original_df: pd.DataFrame) -> pd.DataFrame:
         """
         Parameters
         ----------
@@ -222,13 +242,18 @@ class Visualizer:
         pl_hist.loc[:, "time"] = pl_hist["time"].astype({"time": str})
         return pl_hist
 
-    def __downsample_pl_df(self, pl_df):
+    def __downsample_pl_df(self, pl_df: pd.DataFrame) -> pd.DataFrame:
         # time 列の調節と resampling
         hist_dst_on = self.__resample_by("4H", pl_df[pl_df["dst"]].copy(), offset="1h")
         hist_dst_off = self.__resample_by("4H", pl_df[~pl_df["dst"]].copy(), offset="0h")
         return hist_dst_on.append(hist_dst_off).sort_index()
 
-    def __resample_by(self, rule, target_df, offset="0h"):
+    def __resample_by(
+        self,
+        rule: str,
+        target_df: pd.DataFrame,
+        offset: str = "0h",
+    ) -> pd.DataFrame:
         target_df.loc[:, "time"] = pd.to_datetime(target_df["time"])
         if target_df.empty:
             return target_df[[]]
@@ -239,13 +264,11 @@ class Visualizer:
         self, candles: pd.DataFrame, tmp_positions_df: pd.DataFrame, hist_pl_df: pd.DataFrame
     ) -> pd.DataFrame:
         result: pd.DataFrame = pd.merge(candles, tmp_positions_df, on="time", how="left")
-        result: pd.DataFrame = pd.merge(result, hist_pl_df, on="time", how="left").drop_duplicates(
-            ["time"]
-        )
+        result = pd.merge(result, hist_pl_df, on="time", how="left").drop_duplicates(["time"])
         result["pl"].fillna(0, inplace=True)
         return result
 
-    def __extract_positions_df_from(self, d_frame):
+    def __extract_positions_df_from(self, d_frame: pd.DataFrame) -> pd.DataFrame:
         tmp_positions_df = (
             d_frame.dropna(subset=["tradeOpened"])[["price", "time", "units"]]
             .copy()
@@ -274,7 +297,7 @@ class Visualizer:
 
         return tmp_positions_df  # , exit_df, trail_df
 
-    def __fill_stoploss(self, hist_df):
+    def __fill_stoploss(self, hist_df: pd.DataFrame) -> pd.DataFrame:
         """entry ~ exit の間の stoploss を補完"""
         hist_df.loc[pd.notna(hist_df["exit"].shift(1)), "entried"] = False
         is_long_or_short = hist_df[["long", "short"]].any(axis=1)
@@ -283,7 +306,7 @@ class Visualizer:
         hist_df["stoploss"] = hist_df.loc[hist_df["entried"], "stoploss"].fillna(method="ffill")
         return hist_df.loc[:, "stoploss"]
 
-    def __draw_history(self):
+    def __draw_history(self) -> None:
         # INFO: データ準備
         candles_and_hist = (
             FXBase.get_candles(start=-Visualizer.DRAWABLE_ROWS, end=None)
@@ -313,7 +336,7 @@ class Visualizer:
 
     def __draw_hists(
         self, drawer: FigureDrawer, drawn_indicators: pd.DataFrame, candles_and_hist: pd.DataFrame
-    ):
+    ) -> None:
         drawer.draw_vertical_lines(
             indexes=candles_and_hist[["long", "short"]].dropna(how="all").index,
             vmin=drawn_indicators["sigma*-2_band"].min(skipna=True),

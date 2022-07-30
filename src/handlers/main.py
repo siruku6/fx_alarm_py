@@ -1,7 +1,13 @@
-import datetime
+from datetime import datetime
 import json
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
+from aws_lambda_powertools.utilities.data_classes import (
+    APIGatewayProxyEvent,
+    EventBridgeEvent,
+    # SQSEvent, event_source
+)
+from aws_lambda_powertools.utilities.typing import LambdaContext
 import numpy as np
 import pandas as pd
 
@@ -11,7 +17,7 @@ from src.real_trader import RealTrader
 
 
 # For auto trader
-def lambda_handler(_event, _context):
+def lambda_handler(_event: EventBridgeEvent, _context: LambdaContext) -> Dict[str, Union[int, str]]:
     trader = RealTrader(operation="live")
     if not trader.tradeable:
         msg = "1. lambda function is correctly finished, but now the market is closed."
@@ -25,7 +31,7 @@ def lambda_handler(_event, _context):
 # ------------------------------
 #         For tradehist
 # ------------------------------
-def indicator_names_handler(_event: Dict[str, Dict], _context: Dict) -> Dict:
+def indicator_names_handler(_event: APIGatewayProxyEvent, _context: LambdaContext) -> Dict:
     return {
         "statusCode": 200,
         "headers": {
@@ -38,7 +44,7 @@ def indicator_names_handler(_event: Dict[str, Dict], _context: Dict) -> Dict:
     }
 
 
-def api_handler(event: Dict[str, Dict], _context: Dict) -> Dict:
+def api_handler(event: APIGatewayProxyEvent, _context: LambdaContext) -> Dict:
     # TODO: oandaとの通信失敗時などは、500 エラーレスポンスを返せるようにする
     params: Dict[str, str] = event["queryStringParameters"]
     multi_value_params: Dict[str, List] = event["multiValueQueryStringParameters"]
@@ -48,8 +54,8 @@ def api_handler(event: Dict[str, Dict], _context: Dict) -> Dict:
     status: int
     valid, body, status = __tradehist_params_valid(params, multi_value_params)
     if valid:
-        body: str = __drive_generating_tradehist(params, multi_value_params)
-        status: int = 200
+        body = __drive_generating_tradehist(params, multi_value_params)
+        status = 200
     print("[Main] lambda function is correctly finished.")
 
     return {"statusCode": status, "headers": __headers(method="GET"), "body": body}
@@ -78,12 +84,12 @@ def __tradehist_params_valid(
         result = {"valid": False, "body": body, "status": status}
     else:
         result = {"valid": True, "body": None, "status": None}
-    return result["valid"], result["body"], result["status"]
+    return result["valid"], result["body"], result["status"]  # type: ignore
 
 
 def __period_between_from_to(from_str: str, to_str: str) -> int:
-    start: datetime = datetime.datetime.fromisoformat(from_str[:26].rstrip("Z"))
-    end: datetime = datetime.datetime.fromisoformat(to_str[:26].rstrip("Z"))
+    start: datetime = datetime.fromisoformat(from_str[:26].rstrip("Z"))
+    end: datetime = datetime.fromisoformat(to_str[:26].rstrip("Z"))
     result: int = (end - start).days
     return result
 
@@ -105,7 +111,7 @@ def __drive_generating_tradehist(
     tradehist: pd.DataFrame = visualizer.run()
     result: str = json.dumps(
         {
-            # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
+            # HACK: use replace np.nan into None because `json` can't realize np.nan(Nan)
             #   to_json ならこの問題は起きないが、dumps と組み合わせると文字列になってしまうのでしない
             "history": (tradehist.replace({np.nan: None}).to_dict(orient="records"))
         }
@@ -145,4 +151,4 @@ if __name__ == "__main__":
             ]
         },
     }
-    api_handler(DUMMY_EVENT, None)
+    api_handler(DUMMY_EVENT, None)  # type: ignore

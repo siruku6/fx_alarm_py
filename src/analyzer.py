@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 
@@ -87,7 +89,9 @@ class Analyzer:
         }
         return method_dict.get(target)(**kwargs)
 
-    def get_indicators(self, start=None, end=None):
+    def get_indicators(
+        self, start: Optional[int] = None, end: Optional[int] = None
+    ) -> pd.DataFrame:
         indicators = pd.concat(
             [self.__indicators[name] for name in ("time",) + self.__indicator_list], axis=1
         )[start:end]
