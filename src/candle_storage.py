@@ -1,6 +1,14 @@
-from typing import Optional
+from typing import Optional, List
 
 import pandas as pd
+
+CANDLE_COLUMN_LIST: List[str] = [
+    "open",
+    "high",
+    "low",
+    "close",
+    "time",
+]
 
 
 class FXBase:
@@ -20,6 +28,11 @@ class FXBase:
 
     @classmethod
     def set_candles(cls, candles: pd.DataFrame) -> None:
+        available_column_list: List[str] = candles.columns
+        # TODO: check the type of each column
+        for necessary_column in CANDLE_COLUMN_LIST:
+            if necessary_column not in available_column_list:
+                raise ValueError(f'There is not the column "{necessary_column}" in your candles !')
         cls.__candles = candles
 
     @classmethod
