@@ -180,13 +180,13 @@ def loading_sample(startdate: str = None, enddate: str = None) -> pd.DataFrame:
     Usage example of this class
     """
     if startdate is None:
-        startdate = datetime(2020, 1, 1).isoformat()
+        startdate = datetime(2021, 10, 30).isoformat()
     if enddate is None:
-        enddate = datetime(2021, 12, 31).isoformat()
+        enddate = datetime(2022, 9, 12).isoformat()
 
     granularity: str = "H1"
     table_name = "{}_CANDLES".format(granularity)
     dynamo = DynamodbAccessor("GBP_JPY", table_name=table_name)
-    candles = dynamo.list_candles(startdate, enddate)
+    candles: pd.DataFrame = dynamo.list_candles(startdate, enddate)
     print(candles)
     return candles
