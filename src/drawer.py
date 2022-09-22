@@ -194,7 +194,6 @@ class FigureDrawer:
             )
 
     def draw_positions_df(self, positions_df, plot_type=PLOT_TYPE["long"], size=20, nolabel=None):
-        """__hist_positionsから抽出したdfを受け取って描画"""
         if plot_type == FigureDrawer.PLOT_TYPE["long"]:
             color = "white"
             edgecolors = "green"

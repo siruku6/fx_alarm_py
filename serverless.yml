@@ -59,7 +59,6 @@ provider:
 package:
   patterns:
     - '!./**'
-    - 'main.py'
     - 'src/**'
   # artifact: tmp/zips/app/fx_archive.zip
   # Create an individual zip-file for each function

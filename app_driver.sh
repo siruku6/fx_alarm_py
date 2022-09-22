@@ -4,7 +4,7 @@ menu=$(cat << EOS
 /     Dev Assistance Menu     /
 / / / / / / / / / / / / / / / /
 Select an operation from below.
-{1} :python main.py
+{1} :python src/handlers/trade_hist.py
 {2} :execute beta_cord
 {5} :find (find ./[dir] -type f -print | xargs grep [str])
 {6} :pytest -vv
@@ -32,6 +32,8 @@ search_menu () {
   find ./${dir} -type f -print | xargs grep -n ${str}
 }
 
+# TODO: アップロードしたいものだけアップロードできるように修正する
+# 多分、現状はいらないものがアップロードされてる（気がする）
 make_zip_for_lambda () {
   echo -e 'Input 1(copy only source) or 10(prepare source & modules):'
   read select
@@ -41,7 +43,7 @@ make_zip_for_lambda () {
   result=`find ${DirName} -maxdepth 1 -name "*.py" 2>/dev/null`
   if [ -n "$result" ]; then
     yes | rm -r ${DirName}/src
-    yes | rm ${DirName}/main.py
+    # yes | rm ${DirName}/main.py
   fi
 
   # Install modules
@@ -50,7 +52,7 @@ make_zip_for_lambda () {
     if [ -n "$result" ]; then
       yes | rm -r ${ModuleDirName}/python/*
     fi
-    pip install -t ${ModuleDirName}/python -r requirements.txt
+    pip install -t ${ModuleDirName}/python -r serverless_resources/requirements.txt
     # INFO: .dist-info, __pycache__ are unnecessary on Lambda
     # https://medium.com/@korniichuk/lambda-with-pandas-fd81aa2ff25e
     rm -r ${ModuleDirName}/python/*.dist-info
@@ -59,7 +61,7 @@ make_zip_for_lambda () {
     rm -r ${ModuleDirName}/python/__pycache__
     rm ${ModuleDirName}/python/THIRD-PARTY-LICENSES
   fi
-  cp main.py ${DirName}/
+
   cp -r src ${DirName}/
 
   # Create Archive
@@ -130,8 +132,8 @@ while true; do
 
   case $select in
     1)
-      echo 'running main.py'
-      python main.py
+      echo 'running src/handlers/trade_hist.py'
+      python src/handlers/trade_hist.py
       wait_display
       ;;
     2)

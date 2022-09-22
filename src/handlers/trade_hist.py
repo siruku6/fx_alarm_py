@@ -1,44 +1,20 @@
-import datetime
+from datetime import datetime
 import json
 from typing import Dict, List, Tuple
 
+from aws_lambda_powertools.utilities.data_classes import (
+    APIGatewayProxyEvent,
+    # SQSEvent, event_source
+)
+from aws_lambda_powertools.utilities.typing import LambdaContext
 import numpy as np
 import pandas as pd
 
-from src.analyzer import Analyzer
+from . import api_util
 from src.history_visualizer import Visualizer
-from src.real_trader import RealTrader
 
 
-# For auto trader
-def lambda_handler(_event, _context):
-    trader = RealTrader(operation="live")
-    if not trader.tradeable:
-        msg = "1. lambda function is correctly finished, but now the market is closed."
-        return {"statusCode": 204, "body": json.dumps(msg)}
-
-    trader.apply_trading_rule()
-    msg = "lambda function is correctly finished."
-    return {"statusCode": 200, "body": json.dumps(msg)}
-
-
-# ------------------------------
-#         For tradehist
-# ------------------------------
-def indicator_names_handler(_event: Dict[str, Dict], _context: Dict) -> Dict:
-    return {
-        "statusCode": 200,
-        "headers": {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-            "Access-Control-Allow-Methods": "OPTIONS,GET",
-            # 'Access-Control-Allow-Credentials': 'true'
-        },
-        "body": json.dumps(Analyzer.INDICATOR_NAMES),
-    }
-
-
-def api_handler(event: Dict[str, Dict], _context: Dict) -> Dict:
+def api_handler(event: APIGatewayProxyEvent, _context: LambdaContext) -> Dict:
     # TODO: oandaとの通信失敗時などは、500 エラーレスポンスを返せるようにする
     params: Dict[str, str] = event["queryStringParameters"]
     multi_value_params: Dict[str, List] = event["multiValueQueryStringParameters"]
@@ -48,20 +24,14 @@ def api_handler(event: Dict[str, Dict], _context: Dict) -> Dict:
     status: int
     valid, body, status = __tradehist_params_valid(params, multi_value_params)
     if valid:
-        body: str = __drive_generating_tradehist(params, multi_value_params)
-        status: int = 200
+        body = __drive_generating_tradehist(params, multi_value_params)
+        status = 200
     print("[Main] lambda function is correctly finished.")
 
-    return {"statusCode": status, "headers": __headers(method="GET"), "body": body}
-
-
-def __headers(method: str) -> Dict[str, str]:
     return {
-        # 'Access-Control-Allow-Origin': 'https://www.example.com',
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-        "Access-Control-Allow-Methods": "OPTIONS,{}".format(method),
-        "Access-Control-Allow-Credentials": "true",
+        "statusCode": status,
+        "headers": api_util.headers(method="GET", allow_credentials="true"),
+        "body": body,
     }
 
 
@@ -78,12 +48,12 @@ def __tradehist_params_valid(
         result = {"valid": False, "body": body, "status": status}
     else:
         result = {"valid": True, "body": None, "status": None}
-    return result["valid"], result["body"], result["status"]
+    return result["valid"], result["body"], result["status"]  # type: ignore
 
 
 def __period_between_from_to(from_str: str, to_str: str) -> int:
-    start: datetime = datetime.datetime.fromisoformat(from_str[:26].rstrip("Z"))
-    end: datetime = datetime.datetime.fromisoformat(to_str[:26].rstrip("Z"))
+    start: datetime = datetime.fromisoformat(from_str[:26].rstrip("Z"))
+    end: datetime = datetime.fromisoformat(to_str[:26].rstrip("Z"))
     result: int = (end - start).days
     return result
 
@@ -105,7 +75,7 @@ def __drive_generating_tradehist(
     tradehist: pd.DataFrame = visualizer.run()
     result: str = json.dumps(
         {
-            # HACK: Nan は json では認識できないので None に書き換えてから to_dict している
+            # HACK: use replace np.nan into None because `json` can't realize np.nan(Nan)
             #   to_json ならこの問題は起きないが、dumps と組み合わせると文字列になってしまうのでしない
             "history": (tradehist.replace({np.nan: None}).to_dict(orient="records"))
         }
@@ -115,13 +85,6 @@ def __drive_generating_tradehist(
 
 # For local console
 if __name__ == "__main__":
-    # # Real Trade
-    # lambda_handler(None, None)
-
-    # Get Indicators
-    # print(indicator_names_handler(None, None))
-
-    # Tradehist
     DUMMY_EVENT = {
         "queryStringParameters": {
             "pareName": "USD_JPY",
@@ -145,4 +108,4 @@ if __name__ == "__main__":
             ]
         },
     }
-    api_handler(DUMMY_EVENT, None)
+    api_handler(DUMMY_EVENT, None)  # type: ignore
