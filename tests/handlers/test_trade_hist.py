@@ -1,15 +1,18 @@
 import json
 
-from typing import Dict, List, Union
-from unittest.mock import patch
+from typing import Dict, List
 import pytest
 
-import src.handlers.main as main
+from aws_lambda_powertools.utilities.data_classes import (
+    APIGatewayProxyEvent,
+)
+
+from src.handlers import api_util, trade_hist
 
 
 @pytest.fixture(name="tradehist_event", scope="module", autouse=True)
-def fixture_tradehist_event():
-    event = {
+def fixture_tradehist_event() -> APIGatewayProxyEvent:
+    event: APIGatewayProxyEvent = {  # type: ignore
         "queryStringParameters": {
             "pareName": "USD_JPY",
             "from": "2020-12-30T04:58:09.460556567Z",
@@ -32,12 +35,12 @@ def fixture_tradehist_event():
             ]
         },
     }
-    yield event
+    return event
 
 
 @pytest.fixture(name="invalid_tradehist_event", scope="module", autouse=True)
-def fixture_invalid_tradehist_event():
-    event = {
+def fixture_invalid_tradehist_event() -> APIGatewayProxyEvent:
+    event: APIGatewayProxyEvent = {  # type: ignore
         "queryStringParameters": {
             "pareName": "USD_JPY",
             "from": "2020-10-30T04:58:09.460556567Z",
@@ -60,53 +63,48 @@ def fixture_invalid_tradehist_event():
             ]
         },
     }
-    yield event
+    return event
 
 
-class TestLambdaHandler:
-    def test_market_is_closed(self):
-        with patch("src.candle_loader.CandleLoader.run", return_value={"tradable": False}):
-            res: Dict[str, Union[int, str]] = main.lambda_handler({}, {})
+class TestApiHandler:
+    def test_fails_api_handler(self, invalid_tradehist_event: APIGatewayProxyEvent):
+        result: Dict = trade_hist.api_handler(invalid_tradehist_event, None)
 
-        assert res["statusCode"] == 204
-        assert (
-            res["body"] == "1. lambda function is correctly finished, but now the market is closed."
+        assert result["statusCode"] == 400
+        assert result["headers"] == api_util.headers(method="GET", allow_credentials="true")
+        assert result["body"] == json.dumps(
+            {"message": "Maximum days between FROM and TO is 60 days. You requested 62 days!"}
         )
 
 
-def test_fails_api_handler(invalid_tradehist_event):
-    result = main.api_handler(invalid_tradehist_event, None)
-    assert result["statusCode"] == 400
-    assert result["headers"] == main.__headers(method="GET")
-    assert result["body"] == json.dumps(
-        {"message": "Maximum days between FROM and TO is 60 days. You requested 62 days!"}
-    )
-
-
-def test___headers():
-    method = "POST"
-    result = main.__headers(method=method)
-    assert result["Access-Control-Allow-Methods"] == "OPTIONS,{}".format(method)
-
-
-def test___tradehist_params_valid(tradehist_event, invalid_tradehist_event):
+# class TestTradehistParamsValid:
+def test_params_valid(tradehist_event: APIGatewayProxyEvent):
     params: Dict[str, str] = tradehist_event["queryStringParameters"]
     multi_value_params: Dict[str, List] = tradehist_event["multiValueQueryStringParameters"]
-    valid, body, status = main.__tradehist_params_valid(params, multi_value_params)
+
+    valid, body, status = trade_hist.__tradehist_params_valid(params, multi_value_params)
     assert valid
     assert body is None
     assert status is None
 
+
+def test_params_invalid(invalid_tradehist_event: APIGatewayProxyEvent):
     params: Dict[str, str] = invalid_tradehist_event["queryStringParameters"]
     multi_value_params: Dict[str, List] = invalid_tradehist_event["multiValueQueryStringParameters"]
-    valid, body, status = main.__tradehist_params_valid(params, multi_value_params)
+    valid, body, status = trade_hist.__tradehist_params_valid(params, multi_value_params)
     assert not valid
     assert isinstance(body, str)
     assert status == 400
 
 
+def test___headers():
+    method = "POST"
+    result = api_util.headers(method=method, allow_credentials="true")
+    assert result["Access-Control-Allow-Methods"] == "OPTIONS,{}".format(method)
+
+
 def test___period_between_from_to():
-    result = main.__period_between_from_to(
+    result = trade_hist.__period_between_from_to(
         from_str="2020-12-30T04:58:09.460556567Z", to_str="2021-01-28T04:58:09.460556567Z"
     )
     assert result == 29

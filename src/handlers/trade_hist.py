@@ -1,47 +1,17 @@
 from datetime import datetime
 import json
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Tuple
 
 from aws_lambda_powertools.utilities.data_classes import (
     APIGatewayProxyEvent,
-    EventBridgeEvent,
     # SQSEvent, event_source
 )
 from aws_lambda_powertools.utilities.typing import LambdaContext
 import numpy as np
 import pandas as pd
 
-from src.analyzer import Analyzer
+from . import api_util
 from src.history_visualizer import Visualizer
-from src.real_trader import RealTrader
-
-
-# For auto trader
-def lambda_handler(_event: EventBridgeEvent, _context: LambdaContext) -> Dict[str, Union[int, str]]:
-    trader = RealTrader(operation="live")
-    if not trader.tradeable:
-        msg = "1. lambda function is correctly finished, but now the market is closed."
-        return {"statusCode": 204, "body": msg}
-
-    trader.apply_trading_rule()
-    msg = "lambda function is correctly finished."
-    return {"statusCode": 200, "body": msg}
-
-
-# ------------------------------
-#         For tradehist
-# ------------------------------
-def indicator_names_handler(_event: APIGatewayProxyEvent, _context: LambdaContext) -> Dict:
-    return {
-        "statusCode": 200,
-        "headers": {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-            "Access-Control-Allow-Methods": "OPTIONS,GET",
-            # 'Access-Control-Allow-Credentials': 'true'
-        },
-        "body": json.dumps(Analyzer.INDICATOR_NAMES),
-    }
 
 
 def api_handler(event: APIGatewayProxyEvent, _context: LambdaContext) -> Dict:
@@ -58,16 +28,10 @@ def api_handler(event: APIGatewayProxyEvent, _context: LambdaContext) -> Dict:
         status = 200
     print("[Main] lambda function is correctly finished.")
 
-    return {"statusCode": status, "headers": __headers(method="GET"), "body": body}
-
-
-def __headers(method: str) -> Dict[str, str]:
     return {
-        # 'Access-Control-Allow-Origin': 'https://www.example.com',
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-        "Access-Control-Allow-Methods": "OPTIONS,{}".format(method),
-        "Access-Control-Allow-Credentials": "true",
+        "statusCode": status,
+        "headers": api_util.headers(method="GET", allow_credentials="true"),
+        "body": body,
     }
 
 
@@ -121,13 +85,6 @@ def __drive_generating_tradehist(
 
 # For local console
 if __name__ == "__main__":
-    # # Real Trade
-    # lambda_handler(None, None)
-
-    # Get Indicators
-    # print(indicator_names_handler(None, None))
-
-    # Tradehist
     DUMMY_EVENT = {
         "queryStringParameters": {
             "pareName": "USD_JPY",
