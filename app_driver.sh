@@ -4,7 +4,7 @@ menu=$(cat << EOS
 /     Dev Assistance Menu     /
 / / / / / / / / / / / / / / / /
 Select an operation from below.
-{1} :python src/handlers/trade_hist.py
+{1} :pipenv run python src/handlers/trade_hist.py
 {2} :execute beta_cord
 {5} :find (find ./[dir] -type f -print | xargs grep [str])
 {6} :pytest -vv
@@ -133,12 +133,12 @@ while true; do
   case $select in
     1)
       echo 'running src/handlers/trade_hist.py'
-      python src/handlers/trade_hist.py
+      pipenv run python src/handlers/trade_hist.py
       wait_display
       ;;
     2)
       echo 'running beta_cord.py'
-      python beta_cord.py
+      pipenv run python beta_cord.py
       wait_display
       ;;
     5)
