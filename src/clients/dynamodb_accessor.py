@@ -32,10 +32,10 @@ QueryResult = t.Dict[str, t.Union[t.List[CandleRecord], int, t.Dict]]
 
 class DynamodbAccessor:
     def __init__(self, pare_name: str, table_name: str = "H1_CANDLES"):
-        self._environment: str = os.environ.get("EXECTION_ENVIRONMENT")
+        self._environment: Optional[str] = os.environ.get("EXECTION_ENVIRONMENT")
 
         # NOTE: This is necessary only for accessing AWS Resources from localhost.
-        self._endpoint_url: str = os.environ.get("DYNAMO_ENDPOINT")
+        self._endpoint_url: Optional[str] = os.environ.get("DYNAMO_ENDPOINT")
         # self._region: str = os.environ.get('AWS_DEFAULT_REGION')
 
         self.pare_name: str = pare_name
@@ -107,6 +107,15 @@ class DynamodbAccessor:
         records: t.List[CandleRecord] = self.list_records(from_str, to_str)
         return converter.to_candles_from_dynamo(records)
 
+    def batch_delete(self, from_str: str, to_str: str) -> None:
+        records: t.List[CandleRecord] = self.list_records(from_str, to_str)
+        print("target length: ", len(records))
+        for record in records:
+            result = self._table.delete_item(
+                Key={"pareName": self.pare_name, "time": record["time"]}
+            )
+            print("Deletion target: ", record["time"], ", Result: ", result)
+
     def setup_dummy_data(self) -> None:
         """
         Generate dummy candles into dynamodb for backtest
@@ -137,7 +146,7 @@ class DynamodbAccessor:
                     dynamodb, table_name
                 )
             else:
-                table: "boto3.resources.factory.dynamodb.Table" = dynamodb.Table(table_name)
+                table = dynamodb.Table(table_name)
         except (ClientError, EndpointConnectionError, WaiterError) as error:
             print(error)
             raise Exception("[Dynamo] can`t have reached DynamoDB !")
@@ -158,7 +167,9 @@ class DynamodbAccessor:
 
         return boto3.client("dynamodb", **resource_info)
 
-    def __create_table(self, dynamodb, table_name: str) -> "boto3.resources.factory.dynamodb.Table":
+    def __create_table(
+        self, dynamodb: "boto3.resources.factory.dynamodb.ServiceResource", table_name: str
+    ) -> "boto3.resources.factory.dynamodb.Table":
         table: "boto3.resources.factory.dynamodb.Table" = dynamodb.create_table(
             TableName=table_name,
             KeySchema=[
