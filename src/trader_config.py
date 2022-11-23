@@ -78,6 +78,9 @@ class TraderConfig:
             stoploss_buffer_pips = round(float(os.environ.get("STOPLOSS_BUFFER") or 0.05), 5)
             fixed_days = days  # type: ignore
 
+        if fixed_days is None:
+            raise RuntimeError("'fixed_days' must be specified, but is None.")
+
         return [
             instrument,
             {

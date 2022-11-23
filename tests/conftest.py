@@ -38,13 +38,14 @@ def fixture_set_envs(instrument, stoploss_buffer):
     os.environ["GRANULARITY"] = ""
     os.environ["INSTRUMENT"] = str(instrument)
     os.environ["STOPLOSS_BUFFER"] = str(stoploss_buffer)
+    os.environ["STOPLOSS_STRATEGY"] = "support"
     yield
 
 
 @pytest.fixture(name="config", scope="function")
 def fixture_config(set_envs) -> TraderConfig:
     set_envs
-    yield TraderConfig(operation="unittest")
+    yield TraderConfig(operation="unittest", days=60)
 
 
 @pytest.fixture(scope="session")

@@ -4,11 +4,12 @@ from aws_lambda_powertools.utilities.data_classes import EventBridgeEvent
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from src.real_trader import RealTrader
+from tools.trade_lab import create_trader_instance
 
 
 def lambda_handler(_event: EventBridgeEvent, _context: LambdaContext) -> Dict[str, Union[int, str]]:
-    trader = RealTrader(operation="live")
-    if not trader.tradeable:
+    trader, _ = create_trader_instance(RealTrader, operation="live", days=60)
+    if trader is None:
         msg = "1. lambda function is correctly finished, but now the market is closed."
         return {"statusCode": 204, "body": msg}
 

@@ -64,9 +64,11 @@ class CandleLoader:
         if granularity is None:
             granularity: str = self.config.get_entry_rules("granularity")
 
-        return self.client_manager.load_long_chart(
-            days=self.config.get_entry_rules("days"), granularity=granularity
-        )["candles"]
+        days: int = self.config.get_entry_rules("days")
+        if days is None:
+            raise RuntimeError("'days' must be specified, but is None.")
+
+        return self.client_manager.load_long_chart(days=days, granularity=granularity)["candles"]
 
     def __update_latest_candle(self, latest_candle) -> None:
         """

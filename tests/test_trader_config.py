@@ -25,7 +25,7 @@ def fixture_set_stub():
 @pytest.fixture(name="config", scope="function")
 def fixture_config(set_envs) -> TraderConfig:
     set_envs
-    yield TraderConfig(operation="unittest")
+    yield TraderConfig(operation="unittest", days=60)
 
 
 @pytest.fixture(name="selected_entry_rules", scope="module")

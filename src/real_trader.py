@@ -28,9 +28,9 @@ class Position(PositionRequired, total=False):
 class RealTrader(Trader):
     """This class orders trading to Oanda following trading rules."""
 
-    def __init__(self, operation):
+    def __init__(self, **kwargs):
         print("[Trader] -------- start --------")
-        super(RealTrader, self).__init__(operation=operation, days=60)
+        super(RealTrader, self).__init__(**kwargs)
 
         self._position: Position = {"type": "none"}
         # self._set_position({'type': 'none'})

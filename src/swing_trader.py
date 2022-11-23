@@ -13,8 +13,8 @@ from src.trader import Trader
 class SwingTrader(Trader):
     """トレードルールに基づいてOandaへの発注を行うclass"""
 
-    def __init__(self, operation="backtest", days=None):
-        super(SwingTrader, self).__init__(operation=operation, days=days)
+    def __init__(self, **kwargs):
+        super(SwingTrader, self).__init__(**kwargs)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Public

@@ -1,17 +1,12 @@
 import abc
 from collections.abc import Callable
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Union
 
 import numpy as np
 import pandas as pd
 
 from src.analyzer import Analyzer
 from src.candle_storage import FXBase
-from src.lib.instance_builder import InstanceBuilder
-from src.lib.mathematics import (
-    generate_different_length_combinations,
-    range_2nd_decimal,
-)
 import src.trade_rules.base as base_rules
 from src.trader_config import FILTER_ELEMENTS
 
@@ -21,7 +16,14 @@ from src.trader_config import FILTER_ELEMENTS
 class Trader(metaclass=abc.ABCMeta):
     TIME_STRING_FMT = "%Y-%m-%d %H:%M:%S"
 
-    def __init__(self, operation: str = "backtest", days: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        ana,
+        client,
+        config,
+        indicators: pd.DataFrame,
+        result_processor,
+    ) -> None:
         """
         Parameters
         ----------
@@ -33,61 +35,15 @@ class Trader(metaclass=abc.ABCMeta):
         -------
         None
         """
-        self._ana: "Analyzer" = Analyzer()
-        (
-            self.config,
-            self._client,
-            self._candle_loader,
-            self._result_processor,
-        ) = InstanceBuilder.build(operation=operation, days=days).values()
-
-        result: Dict[str, str] = self._candle_loader.run()
-        self.tradeable: bool = result.get("tradable")
-        if self.tradeable is False:
-            print(result)
-            return
-
-        self._candle_loader.load_long_span_candles()
-        self._ana.calc_indicators(
-            FXBase.get_candles(), long_span_candles=FXBase.get_long_span_candles()
-        )
-        self._indicators: pd.DataFrame = self._ana.get_indicators()
-
-        candles: pd.DataFrame = self._merge_long_indicators(FXBase.get_candles())
-        FXBase.set_candles(candles)
+        self._ana: "Analyzer" = ana
+        self._client = client
+        self.config = config
+        self._indicators: pd.DataFrame = indicators
+        self._result_processor = result_processor
 
     #
     # public
     #
-    def verify_various_entry_filters(self, rule: str) -> None:
-        """entry_filterの全パターンを検証する"""
-        filter_sets: Tuple[List[Optional[str]]] = generate_different_length_combinations(
-            items=FILTER_ELEMENTS
-        )
-
-        for filter_set in filter_sets:
-            print("[Trader] ** Now trying filter -> {} **".format(filter_set))
-            self.verify_various_stoploss(rule=rule, entry_filters=filter_set)
-
-    def verify_various_stoploss(self, rule: str, entry_filters: List[str] = []) -> None:
-        """StopLossの設定値を自動でスライドさせて損益を検証"""
-        stoploss_digit: float = self.config.stoploss_buffer_base
-        stoploss_buffer_list: List[float] = range_2nd_decimal(
-            stoploss_digit, stoploss_digit * 20, stoploss_digit * 2
-        )
-
-        verification_dataframes_array: List[Optional[pd.DataFrame]] = []
-        for stoploss_buf in stoploss_buffer_list:
-            print("[Trader] stoploss buffer: {}pipsで検証開始...".format(stoploss_buf))
-            self.config.set_entry_rules("stoploss_buffer_pips", stoploss_buf)
-            df_positions = self.perform(rule=rule, entry_filters=entry_filters)
-            verification_dataframes_array.append(df_positions)
-
-        result = pd.concat(
-            verification_dataframes_array, axis=1, keys=stoploss_buffer_list, names=["SL_buffer"]
-        )
-        result.to_csv("./tmp/csvs/sl_verify_{inst}.csv".format(inst=self.config.get_instrument()))
-
     def perform(self, rule: str = "swing", entry_filters: List[str] = []) -> pd.DataFrame:
         """automatically test trade rule"""
         # INFO: 繰り返しデモする場合に前回のpositionが残っているので、リセットする いらなくない？
@@ -141,25 +97,6 @@ class Trader(metaclass=abc.ABCMeta):
     #
     # Methods for judging Entry or Close
     #
-    def _merge_long_indicators(self, candles):
-        tmp_df = candles.merge(self._ana.get_long_indicators(), on="time", how="left")
-        # tmp_df['long_stoD'].fillna(method='ffill', inplace=True)
-        # tmp_df['long_stoSD'].fillna(method='ffill', inplace=True)
-        tmp_df.loc[:, "stoD_over_stoSD"] = (
-            tmp_df["stoD_over_stoSD"].fillna(method="ffill").fillna(False)
-        )
-
-        tmp_df["long_20SMA"].fillna(method="ffill", inplace=True)
-        tmp_df["long_10EMA"].fillna(method="ffill", inplace=True)
-        long_ma = (
-            tmp_df[["long_10EMA", "long_20SMA"]]
-            .copy()
-            .rename(columns={"long_10EMA": "10EMA", "long_20SMA": "20SMA"})
-        )
-        tmp_df["long_trend"] = base_rules.generate_trend_column(long_ma, candles.close)
-
-        return tmp_df
-
     def _generate_thrust_column(self, candles: pd.DataFrame, trend: pd.DataFrame) -> pd.Series:
         # INFO: the most highest or lowest in last 10 candles
         recent_highests: pd.Series = candles["high"] == candles["high"].rolling(window=3).max()

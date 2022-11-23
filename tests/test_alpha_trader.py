@@ -6,13 +6,14 @@ import pytest
 
 from src.alpha_trader import AlphaTrader
 from src.candle_storage import FXBase
+from tools.trade_lab import create_trader_instance
 
 
 @pytest.fixture(name="trader_instance", scope="module")
 def fixture_trader_instance(set_envs) -> AlphaTrader:
     set_envs
 
-    _trader: AlphaTrader = AlphaTrader(operation="unittest")
+    _trader, _ = create_trader_instance(AlphaTrader, operation="unittest", days=60)
     yield _trader
     _trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
 

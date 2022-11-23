@@ -10,11 +10,13 @@ import pytest
 import src.real_trader as real
 from src.trader_config import FILTER_ELEMENTS
 from tests.conftest import fixture_sns
+from tools.trade_lab import create_trader_instance
 
 
 @pytest.fixture(scope="module")
 def real_trader_client():
-    yield real.RealTrader(operation="unittest")
+    tr_instance, _ = create_trader_instance(real.RealTrader, operation="unittest", days=60)
+    yield tr_instance
 
 
 @pytest.fixture(scope="module")
@@ -44,8 +46,8 @@ class TestInit:
         with patch(
             "src.client_manager.ClientManager.call_oanda", return_value={"tradeable": False}
         ):
-            real_trader: real.RealTrader = real.RealTrader(operation="live")
-        assert real_trader.tradeable is False
+            real_trader, _ = create_trader_instance(real.RealTrader, operation="live", days=60)
+        assert real_trader is None
 
 
 def test_not_entry(real_trader_client, dummy_candles, dummy_indicators):
@@ -209,7 +211,8 @@ def test__trail_stoploss(real_trader_client):
 class TestDriveTrailProcess:
     def real_trader(self, stoploss_strategy_name: str):
         os.environ["STOPLOSS_STRATEGY"] = stoploss_strategy_name
-        return real.RealTrader(operation="unittest")
+        real_trader, _ = create_trader_instance(real.RealTrader, operation="unittest", days=60)
+        return real_trader
 
     # NOTE: stoploss is going to be set by step_trailing
     def test_no_position_with_step_trailing(self, dummy_candles, df_support_and_resistance):

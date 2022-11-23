@@ -8,10 +8,8 @@ from src.trader import Trader
 
 
 class AlphaTrader(Trader):
-    """トレードルールに基づいてOandaへの発注を行うclass"""
-
-    def __init__(self, operation="backtest", days=None):
-        super(AlphaTrader, self).__init__(operation=operation, days=days)
+    def __init__(self, **kwargs):
+        super(AlphaTrader, self).__init__(**kwargs)
 
     #
     # Public
