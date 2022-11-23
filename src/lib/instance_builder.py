@@ -8,18 +8,13 @@ from src.trader_config import TraderConfig
 
 class InstanceBuilder:
     @classmethod
-    def build(
-        cls,
-        operation: str,
-        instrument: Optional[str] = None,
-        days: Optional[int] = None,
-    ) -> Dict[str, Any]:
-        config: "TraderConfig" = TraderConfig(operation, instrument, days)
+    def build(cls, operation: str, days: int, instrument: Optional[str] = None) -> Dict[str, Any]:
+        config: "TraderConfig" = TraderConfig(operation, instrument)
         client: "ClientManager" = ClientManager(
             instrument=config.get_instrument(),
             test=operation in ("backtest", "forward_test"),
         )
-        candle_loader: "CandleLoader" = CandleLoader(config, client)
+        candle_loader: "CandleLoader" = CandleLoader(config, client, days)
         result_processor: "ResultProcessor" = ResultProcessor(operation, config)
         return {
             "config": config,

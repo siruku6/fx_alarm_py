@@ -7,6 +7,7 @@ from src.alpha_trader import AlphaTrader
 from src.analyzer import Analyzer
 from src.candle_storage import FXBase
 from src.lib.instance_builder import InstanceBuilder
+import src.lib.interface as i_face
 from src.lib.interface import select_from_dict
 from src.lib.mathematics import (
     generate_different_length_combinations,
@@ -111,6 +112,12 @@ def prepare_candles(candle_loader, ana: "Analyzer"):
 def create_trader_instance(
     trader_class: Type["Trader"], operation: str = "backtest", days: Optional[int] = None
 ) -> Tuple:
+    if operation in ["backtest", "forward_test"]:
+        msg: str = "How many days would you like to get candles for? (Only single-byte number): "
+        days = i_face.ask_number(msg=msg, limit=365)
+    if days is None:
+        raise RuntimeError("'days' must be specified, but is None.")
+
     ana: "Analyzer" = Analyzer()
     (
         config,

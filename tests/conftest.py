@@ -45,7 +45,7 @@ def fixture_set_envs(instrument, stoploss_buffer):
 @pytest.fixture(name="config", scope="function")
 def fixture_config(set_envs) -> TraderConfig:
     set_envs
-    yield TraderConfig(operation="unittest", days=60)
+    yield TraderConfig(operation="unittest")
 
 
 @pytest.fixture(scope="session")

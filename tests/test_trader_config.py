@@ -25,7 +25,7 @@ def fixture_set_stub():
 @pytest.fixture(name="config", scope="function")
 def fixture_config(set_envs) -> TraderConfig:
     set_envs
-    yield TraderConfig(operation="unittest", days=60)
+    yield TraderConfig(operation="unittest")
 
 
 @pytest.fixture(name="selected_entry_rules", scope="module")
@@ -35,7 +35,6 @@ def fixture_selected_entry_rules(days, stoploss_buffer) -> Dict[str, Union[int, 
         "static_spread": 0.0,
         "stoploss_buffer_base": 0.01,
         "stoploss_buffer_pips": stoploss_buffer,
-        "days": days,
     }
 
 
@@ -47,7 +46,7 @@ class TestSelectConfigs:
 
         result_inst: str
         result_rules: Dict[str, Union[int, float]]
-        result_inst, result_rules = config._TraderConfig__select_configs(days=days)
+        result_inst, result_rules = config._TraderConfig__select_configs()
 
         assert result_inst == expected_inst
         assert result_rules == expected_rules
@@ -91,7 +90,6 @@ class TestGetEntryRules:
             "static_spread",
             "stoploss_buffer_pips",
             "stoploss_buffer_base",
-            "days",
             "granularity",
             "entry_filters",
         ]
@@ -105,7 +103,6 @@ class TestGetEntryRules:
 
     def test_get_each_entry_rules(self, entry_rule_items, config: TraderConfig):
         target_rule, expected = entry_rule_items
-        config.set_entry_rules("days", 120)
         assert config.get_entry_rules(target_rule) == expected
 
 
