@@ -1,12 +1,5 @@
-from . import (
-    alpha_trader,
-    analyzer,
-    client_manager,
-    drawer,
-    history_visualizer,
-    real_trader,
-    trader,
-)
+from . import (alpha_trader, analyzer, client_manager, drawer,
+               history_visualizer, real_trader, trader,)
 
 __all__ = [
     "analyzer",

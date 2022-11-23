@@ -3,15 +3,14 @@ import json
 from typing import Dict, List, Tuple
 
 from aws_lambda_powertools.utilities.data_classes import (
-    APIGatewayProxyEvent,
-    # SQSEvent, event_source
-)
+    APIGatewayProxyEvent,)  # SQSEvent, event_source
 from aws_lambda_powertools.utilities.typing import LambdaContext
 import numpy as np
 import pandas as pd
 
-from . import api_util
 from src.history_visualizer import Visualizer
+
+from . import api_util
 
 
 def api_handler(event: APIGatewayProxyEvent, _context: LambdaContext) -> Dict:

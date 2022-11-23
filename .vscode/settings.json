@@ -30,5 +30,8 @@
     "python.linting.mypyPath": "${workspaceFolder}/.venv/bin/mypy",
     "python.formatting.provider": "black",
     "python.formatting.blackPath": "${workspaceFolder}/.venv/bin/black",
-    "python.sortImports.path": "${workspaceFolder}/.venv/bin/isort",
+    // For isort
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    },
 }
