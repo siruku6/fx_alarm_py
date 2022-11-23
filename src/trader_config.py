@@ -27,14 +27,21 @@ FILTER_ELEMENTS = [
 class TraderConfig:
     """Class holding parameters necessary for Traders"""
 
-    def __init__(self, operation: str, days: int = None) -> None:
+    def __init__(
+        self,
+        operation: str,
+        instrument: Optional[str] = None,
+        days: Optional[int] = None,
+    ) -> None:
         self.operation: str = operation
         self.need_request: bool = self.__select_need_request()
 
         self._instrument: str
         selected_entry_rules: Dict[str, Union[int, float]]
-        self._stoploss_strategy_name: str = os.environ.get("STOPLOSS_STRATEGY")
+        self._stoploss_strategy_name: str = os.environ["STOPLOSS_STRATEGY"]
         self._instrument, selected_entry_rules = self.__select_configs(days)
+        if instrument is not None:
+            self._instrument = instrument
         self._entry_rules: EntryRulesDict = self.__init_entry_rules(selected_entry_rules)
 
     def __select_need_request(self) -> bool:
@@ -47,7 +54,9 @@ class TraderConfig:
             need_request = False
         return need_request
 
-    def __select_configs(self, days: int) -> List[Union[str, Dict[str, Union[int, float]]]]:
+    def __select_configs(
+        self, days: Optional[int]
+    ) -> List[Union[str, Dict[str, Union[int, float]]]]:
         instrument: str
         static_spread: float
         stoploss_buffer_base: float
@@ -61,12 +70,13 @@ class TraderConfig:
             stoploss_buffer_pips = stoploss_buffer_base * 5
             msg: str = "How many days would you like to get candles for?"
             "(Only single-byte number): "
-            days = i_face.ask_number(msg=msg, limit=365)
+            fixed_days: int = i_face.ask_number(msg=msg, limit=365)
         elif self.operation in ("live", "unittest"):
-            instrument = os.environ.get("INSTRUMENT") or "USD_JPY"
+            instrument = os.environ["INSTRUMENT"]
             static_spread = 0.0  # TODO: set correct value
             stoploss_buffer_base = 0.01  # TODO: set correct value
             stoploss_buffer_pips = round(float(os.environ.get("STOPLOSS_BUFFER") or 0.05), 5)
+            fixed_days = days  # type: ignore
 
         return [
             instrument,
@@ -75,7 +85,7 @@ class TraderConfig:
                 "stoploss_buffer_base": stoploss_buffer_base,
                 "stoploss_buffer_pips": stoploss_buffer_pips,
                 # TODO: the variable 'days' is to be moved out of _entry_rules
-                "days": days,
+                "days": fixed_days,
             },
         ]
 

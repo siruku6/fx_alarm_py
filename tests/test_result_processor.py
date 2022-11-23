@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.trader import ResultProcessor
+from src.result_processor import ResultProcessor
 
 
 @pytest.fixture(name="result_processor", scope="function")

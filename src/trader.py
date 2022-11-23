@@ -6,16 +6,14 @@ import numpy as np
 import pandas as pd
 
 from src.analyzer import Analyzer
-from src.candle_loader import CandleLoader
 from src.candle_storage import FXBase
-from src.client_manager import ClientManager
+from src.lib.instance_builder import InstanceBuilder
 from src.lib.mathematics import (
     generate_different_length_combinations,
     range_2nd_decimal,
 )
-from src.result_processor import ResultProcessor
 import src.trade_rules.base as base_rules
-from src.trader_config import FILTER_ELEMENTS, TraderConfig
+from src.trader_config import FILTER_ELEMENTS
 
 # pd.set_option('display.max_rows', 400)
 
@@ -35,13 +33,13 @@ class Trader(metaclass=abc.ABCMeta):
         -------
         None
         """
-        self.config: TraderConfig = TraderConfig(operation, days)
-        self._ana: Analyzer = Analyzer()
-        self._client: ClientManager = ClientManager(
-            instrument=self.config.get_instrument(), test=operation in ("backtest", "forward_test")
-        )
-        self._candle_loader: CandleLoader = CandleLoader(self.config, self._client)
-        self._result_processor: ResultProcessor = ResultProcessor(operation, self.config)
+        self._ana: "Analyzer" = Analyzer()
+        (
+            self.config,
+            self._client,
+            self._candle_loader,
+            self._result_processor,
+        ) = InstanceBuilder.build(operation=operation, days=days).values()
 
         result: Dict[str, str] = self._candle_loader.run()
         self.tradeable: bool = result.get("tradable")
@@ -61,7 +59,7 @@ class Trader(metaclass=abc.ABCMeta):
     #
     # public
     #
-    def verify_various_entry_filters(self, rule: str):
+    def verify_various_entry_filters(self, rule: str) -> None:
         """entry_filterの全パターンを検証する"""
         filter_sets: Tuple[List[Optional[str]]] = generate_different_length_combinations(
             items=FILTER_ELEMENTS
@@ -71,7 +69,7 @@ class Trader(metaclass=abc.ABCMeta):
             print("[Trader] ** Now trying filter -> {} **".format(filter_set))
             self.verify_various_stoploss(rule=rule, entry_filters=filter_set)
 
-    def verify_various_stoploss(self, rule: str, entry_filters: List[str] = []):
+    def verify_various_stoploss(self, rule: str, entry_filters: List[str] = []) -> None:
         """StopLossの設定値を自動でスライドさせて損益を検証"""
         stoploss_digit: float = self.config.stoploss_buffer_base
         stoploss_buffer_list: List[float] = range_2nd_decimal(
@@ -279,5 +277,5 @@ class Trader(metaclass=abc.ABCMeta):
         entryable = np.all(candles[self.config.get_entry_rules("entry_filters")], axis=1)
         candles.loc[entryable, "entryable"] = candles[entryable]["thrust"]
 
-    def _log_skip_reason(self, reason):
+    def _log_skip_reason(self, reason: str) -> None:
         print("[Trader] skip: {}".format(reason))
