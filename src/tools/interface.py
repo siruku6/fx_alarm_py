@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Union
 
 
 def ask_granularity() -> str:
@@ -104,7 +104,7 @@ def prompt_inputting_decimal() -> int:
 # ----------------------------------
 # Application methods
 # ----------------------------------
-def select_instrument(instrument: str = None) -> Tuple[str, Dict[str, float]]:
+def select_instrument(instrument: str = None) -> Dict[str, Union[str, float]]:
     # TODO: configure reasonable and correct spread
     instruments = OrderedDict(
         USD_JPY={"spread": 0.004},
@@ -113,7 +113,7 @@ def select_instrument(instrument: str = None) -> Tuple[str, Dict[str, float]]:
         USD_CHF={"spread": 0.00014},
     )
     if instrument is not None:
-        return instrument, instruments[instrument]
+        return {"name": instrument, "spread": instruments[instrument]}
 
-    instrument = select_from_dict(instruments, menumsg="Which currency you want to trade ?\n")
-    return instrument, instruments[instrument]
+    name: str = select_from_dict(instruments, menumsg="Which currency you want to trade ?\n")
+    return {"name": name, "spread": instruments[name]["spread"]}

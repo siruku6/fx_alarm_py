@@ -27,7 +27,7 @@ class Visualizer:
         instrument: str = None,
         indicator_names: Optional[Tuple[str, ...]] = None,
     ):
-        self.__instrument: str = instrument or select_instrument()[0]
+        self.__instrument: str = instrument or select_instrument()["name"]
         self.__from_iso: str = from_iso
         self.__to_iso: str = to_iso
         self.__client: ClientManager = ClientManager(instrument=self.__instrument)

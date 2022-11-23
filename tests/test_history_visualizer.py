@@ -28,7 +28,7 @@ def fixture_to_iso():
 def fixture_libra_client(from_iso, to_iso):
     with patch(
         "src.history_visualizer.select_instrument",
-        return_value=["USD_JPY", {"spread": 0.0}],
+        return_value={"name": "USD_JPY", "spread": 0.0},
     ):
         return libra.Visualizer(from_iso, to_iso)
 

@@ -54,9 +54,9 @@ class TraderConfig:
         stoploss_buffer_pips: float
 
         if self.operation in ("backtest", "forward_test"):
-            selected_inst: Tuple[str, Dict[str, float]] = i_face.select_instrument()
-            instrument = selected_inst[0]
-            static_spread = selected_inst[1]["spread"]
+            selected_inst: Dict[str, Union[str, float]] = i_face.select_instrument()
+            instrument = selected_inst["name"]
+            static_spread = selected_inst["spread"]
             stoploss_buffer_base = i_face.select_stoploss_digit()
             stoploss_buffer_pips = stoploss_buffer_base * 5
             msg: str = "How many days would you like to get candles for?"

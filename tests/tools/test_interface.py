@@ -49,7 +49,9 @@ class TestInterface(unittest.TestCase):
             self.assertEqual(type(stoploss_digit), float, "戻り値はfloat型")
             self.assertEqual(0.00001, stoploss_digit)
 
-    def test_select_from_dict(self):
+
+class TestSelectFromDict:
+    def test_default(self):
         dict_for_testcase = OrderedDict(
             USD_JPY={"spread": 0.004},
             EUR_USD={"spread": 0.00014},
@@ -60,7 +62,23 @@ class TestInterface(unittest.TestCase):
             for i, (key, _val) in enumerate(dict_for_testcase.items()):
                 with patch("src.tools.interface.prompt_inputting_decimal", return_value=i + 1):
                     result = interface.select_from_dict(dict_for_testcase)
-                self.assertEqual(result, key, "Get the name of key which is selected")
+                assert result == key  # "Get the name of key which is selected"
+
+
+class TestSelectInstrument:
+    def test_default(self):
+        dict_for_testcase = OrderedDict(
+            USD_JPY={"spread": 0.004},
+            EUR_USD={"spread": 0.00014},
+            GBP_JPY={"spread": 0.014},
+            USD_CHF={"spread": 0.00014},
+        )
+        with patch("src.tools.interface.print"):
+            for i, (key, val) in enumerate(dict_for_testcase.items()):
+                with patch("src.tools.interface.prompt_inputting_decimal", return_value=i + 1):
+                    instrument = interface.select_instrument()
+                assert instrument["name"] == key
+                assert instrument["spread"] == val["spread"]
 
 
 if __name__ == "__main__":
