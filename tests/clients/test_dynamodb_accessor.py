@@ -4,7 +4,7 @@ import os
 import boto3
 from boto3.dynamodb.conditions import Attr
 from botocore.exceptions import ClientError
-from moto import mock_dynamodb2
+from moto import mock_dynamodb
 import pandas as pd
 import pytest
 
@@ -24,7 +24,7 @@ def init_endpoint():
 
 @pytest.fixture(name="dynamo_client", scope="module")
 def fixture_dynamo_client(table_name):
-    mock = mock_dynamodb2()
+    mock = mock_dynamodb()
     mock.start()
 
     yield dn_accessor.DynamodbAccessor(pare_name="USD_JPY", table_name=table_name)
@@ -55,7 +55,7 @@ def fixture_import_dummy_records():
     return _method
 
 
-@mock_dynamodb2
+@mock_dynamodb
 class TestInitTable:
     def test_no_table(self):
         table_names = boto3.client("dynamodb").list_tables()["TableNames"]
@@ -72,7 +72,7 @@ class TestInitTable:
         assert len(table_names) == 1
 
 
-@mock_dynamodb2
+@mock_dynamodb
 def test_list_table(dynamo_client, table_name, import_dummy_records):
     dynamo_client._DynamodbAccessor__init_table(table_name=table_name)
 
