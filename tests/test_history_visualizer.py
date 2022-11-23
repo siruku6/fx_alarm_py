@@ -7,8 +7,8 @@ from pandas.testing import assert_frame_equal, assert_series_equal
 import pytest
 
 import src.history_visualizer as libra
-import src.tools.format_converter as converter
-import src.tools.preprocessor as prepro
+import src.lib.format_converter as converter
+import src.lib.preprocessor as prepro
 
 
 #  - - - - - - - - - - - - - -

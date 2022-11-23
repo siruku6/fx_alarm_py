@@ -8,8 +8,8 @@ from src.analyzer import Analyzer
 from src.candle_storage import FXBase
 from src.client_manager import ClientManager
 from src.drawer import FigureDrawer
-import src.tools.format_converter as converter
-from src.tools.interface import select_instrument
+import src.lib.format_converter as converter
+from src.lib.interface import select_instrument
 
 
 class DstSwitch(TypedDict):

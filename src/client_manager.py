@@ -8,8 +8,8 @@ import pandas as pd
 from src.clients import sns
 from src.clients.dynamodb_accessor import DynamodbAccessor
 from src.clients.oanda_client import OandaClient
-import src.tools.format_converter as converter
-import src.tools.preprocessor as prepro
+import src.lib.format_converter as converter
+import src.lib.preprocessor as prepro
 
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
 

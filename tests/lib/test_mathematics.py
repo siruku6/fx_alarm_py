@@ -1,6 +1,6 @@
 import math
 
-import src.tools.mathematics as mtmtcs
+import src.lib.mathematics as mtmtcs
 
 
 def test_int_log10():

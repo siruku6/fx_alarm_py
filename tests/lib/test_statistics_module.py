@@ -3,7 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 
-import src.tools.statistics_module as stat
+import src.lib.statistics_module as stat
 
 # import pytest
 

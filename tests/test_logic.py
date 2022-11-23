@@ -3,18 +3,18 @@ from unittest.mock import patch
 
 import pytest
 
-from src.logic import _is_open, _is_reasonable_hour, is_reasonable
+from src.lib.logic import _is_open, _is_reasonable_hour, is_reasonable
 
 
 class TestIsReasonable:
     def test_ok(self):
-        with patch("src.logic.datetime") as mock_datetime:
+        with patch("src.lib.logic.datetime") as mock_datetime:
             # NOTE: Friday
             mock_datetime.utcnow.return_value = datetime(2022, 6, 17, 10, 0, tzinfo=timezone.utc)
             assert is_reasonable()
 
     def test_not_reasonable(self):
-        with patch("src.logic.datetime") as mock_datetime:
+        with patch("src.lib.logic.datetime") as mock_datetime:
             # NOTE: Saturday
             mock_datetime.utcnow.return_value = datetime(2022, 6, 18, 10, 0, tzinfo=timezone.utc)
             assert is_reasonable() is False

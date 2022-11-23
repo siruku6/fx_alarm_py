@@ -1,7 +1,7 @@
 import os
-from typing import Dict, List, Optional, Tuple, TypedDict, Union
+from typing import Dict, List, Optional, TypedDict, Union
 
-import src.tools.interface as i_face
+import src.lib.interface as i_face
 
 
 class EntryRulesDict(TypedDict):

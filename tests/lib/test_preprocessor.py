@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import src.tools.preprocessor as prepro
+import src.lib.preprocessor as prepro
 from tests.fixtures.past_transactions import TRANSACTION_IDS
 
 

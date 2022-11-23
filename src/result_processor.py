@@ -5,8 +5,8 @@ import pandas as pd
 
 from src.candle_storage import FXBase
 from src.drawer import FigureDrawer
-import src.tools.interface as i_face
-import src.tools.statistics_module as statistics
+import src.lib.interface as i_face
+import src.lib.statistics_module as statistics
 from src.trader_config import TraderConfig
 
 

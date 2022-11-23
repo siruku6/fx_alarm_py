@@ -3,10 +3,10 @@ from typing import Dict  # , List, Optional
 from aws_lambda_powertools import Logger
 import pandas as pd
 
-from src import logic
 from src.candle_storage import FXBase
 from src.client_manager import ClientManager
-import src.tools.interface as i_face
+from src.lib import logic
+import src.lib.interface as i_face
 from src.trader_config import TraderConfig
 
 LOGGER = Logger()

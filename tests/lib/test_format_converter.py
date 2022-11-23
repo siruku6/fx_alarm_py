@@ -4,7 +4,7 @@ import json
 
 import pandas as pd
 
-import src.tools.format_converter as converter
+import src.lib.format_converter as converter
 
 
 def test_granularity_to_timedelta():

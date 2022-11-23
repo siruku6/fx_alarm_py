@@ -9,11 +9,11 @@ from src.analyzer import Analyzer
 from src.candle_loader import CandleLoader
 from src.candle_storage import FXBase
 from src.client_manager import ClientManager
-from src.result_processor import ResultProcessor
-from src.tools.mathematics import (
+from src.lib.mathematics import (
     generate_different_length_combinations,
     range_2nd_decimal,
 )
+from src.result_processor import ResultProcessor
 import src.trade_rules.base as base_rules
 from src.trader_config import FILTER_ELEMENTS, TraderConfig
 

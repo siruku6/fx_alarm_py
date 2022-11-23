@@ -15,9 +15,9 @@ def fixture_days():
 
 @pytest.fixture(name="set_stub", scope="module")
 def fixture_set_stub():
-    with patch("src.tools.interface.ask_true_or_false", return_value=True):
+    with patch("src.lib.interface.ask_true_or_false", return_value=True):
         with patch(
-            "src.tools.interface.select_instrument", return_value={"name": "", "spread": 0.004}
+            "src.lib.interface.select_instrument", return_value={"name": "", "spread": 0.004}
         ):
             yield
 

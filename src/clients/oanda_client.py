@@ -17,7 +17,7 @@ from oandapyV20.exceptions import V20Error
 from requests.exceptions import ConnectionError, SSLError
 
 from src.clients import sns
-import src.tools.preprocessor as prepro
+import src.lib.preprocessor as prepro
 
 ISO_DATETIME_STR = str
 

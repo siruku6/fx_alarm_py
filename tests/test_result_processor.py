@@ -144,7 +144,7 @@ class TestRun:
         }
 
         with patch(
-            "src.tools.statistics_module.__append_performance_result_to_csv", return_value=None
+            "src.lib.statistics_module.__append_performance_result_to_csv", return_value=None
         ):
             result: pd.DataFrame = result_processor.run(
                 "scalping", backtest_result, pd.DataFrame({})
