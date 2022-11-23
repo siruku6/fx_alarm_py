@@ -250,10 +250,11 @@ class TestRequestTransactionIds:
             "oandapyV20.API.request",
             side_effect=V20Error(code=400, msg="Invalid value specified for 'accountID'"),
         ):
-            from_id, to_id = client.request_transaction_ids(from_str="", to_str="")
-            assert from_id is None
-            assert to_id is None
-            assert client.accessable is False
+            with patch("src.clients.oanda_client.OandaClient._OandaClient__notify_error"):
+                from_id, to_id = client.request_transaction_ids(from_str="", to_str="")
+                assert from_id is None
+                assert to_id is None
+                assert client.accessable is False
 
 
 class TestQueryInstruments:

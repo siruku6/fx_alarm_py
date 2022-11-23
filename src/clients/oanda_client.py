@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from aws_lambda_powertools import Logger
@@ -13,8 +14,9 @@ import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.transactions as transactions
 from oandapyV20.exceptions import V20Error
-import requests
+from requests.exceptions import ConnectionError, SSLError
 
+from src.clients import sns
 import src.tools.preprocessor as prepro
 
 ISO_DATETIME_STR = str
@@ -235,18 +237,48 @@ class OandaClient:
     def __request(self, obj: APIRequest) -> Dict[str, Any]:
         try:
             response: Dict[str, Any] = self.__api_client.request(obj)
+            result: Dict[str, Any] = response
         except V20Error as error:
-            LOGGER.error({f"[{sys._getframe().f_back.f_code.co_name}] V20Error": error})  # type: ignore
-            LOGGER.info({f"[{sys._getframe().f_back.f_code.co_name}] dir(error)": dir(error)})  # type: ignore
-            # error.msg
-            return {"error": error.code}
-        except requests.exceptions.ConnectionError as error:
-            LOGGER.error(
-                {f"[{sys._getframe().f_code.co_name}] requests.exceptions.ConnectionError": error}
-            )
-            return {"error": 500}
-        else:
-            return response
+            # print(traceback.format_exc())
+            self.__notify_error(
+                error,
+                sys._getframe().f_back.f_code.co_name,
+                _traceback=traceback.format_exc(),
+            )  # type: ignore
+
+            # NOTE: https://www.yoheim.net/blog.php?q=20190601
+            result = {"error": error.code}
+        except (SSLError, ConnectionError) as error:
+            # print(traceback.format_exc())
+            self.__notify_error(
+                error,
+                sys._getframe().f_back.f_code.co_name,
+                _traceback=traceback.format_exc(),
+            )  # type: ignore
+            result = {"error": 500}
+        # else:
+
+        return result
+
+    def __notify_error(
+        self,
+        error_body: Any,
+        parent_method: str,
+        _traceback: str,
+    ) -> None:
+        error_summary_dict: Dict[str, str] = {
+            "class": error_body.__class__.__name__,
+            "parent_method": parent_method,
+            "code": error_body.code,
+            "traceback": _traceback,
+        }
+        LOGGER.error(error_summary_dict)
+        LOGGER.error(error_body)
+
+        sns.publish(dic=error_summary_dict, subject=f"Error: {error_body.code}")
+
+        LOGGER.info({f"[{sys._getframe().f_back.f_code.co_name}] dir(error)": dir(error_body)})  # type: ignore
+        # error.msg
 
     def query_instruments(
         self,
