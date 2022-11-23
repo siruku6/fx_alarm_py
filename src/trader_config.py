@@ -1,7 +1,6 @@
 import os
-from typing import Dict, List, Optional, TypedDict, Union
+from typing import Dict, List, Optional, Tuple, TypedDict, Union
 
-from src.client_manager import ClientManager
 import src.tools.interface as i_face
 
 
@@ -28,7 +27,7 @@ FILTER_ELEMENTS = [
 class TraderConfig:
     """Class holding parameters necessary for Traders"""
 
-    def __init__(self, operation: str, days: Optional[int] = None) -> None:
+    def __init__(self, operation: str, days: int = None) -> None:
         self.operation: str = operation
         self.need_request: bool = self.__select_need_request()
 
@@ -55,12 +54,14 @@ class TraderConfig:
         stoploss_buffer_pips: float
 
         if self.operation in ("backtest", "forward_test"):
-            selected_inst: List[str, float] = ClientManager.select_instrument()
+            selected_inst: Tuple[str, Dict[str, float]] = i_face.select_instrument()
             instrument = selected_inst[0]
             static_spread = selected_inst[1]["spread"]
             stoploss_buffer_base = i_face.select_stoploss_digit()
             stoploss_buffer_pips = stoploss_buffer_base * 5
-            days: int = i_face.ask_number(msg="何日分のデータを取得する？(半角数字): ", limit=365)
+            msg: str = "How many days would you like to get candles for?"
+            "(Only single-byte number): "
+            days = i_face.ask_number(msg=msg, limit=365)
         elif self.operation in ("live", "unittest"):
             instrument = os.environ.get("INSTRUMENT") or "USD_JPY"
             static_spread = 0.0  # TODO: set correct value
@@ -78,7 +79,9 @@ class TraderConfig:
             },
         ]
 
-    def __init_entry_rules(self, selected_entry_rules: Dict[str, Union[int, float]]) -> None:
+    def __init_entry_rules(
+        self, selected_entry_rules: Dict[str, Union[int, float]]
+    ) -> EntryRulesDict:
         entry_rules: EntryRulesDict = {
             "granularity": os.environ.get("GRANULARITY") or "M5",
             "entry_filters": [],

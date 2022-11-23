@@ -1,4 +1,3 @@
-from collections import OrderedDict
 from collections.abc import Callable
 from datetime import datetime, timedelta
 import time
@@ -10,30 +9,12 @@ from src.clients import sns
 from src.clients.dynamodb_accessor import DynamodbAccessor
 from src.clients.oanda_client import OandaClient
 import src.tools.format_converter as converter
-import src.tools.interface as i_face
 import src.tools.preprocessor as prepro
 
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
 
 
 class ClientManager:
-    @classmethod
-    def select_instrument(cls, instrument: str = None) -> Tuple[str, Dict[str, float]]:
-        # TODO: configure reasonable and corret spread
-        instruments = OrderedDict(
-            USD_JPY={"spread": 0.004},
-            EUR_USD={"spread": 0.00014},
-            GBP_JPY={"spread": 0.014},
-            USD_CHF={"spread": 0.00014},
-        )
-        if instrument is not None:
-            return instrument, instruments[instrument]
-
-        instrument = i_face.select_from_dict(
-            instruments, menumsg="Which currency you want to trade ?\n"
-        )
-        return instrument, instruments[instrument]
-
     def __init__(self, instrument: str, test: bool = False) -> None:
         self.__instrument: str = instrument
         self.__oanda_client: OandaClient = OandaClient(instrument=self.__instrument, test=test)

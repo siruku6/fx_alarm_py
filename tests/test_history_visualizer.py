@@ -24,13 +24,13 @@ def fixture_to_iso():
     yield "2020-12-31T23:59:59.000Z"
 
 
-@pytest.fixture(scope="module", name="libra_client", autouse=True)
+@pytest.fixture(scope="module", name="libra_client")
 def fixture_libra_client(from_iso, to_iso):
     with patch(
-        "src.client_manager.ClientManager.select_instrument",
+        "src.history_visualizer.select_instrument",
         return_value=["USD_JPY", {"spread": 0.0}],
     ):
-        yield libra.Visualizer(from_iso, to_iso)
+        return libra.Visualizer(from_iso, to_iso)
 
 
 @pytest.fixture(scope="module", name="hist_df", autouse=True)
