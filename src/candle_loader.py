@@ -23,10 +23,8 @@ class CandleLoader:
         if self.need_request is False:
             candles = pd.read_csv("tests/fixtures/sample_candles.csv")
         elif self.config.operation in ("backtest", "forward_test"):
-            # TODO: move to trade_lab or trader_config
-            self.config.set_entry_rules("granularity", value=i_face.ask_granularity())
             candles = self.client_manager.load_long_chart(
-                days=self.days,  # self.config.get_entry_rules("days"),  # type: ignore
+                days=self.days,
                 granularity=self.config.get_entry_rules("granularity"),  # type: ignore
             )["candles"]
         elif self.config.operation == "live":

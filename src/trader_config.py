@@ -43,19 +43,21 @@ class TraderConfig:
 
     def __select_configs(
         self,
-    ) -> List[Union[str, Dict[str, Union[int, float]]]]:  # , days: Optional[int]
+    ) -> List[Union[str, Dict[str, Union[str, int, float]]]]:  # , days: Optional[int]
         instrument: str
         static_spread: float
         stoploss_buffer_base: float
         stoploss_buffer_pips: float
 
         if self.operation in ("backtest", "forward_test"):
+            granularity: str = i_face.ask_granularity()
             selected_inst: Dict[str, Union[str, float]] = i_face.select_instrument()
-            instrument = selected_inst["name"]
-            static_spread = selected_inst["spread"]
+            instrument = selected_inst["name"]  # type: ignore
+            static_spread = selected_inst["spread"]  # type: ignore
             stoploss_buffer_base = i_face.select_stoploss_digit()
             stoploss_buffer_pips = stoploss_buffer_base * 5
         elif self.operation in ("live", "unittest"):
+            granularity = os.environ.get("GRANULARITY") or "M5"
             instrument = os.environ["INSTRUMENT"]
             static_spread = 0.0  # TODO: set correct value
             stoploss_buffer_base = 0.01  # TODO: set correct value
@@ -64,6 +66,7 @@ class TraderConfig:
         return [
             instrument,
             {
+                "granularity": granularity,
                 "static_spread": static_spread,
                 "stoploss_buffer_base": stoploss_buffer_base,
                 "stoploss_buffer_pips": stoploss_buffer_pips,
@@ -73,10 +76,7 @@ class TraderConfig:
     def __init_entry_rules(
         self, selected_entry_rules: Dict[str, Union[int, float]]
     ) -> EntryRulesDict:
-        entry_rules: EntryRulesDict = {
-            "granularity": os.environ.get("GRANULARITY") or "M5",
-            "entry_filters": [],
-        }
+        entry_rules: EntryRulesDict = {"entry_filters": []}
         entry_rules.update(selected_entry_rules)
         return entry_rules
 
