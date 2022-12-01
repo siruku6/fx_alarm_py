@@ -1,3 +1,4 @@
+from typing import Dict
 from unittest.mock import patch
 
 import pandas as pd
@@ -36,6 +37,43 @@ def fixture_dummy_candles():
             },
         ]
     )
+
+
+class TestRun:
+    def test_not_need_request(self, loader_instance):
+        with patch(
+            "src.candle_loader.CandleLoader._CandleLoader__select_need_request", return_value=False
+        ):
+            result: Dict[str, str] = loader_instance.run()
+            candles: pd.DataFrame = FXBase.get_candles(0, 10)
+
+        assert result["info"] is None
+        assert isinstance(candles, pd.DataFrame)
+        assert len(candles) == 10
+
+    # def test_operation_backtest_or_forward_test(self, loader_instance):
+
+    def test_operation_live(self, loader_instance):
+        dummy_df: pd.DataFrame = pd.read_csv("tests/fixtures/sample_candles.csv")
+        with patch(
+            "src.client_manager.ClientManager.load_specify_length_candles", return_value=dummy_df
+        ):
+            result: Dict[str, str] = loader_instance.run()
+            candles: pd.DataFrame = FXBase.get_candles()
+
+        assert result["info"] is None
+        pd.testing.assert_frame_equal(candles, dummy_df)
+
+    def test_invalid_operation(self, loader_instance):
+        loader_instance.config.operation: str = "invalid"
+        loader_instance.need_request: bool = True
+        with pytest.raises(ValueError) as e_info:
+            loader_instance.run()
+
+        assert (
+            e_info.value.__str__()
+            == f"trader_config.operation is invalid!: {loader_instance.config.operation}"
+        )
 
 
 class TestSelectNeedRequest:

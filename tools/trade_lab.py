@@ -1,11 +1,12 @@
 from collections import OrderedDict
-from typing import Dict, List, Optional, Tuple, Type
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import pandas as pd
 
 from src.alpha_trader import AlphaTrader
 from src.analyzer import Analyzer
 from src.candle_storage import FXBase
+from src.lib import logic
 from src.lib.instance_builder import InstanceBuilder
 import src.lib.interface as i_face
 from src.lib.interface import select_from_dict
@@ -94,9 +95,19 @@ def _merge_long_indicators(ana: "Analyzer") -> pd.DataFrame:
     return tmp_df
 
 
+def is_tradeable(client_manager) -> Dict[str, Union[str, bool]]:
+    tradeable = client_manager.call_oanda("is_tradeable")["tradeable"]
+    if not tradeable:
+        return {"info": "Now the trading market is closed.", "tradeable": False}
+    if logic.is_reasonable() is False:
+        return {"info": "Now it is not reasonable to trade.", "tradeable": False}
+
+    return {"info": "Now it is tradeable.", "tradeable": True}
+
+
 def prepare_candles(candle_loader, ana: "Analyzer"):
     result: Dict[str, str] = candle_loader.run()
-    if result.get("tradable") is False:
+    if result.get("tradeable") is False:
         print(result)
         return None
 
@@ -125,6 +136,11 @@ def create_trader_instance(
         candle_loader,
         result_processor,
     ) = InstanceBuilder.build(operation=operation, days=days).values()
+
+    result: Dict[str, Union[str, bool]] = is_tradeable(client_manager=client)
+    if result["tradeable"] is False:
+        print("[TradeLab]", result["info"])
+        return None, None
 
     indicators = prepare_candles(candle_loader, ana)
     if indicators is None:

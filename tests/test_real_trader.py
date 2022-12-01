@@ -14,7 +14,9 @@ from tools.trade_lab import create_trader_instance
 
 
 @pytest.fixture(scope="module")
-def real_trader_client():
+def real_trader_client(patch_is_tradeable):
+    patch_is_tradeable
+
     tr_instance, _ = create_trader_instance(real.RealTrader, operation="unittest", days=60)
     yield tr_instance
 
@@ -44,7 +46,8 @@ def fixture_support_and_resistance() -> pd.DataFrame:
 class TestInit:
     def test_not_tradeable(self):
         with patch(
-            "src.client_manager.ClientManager.call_oanda", return_value={"tradeable": False}
+            "tools.trade_lab.is_tradeable",
+            return_value={"info": "not tradeable", "tradeable": False},
         ):
             real_trader, _ = create_trader_instance(real.RealTrader, operation="live", days=60)
         assert real_trader is None

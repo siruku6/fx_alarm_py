@@ -11,9 +11,10 @@ from tools.trade_lab import create_trader_instance
 
 
 @pytest.fixture(name="swing_client", scope="module", autouse=True)
-def fixture_swing_client(set_envs):
+def fixture_swing_client(set_envs, patch_is_tradeable):
     with patch("src.trader_config.TraderConfig.get_instrument", return_value="USD_JPY"):
         set_envs
+        patch_is_tradeable
 
         _trader, _ = create_trader_instance(SwingTrader, operation="unittest", days=60)
         yield _trader

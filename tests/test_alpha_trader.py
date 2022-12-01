@@ -10,8 +10,9 @@ from tools.trade_lab import create_trader_instance
 
 
 @pytest.fixture(name="trader_instance", scope="module")
-def fixture_trader_instance(set_envs) -> AlphaTrader:
+def fixture_trader_instance(set_envs, patch_is_tradeable) -> AlphaTrader:
     set_envs
+    patch_is_tradeable
 
     _trader, _ = create_trader_instance(AlphaTrader, operation="unittest", days=60)
     yield _trader

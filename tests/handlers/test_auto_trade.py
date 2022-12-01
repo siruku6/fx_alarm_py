@@ -9,7 +9,7 @@ class TestLambdaHandler:
         """
         Condition: loading candles from OandaAPI is failed
         """
-        with patch("src.candle_loader.CandleLoader.run", return_value={"tradable": False}):
+        with patch("src.candle_loader.CandleLoader.run", return_value={"tradeable": False}):
             res: Dict[str, Union[int, str]] = auto_trade.lambda_handler({}, {})
 
         assert res["statusCode"] == 204

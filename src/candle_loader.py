@@ -1,11 +1,10 @@
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional
 
 from aws_lambda_powertools import Logger
 import pandas as pd
 
 from src.candle_storage import FXBase
 from src.client_manager import ClientManager
-from src.lib import logic
 import src.lib.interface as i_face
 from src.trader_config import TraderConfig
 
@@ -19,7 +18,7 @@ class CandleLoader:
         self.need_request: bool = self.__select_need_request(operation=config.operation)
         self.days: int = days
 
-    def run(self) -> Dict[str, Union[str, bool]]:
+    def run(self) -> Dict[str, Optional[str]]:
         candles: pd.DataFrame
         if self.need_request is False:
             candles = pd.read_csv("tests/fixtures/sample_candles.csv")
@@ -31,26 +30,19 @@ class CandleLoader:
                 granularity=self.config.get_entry_rules("granularity"),  # type: ignore
             )["candles"]
         elif self.config.operation == "live":
-            # TODO: move to trade_lab
-            tradeable = self.client_manager.call_oanda("is_tradeable")["tradeable"]
-            if not tradeable:
-                return {"info": "Now the trading market is closed.", "tradable": False}
-            if logic.is_reasonable() is False:
-                return {"info": "Now it is not reasonable to trade.", "tradable": False}
-
             candles = self.client_manager.load_specify_length_candles(
                 length=70, granularity=self.config.get_entry_rules("granularity")  # type: ignore
             )["candles"]
         else:
-            return {"info": "exit at once", "tradable": False}
+            raise ValueError(f"trader_config.operation is invalid!: {self.config.operation}")
 
         FXBase.set_candles(candles)
         if self.need_request is False:
-            return {"info": None, "tradable": True}
+            return {"info": None}
 
         latest_candle: Dict[str, Any] = self.client_manager.call_oanda("current_price")
         self.__update_latest_candle(latest_candle)
-        return {"info": None, "tradable": True}
+        return {"info": None}
 
     def __select_need_request(self, operation: str) -> bool:
         need_request: bool = True

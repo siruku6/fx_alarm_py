@@ -1,5 +1,6 @@
 import os
 from typing import Dict, List, Union
+from unittest.mock import patch
 
 import boto3
 from dotenv import load_dotenv
@@ -46,6 +47,12 @@ def fixture_set_envs(instrument, stoploss_buffer):
 def fixture_config(set_envs) -> TraderConfig:
     set_envs
     yield TraderConfig(operation="unittest")
+
+
+@pytest.fixture(name="patch_is_tradeable", scope="session")
+def fixture_patch_is_tradeable():
+    with patch("tools.trade_lab.is_tradeable", return_value={"info": "", "tradeable": True}):
+        yield
 
 
 @pytest.fixture(scope="session")
