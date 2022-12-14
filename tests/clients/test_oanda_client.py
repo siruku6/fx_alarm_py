@@ -4,7 +4,6 @@ from typing import Any, Dict, Union
 from unittest.mock import patch
 
 from moto import mock_sns
-from oandapyV20.exceptions import V20Error
 import pytest
 import responses
 
@@ -16,7 +15,7 @@ from tests.fixtures.past_transactions import TRANSACTION_IDS
 
 @pytest.fixture(name="client", scope="module", autouse=True)
 def oanda_client() -> watcher.OandaClient:
-    client = watcher.OandaClient(instrument="USD_JPY")
+    client = watcher.OandaClient(instrument="USD_JPY", environment="practice")
     yield client
     # INFO: Preventing ResourceWarning: unclosed <ssl.SSLSocket
     # https://stackoverflow.com/questions/48160728/resourcewarning-unclosed-socket-in-python-3-unit-test
@@ -244,17 +243,6 @@ class TestRequestTransactionIds:
                 accountID=os.environ.get("OANDA_ACCOUNT_ID"),
                 params={"from": dummy_from_str, "pageSize": 1000, "to": dummy_to_str},
             )
-
-    def test_fail(self, client):
-        with patch(
-            "oandapyV20.API.request",
-            side_effect=V20Error(code=400, msg="Invalid value specified for 'accountID'"),
-        ):
-            with patch("src.clients.oanda_client.OandaClient._OandaClient__notify_error"):
-                from_id, to_id = client.request_transaction_ids(from_str="", to_str="")
-                assert from_id is None
-                assert to_id is None
-                assert client.accessable is False
 
 
 class TestQueryInstruments:

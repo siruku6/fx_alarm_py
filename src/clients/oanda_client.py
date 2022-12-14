@@ -1,6 +1,4 @@
 import os
-import sys
-import traceback
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from aws_lambda_powertools import Logger
@@ -13,10 +11,7 @@ import oandapyV20.endpoints.orders as orders
 import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.transactions as transactions
-from oandapyV20.exceptions import V20Error
-from requests.exceptions import ConnectionError, SSLError
 
-from src.clients import sns
 import src.lib.preprocessor as prepro
 
 ISO_DATETIME_STR = str
@@ -29,11 +24,27 @@ LOGGER = Logger()
 class OandaClient:
     REQUESTABLE_COUNT = 5000
 
-    def __init__(self, instrument: str, environment: str = None, test: bool = False):
+    def __init__(self, instrument: str, environment: str = "practice", test: bool = False):
+        """
+
+        Args:
+            instrument (str): The pare of currencies you want to treat.
+                Example: "USD_JPY"
+            environment (str, optional): Account type of Oanda.
+                Example: "live"
+                Defaults to None.
+            test (bool, optional): Whether you want make order really.
+                If you set True, then your order is going to be ignored.
+                Defaults to False.
+        """
+        if environment is None:
+            environment = os.environ.get("OANDA_ENVIRONMENT")
+        if environment not in ["live", "practice"]:
+            raise ValueError(f"The args environment is invalid. : {environment}")
+
         self.__api_client = API(
             access_token=os.environ["OANDA_ACCESS_TOKEN"],
-            # 'practice' or 'live' is valid
-            environment=environment or os.environ.get("OANDA_ENVIRONMENT") or "practice",
+            environment=environment,
         )
         self.last_transaction_id: Optional[str] = None
         self.__accessable: bool = True
@@ -58,14 +69,16 @@ class OandaClient:
         request_obj: APIRequest = pricing.PricingInfo(
             accountID=os.environ["OANDA_ACCOUNT_ID"], params=params
         )
-        response = self.__request(request_obj)
+        response = self.__api_client.request(request_obj)
         tradeable = response["prices"][0]["tradeable"]
         return {"instrument": self.__instrument, "tradeable": tradeable}
 
     def request_open_trades(self) -> List[dict]:
-        """OANDA上でopenなポジションの情報を取得"""
+        """
+        request open position on the OANDA platform
+        """
         request_obj: APIRequest = trades.OpenTrades(accountID=os.environ["OANDA_ACCOUNT_ID"])
-        response = self.__request(request_obj)
+        response = self.__api_client.request(request_obj)
 
         # INFO: lastTransactionID is ID of the last trade transaction.
         self.last_transaction_id = response["lastTransactionID"]
@@ -130,7 +143,7 @@ class OandaClient:
         request_obj: APIRequest = orders.OrderCreate(
             accountID=os.environ["OANDA_ACCOUNT_ID"], data=data
         )
-        res: Dict[str, Any] = self.__request(request_obj)
+        res: Dict[str, Any] = self.__api_client.request(request_obj)
         LOGGER.info({"[Client] market-order": res})
 
         response: Dict[str, Any] = res["orderCreateTransaction"]
@@ -161,7 +174,7 @@ class OandaClient:
             accountID=os.environ["OANDA_ACCOUNT_ID"],
             tradeID=target_trade_id,  # , data=data
         )
-        response: Dict[str, Any] = self.__request(request_obj)
+        response: Dict[str, Any] = self.__api_client.request(request_obj)
 
         if (
             response.get("orderFillTransaction") is None
@@ -194,7 +207,7 @@ class OandaClient:
             tradeID=self.__trade_ids[0],
             data=data,
         )
-        response: Dict[str, Any] = self.__request(request_obj)
+        response: Dict[str, Any] = self.__api_client.request(request_obj)
         LOGGER.info({"[Client] trail": response})
         return response
 
@@ -209,7 +222,7 @@ class OandaClient:
         request_obj: APIRequest = transactions.TransactionIDRange(
             accountID=os.environ["OANDA_ACCOUNT_ID"], params=params
         )
-        response: Dict[str, Any] = self.__request(request_obj)
+        response: Dict[str, Any] = self.__api_client.request(request_obj)
 
         return response
 
@@ -223,62 +236,13 @@ class OandaClient:
         request_obj: APIRequest = transactions.TransactionList(
             accountID=os.environ["OANDA_ACCOUNT_ID"], params=params
         )
-        response: Dict[str, Any] = self.__request(request_obj)
+        response: Dict[str, Any] = self.__api_client.request(request_obj)
         if "error" in response:
             self.__stop_request()
             return None, None  # type: ignore
 
         ids: Dict[str, str] = prepro.extract_transaction_ids(response)
         return ids["old_id"], ids["last_id"]
-
-    #
-    # Private
-    #
-    def __request(self, obj: APIRequest) -> Dict[str, Any]:
-        try:
-            response: Dict[str, Any] = self.__api_client.request(obj)
-            result: Dict[str, Any] = response
-        except V20Error as error:
-            # print(traceback.format_exc())
-            self.__notify_error(
-                error,
-                sys._getframe().f_back.f_code.co_name,
-                _traceback=traceback.format_exc(),
-            )  # type: ignore
-
-            # NOTE: https://www.yoheim.net/blog.php?q=20190601
-            result = {"error": error.code}
-        except (SSLError, ConnectionError) as error:
-            # print(traceback.format_exc())
-            self.__notify_error(
-                error,
-                sys._getframe().f_back.f_code.co_name,
-                _traceback=traceback.format_exc(),
-            )  # type: ignore
-            result = {"error": 500}
-        # else:
-
-        return result
-
-    def __notify_error(
-        self,
-        error_body: Any,
-        parent_method: str,
-        _traceback: str,
-    ) -> None:
-        error_summary_dict: Dict[str, str] = {
-            "class": error_body.__class__.__name__,
-            "parent_method": parent_method,
-            "code": error_body.code,
-            "traceback": _traceback,
-        }
-        LOGGER.error(error_summary_dict)
-        LOGGER.error(error_body)
-
-        sns.publish(dic=error_summary_dict, subject=f"Error: {error_body.code}")
-
-        LOGGER.info({f"[{sys._getframe().f_back.f_code.co_name}] dir(error)": dir(error_body)})  # type: ignore
-        # error.msg
 
     def query_instruments(
         self,
@@ -304,7 +268,7 @@ class OandaClient:
             instrument=self.__instrument, params=params
         )
         # HACK: 現在値を取得する際、誤差で将来の時間と扱われてエラーになることがある
-        response: Dict[str, Any] = self.__request(request_obj)
+        response: Dict[str, Any] = self.__api_client.request(request_obj)
         if "error" in response:
             return {"candles": [], "error": response["error"]}
 
