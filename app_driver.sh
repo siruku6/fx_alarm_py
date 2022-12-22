@@ -147,7 +147,7 @@ while true; do
       ;;
     6)
       echo 'running pytest ...'
-      pytest -vv
+      pipenv run pytest -vv
       wait_display
       ;;
     10)
