@@ -5,11 +5,13 @@ from typing import List, Optional, Tuple, TypedDict
 import pandas as pd
 
 from src.analyzer import Analyzer
+from src.candle_loader import CandleLoader
 from src.candle_storage import FXBase
 from src.client_manager import ClientManager
 from src.drawer import FigureDrawer
 import src.lib.format_converter as converter
 from src.lib.interface import select_instrument
+from src.trader_config import TraderConfig
 
 
 class DstSwitch(TypedDict):
@@ -31,6 +33,10 @@ class Visualizer:
         self.__from_iso: str = from_iso
         self.__to_iso: str = to_iso
         self.__client: ClientManager = ClientManager(instrument=self.__instrument)
+        # TODO: remove TraderConfig from this line
+        self.__candle_loader: "CandleLoader" = CandleLoader(
+            TraderConfig("unittest", instrument), self.__client, 0
+        )
         self.__ana: Analyzer = Analyzer(indicator_names)
         self._indicators: pd.DataFrame = None
 
@@ -120,8 +126,11 @@ class Visualizer:
         min_end_dt: pd.Timestamp = end_dt - buffer_td * 400
         start_dt: pd.Timestamp = max(possible_start_dt, min_end_dt)
 
-        result: pd.DataFrame = self.__client.load_candles_by_duration_for_hist(
-            start=start_dt, end=end_dt, granularity=granularity
+        result: pd.DataFrame = self.__candle_loader.load_candles_by_duration_for_hist(
+            instrument=self.__instrument,
+            start=start_dt,
+            end=end_dt,
+            granularity=granularity,
         )
 
         return result

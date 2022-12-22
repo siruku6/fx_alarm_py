@@ -1,7 +1,15 @@
+from datetime import datetime
 from typing import Any, Dict, List
 import urllib
 
 import pandas as pd
+
+from .definitions import ISO_DATETIME_STR
+
+
+def to_oanda_format(target_datetime: datetime) -> ISO_DATETIME_STR:
+    # datetime.datetime(2020,10,1).isoformat(timespec='microseconds') + 'Z'
+    return target_datetime.strftime("%Y-%m-%dT%H:%M:00.000000Z")
 
 
 def to_candle_df(response: Dict[str, Any]) -> pd.DataFrame:

@@ -1,30 +1,37 @@
+from datetime import datetime
+
 import numpy as np
 import pandas as pd
 import pytest
 
-import src.lib.preprocessor as prepro
+import src.clients.oanda_accessor_pyv20.preprocessor as prepro
 from tests.fixtures.past_transactions import TRANSACTION_IDS
 
 
-@pytest.fixture(scope="module", autouse=True)
-def expected_columns():
-    yield np.array(
-        [
-            "id",
-            "batchID",
-            "tradeID",
-            "tradeOpened",
-            "tradesClosed",
-            "type",
-            "price",
-            "units",
-            "pl",
-            "time",
-            "reason",
-            "instrument",
-            "instrument_parent",
-        ]
-    )
+def test_to_oanda_format():
+    dummy_date_elements = [
+        {"year": 2020, "month": 10, "day": 1, "hour": 12, "min": 34, "sec": 56},
+        {"year": 1999, "month": 12, "day": 31, "hour": 23, "min": 59, "sec": 59},
+        {"year": 1900, "month": 1, "day": 1, "hour": 0, "min": 0, "sec": 0},
+    ]
+    expecteds = [
+        "2020-10-01T12:34:00.000000Z",
+        "1999-12-31T23:59:00.000000Z",
+        "1900-01-01T00:00:00.000000Z",
+    ]
+
+    for date_element, expected in zip(dummy_date_elements, expecteds):
+        converted_result = prepro.to_oanda_format(
+            datetime(
+                year=date_element["year"],
+                month=date_element["month"],
+                day=date_element["day"],
+                hour=date_element["hour"],
+                minute=date_element["min"],
+                second=date_element["sec"],
+            )
+        )
+        assert converted_result == expected
 
 
 def test_to_candle_df(dummy_instruments):
@@ -54,6 +61,27 @@ def test_filter_and_make_df(past_transactions, expected_columns):
         result["instrument_parent"] == instrument
     )
     assert len(result) == len(result_filtered_again_by_instrument)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def expected_columns():
+    yield np.array(
+        [
+            "id",
+            "batchID",
+            "tradeID",
+            "tradeOpened",
+            "tradesClosed",
+            "type",
+            "price",
+            "units",
+            "pl",
+            "time",
+            "reason",
+            "instrument",
+            "instrument_parent",
+        ]
+    )
 
 
 def test_filter_and_make_df_with_no_pl(no_pl_transactions, expected_columns):

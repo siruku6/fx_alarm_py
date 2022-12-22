@@ -1,10 +1,13 @@
-from typing import Any, Dict, Optional
+from datetime import datetime, timedelta
+from typing import Any, Dict, Optional, Tuple
 
 from aws_lambda_powertools import Logger
 import pandas as pd
 
 from src.candle_storage import FXBase
 from src.client_manager import ClientManager
+from src.clients.dynamodb_accessor import DynamodbAccessor
+import src.lib.format_converter as converter
 import src.lib.interface as i_face
 from src.trader_config import TraderConfig
 
@@ -87,3 +90,73 @@ class CandleLoader:
             FXBase.replace_latest_price("low", latest_candle["low"])
         LOGGER.info({"[Client] Last_H4": candle_dict, "Current_M1": latest_candle})
         LOGGER.info({"[Client] New_H4": FXBase.get_candles().iloc[-1].to_dict()})
+
+    def load_candles_by_duration_for_hist(
+        self, instrument: str, start: datetime, end: datetime, granularity: str
+    ) -> pd.DataFrame:
+        """Prepare candles with specifying the range of datetime"""
+        # 1. query from DynamoDB
+        table_name: str = "{}_CANDLES".format(granularity)
+        dynamo = DynamodbAccessor(instrument, table_name=table_name)
+        candles: pd.DataFrame = dynamo.list_candles(
+            # INFO: now preparing a little wide range of candles
+            #   because 休日やらタイミングやらで、start, endを割り込むデータしか取得できないことがあるため
+            # TODO: not using `3`days, it seems better to alter number of days according to granurality
+            (start - timedelta(days=3)).isoformat(),
+            (end + timedelta(days=1)).isoformat(),
+        )
+        if self.client_manager.accessable is False:
+            print("[Manager] Skipped requesting candles from Oanda")
+            return candles
+
+        # 2. detect period of missing candles
+        missing_start, missing_end = self.__detect_missings(candles, start, end)
+        if missing_end <= missing_start:
+            return candles
+
+        # 3. complement missing candles using API
+        missed_candles: pd.DataFrame = self.client_manager.load_candles_by_duration(
+            missing_start, missing_end, granularity=granularity
+        )["candles"]
+        # INFO: If it is closed time between start and end, `missed_candles` is gonna be [].
+        #   Then, skip insert and union.
+        if len(missed_candles) > 0:
+            dynamo.batch_insert(items=missed_candles.copy())
+            candles = self.client_manager._ClientManager__union_candles_distinct(
+                candles, missed_candles
+            )
+
+        return candles
+
+    def __detect_missings(
+        self, candles: pd.DataFrame, required_start: datetime, required_end: datetime
+    ) -> Tuple[datetime, datetime]:
+        """
+        Parameters
+        ----------
+        candles : pandas.DataFrame
+            Columns :
+
+        required_start : datetime
+            Example : datetime(2020, 1, 2, 12, 34)
+        required_end : datetime
+
+        Returns
+        -------
+        Array: [missing_start, missing_end]
+            missing_start : datetime
+            missing_end : datetime
+        """
+        if len(candles) == 0:
+            return required_start, required_end
+
+        # 1. DBから取得したデータの先頭と末尾の日時を取得
+        stocked_first: datetime = converter.str_to_datetime(candles.iloc[0]["time"])
+        stocked_last: datetime = converter.str_to_datetime(candles.iloc[-1]["time"])
+        ealiest: datetime = min(required_start, required_end, stocked_first, stocked_last)
+        latest: datetime = max(required_start, required_end, stocked_first, stocked_last)
+
+        # 2. どの期間のデータが不足しているのかを判別
+        missing_start: datetime = required_start if ealiest == required_start else stocked_last
+        missing_end: datetime = required_end if latest == required_end else stocked_first
+        return missing_start, missing_end

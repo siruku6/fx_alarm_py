@@ -1,15 +1,14 @@
 from collections.abc import Callable
 from datetime import datetime, timedelta
 import time
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Union
 
 import pandas as pd
 
 from src.clients import sns
-from src.clients.dynamodb_accessor import DynamodbAccessor
-from src.clients.oanda_client import OandaClient
+from src.clients.oanda_accessor_pyv20.api import OandaClient
+import src.clients.oanda_accessor_pyv20.preprocessor as prepro
 import src.lib.format_converter as converter
-import src.lib.preprocessor as prepro
 
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
 
@@ -18,6 +17,9 @@ class ClientManager:
     def __init__(self, instrument: str, test: bool = False) -> None:
         self.__instrument: str = instrument
         self.__oanda_client: OandaClient = OandaClient(instrument=self.__instrument, test=test)
+
+    def accessable(self) -> bool:
+        return self.__oanda_client.accessable
 
     # INFO: request-candles
     def load_specify_length_candles(
@@ -49,8 +51,8 @@ class ClientManager:
             end_datetime = last_datetime - timedelta(days=remaining_days)
 
             response = self.__oanda_client.query_instruments(
-                start=converter.to_oanda_format(start_datetime),
-                end=converter.to_oanda_format(end_datetime),
+                start=prepro.to_oanda_format(start_datetime),
+                end=prepro.to_oanda_format(end_datetime),
                 granularity=granularity,
             )
             tmp_candles = prepro.to_candle_df(response)
@@ -65,7 +67,26 @@ class ClientManager:
     def load_candles_by_duration(
         self, start: datetime, end: datetime, granularity: str
     ) -> Dict[str, Union[str, pd.DataFrame]]:
-        """load long period candles using multiple API requests"""
+        """
+        load candles for a specified time period using multiple API requests
+
+        Parameters
+        ----------
+        start : datetime
+            the start of time period for candles you want
+        end : datetime
+            the end of time period for candles you want
+        granularity : str
+            Example: "H1" or "D"
+
+        Returns
+        ----------
+        Dict[str, Union[str, pd.DataFrame]]:
+            {
+                "success": "message",
+                "candles": <loaded candles>,
+            }
+        """
         candles = None
         requestable_duration = self.__calc_requestable_time_duration(granularity)
         next_starttime: datetime = start
@@ -76,8 +97,8 @@ class ClientManager:
             if now < next_endtime:
                 next_endtime = now
             response = self.__oanda_client.query_instruments(
-                start=converter.to_oanda_format(next_starttime),
-                end=converter.to_oanda_format(next_endtime),
+                start=prepro.to_oanda_format(next_starttime),
+                end=prepro.to_oanda_format(next_endtime),
                 granularity=granularity,
             )
             tmp_candles = prepro.to_candle_df(response)
@@ -96,74 +117,6 @@ class ClientManager:
         possible_end: datetime = start + requestable_duration
         next_end: datetime = possible_end if possible_end < end else end
         return next_end
-
-    def load_candles_by_duration_for_hist(
-        self, start: datetime, end: datetime, granularity: str
-    ) -> pd.DataFrame:
-        """Prepare candles with specifying the range of datetime"""
-        # 1. query from DynamoDB
-        table_name: str = "{}_CANDLES".format(granularity)
-        dynamo = DynamodbAccessor(self.__instrument, table_name=table_name)
-        candles: pd.DataFrame = dynamo.list_candles(
-            # INFO: 若干広めの時間をとっている
-            #   休日やらタイミングやらで、start, endを割り込むデータしか取得できないことがありそうなため
-            # TODO: 範囲は3日などでなく、granuralityに応じて可変にした方が良い
-            (start - timedelta(days=3)).isoformat(),
-            (end + timedelta(days=1)).isoformat(),
-        )
-        if self.__oanda_client.accessable is False:
-            print("[Manager] Skipped requesting candles from Oanda")
-            return candles
-
-        # 2. detect period of missing candles
-        missing_start, missing_end = self.__detect_missings(candles, start, end)
-        if missing_end <= missing_start:
-            return candles
-
-        # 3. complement missing candles using API
-        missed_candles: pd.DataFrame = self.load_candles_by_duration(
-            missing_start, missing_end, granularity=granularity
-        )["candles"]
-        # INFO: If it is closed time between start and end, `missed_candles` is gonna be [].
-        #   Then, skip insert and union.
-        if len(missed_candles) > 0:
-            dynamo.batch_insert(items=missed_candles.copy())
-            candles = self.__union_candles_distinct(candles, missed_candles)
-
-        return candles
-
-    def __detect_missings(
-        self, candles: pd.DataFrame, required_start: datetime, required_end: datetime
-    ) -> Tuple[datetime, datetime]:
-        """
-        Parameters
-        ----------
-        candles : pandas.DataFrame
-            Columns :
-
-        required_start : datetime
-            Example : datetime(2020, 1, 2, 12, 34)
-        required_end : datetime
-
-        Returns
-        -------
-        Array: [missing_start, missing_end]
-            missing_start : datetime
-            missing_end : datetime
-        """
-        if len(candles) == 0:
-            return required_start, required_end
-
-        # 1. DBから取得したデータの先頭と末尾の日時を取得
-        stocked_first: datetime = converter.str_to_datetime(candles.iloc[0]["time"])
-        stocked_last: datetime = converter.str_to_datetime(candles.iloc[-1]["time"])
-        ealiest: datetime = min(required_start, required_end, stocked_first, stocked_last)
-        latest: datetime = max(required_start, required_end, stocked_first, stocked_last)
-
-        # 2. どの期間のデータが不足しているのかを判別
-        missing_start: datetime = required_start if ealiest == required_start else stocked_last
-        missing_end: datetime = required_end if latest == required_end else stocked_first
-        return missing_start, missing_end
 
     def call_oanda(self, method: str, **kwargs: Dict[str, Any]):
         method_dict: Dict[str, Union[Callable[[Any], Any], Callable[[], Any]]] = {
@@ -257,10 +210,10 @@ class ClientManager:
 
         time_span = int(granularity[1:])
         if time_unit == "H":
-            return int(days * 24 / time_span)
-
-        if time_unit == "M":
-            return int(days * 24 * 60 / time_span)
+            result = int(days * 24 / time_span)
+        elif time_unit == "M":
+            result = int(days * 24 * 60 / time_span)
+        return result
 
     def __calc_requestable_time_duration(self, granularity: str) -> timedelta:
         _timedelta: timedelta = converter.granularity_to_timedelta(granularity)

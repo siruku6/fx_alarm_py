@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 import pandas as pd
 
-from src.clients.oanda_client import ISO_DATETIME_STR
+from src.clients.oanda_accessor_pyv20.definitions import ISO_DATETIME_STR
 
 TIME_STRING_FMT = "%Y-%m-%d %H:%M:%S"
 
@@ -23,11 +23,6 @@ def granularity_to_timedelta(granularity: str) -> datetime.timedelta:
         candle_duration = datetime.timedelta(days=1)
 
     return candle_duration
-
-
-def to_oanda_format(target_datetime: datetime.datetime) -> ISO_DATETIME_STR:
-    # datetime.datetime(2020,10,1).isoformat(timespec='microseconds') + 'Z'
-    return target_datetime.strftime("%Y-%m-%dT%H:%M:00.000000Z")
 
 
 def to_timestamp(oanda_str: str) -> pd.Timestamp:

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Dict
 from unittest.mock import patch
 
@@ -123,3 +124,74 @@ class TestUpdateLatestCandle:
         }
         loader_instance._CandleLoader__update_latest_candle(latest_candle)
         assert FXBase.get_candles().iloc[-1].to_dict() == expect
+
+
+examples_for_detector = (
+    # Case1: No missing candles
+    (
+        datetime(2020, 7, 8),
+        datetime(2020, 7, 8, 11),
+        datetime(2020, 7, 8),
+        datetime(2020, 7, 8, 11),
+    ),
+    # Case2: No missing candles
+    (
+        datetime(2020, 7, 8, 1),
+        datetime(2020, 7, 8, 10),
+        datetime(2020, 7, 8, 11),
+        datetime(2020, 7, 8),
+    ),
+    # Case3: No missing candles
+    (
+        datetime(2020, 7, 8),
+        datetime(2020, 7, 8, 10),
+        datetime(2020, 7, 8),
+        datetime(2020, 7, 8),
+    ),
+    # Case4~6: There are missing candles
+    (
+        datetime(2020, 7, 5),
+        datetime(2020, 7, 8, 10),
+        datetime(2020, 7, 5),
+        datetime(2020, 7, 8),
+    ),
+    (
+        datetime(2020, 7, 8, 1),
+        datetime(2020, 7, 9),
+        datetime(2020, 7, 8, 11),
+        datetime(2020, 7, 9),
+    ),
+    (
+        datetime(2020, 7, 5),
+        datetime(2020, 7, 9),
+        datetime(2020, 7, 5),
+        datetime(2020, 7, 9),
+    ),
+)
+
+
+class TestDetectMissings:
+    @pytest.mark.parametrize(
+        "start, end, exp_missing_start, exp_missing_end", examples_for_detector
+    )
+    def test___detect_missings(
+        self, start, end, exp_missing_start, exp_missing_end, loader_instance, past_usd_candles
+    ):
+        candles = pd.DataFrame(past_usd_candles).iloc[-12:, :]
+        missing_start, missing_end = loader_instance._CandleLoader__detect_missings(
+            candles, start, end
+        )
+
+        assert missing_start == exp_missing_start
+        assert missing_end == exp_missing_end
+
+    def test___detect_missings_with_no_candles(self, loader_instance):
+        start = datetime(2020, 7, 6)
+        end = datetime(2020, 7, 7)
+        candles = pd.DataFrame([])
+        missing_start, missing_end = loader_instance._CandleLoader__detect_missings(
+            candles, start, end
+        )
+
+        assert missing_start == start
+        assert missing_end == end

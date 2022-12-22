@@ -56,7 +56,7 @@ def fixture_patch_is_tradeable():
 
 
 @pytest.fixture(scope="session")
-def dummy_instruments():
+def dummy_instruments() -> Dict[str, Union[list, str]]:
     return {
         "candles": [
             {
@@ -80,6 +80,17 @@ def dummy_instruments():
         ],
         "granularity": "M5",
         "instrument": "USD_JPY",
+    }
+
+
+@pytest.fixture(name="converted_dummy_instruments", scope="function")
+def fixture_converted_dummy_instruments() -> Dict[str, List[Union[float, str]]]:
+    return {
+        "close": [111.576, 111.571, 111.568],
+        "high": [111.576, 111.571, 111.590],
+        "low": [111.566, 111.571, 111.568],
+        "open": [111.573, 111.571, 111.574],
+        "time": ["2019-04-28 21:00:00", "2019-04-28 21:05:00", "2019-04-28 21:10:00"],
     }
 
 

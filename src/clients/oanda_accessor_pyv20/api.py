@@ -12,9 +12,9 @@ import oandapyV20.endpoints.pricing as pricing
 import oandapyV20.endpoints.trades as trades
 import oandapyV20.endpoints.transactions as transactions
 
-import src.lib.preprocessor as prepro
+import src.clients.oanda_accessor_pyv20.preprocessor as prepro
 
-ISO_DATETIME_STR = str
+from .definitions import ISO_DATETIME_STR
 
 LOGGER = Logger()
 
@@ -76,6 +76,7 @@ class OandaClient:
     def request_open_trades(self) -> List[dict]:
         """
         request open position on the OANDA platform
+        and set `self.last_transaction_id`
         """
         request_obj: APIRequest = trades.OpenTrades(accountID=os.environ["OANDA_ACCOUNT_ID"])
         response = self.__api_client.request(request_obj)
@@ -119,15 +120,16 @@ class OandaClient:
     ) -> Dict[str, Any]:
         """market order"""
         if stoploss_price is None:
-            return {"error": "[Client] StopLoss注文なしでの成り行き注文を禁止します。"}
+            return {
+                "error": "[Client] It is restricted to execute market order without StopLoss order."
+            }
 
         data = {
             "order": {
                 "stopLossOnFill": {
                     "timeInForce": "GTC",
-                    "price": str(stoploss_price)[
-                        :7
-                    ],  # TODO: consider currrency pairs whose digits are too small
+                    # TODO: consider currrency pairs whose digits are too small
+                    "price": str(stoploss_price)[:7],
                 },
                 "instrument": self.__instrument,
                 "units": "{sign}{units}".format(sign=posi_nega_sign, units=self.__units),

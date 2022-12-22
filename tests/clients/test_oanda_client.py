@@ -8,14 +8,14 @@ import pytest
 import responses
 
 # My-made modules
-import src.clients.oanda_client as watcher
+from src.clients.oanda_accessor_pyv20.api import OandaClient
 from tests.conftest import fixture_sns
 from tests.fixtures.past_transactions import TRANSACTION_IDS
 
 
 @pytest.fixture(name="client", scope="module", autouse=True)
-def oanda_client() -> watcher.OandaClient:
-    client = watcher.OandaClient(instrument="USD_JPY", environment="practice")
+def oanda_client() -> OandaClient:
+    client = OandaClient(instrument="USD_JPY", environment="practice")
     yield client
     # INFO: Preventing ResourceWarning: unclosed <ssl.SSLSocket
     # https://stackoverflow.com/questions/48160728/resourcewarning-unclosed-socket-in-python-3-unit-test
@@ -54,7 +54,7 @@ def fixture_dummy_pricing_info() -> Dict[str, Any]:
 #  - - - - - - - - - - -
 class TestRequestIsTradeable:
     @responses.activate
-    def test_default(self, client: watcher.OandaClient, dummy_pricing_info: Dict[str, Any]):
+    def test_default(self, client: OandaClient, dummy_pricing_info: Dict[str, Any]):
         url: str = (
             f"https://api-fxpractice.oanda.com/v3/accounts/{os.environ['OANDA_ACCOUNT_ID']}/pricing"
         )
@@ -159,7 +159,7 @@ class TestRequestTrailingStoploss:
     @responses.activate
     def test_default(
         self,
-        client: watcher.OandaClient,
+        client: OandaClient,
         dummy_crcdo_result: Dict[str, Any],
         dummy_pricing_info: Dict[str, Any],
     ):
@@ -189,7 +189,7 @@ class TestRequestClosing:
     @responses.activate
     def test_default(
         self,
-        client: watcher.OandaClient,
+        client: OandaClient,
         dummy_closing_result: Dict[str, Any],
     ):
         fixture_sns()

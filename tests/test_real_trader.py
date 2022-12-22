@@ -353,13 +353,15 @@ def test___drive_exit_process_golden_cross(real_trader_client):
 
 class TestFetchCurrentPosition:
     def test_none_position(self, real_trader_client):
-        with patch("src.clients.oanda_client.OandaClient.request_open_trades", return_value=[]):
+        with patch(
+            "src.clients.oanda_accessor_pyv20.api.OandaClient.request_open_trades", return_value=[]
+        ):
             pos = real_trader_client._RealTrader__fetch_current_position()
         assert pos == {"type": "none"}
 
     def test_short_position(self, real_trader_client, dummy_open_trades):
         with patch(
-            "src.clients.oanda_client.OandaClient.request_open_trades",
+            "src.clients.oanda_accessor_pyv20.api.OandaClient.request_open_trades",
             return_value=dummy_open_trades,
         ):
             pos = real_trader_client._RealTrader__fetch_current_position()
@@ -370,7 +372,7 @@ class TestFetchCurrentPosition:
 
     def test_long_position(self, real_trader_client, dummy_long_without_stoploss_trades):
         with patch(
-            "src.clients.oanda_client.OandaClient.request_open_trades",
+            "src.clients.oanda_accessor_pyv20.api.OandaClient.request_open_trades",
             return_value=dummy_long_without_stoploss_trades,
         ):
             pos = real_trader_client._RealTrader__fetch_current_position()

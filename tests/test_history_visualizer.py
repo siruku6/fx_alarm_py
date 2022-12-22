@@ -6,9 +6,9 @@ import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 import pytest
 
+import src.clients.oanda_accessor_pyv20.preprocessor as prepro
 import src.history_visualizer as libra
 import src.lib.format_converter as converter
-import src.lib.preprocessor as prepro
 
 
 #  - - - - - - - - - - - - - -
@@ -107,11 +107,16 @@ def test___prepare_candles(libra_client, from_iso, to_iso):
     to_converted = pd.Timestamp(to_iso[:19])
 
     with patch(
-        "src.client_manager.ClientManager.load_candles_by_duration_for_hist",
+        "src.candle_loader.CandleLoader.load_candles_by_duration_for_hist",
         return_value=pd.DataFrame(),
     ) as mock:
         _: pd.DataFrame = libra_client._Visualizer__prepare_candles(granularity=granularity)
-    mock.assert_called_with(start=from_with_spare, end=to_converted, granularity=granularity)
+    mock.assert_called_with(
+        instrument="USD_JPY",  # TODO: set not static value
+        start=from_with_spare,
+        end=to_converted,
+        granularity=granularity,
+    )
 
     # Case2
     #   The period between from and to is more than 400 candles
@@ -121,11 +126,16 @@ def test___prepare_candles(libra_client, from_iso, to_iso):
     to_converted = pd.Timestamp(to_iso[:19])
 
     with patch(
-        "src.client_manager.ClientManager.load_candles_by_duration_for_hist",
+        "src.candle_loader.CandleLoader.load_candles_by_duration_for_hist",
         return_value=pd.DataFrame(),
     ) as mock:
         _: pd.DataFrame = libra_client._Visualizer__prepare_candles(granularity=granularity)
-    mock.assert_called_with(start=from_with_spare, end=to_converted, granularity=granularity)
+    mock.assert_called_with(
+        instrument="USD_JPY",  # TODO: set not static value
+        start=from_with_spare,
+        end=to_converted,
+        granularity=granularity,
+    )
 
 
 def test___adjust_time_for_merging(libra_client, win_sum_candles, hist_df):
