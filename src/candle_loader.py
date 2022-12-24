@@ -5,8 +5,8 @@ from aws_lambda_powertools import Logger
 import pandas as pd
 
 from src.candle_storage import FXBase
-from src.client_manager import ClientManager
 from src.clients.dynamodb_accessor import DynamodbAccessor
+from src.clients.oanda_accessor_pyv20.interface import OandaInterface
 import src.lib.format_converter as converter
 import src.lib.interface as i_face
 from src.trader_config import TraderConfig
@@ -15,9 +15,9 @@ LOGGER = Logger()
 
 
 class CandleLoader:
-    def __init__(self, config: TraderConfig, client_manager: ClientManager, days: int) -> None:
+    def __init__(self, config: TraderConfig, interface: OandaInterface, days: int) -> None:
         self.config: TraderConfig = config
-        self.client_manager: ClientManager = client_manager
+        self.interface: OandaInterface = interface
         self.need_request: bool = self.__select_need_request(operation=config.operation)
         self.days: int = days
 
@@ -26,12 +26,12 @@ class CandleLoader:
         if self.need_request is False:
             candles = pd.read_csv("tests/fixtures/sample_candles.csv")
         elif self.config.operation in ("backtest", "forward_test"):
-            candles = self.client_manager.load_candles_by_days(
+            candles = self.interface.load_candles_by_days(
                 days=self.days,
                 granularity=self.config.get_entry_rules("granularity"),  # type: ignore
             )["candles"]
         elif self.config.operation == "live":
-            candles = self.client_manager.load_specify_length_candles(
+            candles = self.interface.load_specify_length_candles(
                 length=70, granularity=self.config.get_entry_rules("granularity")  # type: ignore
             )["candles"]
         else:
@@ -41,7 +41,7 @@ class CandleLoader:
         if self.need_request is False:
             return {"info": None}
 
-        latest_candle: Dict[str, Any] = self.client_manager.call_oanda("current_price")
+        latest_candle: Dict[str, Any] = self.interface.call_oanda("current_price")
         self.__update_latest_candle(latest_candle)
         return {"info": None}
 
@@ -73,7 +73,7 @@ class CandleLoader:
         if self.days is None:
             raise RuntimeError("'days' must be specified, but is None.")
 
-        return self.client_manager.load_candles_by_days(days=self.days, granularity=granularity)[
+        return self.interface.load_candles_by_days(days=self.days, granularity=granularity)[
             "candles"
         ]
 
@@ -105,7 +105,7 @@ class CandleLoader:
             (start - timedelta(days=3)).isoformat(),
             (end + timedelta(days=1)).isoformat(),
         )
-        if self.client_manager.accessable is False:
+        if self.interface.accessable is False:
             print("[Manager] Skipped requesting candles from Oanda")
             return candles
 
@@ -115,14 +115,14 @@ class CandleLoader:
             return candles
 
         # 3. complement missing candles using API
-        missed_candles: pd.DataFrame = self.client_manager.load_candles_by_duration(
+        missed_candles: pd.DataFrame = self.interface.load_candles_by_duration(
             missing_start, missing_end, granularity=granularity
         )["candles"]
         # INFO: If it is closed time between start and end, `missed_candles` is gonna be [].
         #   Then, skip insert and union.
         if len(missed_candles) > 0:
             dynamo.batch_insert(items=missed_candles.copy())
-            candles = self.client_manager._ClientManager__union_candles_distinct(
+            candles = self.interface._OandaInterface__union_candles_distinct(
                 candles, missed_candles
             )
 

@@ -83,7 +83,9 @@ class RealTrader(Trader):
             if last_indicators is not None:
                 stoploss = last_indicators["regist"]
 
-        self._client.order_oanda(method_type="entry", posi_nega_sign=sign, stoploss_price=stoploss)
+        self._oanda_interface.order_oanda(
+            method_type="entry", posi_nega_sign=sign, stoploss_price=stoploss
+        )
 
     def _trail_stoploss(self, new_stop: float) -> None:
         """
@@ -98,11 +100,11 @@ class RealTrader(Trader):
         None
         """
         # NOTE: trail先の価格を既に突破していたら自動でcloseしてくれた OandaAPI は優秀
-        self._client.order_oanda(method_type="trail", stoploss_price=new_stop)
+        self._oanda_interface.order_oanda(method_type="trail", stoploss_price=new_stop)
 
     def __settle_position(self, reason: str = "") -> None:
         """ポジションをcloseする"""
-        pprint(self._client.order_oanda(method_type="exit", reason=reason))
+        pprint(self._oanda_interface.order_oanda(method_type="exit", reason=reason))
 
     #
     # Private
@@ -269,7 +271,7 @@ class RealTrader(Trader):
 
     def __fetch_current_position(self) -> Position:
         pos: Position = {"type": "none"}
-        result = self._client.call_oanda("open_trades")
+        result = self._oanda_interface.call_oanda("open_trades")
         positions: List[dict] = result["positions"]
         if positions == []:
             return pos
@@ -305,7 +307,7 @@ class RealTrader(Trader):
         time_since_loss : timedelta
         """
         candle_size = 100
-        hist_df = self._client.call_oanda("transactions", count=candle_size)
+        hist_df = self._oanda_interface.call_oanda("transactions", count=candle_size)
         time_series = hist_df[hist_df.pl < 0]["time"]
         if time_series.empty:
             return timedelta(hours=99)

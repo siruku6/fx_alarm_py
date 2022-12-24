@@ -95,8 +95,8 @@ def _merge_long_indicators(ana: "Analyzer") -> pd.DataFrame:
     return tmp_df
 
 
-def is_tradeable(client_manager) -> Dict[str, Union[str, bool]]:
-    tradeable = client_manager.call_oanda("is_tradeable")["tradeable"]
+def is_tradeable(interface) -> Dict[str, Union[str, bool]]:
+    tradeable = interface.call_oanda("is_tradeable")["tradeable"]
     if not tradeable:
         return {"info": "Now the trading market is closed.", "tradeable": False}
     if logic.is_reasonable() is False:
@@ -132,12 +132,12 @@ def create_trader_instance(
     ana: "Analyzer" = Analyzer()
     (
         config,
-        client,
+        o_interface,
         candle_loader,
         result_processor,
     ) = InstanceBuilder.build(operation=operation, days=days).values()
 
-    result: Dict[str, Union[str, bool]] = is_tradeable(client_manager=client)
+    result: Dict[str, Union[str, bool]] = is_tradeable(interface=o_interface)
     if result["tradeable"] is False:
         print("[TradeLab]", result["info"])
         return None, None
@@ -148,7 +148,7 @@ def create_trader_instance(
 
     tr_instance: Trader = trader_class(
         ana=ana,
-        client=client,
+        o_interface=o_interface,
         config=config,
         indicators=indicators,
         result_processor=result_processor,

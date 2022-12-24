@@ -235,7 +235,7 @@ class TestCreatePositionWithoutIndicators:
 def test__trail_stoploss(real_trader_client):
     new_stop = 111.111
     dummy_trade_id = "999"
-    real_trader_client._client._ClientManager__oanda_client._OandaClient__trade_ids = [
+    real_trader_client._oanda_interface._OandaInterface__oanda_client._OandaClient__trade_ids = [
         dummy_trade_id
     ]
     data = {"stopLoss": {"timeInForce": "GTC", "price": str(new_stop)[:7]}}
@@ -429,7 +429,7 @@ def test___since_last_loss(real_trader_client):
     # Context: last loss is far from current
     dummy_transactions = pd.DataFrame({"pl": [121.03], "time": ["2019-02-01T12:15:02.436718568Z"]})
     with patch(
-        "src.client_manager.ClientManager._ClientManager__request_latest_transactions",
+        "src.clients.oanda_accessor_pyv20.interface.OandaInterface._OandaInterface__request_latest_transactions",
         return_value=dummy_transactions,
     ):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()
@@ -443,7 +443,7 @@ def test___since_last_loss(real_trader_client):
         }
     )
     with patch(
-        "src.client_manager.ClientManager._ClientManager__request_latest_transactions",
+        "src.clients.oanda_accessor_pyv20.interface.OandaInterface._OandaInterface__request_latest_transactions",
         return_value=dummy_transactions,
     ):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()

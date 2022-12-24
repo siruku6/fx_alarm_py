@@ -14,7 +14,7 @@ import src.lib.format_converter as converter
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
 
 
-class ClientManager:
+class OandaInterface:
     def __init__(self, instrument: str, test: bool = False) -> None:
         self.__instrument: str = instrument
         self.__oanda_client: OandaClient = OandaClient(instrument=self.__instrument, test=test)

@@ -19,7 +19,7 @@ class Trader(metaclass=abc.ABCMeta):
     def __init__(
         self,
         ana,
-        client,
+        o_interface,
         config,
         indicators: pd.DataFrame,
         result_processor,
@@ -36,7 +36,7 @@ class Trader(metaclass=abc.ABCMeta):
         None
         """
         self._ana: "Analyzer" = ana
-        self._client = client
+        self._oanda_interface = o_interface
         self.config = config
         self._indicators: pd.DataFrame = indicators
         self._result_processor = result_processor

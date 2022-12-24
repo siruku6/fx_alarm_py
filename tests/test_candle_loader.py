@@ -7,14 +7,14 @@ import pytest
 
 from src.candle_loader import CandleLoader
 from src.candle_storage import FXBase
-from src.client_manager import ClientManager
+from src.clients.oanda_accessor_pyv20.interface import OandaInterface
 
 
 @pytest.fixture(name="loader_instance")
 def fixture_loader_instance(set_envs, config) -> CandleLoader:
     set_envs
 
-    _loader: CandleLoader = CandleLoader(config, ClientManager(instrument="USD_JPY"), days=60)
+    _loader: CandleLoader = CandleLoader(config, OandaInterface(instrument="USD_JPY"), days=60)
     yield _loader
 
 
@@ -57,7 +57,8 @@ class TestRun:
     def test_operation_live(self, loader_instance):
         dummy_df: pd.DataFrame = pd.read_csv("tests/fixtures/sample_candles.csv")
         with patch(
-            "src.client_manager.ClientManager.load_specify_length_candles", return_value=dummy_df
+            "src.clients.oanda_accessor_pyv20.interface.OandaInterface.load_specify_length_candles",
+            return_value=dummy_df,
         ):
             result: Dict[str, str] = loader_instance.run()
             candles: pd.DataFrame = FXBase.get_candles()

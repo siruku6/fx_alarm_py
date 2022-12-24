@@ -1,9 +1,16 @@
-from . import (alpha_trader, analyzer, client_manager, drawer,
-               history_visualizer, real_trader, trader,)
+from . import (
+    alpha_trader,
+    analyzer,
+    drawer,
+    history_visualizer,
+    real_trader,
+    trader,
+)
+from .clients.oanda_accessor_pyv20 import interface
 
 __all__ = [
     "analyzer",
-    "client_manager",
+    "interface",
     "drawer",
     "real_trader",
     "alpha_trader",

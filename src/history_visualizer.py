@@ -7,7 +7,7 @@ import pandas as pd
 from src.analyzer import Analyzer
 from src.candle_loader import CandleLoader
 from src.candle_storage import FXBase
-from src.client_manager import ClientManager
+from src.clients.oanda_accessor_pyv20.interface import OandaInterface
 from src.drawer import FigureDrawer
 import src.lib.format_converter as converter
 from src.lib.interface import select_instrument
@@ -32,7 +32,7 @@ class Visualizer:
         self.__instrument: str = instrument or select_instrument()["name"]
         self.__from_iso: str = from_iso
         self.__to_iso: str = to_iso
-        self.__client: ClientManager = ClientManager(instrument=self.__instrument)
+        self.__client: OandaInterface = OandaInterface(instrument=self.__instrument)
         # TODO: remove TraderConfig from this line
         self.__candle_loader: "CandleLoader" = CandleLoader(
             TraderConfig("unittest", instrument), self.__client, 0

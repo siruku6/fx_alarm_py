@@ -15,7 +15,7 @@ def fixture_trader_instance(set_envs) -> SwingTrader:
 
     _trader, _ = create_trader_instance(SwingTrader, operation="unittest", days=60)
     yield _trader
-    _trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
+    _trader._oanda_interface._OandaInterface__oanda_client._OandaClient__api_client.client.close()
 
 
 @pytest.fixture(name="real_trader_instance", scope="module")
@@ -24,7 +24,7 @@ def fixture_real_trader_instance(set_envs) -> RealTrader:
 
     real_trader, _ = create_trader_instance(RealTrader, operation="unittest", days=60)
     yield real_trader
-    real_trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
+    real_trader._oanda_interface._OandaInterface__oanda_client._OandaClient__api_client.client.close()
 
 
 @pytest.fixture(scope="module")
