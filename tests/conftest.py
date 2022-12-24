@@ -32,7 +32,7 @@ def fixture_stoploss_buffer():
     return 0.02
 
 
-@pytest.fixture(name="set_envs", scope="module", autouse=True)
+@pytest.fixture(name="set_envs", scope="function", autouse=True)
 def fixture_set_envs(instrument, stoploss_buffer):
     os.environ["OANDA_ACCOUNT_ID"] = "dummy_account_id"
     os.environ["OANDA_ACCESS_TOKEN"] = "dummy_accecc_token"
@@ -61,19 +61,25 @@ def dummy_instruments() -> Dict[str, Union[list, str]]:
         "candles": [
             {
                 "complete": True,
+                "ask": {"c": "111.577", "h": "111.577", "l": "111.567", "o": "111.574"},
                 "mid": {"c": "111.576", "h": "111.576", "l": "111.566", "o": "111.573"},
+                "bid": {"c": "111.575", "h": "111.575", "l": "111.565", "o": "111.572"},
                 "time": "2019-04-28T21:00:00.000000000Z",
                 "volume": 5,
             },
             {
                 "complete": True,
+                "ask": {"c": "111.572", "h": "111.572", "l": "111.572", "o": "111.572"},
                 "mid": {"c": "111.571", "h": "111.571", "l": "111.571", "o": "111.571"},
+                "bid": {"c": "111.570", "h": "111.570", "l": "111.570", "o": "111.570"},
                 "time": "2019-04-28T21:05:00.000000000Z",
                 "volume": 1,
             },
             {
                 "complete": True,
+                "ask": {"c": "111.569", "h": "111.591", "l": "111.569", "o": "111.575"},
                 "mid": {"c": "111.568", "h": "111.590", "l": "111.568", "o": "111.574"},
+                "bid": {"c": "111.567", "h": "111.589", "l": "111.567", "o": "111.573"},
                 "time": "2019-04-28T21:10:00.000000000Z",
                 "volume": 24,
             },
@@ -90,6 +96,8 @@ def fixture_converted_dummy_instruments() -> Dict[str, List[Union[float, str]]]:
         "high": [111.576, 111.571, 111.590],
         "low": [111.566, 111.571, 111.568],
         "open": [111.573, 111.571, 111.574],
+        "volume": [5, 1, 24],
+        "complete": [True] * 3,
         "time": ["2019-04-28 21:00:00", "2019-04-28 21:05:00", "2019-04-28 21:10:00"],
     }
 

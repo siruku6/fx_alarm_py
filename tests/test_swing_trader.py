@@ -10,7 +10,7 @@ from src.swing_trader import SwingTrader
 from tools.trade_lab import create_trader_instance
 
 
-@pytest.fixture(name="swing_client", scope="module", autouse=True)
+@pytest.fixture(name="swing_client", scope="function", autouse=True)
 def fixture_swing_client(set_envs, patch_is_tradeable):
     with patch("src.trader_config.TraderConfig.get_instrument", return_value="USD_JPY"):
         set_envs

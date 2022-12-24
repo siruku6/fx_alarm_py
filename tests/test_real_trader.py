@@ -233,11 +233,12 @@ class TestCreatePositionWithoutIndicators:
 
 
 def test__trail_stoploss(real_trader_client):
-    new_stop = 111.111
-    dummy_trade_id = "999"
+    new_stop: float = 111.111
+    dummy_trade_id: str = "999"
     real_trader_client._oanda_interface._OandaInterface__oanda_client._OandaClient__trade_ids = [
         dummy_trade_id
     ]
+    real_trader_client._position = {"id": dummy_trade_id}
     data = {"stopLoss": {"timeInForce": "GTC", "price": str(new_stop)[:7]}}
 
     with patch("oandapyV20.endpoints.trades.TradeCRCDO") as mock:

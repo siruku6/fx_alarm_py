@@ -22,6 +22,7 @@ class PositionRequired(TypedDict):
 class Position(PositionRequired, total=False):
     """Optional keys"""
 
+    id: str
     price: float
     openTime: str
     stoploss: float
@@ -57,7 +58,7 @@ class RealTrader(Trader):
         self.__play_scalping_trade(candles)
 
     def _set_position(self, position_dict: Position) -> None:
-        self._position: Position = position_dict
+        self._position = position_dict
 
     #
     # Override shared methods
@@ -100,11 +101,17 @@ class RealTrader(Trader):
         None
         """
         # NOTE: trail先の価格を既に突破していたら自動でcloseしてくれた OandaAPI は優秀
-        self._oanda_interface.order_oanda(method_type="trail", stoploss_price=new_stop)
+        self._oanda_interface.order_oanda(
+            method_type="trail", trade_id=self._position["id"], stoploss_price=new_stop
+        )
 
     def __settle_position(self, reason: str = "") -> None:
         """ポジションをcloseする"""
-        pprint(self._oanda_interface.order_oanda(method_type="exit", reason=reason))
+        pprint(
+            self._oanda_interface.order_oanda(
+                method_type="exit", trade_id=self._position["id"], reason=reason
+            )
+        )
 
     #
     # Private
@@ -284,6 +291,7 @@ class RealTrader(Trader):
             position_type = "long"
 
         pos = {
+            "id": target["id"],
             "price": float(target["price"]),
             "openTime": target["openTime"],
             "type": position_type,

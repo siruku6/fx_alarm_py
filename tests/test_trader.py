@@ -9,7 +9,7 @@ from src.swing_trader import SwingTrader
 from tools.trade_lab import create_trader_instance
 
 
-@pytest.fixture(name="trader_instance", scope="module")
+@pytest.fixture(name="trader_instance", scope="function")
 def fixture_trader_instance(set_envs) -> SwingTrader:
     set_envs
 
@@ -18,7 +18,7 @@ def fixture_trader_instance(set_envs) -> SwingTrader:
     _trader._oanda_interface._OandaInterface__oanda_client._OandaClient__api_client.client.close()
 
 
-@pytest.fixture(name="real_trader_instance", scope="module")
+@pytest.fixture(name="real_trader_instance", scope="function")
 def fixture_real_trader_instance(set_envs) -> RealTrader:
     set_envs
 

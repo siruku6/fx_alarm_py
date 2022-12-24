@@ -24,7 +24,14 @@ LOGGER = Logger()
 class OandaClient:
     REQUESTABLE_COUNT = 5000
 
-    def __init__(self, instrument: str, environment: str = "practice", test: bool = False):
+    def __init__(
+        self,
+        instrument: str,
+        environment: str = "practice",
+        test: bool = False,
+        account_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ):
         """
 
         Args:
@@ -42,15 +49,38 @@ class OandaClient:
         if environment not in ["live", "practice"]:
             raise ValueError(f"The args environment is invalid. : {environment}")
 
+        auth_variables: Dict[str, str] = self.__validate_auth_variables(account_id, access_token)
+
         self.__api_client = API(
-            access_token=os.environ["OANDA_ACCESS_TOKEN"],
+            access_token=auth_variables["access_token"],
             environment=environment,
         )
+        self.__oanda_account_id: str = auth_variables["account_id"]
         self.__accessable: bool = True
         self.__instrument: str = instrument
         self.__units: str = os.environ.get("UNITS") or "1"
-        self.__trade_ids: List[Optional[str]] = []
         self.__test: bool = test
+
+    def __validate_auth_variables(
+        self,
+        account_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ) -> Dict[str, str]:
+        account_id = account_id or os.environ.get("OANDA_ACCOUNT_ID")
+        access_token = access_token or os.environ.get("OANDA_ACCESS_TOKEN")
+
+        blank_variables: List[str] = []
+        if account_id and access_token:
+            return {"account_id": account_id, "access_token": access_token}
+        if account_id is None:
+            blank_variables.append("account_id")
+        if access_token is None:
+            blank_variables.append("access_token")
+
+        raise ValueError(
+            f"The following variables are blank: {blank_variables}. "
+            "You have to set them by environment variables or passing arguments."
+        )
 
     @property
     def accessable(self) -> bool:
@@ -66,7 +96,7 @@ class OandaClient:
     def request_is_tradeable(self) -> Dict[str, Union[str, bool]]:
         params = {"instruments": self.__instrument}  # 'USD_JPY,EUR_USD,EUR_JPY'
         request_obj: APIRequest = pricing.PricingInfo(
-            accountID=os.environ["OANDA_ACCOUNT_ID"], params=params
+            accountID=self.__oanda_account_id, params=params
         )
         response = self.__api_client.request(request_obj)
         tradeable = response["prices"][0]["tradeable"]
@@ -76,7 +106,7 @@ class OandaClient:
         """
         request open position on the OANDA platform
         """
-        request_obj: APIRequest = trades.OpenTrades(accountID=os.environ["OANDA_ACCOUNT_ID"])
+        request_obj: APIRequest = trades.OpenTrades(accountID=self.__oanda_account_id)
         response = self.__api_client.request(request_obj)
         LOGGER.info({"[Client] OpenTrades": response})
 
@@ -91,7 +121,6 @@ class OandaClient:
                 == self.__instrument
             )
         ]
-        self.__trade_ids = [trade["id"] for trade in extracted_trades]
 
         print("[Client] There is open position: {}".format(extracted_trades != []))
         return {
@@ -100,7 +129,10 @@ class OandaClient:
         }
 
     def request_market_ordering(
-        self, posi_nega_sign: str = "", stoploss_price: Optional[float] = None
+        self,
+        posi_nega_sign: str = "",
+        stoploss_price: Optional[float] = None,
+        units: int = None,
     ) -> Dict[str, Any]:
         """market order"""
         if stoploss_price is None:
@@ -116,7 +148,7 @@ class OandaClient:
                     "price": str(stoploss_price)[:7],
                 },
                 "instrument": self.__instrument,
-                "units": "{sign}{units}".format(sign=posi_nega_sign, units=self.__units),
+                "units": "{sign}{units}".format(sign=posi_nega_sign, units=(units or self.__units)),
                 "type": "MARKET",
                 "positionFill": "DEFAULT",
             }
@@ -126,9 +158,7 @@ class OandaClient:
             print("[Test] market_order: {}".format(data))
             return data
 
-        request_obj: APIRequest = orders.OrderCreate(
-            accountID=os.environ["OANDA_ACCOUNT_ID"], data=data
-        )
+        request_obj: APIRequest = orders.OrderCreate(accountID=self.__oanda_account_id, data=data)
         res: Dict[str, Any] = self.__api_client.request(request_obj)
         LOGGER.info({"[Client] market-order": res})
 
@@ -146,19 +176,16 @@ class OandaClient:
 
         return {"messsage": "Market order is done !", "order": response_for_display}
 
-    def request_closing(self, reason: str = "") -> Dict[str, Any]:
+    def request_closing(self, trade_id: str, reason: str = "") -> Dict[str, Any]:
         """close position"""
-        if self.__trade_ids == []:
-            return {"error": "[Client] The position to be closed was missing."}
         if self.__test:
             print("[Test] close_order")
             return {}
 
-        target_trade_id = self.__trade_ids[0]
         # data = {'units': self.__units}
         request_obj: APIRequest = trades.TradeClose(
-            accountID=os.environ["OANDA_ACCOUNT_ID"],
-            tradeID=target_trade_id,  # , data=data
+            accountID=self.__oanda_account_id,
+            tradeID=trade_id,  # , data=data
         )
         response: Dict[str, Any] = self.__api_client.request(request_obj)
         LOGGER.info({"[Client] TradeClose": response})
@@ -177,9 +204,9 @@ class OandaClient:
         }
         return dict_close_notification
 
-    def request_trailing_stoploss(self, stoploss_price: float) -> Dict[str, Any]:
+    def request_trailing_stoploss(self, trade_id: str, stoploss_price: float) -> Dict[str, Any]:
         """change stoploss price toward the direction helping us get revenue"""
-        if self.__trade_ids == []:
+        if (trade_id is None) or (trade_id == ""):
             return {"error": "[Client] There is no position"}
 
         data = {
@@ -188,8 +215,8 @@ class OandaClient:
         }
 
         request_obj: APIRequest = trades.TradeCRCDO(
-            accountID=os.environ["OANDA_ACCOUNT_ID"],
-            tradeID=self.__trade_ids[0],
+            accountID=self.__oanda_account_id,
+            tradeID=trade_id,
             data=data,
         )
         response: Dict[str, Any] = self.__api_client.request(request_obj)
@@ -205,7 +232,7 @@ class OandaClient:
             # 消えるtype => TRADE_CLIENT_EXTENSIONS_MODIFY, DAILY_FINANCING
         }
         request_obj: APIRequest = transactions.TransactionIDRange(
-            accountID=os.environ["OANDA_ACCOUNT_ID"], params=params
+            accountID=self.__oanda_account_id, params=params
         )
         response: Dict[str, Any] = self.__api_client.request(request_obj)
 
@@ -219,7 +246,7 @@ class OandaClient:
             "to": to_str,
         }
         request_obj: APIRequest = transactions.TransactionList(
-            accountID=os.environ["OANDA_ACCOUNT_ID"], params=params
+            accountID=self.__oanda_account_id, params=params
         )
         response: Dict[str, Any] = self.__api_client.request(request_obj)
         if "error" in response:
@@ -235,12 +262,22 @@ class OandaClient:
         end: Optional[ISO_DATETIME_STR] = None,
         candles_count: Optional[int] = None,
         granularity: str = "M5",
+        price_type: str = "M",
     ) -> Dict[str, Any]:
-        """request price data against OandaAPI"""
+        """
+        request price data against OandaAPI
+
+        Parameters
+        ----------
+        price_type : str
+            Available: "M", "B", "A" or combination of those
+            Example: "M", "BA", "MA" or so on...
+        """
         params = {
             "alignmentTimezone": "Etc/GMT",
             "dailyAlignment": 0,
             "granularity": granularity,
+            "price": price_type,
         }
         if start is None and end is None:
             params.update({"count": candles_count})

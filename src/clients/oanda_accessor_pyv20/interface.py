@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from datetime import datetime, timedelta
 import time
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 import warnings
 
 import pandas as pd
@@ -15,9 +15,20 @@ import src.lib.format_converter as converter
 
 
 class OandaInterface:
-    def __init__(self, instrument: str, test: bool = False) -> None:
+    def __init__(
+        self,
+        instrument: str,
+        test: bool = False,
+        account_id: Optional[str] = None,
+        access_token: Optional[str] = None,
+    ) -> None:
         self.__instrument: str = instrument
-        self.__oanda_client: OandaClient = OandaClient(instrument=self.__instrument, test=test)
+        self.__oanda_client: OandaClient = OandaClient(
+            self.__instrument,
+            test=test,
+            account_id=account_id,
+            access_token=access_token,
+        )
 
     def accessable(self) -> bool:
         return self.__oanda_client.accessable
@@ -170,6 +181,8 @@ class OandaInterface:
             sns.publish(result, "Message: {} is done !".format(method_type))
         return result
 
+    # TODO: remove after using the candles included in the result of pricing.PricingInfo.
+    #     pricing.PricingInfo is called in api.request_is_tradeable().
     def request_current_price(self) -> Dict[str, Any]:
         # INFO: .to_dict() just make Return easy to read for you
         latest_candle: Dict[str, Any] = (
@@ -252,6 +265,9 @@ class OandaInterface:
 
         return requestable_duration
 
+    # OPTIMIZE:
+    #     Using 'includeFirst=False' in params of InstrumentsCandles enables to remove this function.
+    #     Refer to: https://developer.oanda.com/rest-live-v20/instrument-ep/
     def __union_candles_distinct(
         self, old_candles: pd.DataFrame, new_candles: pd.DataFrame
     ) -> pd.DataFrame:

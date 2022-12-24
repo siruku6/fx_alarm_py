@@ -34,13 +34,16 @@ def test_to_oanda_format():
         assert converted_result == expected
 
 
-def test_to_candle_df(dummy_instruments):
-    no_candles = prepro.to_candle_df({"candles": []})
-    assert isinstance(no_candles, pd.core.frame.DataFrame)
+class TestToCandleDf:
+    def test_blank_candle(self, dummy_instruments):
+        no_candles = prepro.to_candle_df({"candles": []})
+        assert isinstance(no_candles, pd.core.frame.DataFrame)
 
-    candles = prepro.to_candle_df(dummy_instruments)
-    expected_array = ["close", "high", "low", "open", "time"]
-    assert (candles.columns == expected_array).all()
+    def test_exist_candles(self, dummy_instruments):
+        candles = prepro.to_candle_df(dummy_instruments)
+        expected_array = ["close", "high", "low", "open", "volume", "complete", "time"]
+        assert (candles.columns == expected_array).all()
+        assert candles["time"][0] == "2019-04-28 21:00:00"
 
 
 def test_extract_transaction_ids():

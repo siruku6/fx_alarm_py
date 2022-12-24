@@ -17,7 +17,12 @@ def to_candle_df(response: Dict[str, Any]) -> pd.DataFrame:
     if response["candles"] == []:
         return pd.DataFrame(columns=[])
 
-    candle: pd.DataFrame = pd.DataFrame.from_dict([row["mid"] for row in response["candles"]])
+    candle: pd.DataFrame = pd.DataFrame.from_dict(
+        [
+            {**row["mid"], "volume": row["volume"], "complete": row["complete"]}
+            for row in response["candles"]
+        ]
+    )
     candle = candle.astype(
         {
             # INFO: 'float32' の方が速度は早くなるが、不要な小数点4桁目以下が出現するので64を使用
@@ -25,18 +30,18 @@ def to_candle_df(response: Dict[str, Any]) -> pd.DataFrame:
             "h": "float64",
             "l": "float64",
             "o": "float64",
+            "volume": "int64",
         }
     )
     candle.rename(columns={"c": "close", "h": "high", "l": "low", "o": "open"}, inplace=True)
     candle["time"] = [row["time"] for row in response["candles"]]
     # 冗長な日時データを短縮
     # https://note.nkmk.me/python-pandas-datetime-timestamp/
-    candle["time"] = pd.to_datetime(candle["time"], format="%Y-%m-%dT%H:%M:%S.000000000Z").astype(
-        str
-    )
     # INFO: time ... '2018-06-03 21:00:00'
-    candle["time"] = [time[:19] for time in candle.time]
-
+    candle["time"] = pd.to_datetime(
+        candle["time"],
+        format="%Y-%m-%dT%H:%M:%S.000000000Z",
+    ).astype(str)
     return candle
 
 

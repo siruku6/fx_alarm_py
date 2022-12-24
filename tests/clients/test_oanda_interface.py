@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import os
 from typing import Dict, Union
 from unittest.mock import patch
 
@@ -13,6 +14,34 @@ from src.clients.oanda_accessor_pyv20.interface import OandaInterface
 def fixture_interface():
     o_i_instance: OandaInterface = OandaInterface(instrument="USD_JPY")
     yield o_i_instance
+
+
+class TestInit:
+    def test_without_account_id(self):
+        os.environ.pop("OANDA_ACCOUNT_ID")
+        with pytest.raises(ValueError) as e_info:
+            OandaInterface("USD_JPY", test=True)
+
+        assert e_info.value.__str__() == (
+            "The following variables are blank: ['account_id']. "
+            "You have to set them by environment variables or passing arguments."
+        )
+
+    def test_without_access_token(self):
+        os.environ.pop("OANDA_ACCESS_TOKEN")
+        with pytest.raises(ValueError) as e_info:
+            OandaInterface("USD_JPY", test=True)
+
+        assert e_info.value.__str__() == (
+            "The following variables are blank: ['access_token']. "
+            "You have to set them by environment variables or passing arguments."
+        )
+
+    def test_with_necessary_variables(self):
+        instrument: str = "USD_JPY"
+        oanda_interface: OandaInterface = OandaInterface(instrument, test=True)
+
+        assert oanda_interface._OandaInterface__instrument == instrument
 
 
 class TestLoadCandlesByDays:

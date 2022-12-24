@@ -9,7 +9,7 @@ from src.candle_storage import FXBase
 from tools.trade_lab import create_trader_instance
 
 
-@pytest.fixture(name="trader_instance", scope="module")
+@pytest.fixture(name="trader_instance", scope="function")
 def fixture_trader_instance(set_envs, patch_is_tradeable) -> AlphaTrader:
     set_envs
     patch_is_tradeable

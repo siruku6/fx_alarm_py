@@ -22,6 +22,11 @@ def oanda_client() -> OandaClient:
     client._OandaClient__api_client.client.close()
 
 
+# NOTE: These tests are defined in tests.clients.test_oanda_interface.TestInit
+# class TestValidateAuthVariables:
+#     pass
+
+
 def add_simple_get_response(responses, url: str, response_json: Dict[str, Any]):
     responses.add(
         responses.GET,
@@ -169,12 +174,17 @@ class TestRequestTrailingStoploss:
         )
         add_simple_get_response(responses, url, response_json=dummy_pricing_info)
 
-        client._OandaClient__trade_ids = ["999"]
-        url: str = f"https://api-fxpractice.oanda.com/v3/accounts/{os.environ['OANDA_ACCOUNT_ID']}/trades/999/orders"
+        dummy_trade_id = "999"
+        url: str = (
+            f"https://api-fxpractice.oanda.com/v3/accounts/{os.environ['OANDA_ACCOUNT_ID']}"
+            f"/trades/{dummy_trade_id}/orders"
+        )
         add_simple_put_response(responses, url, response_json=dummy_crcdo_result)
 
         # test
-        res: Dict[str, Union[str, bool]] = client.request_trailing_stoploss(stoploss_price=123.45)
+        res: Dict[str, Union[str, bool]] = client.request_trailing_stoploss(
+            trade_id=dummy_trade_id, stoploss_price=123.45
+        )
         assert res == dummy_crcdo_result
 
 
@@ -195,12 +205,17 @@ class TestRequestClosing:
         fixture_sns()
 
         # NOTE: mock APIs
-        client._OandaClient__trade_ids = ["999"]
-        url: str = f"https://api-fxpractice.oanda.com/v3/accounts/{os.environ['OANDA_ACCOUNT_ID']}/trades/999/close"
+        dummy_trade_id = "999"
+        url: str = (
+            f"https://api-fxpractice.oanda.com/v3/accounts/{os.environ['OANDA_ACCOUNT_ID']}/"
+            f"trades/{dummy_trade_id}/close"
+        )
         add_simple_put_response(responses, url, response_json=dummy_closing_result)
 
         # test
-        res: Dict[str, Union[str, bool]] = client.request_closing(reason="test")
+        res: Dict[str, Union[str, bool]] = client.request_closing(
+            trade_id=dummy_trade_id, reason="test"
+        )
         assert res == {
             "[Client] message": "Position is closed",
             "reason": "test",
@@ -264,6 +279,7 @@ class TestQueryInstruments:
                     "count": candles_count,
                     "dailyAlignment": 0,
                     "granularity": granularity,
+                    "price": "M",
                 },
             )
 
@@ -285,5 +301,6 @@ class TestQueryInstruments:
                     "to": end,
                     "dailyAlignment": 0,
                     "granularity": granularity,
+                    "price": "M",
                 },
             )
