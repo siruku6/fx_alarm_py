@@ -26,7 +26,7 @@ class CandleLoader:
         if self.need_request is False:
             candles = pd.read_csv("tests/fixtures/sample_candles.csv")
         elif self.config.operation in ("backtest", "forward_test"):
-            candles = self.client_manager.load_long_chart(
+            candles = self.client_manager.load_candles_by_days(
                 days=self.days,
                 granularity=self.config.get_entry_rules("granularity"),  # type: ignore
             )["candles"]
@@ -73,7 +73,7 @@ class CandleLoader:
         if self.days is None:
             raise RuntimeError("'days' must be specified, but is None.")
 
-        return self.client_manager.load_long_chart(days=self.days, granularity=granularity)[
+        return self.client_manager.load_candles_by_days(days=self.days, granularity=granularity)[
             "candles"
         ]
 

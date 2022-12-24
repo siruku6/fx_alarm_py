@@ -1,7 +1,8 @@
 from collections.abc import Callable
 from datetime import datetime, timedelta
 import time
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
+import warnings
 
 import pandas as pd
 
@@ -25,7 +26,9 @@ class ClientManager:
     def load_specify_length_candles(
         self, length: int = 60, granularity: str = "M5"
     ) -> Dict[str, Union[str, pd.DataFrame]]:
-        """load candles for specified length"""
+        """
+        load candles for specified length
+        """
         response = self.__oanda_client.query_instruments(
             candles_count=length,
             granularity=granularity,
@@ -34,10 +37,27 @@ class ClientManager:
         candles = prepro.to_candle_df(response)
         return {"success": "[Watcher] Succeeded to request to Oanda", "candles": candles}
 
-    def load_long_chart(
-        self, days: int = 0, granularity: str = "M5"
+    def load_candles_by_days(
+        self, days: int = 0, granularity: str = "M5", sleep_time: float = 1.0
     ) -> Dict[str, Union[str, pd.DataFrame]]:
-        """load long days candles using multiple API requests"""
+        """
+        load long days candles using multiple API requests
+
+        Parameters
+        ----------
+        days : int
+            days you would
+        granularity : str
+            Example: "H1" or "D"
+
+        Returns
+        ----------
+        Dict[str, Union[str, pd.DataFrame]]:
+            {
+                "success": "message",
+                "candles": <loaded candles>,
+            }
+        """
         remaining_days = days
         candles = None
         requestable_max_days = self.__calc_requestable_max_days(granularity=granularity)
@@ -60,12 +80,12 @@ class ClientManager:
             print(
                 "[Manager] Remaining: {remaining_days} days".format(remaining_days=remaining_days)
             )
-            time.sleep(1)
+            time.sleep(sleep_time)
 
         return {"success": "[Manager] Succeeded to request API", "candles": candles}
 
     def load_candles_by_duration(
-        self, start: datetime, end: datetime, granularity: str
+        self, start: datetime, end: datetime, granularity: str, sleep_time: float = 1.0
     ) -> Dict[str, Union[str, pd.DataFrame]]:
         """
         load candles for a specified time period using multiple API requests
@@ -104,7 +124,7 @@ class ClientManager:
             tmp_candles = prepro.to_candle_df(response)
             candles = self.__union_candles_distinct(candles, tmp_candles)
             print("Loaded: up to {datetime}".format(datetime=next_endtime))
-            time.sleep(1)
+            time.sleep(sleep_time)
 
             next_starttime += requestable_duration
             next_endtime += requestable_duration
@@ -118,16 +138,26 @@ class ClientManager:
         next_end: datetime = possible_end if possible_end < end else end
         return next_end
 
-    def call_oanda(self, method: str, **kwargs: Dict[str, Any]):
+    def call_oanda(self, method_type: str, **kwargs: Dict[str, Any]):
+        warnings.warn(
+            "'call_oanda' is going to be replaced into other method in the future.",
+            FutureWarning,
+        )
+
         method_dict: Dict[str, Union[Callable[[Any], Any], Callable[[], Any]]] = {
             "is_tradeable": self.__oanda_client.request_is_tradeable,
             "open_trades": self.__oanda_client.request_open_trades,
             "transactions": self.__request_latest_transactions,
             "current_price": self.request_current_price,
         }
-        return method_dict.get(method)(**kwargs)
+        return method_dict.get(method_type)(**kwargs)
 
     def order_oanda(self, method_type: str, **kwargs: Dict[str, Any]) -> dict:
+        warnings.warn(
+            "'order_oanda' is going to be replaced into other method in the future.",
+            FutureWarning,
+        )
+
         method_dict: Dict[str, Callable[[Any], Dict[str, Any]]] = {
             "entry": self.__oanda_client.request_market_ordering,
             "trail": self.__oanda_client.request_trailing_stoploss,
@@ -139,20 +169,18 @@ class ClientManager:
         return result
 
     def request_current_price(self) -> Dict[str, Any]:
-        # INFO: .to_dictは、単にコンソールログの見やすさ向上のために使用中
+        # INFO: .to_dict() just make Return easy to read for you
         latest_candle: Dict[str, Any] = (
-            self.load_specify_length_candles(length=1, granularity="M1")["candles"]
+            self.load_specify_length_candles(length=1, granularity="M1")["candles"]  # type: ignore
             .iloc[-1]
             .to_dict()
         )
         return latest_candle
 
     def prepare_one_page_transactions(self) -> pd.DataFrame:
-        # INFO: lastTransactionIDを取得するために実行
-        # self.__oanda_client.request_open_trades()
-        self.call_oanda("open_trades")
-
-        # preapre history_df: trade-history
+        """
+        preapre history_df: trade-history
+        """
         history_df: pd.DataFrame = self.__request_latest_transactions()
         history_df.to_csv("./tmp/csvs/hist_positions.csv", index=False)
         return history_df
@@ -188,8 +216,9 @@ class ClientManager:
         return filtered_df
 
     def __request_latest_transactions(self, count: int = 999) -> pd.DataFrame:
-        # TODO: last_transaction_id は ClientManager のインスタンス変数にする
-        to_id = int(self.__oanda_client.last_transaction_id)
+        result: Dict[str, Union[List[dict], str]] = self.__oanda_client.request_open_trades()
+        last_transaction_id: str = result["last_transaction_id"]
+        to_id = int(last_transaction_id)
         from_id = to_id - count
         from_id = max(from_id, 1)
         response = self.__oanda_client.request_transactions_once(from_id, to_id)

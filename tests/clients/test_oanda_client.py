@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Dict, Union
+from typing import Any, Dict, List, Union
 from unittest.mock import patch
 
 from moto import mock_sns
@@ -64,15 +64,15 @@ class TestRequestIsTradeable:
         assert res == {"instrument": "USD_JPY", "tradeable": True}
 
 
-def test_request_open_trades(client, dummy_raw_open_trades):
-    assert client.last_transaction_id is None
-
-    with patch("builtins.print"):
-        with patch("pprint.pprint"):
-            with patch("oandapyV20.API.request", return_value=dummy_raw_open_trades):
-                _ = client.request_open_trades()
-    assert isinstance(client.last_transaction_id, str)
-    assert isinstance(int(client.last_transaction_id), int)
+@patch("builtins.print")
+def test_request_open_trades(_print, client, dummy_raw_open_trades):
+    with patch("oandapyV20.API.request", return_value=dummy_raw_open_trades):
+        result = client.request_open_trades()
+        positions: List[dict] = result["positions"]
+        last_transaction_id: str = result["last_transaction_id"]
+    assert isinstance(positions[0], dict)
+    assert isinstance(last_transaction_id, str)
+    assert isinstance(int(last_transaction_id), int)
 
 
 class TestRequestMarketOrdering:

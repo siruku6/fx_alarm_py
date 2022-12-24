@@ -109,7 +109,24 @@ def dummy_raw_open_trades():
                 "realizedPL": "0.0000",
                 "state": "OPEN",
                 "id": "2315",
-            }
+            },
+            {
+                "instrument": "USD_JPY",
+                "financing": "0.0000",
+                "openTime": "2016-10-28T14:28:05.231759081Z",
+                "stopLossOrder": {
+                    "createTime": "2016-10-28T14:28:05.231759081Z",
+                    "price": "125.210",
+                    "timeInForce": "GTC",
+                },
+                "initialUnits": "10",
+                "currentUnits": "10",
+                "price": "125.31",
+                "unrealizedPL": "136.0000",
+                "realizedPL": "0.0000",
+                "state": "OPEN",
+                "id": "2317",
+            },
         ],
         "lastTransactionID": "2317",
     }

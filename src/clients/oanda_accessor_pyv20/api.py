@@ -46,7 +46,6 @@ class OandaClient:
             access_token=os.environ["OANDA_ACCESS_TOKEN"],
             environment=environment,
         )
-        self.last_transaction_id: Optional[str] = None
         self.__accessable: bool = True
         self.__instrument: str = instrument
         self.__units: str = os.environ.get("UNITS") or "1"
@@ -73,16 +72,14 @@ class OandaClient:
         tradeable = response["prices"][0]["tradeable"]
         return {"instrument": self.__instrument, "tradeable": tradeable}
 
-    def request_open_trades(self) -> List[dict]:
+    def request_open_trades(self) -> Dict[str, Union[List[dict], str]]:
         """
         request open position on the OANDA platform
-        and set `self.last_transaction_id`
         """
         request_obj: APIRequest = trades.OpenTrades(accountID=os.environ["OANDA_ACCOUNT_ID"])
         response = self.__api_client.request(request_obj)
+        LOGGER.info({"[Client] OpenTrades": response})
 
-        # INFO: lastTransactionID is ID of the last trade transaction.
-        self.last_transaction_id = response["lastTransactionID"]
         open_trades = response["trades"]
 
         extracted_trades: List[dict] = [
@@ -96,24 +93,11 @@ class OandaClient:
         ]
         self.__trade_ids = [trade["id"] for trade in extracted_trades]
 
-        open_position_for_diplay = [
-            {
-                "instrument": trade["instrument"],
-                "price": trade["price"],
-                "units": trade["initialUnits"],
-                "openTime": trade["openTime"],
-                "stoploss": {
-                    "createTime": trade["stopLossOrder"]["createTime"],
-                    "price": trade["stopLossOrder"]["price"],
-                    "timeInForce": trade["stopLossOrder"]["timeInForce"],
-                },
-            }
-            for trade in extracted_trades
-        ]
-
-        print("[Client] open_trades: {}".format(open_position_for_diplay != []))
-        LOGGER.info({"[Client] position": open_position_for_diplay})
-        return extracted_trades
+        print("[Client] There is open position: {}".format(extracted_trades != []))
+        return {
+            "positions": extracted_trades,
+            "last_transaction_id": response["lastTransactionID"],
+        }
 
     def request_market_ordering(
         self, posi_nega_sign: str = "", stoploss_price: Optional[float] = None
@@ -177,7 +161,7 @@ class OandaClient:
             tradeID=target_trade_id,  # , data=data
         )
         response: Dict[str, Any] = self.__api_client.request(request_obj)
-
+        LOGGER.info({"[Client] TradeClose": response})
         if (
             response.get("orderFillTransaction") is None
             and response.get("orderCancelTransaction") is not None
@@ -191,7 +175,6 @@ class OandaClient:
             "reason": reason,
             "result": response,
         }
-        LOGGER.info(dict_close_notification)
         return dict_close_notification
 
     def request_trailing_stoploss(self, stoploss_price: float) -> Dict[str, Any]:

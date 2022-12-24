@@ -15,14 +15,6 @@ def fixture_client_manager():
     yield client
 
 
-# @pytest.fixture(name='set_last_transaction_id', scope='module', autouse=False)
-# def fixture_set_last_transaction_id(client):
-#     with patch('builtins.print'):
-#         with patch('pprint.pprint'):
-#             with patch('oandapyV20.API.request', return_value=dummy_raw_open_trades):
-#                 client._ClientManager__oanda_client.request_open_trades()
-
-
 class TestLoadCandlesByDuration:
     @patch("time.sleep")
     def test_short_time_period(
