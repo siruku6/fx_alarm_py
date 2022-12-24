@@ -15,11 +15,46 @@ def fixture_interface():
     yield o_i_instance
 
 
-class TestLoadCandlesByDuration:
-    @patch("time.sleep")
+class TestLoadCandlesByDays:
     def test_short_time_period(
         self,
-        mock_time,
+        o_i_instance,
+        dummy_instruments: Dict[
+            str,
+            Union[list, str],
+        ],
+        converted_dummy_instruments,
+    ):
+        with patch(
+            "src.clients.oanda_accessor_pyv20.api.OandaClient.query_instruments",
+            return_value=dummy_instruments,
+        ) as mock:
+            result: dict = o_i_instance.load_candles_by_days(
+                days=100,
+                granularity="H1",
+                sleep_time=0,
+            )
+        expected: pd.DataFrame = pd.DataFrame(converted_dummy_instruments)
+        pd.testing.assert_frame_equal(result["candles"], expected)
+        mock.call_count == 1
+
+    def test_long_time_period(self, o_i_instance, dummy_instruments: Dict[str, Union[list, str]]):
+        with patch(
+            "src.clients.oanda_accessor_pyv20.api.OandaClient.query_instruments",
+            return_value=dummy_instruments,
+        ) as mock:
+            o_i_instance.load_candles_by_days(
+                days=300,
+                granularity="H1",
+                sleep_time=0,
+            )
+
+        assert mock.call_count == 2
+
+
+class TestLoadCandlesByDuration:
+    def test_short_time_period(
+        self,
         o_i_instance,
         dummy_instruments: Dict[
             str,
@@ -35,15 +70,13 @@ class TestLoadCandlesByDuration:
                 start=datetime(2019, 4, 28, 21, 0),
                 end=datetime(2019, 4, 28, 22, 0),
                 granularity="H1",
+                sleep_time=0,
             )
         expected: pd.DataFrame = pd.DataFrame(converted_dummy_instruments)
         pd.testing.assert_frame_equal(result["candles"], expected)
         mock.call_count == 1
 
-    @patch("time.sleep")
-    def test_long_time_period(
-        self, mock_time, o_i_instance, dummy_instruments: Dict[str, Union[list, str]]
-    ):
+    def test_long_time_period(self, o_i_instance, dummy_instruments: Dict[str, Union[list, str]]):
         with patch(
             "src.clients.oanda_accessor_pyv20.api.OandaClient.query_instruments",
             return_value=dummy_instruments,
@@ -52,6 +85,7 @@ class TestLoadCandlesByDuration:
                 start=datetime(2019, 4, 1, 0, 0),
                 end=datetime(2019, 10, 31, 0, 0),
                 granularity="H1",
+                sleep_time=0,
             )
 
         assert mock.call_count == 2

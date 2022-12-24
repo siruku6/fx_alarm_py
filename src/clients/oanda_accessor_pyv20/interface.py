@@ -78,11 +78,13 @@ class OandaInterface:
             tmp_candles = prepro.to_candle_df(response)
             candles = self.__union_candles_distinct(candles, tmp_candles)
             print(
-                "[Manager] Remaining: {remaining_days} days".format(remaining_days=remaining_days)
+                "[OandaInterface] Remaining: {remaining_days} days".format(
+                    remaining_days=remaining_days
+                )
             )
             time.sleep(sleep_time)
 
-        return {"success": "[Manager] Succeeded to request API", "candles": candles}
+        return {"success": "[OandaInterface] Succeeded to request API", "candles": candles}
 
     def load_candles_by_duration(
         self, start: datetime, end: datetime, granularity: str, sleep_time: float = 1.0
@@ -129,7 +131,7 @@ class OandaInterface:
             next_starttime += requestable_duration
             next_endtime += requestable_duration
 
-        return {"success": "[Manager] Succeeded to request API", "candles": candles}
+        return {"success": "[OandaInterface] Succeeded to request API", "candles": candles}
 
     def __minimize_period(
         self, start: datetime, end: datetime, requestable_duration: timedelta
