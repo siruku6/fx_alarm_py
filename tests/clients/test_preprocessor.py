@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 import pandas as pd
@@ -32,6 +32,26 @@ def test_to_oanda_format():
             )
         )
         assert converted_result == expected
+
+
+examples_for_granularity_to_timedelta = (
+    ("M1", timedelta(minutes=1)),
+    ("M5", timedelta(minutes=5)),
+    ("M10", timedelta(minutes=10)),
+    ("M30", timedelta(minutes=30)),
+    ("H1", timedelta(hours=1)),
+    ("H4", timedelta(hours=4)),
+    ("D", timedelta(days=1)),
+)
+
+
+@pytest.mark.parametrize(
+    "granurality, expected",
+    examples_for_granularity_to_timedelta,
+)
+def test_granularity_to_timedelta(granurality, expected):
+    converted_result = prepro.granularity_to_timedelta(granurality)
+    assert converted_result == expected
 
 
 class TestToCandleDf:

@@ -1,25 +1,9 @@
-import datetime
 from decimal import Decimal
 import json
 
 import pandas as pd
 
 import src.lib.format_converter as converter
-
-
-def test_granularity_to_timedelta():
-    dummy_granuralities_and_expecteds = [
-        {"granurality": "M1", "expected": datetime.timedelta(minutes=1)},
-        {"granurality": "M5", "expected": datetime.timedelta(minutes=5)},
-        {"granurality": "M10", "expected": datetime.timedelta(minutes=10)},
-        {"granurality": "M30", "expected": datetime.timedelta(minutes=30)},
-        {"granurality": "H1", "expected": datetime.timedelta(hours=1)},
-        {"granurality": "H4", "expected": datetime.timedelta(hours=4)},
-        {"granurality": "D", "expected": datetime.timedelta(days=1)},
-    ]
-    for dummy_dict in dummy_granuralities_and_expecteds:
-        converted_result = converter.granularity_to_timedelta(dummy_dict["granurality"])
-        assert converted_result == dummy_dict["expected"]
 
 
 def test_to_candles_from_dynamo():

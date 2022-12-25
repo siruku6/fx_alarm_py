@@ -13,18 +13,6 @@ def str_to_datetime(time_string: str) -> datetime.datetime:
     return result_dt
 
 
-def granularity_to_timedelta(granularity: str) -> datetime.timedelta:
-    time_unit: str = granularity[0]
-    if time_unit == "M":
-        candle_duration: datetime.timedelta = datetime.timedelta(minutes=int(granularity[1:]))
-    elif time_unit == "H":
-        candle_duration = datetime.timedelta(hours=int(granularity[1:]))
-    elif time_unit == "D":
-        candle_duration = datetime.timedelta(days=1)
-
-    return candle_duration
-
-
 def to_timestamp(oanda_str: str) -> pd.Timestamp:
     return pd.to_datetime(oanda_str[:19], format="%Y-%m-%dT%H:%M:%S")
 

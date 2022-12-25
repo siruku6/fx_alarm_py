@@ -8,6 +8,7 @@ from src.analyzer import Analyzer
 from src.candle_loader import CandleLoader
 from src.candle_storage import FXBase
 from src.clients.oanda_accessor_pyv20.interface import OandaInterface
+import src.clients.oanda_accessor_pyv20.preprocessor as prepro
 from src.drawer import FigureDrawer
 import src.lib.format_converter as converter
 from src.lib.interface import select_instrument
@@ -118,7 +119,7 @@ class Visualizer:
         return result
 
     def __prepare_candles(self, granularity: str) -> pd.DataFrame:
-        buffer_td: timedelta = converter.granularity_to_timedelta(granularity)
+        buffer_td: timedelta = prepro.granularity_to_timedelta(granularity)
         possible_start_dt: pd.Timestamp = converter.to_timestamp(self.__from_iso) - buffer_td * 20
         # TODO: 400 が適切かどうかはよく検討が必要
         #   400本分なのに、220本しか出てこない。なんか足りない。（休日分の足が存在しないからかも）

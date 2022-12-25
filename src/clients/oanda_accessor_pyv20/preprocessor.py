@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List
 import urllib
 
@@ -10,6 +10,18 @@ from .definitions import ISO_DATETIME_STR
 def to_oanda_format(target_datetime: datetime) -> ISO_DATETIME_STR:
     # datetime.datetime(2020,10,1).isoformat(timespec='microseconds') + 'Z'
     return target_datetime.strftime("%Y-%m-%dT%H:%M:00.000000Z")
+
+
+def granularity_to_timedelta(granularity: str) -> timedelta:
+    time_unit: str = granularity[0]
+    if time_unit == "M":
+        candle_duration: timedelta = timedelta(minutes=int(granularity[1:]))
+    elif time_unit == "H":
+        candle_duration = timedelta(hours=int(granularity[1:]))
+    elif time_unit == "D":
+        candle_duration = timedelta(days=1)
+
+    return candle_duration
 
 
 def to_candle_df(response: Dict[str, Any]) -> pd.DataFrame:

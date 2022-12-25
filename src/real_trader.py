@@ -2,14 +2,17 @@ from datetime import datetime, timedelta
 from pprint import pprint
 from typing import Any, Callable, List, Literal, Optional, TypedDict, Union
 
+from aws_lambda_powertools import Logger
 import numpy as np
 import pandas as pd
 
 from src.candle_storage import FXBase
+from src.clients import sns
 import src.trade_rules.scalping as scalping
 import src.trade_rules.stoploss as stoploss_strategy
 from src.trader import Trader
 
+LOGGER = Logger()
 PositionType = Literal["long", "short"]
 
 
@@ -84,9 +87,12 @@ class RealTrader(Trader):
             if last_indicators is not None:
                 stoploss = last_indicators["regist"]
 
-        self._oanda_interface.order_oanda(
+        result: dict = self._oanda_interface.order_oanda(
             method_type="entry", posi_nega_sign=sign, stoploss_price=stoploss
         )
+        LOGGER.info({"[Client] MarketOrder is done.": result["response"]})
+
+        sns.publish(result, "Message: {} is done !".format("entry"))
 
     def _trail_stoploss(self, new_stop: float) -> None:
         """
@@ -101,17 +107,20 @@ class RealTrader(Trader):
         None
         """
         # NOTE: trail先の価格を既に突破していたら自動でcloseしてくれた OandaAPI は優秀
-        self._oanda_interface.order_oanda(
+        result: dict = self._oanda_interface.order_oanda(
             method_type="trail", trade_id=self._position["id"], stoploss_price=new_stop
         )
+        LOGGER.info({"[Client] trail": result["response"]})
 
     def __settle_position(self, reason: str = "") -> None:
         """ポジションをcloseする"""
-        pprint(
-            self._oanda_interface.order_oanda(
-                method_type="exit", trade_id=self._position["id"], reason=reason
-            )
+        result: dict = self._oanda_interface.order_oanda(
+            method_type="exit", trade_id=self._position["id"], reason=reason
         )
+
+        LOGGER.info({result["message"]: result["response"], "reason": result["reason"]})
+        sns.publish(result, "Message: {} is done !".format("exit"))
+        pprint(result)
 
     #
     # Private
@@ -279,6 +288,8 @@ class RealTrader(Trader):
     def __fetch_current_position(self) -> Position:
         pos: Position = {"type": "none"}
         result = self._oanda_interface.call_oanda("open_trades")
+        LOGGER.info({"[Client] OpenTrades": result["response"]})
+
         positions: List[dict] = result["positions"]
         if positions == []:
             return pos

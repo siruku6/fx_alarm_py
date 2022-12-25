@@ -6,10 +6,8 @@ import warnings
 
 import pandas as pd
 
-from src.clients import sns
 from src.clients.oanda_accessor_pyv20.api import OandaClient
 import src.clients.oanda_accessor_pyv20.preprocessor as prepro
-import src.lib.format_converter as converter
 
 # pd.set_option('display.max_rows', candles_count)  # 表示可能な最大行数を設定
 
@@ -177,8 +175,6 @@ class OandaInterface:
             "exit": self.__oanda_client.request_closing,
         }
         result: dict = method_dict.get(method_type)(**kwargs)
-        if method_type == "entry" or method_type == "exit":
-            sns.publish(result, "Message: {} is done !".format(method_type))
         return result
 
     # TODO: remove after using the candles included in the result of pricing.PricingInfo.
@@ -260,7 +256,7 @@ class OandaInterface:
         return result
 
     def __calc_requestable_time_duration(self, granularity: str) -> timedelta:
-        _timedelta: timedelta = converter.granularity_to_timedelta(granularity)
+        _timedelta: timedelta = prepro.granularity_to_timedelta(granularity)
         requestable_duration: timedelta = _timedelta * (OandaClient.REQUESTABLE_COUNT - 1)
 
         return requestable_duration

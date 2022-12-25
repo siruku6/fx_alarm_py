@@ -1,8 +1,6 @@
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from aws_lambda_powertools import Logger
-
 # For trading
 from oandapyV20 import API
 from oandapyV20.endpoints.apirequest import APIRequest
@@ -16,7 +14,10 @@ import src.clients.oanda_accessor_pyv20.preprocessor as prepro
 
 from .definitions import ISO_DATETIME_STR
 
-LOGGER = Logger()
+# from aws_lambda_powertools import Logger
+
+
+# LOGGER = Logger()
 
 
 # granularity list
@@ -108,7 +109,7 @@ class OandaClient:
         """
         request_obj: APIRequest = trades.OpenTrades(accountID=self.__oanda_account_id)
         response = self.__api_client.request(request_obj)
-        LOGGER.info({"[Client] OpenTrades": response})
+        # LOGGER.info({"[Client] OpenTrades": response})
 
         open_trades = response["trades"]
 
@@ -126,6 +127,7 @@ class OandaClient:
         return {
             "positions": extracted_trades,
             "last_transaction_id": response["lastTransactionID"],
+            "response": response,
         }
 
     def request_market_ordering(
@@ -159,22 +161,26 @@ class OandaClient:
             return data
 
         request_obj: APIRequest = orders.OrderCreate(accountID=self.__oanda_account_id, data=data)
-        res: Dict[str, Any] = self.__api_client.request(request_obj)
-        LOGGER.info({"[Client] market-order": res})
+        response: Dict[str, Any] = self.__api_client.request(request_obj)
+        # LOGGER.info({"[Client] market-order": response})
 
-        response: Dict[str, Any] = res["orderCreateTransaction"]
-        if response == {}:
-            return {"messsage": "Market order is failed.", "result": res}
+        order_transaction: Dict[str, Any] = response["orderCreateTransaction"]
+        if order_transaction == {}:
+            return {"messsage": "Market order is failed.", "result": response}
 
         response_for_display = {
-            "instrument": response.get("instrument"),
-            # 'price': response.get('price'),  # There isn't 'price' in result of market order
-            "units": response.get("units"),
-            "time": response.get("time"),
-            "stopLossOnFill": response.get("stopLossOnFill"),
+            "instrument": order_transaction.get("instrument"),
+            # 'price': order_transaction.get('price'),  # There isn't 'price' in result of market order
+            "units": order_transaction.get("units"),
+            "time": order_transaction.get("time"),
+            "stopLossOnFill": order_transaction.get("stopLossOnFill"),
         }
 
-        return {"messsage": "Market order is done !", "order": response_for_display}
+        return {
+            "messsage": "Market order is done !",
+            "order": response_for_display,
+            "response": response,
+        }
 
     def request_closing(self, trade_id: str, reason: str = "") -> Dict[str, Any]:
         """close position"""
@@ -188,21 +194,24 @@ class OandaClient:
             tradeID=trade_id,  # , data=data
         )
         response: Dict[str, Any] = self.__api_client.request(request_obj)
-        LOGGER.info({"[Client] TradeClose": response})
+        # LOGGER.info({"[Client] TradeClose": response})
         if (
             response.get("orderFillTransaction") is None
             and response.get("orderCancelTransaction") is not None
         ):
             reason = response.get("orderCancelTransaction").get("reason")  # type: ignore
-            LOGGER.warn({"message": "The exit order was canceled because of {}".format(reason)})
-            return {"[Client] message": "Close order is failed", "reason": reason}
+            # LOGGER.warn({"message": "The exit order was canceled because of {}".format(reason)})
+            return {
+                "message": "[Client] Close order is canceled",
+                "reason": reason,
+                "response": response,
+            }
 
-        dict_close_notification: Dict[str, Any] = {
-            "[Client] message": "Position is closed",
+        return {
+            "message": "[Client] Position is closed",
             "reason": reason,
-            "result": response,
+            "response": response,
         }
-        return dict_close_notification
 
     def request_trailing_stoploss(self, trade_id: str, stoploss_price: float) -> Dict[str, Any]:
         """change stoploss price toward the direction helping us get revenue"""
@@ -220,7 +229,7 @@ class OandaClient:
             data=data,
         )
         response: Dict[str, Any] = self.__api_client.request(request_obj)
-        LOGGER.info({"[Client] trail": response})
+        # LOGGER.info({"[Client] trail": response})
         return response
 
     def request_transactions_once(self, from_id: str, to_id: str) -> Dict[str, Any]:
