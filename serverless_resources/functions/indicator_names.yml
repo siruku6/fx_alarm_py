@@ -1,7 +1,7 @@
 description: return indicator name list
-handler: main.indicator_names_handler
+handler: src.handlers.indicator_names.api_handler
 name: ${self:custom.prefix}--indicator-names
-layers: arn:aws:lambda:us-east-2:${env:AWS_ACCOUNT_ID}:layer:trader_modules:4
+layers: arn:aws:lambda:us-east-2:${env:AWS_ACCOUNT_ID}:layer:trader_modules:7
 events:
   - http:
       path: indicator_names

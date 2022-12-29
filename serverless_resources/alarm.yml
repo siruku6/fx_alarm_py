@@ -4,7 +4,8 @@ Resources:
     Properties:
       AlarmName: ${self:custom.prefix}-alarm-auto-trade-Error
       ActionsEnabled: true
-      # OKActions: []
+      OKActions:
+        - !Ref SNSTopicSendMail
       AlarmActions:
         - !Ref SNSTopicSendMail
       # InsufficientDataActions: []

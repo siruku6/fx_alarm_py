@@ -22,10 +22,6 @@ You have to introduce following packages before start developing.
 - python3.8 or python3.9
 - pip modules
     ```bash
-    # Refer to requirements.txt
-    $ pip install -r requirements.txt
-
-    # Or
     $ pipenv install -d
     ```
 

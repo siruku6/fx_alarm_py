@@ -8,6 +8,6 @@ TRANSACTION_IDS = {
         "https://api-fxpractice.oanda.com/v3/accounts/101-004-1435156-001/transactions/idrange?from=2&to=100",
         "https://api-fxpractice.oanda.com/v3/accounts/101-004-1435156-001/transactions/idrange?from=101&to=200",
         "https://api-fxpractice.oanda.com/v3/accounts/101-004-1435156-001/transactions/idrange?from=201&to=300",
-        "https://api-fxpractice.oanda.com/v3/accounts/101-004-1435156-001/transactions/idrange?from=301&to=400"
-    ]
+        "https://api-fxpractice.oanda.com/v3/accounts/101-004-1435156-001/transactions/idrange?from=301&to=400",
+    ],
 }

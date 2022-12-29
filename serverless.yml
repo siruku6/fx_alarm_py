@@ -47,7 +47,7 @@ provider:
   # INFO: refer to iamRoleStatements
   #   なるべくserverless frameworkのみで完結できるよう、使用するroleはiamRoleStatementsで定義した
   # role: arn:aws:iam::${env:AWS_ACCOUNT_ID}:role/service-role/lambda_for_trade
-  runtime: python3.8
+  runtime: python3.9
   stage: ${opt:stage, 'dev'}
   timeout: 20
   versionFunctions: false
@@ -59,8 +59,8 @@ provider:
 package:
   patterns:
     - '!./**'
-    - 'main.py'
     - 'src/**'
+    - 'tools/**'
   # artifact: tmp/zips/app/fx_archive.zip
   # Create an individual zip-file for each function
   # individually: true # default is `false`

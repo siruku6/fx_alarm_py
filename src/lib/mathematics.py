@@ -1,10 +1,10 @@
 import itertools
-from typing import Any, List, Optional, Tuple
 import math
+from typing import Any, List, Optional, Tuple
 
 
 def int_log10(number):
-    '''
+    """
     calcuate digits number of integer part
 
     Parameters
@@ -21,12 +21,12 @@ def int_log10(number):
     int_log10(1234) -> 3
     int_log10(1.234567) -> 0
     int_log10(12.345) -> 1
-    '''
+    """
     return int(math.log10(number))
 
 
 def generate_float_digits_of(digit):
-    '''
+    """
     generate float value
 
     Parameters
@@ -42,8 +42,8 @@ def generate_float_digits_of(digit):
     generate_float_digits_of(-1) -> 0.1
     generate_float_digits_of(-2) -> 0.01
     generate_float_digits_of(-3) -> 0.001
-    '''
-    return float('0.' + '0' * (-digit - 1) + '1')
+    """
+    return float("0." + "0" * (-digit - 1) + "1")
 
 
 def generate_different_length_combinations(items: List[Any]) -> Tuple[List[Optional[Any]]]:
