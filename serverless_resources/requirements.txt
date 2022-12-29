@@ -13,7 +13,7 @@ requests
 
 # OandaAPIとの通信や、投資データ処理に必要
 mplfinance
-oandapyV20
+oanda-accessor-pyv20
 
 ###### Requirements with Version Specifiers ######
 # ERROR: botocore 1.19.40 requires urllib3<1.27,>=1.25.4; python_version != "3.4", but you'll have urllib3 1.24.2 which is incompatible.

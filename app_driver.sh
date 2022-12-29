@@ -10,7 +10,8 @@ Select an operation from below.
 {6} :pytest -vv
 
 {10}:deploy the function 'tradehist' only
-{11}:make a zip for being uploaded to Lambda
+{11}:make the zip for being uploaded to Lambda
+{12}:upload the zip of pip packages for Lambda Layer
 {80}:adjust date and hwclock
 {99}:LINUX shutdown
 {*} :exit
@@ -103,6 +104,19 @@ upload_zip_to_s3 () {
   fi
 }
 
+upload_package_zip_to_s3 () {
+  # Upload Archive Zip
+  echo -e 'Upload zip now? y(yes) n(no):'
+  read select
+  if test $select = 'y'; then
+    ModuleDirName='tmp/zips/layer_module'
+    cd ${ModuleDirName}
+    pwd
+
+    aws s3 cp ./fx_module_archive.zip s3://fx-trade-with-lambda --storage-class ONEZONE_IA
+  fi
+}
+
 adjust_clock () {
   sudo ntpdate -v ntp.nict.jp
   sudo hwclock --systoh
@@ -157,6 +171,10 @@ while true; do
     11)
       make_zip_for_lambda
       upload_zip_to_s3
+      wait_display
+      ;;
+    12)
+      upload_package_zip_to_s3
       wait_display
       ;;
     80)

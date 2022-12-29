@@ -6,24 +6,25 @@ import pytest
 
 from src.real_trader import RealTrader
 from src.swing_trader import SwingTrader
+from tools.trade_lab import create_trader_instance
 
 
-@pytest.fixture(name="trader_instance", scope="module")
+@pytest.fixture(name="trader_instance", scope="function")
 def fixture_trader_instance(set_envs) -> SwingTrader:
     set_envs
 
-    _trader: SwingTrader = SwingTrader(operation="unittest")
+    _trader, _ = create_trader_instance(SwingTrader, operation="unittest", days=60)
     yield _trader
-    _trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
+    _trader._oanda_interface._OandaInterface__oanda_client._OandaClient__api_client.client.close()
 
 
-@pytest.fixture(name="real_trader_instance", scope="module")
+@pytest.fixture(name="real_trader_instance", scope="function")
 def fixture_real_trader_instance(set_envs) -> RealTrader:
     set_envs
 
-    real_trader: RealTrader = RealTrader(operation="unittest")
+    real_trader, _ = create_trader_instance(RealTrader, operation="unittest", days=60)
     yield real_trader
-    real_trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
+    real_trader._oanda_interface._OandaInterface__oanda_client._OandaClient__api_client.client.close()
 
 
 @pytest.fixture(scope="module")

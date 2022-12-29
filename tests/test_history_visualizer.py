@@ -2,13 +2,12 @@ import datetime
 from unittest.mock import patch  # , MagicMock
 
 import numpy as np
+import oanda_accessor_pyv20.preprocessor as prepro
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 import pytest
 
 import src.history_visualizer as libra
-import src.tools.format_converter as converter
-import src.tools.preprocessor as prepro
 
 
 #  - - - - - - - - - - - - - -
@@ -24,13 +23,13 @@ def fixture_to_iso():
     yield "2020-12-31T23:59:59.000Z"
 
 
-@pytest.fixture(scope="module", name="libra_client", autouse=True)
+@pytest.fixture(scope="module", name="libra_client")
 def fixture_libra_client(from_iso, to_iso):
     with patch(
-        "src.client_manager.ClientManager.select_instrument",
-        return_value=["USD_JPY", {"spread": 0.0}],
+        "src.history_visualizer.select_instrument",
+        return_value={"name": "USD_JPY", "spread": 0.0},
     ):
-        yield libra.Visualizer(from_iso, to_iso)
+        return libra.Visualizer(from_iso, to_iso)
 
 
 @pytest.fixture(scope="module", name="hist_df", autouse=True)
@@ -95,37 +94,52 @@ def fixture_win_sum_win_candles():
 #  - - - - - - - - - - -
 #    Private methods
 #  - - - - - - - - - - -
-def test___prepare_candles(libra_client, from_iso, to_iso):
-    # from_str = '2020-01-01T12:34:56.000'
-    # to_str = '2020-01-20T12:34:56.000'
+class TestPrepareCandles:
+    def test_over_400_H4_candles(self, libra_client, from_iso, to_iso):
+        """
+        Case1:
+            The period between from and to is more than 400 candles
+        """
+        # from_str = '2020-01-01T12:34:56.000'
+        # to_str = '2020-01-20T12:34:56.000'
+        granularity = "H4"
+        _: float = prepro.granularity_to_timedelta(granularity)
+        from_with_spare = pd.Timestamp(to_iso[:19]) - datetime.timedelta(hours=1600)
+        to_converted = pd.Timestamp(to_iso[:19])
 
-    # Case1:
-    #   The period between from and to is more than 400 candles
-    granularity = "H4"
-    _: float = converter.granularity_to_timedelta(granularity)
-    from_with_spare = pd.Timestamp(to_iso[:19]) - datetime.timedelta(hours=1600)
-    to_converted = pd.Timestamp(to_iso[:19])
+        with patch(
+            "src.candle_loader.CandleLoader.load_candles_by_duration_for_hist",
+            return_value=pd.DataFrame(),
+        ) as mock:
+            _: pd.DataFrame = libra_client._Visualizer__prepare_candles(granularity=granularity)
+        mock.assert_called_with(
+            instrument="USD_JPY",  # TODO: set not static value
+            start=from_with_spare,
+            end=to_converted,
+            granularity=granularity,
+        )
 
-    with patch(
-        "src.client_manager.ClientManager.load_candles_by_duration_for_hist",
-        return_value=pd.DataFrame(),
-    ) as mock:
-        _: pd.DataFrame = libra_client._Visualizer__prepare_candles(granularity=granularity)
-    mock.assert_called_with(start=from_with_spare, end=to_converted, granularity=granularity)
+    def test_over_400_H1_candles(self, libra_client, from_iso, to_iso):
+        """
+        Case2
+            The period between from and to is more than 400 candles
+        """
+        granularity = "H1"
+        _: float = prepro.granularity_to_timedelta(granularity)
+        to_converted = pd.Timestamp(to_iso[:19])
+        from_with_spare = to_converted - datetime.timedelta(hours=400)
 
-    # Case2
-    #   The period between from and to is more than 400 candles
-    granularity = "H1"
-    _: float = converter.granularity_to_timedelta(granularity)
-    from_with_spare = to_converted - datetime.timedelta(hours=400)
-    to_converted = pd.Timestamp(to_iso[:19])
-
-    with patch(
-        "src.client_manager.ClientManager.load_candles_by_duration_for_hist",
-        return_value=pd.DataFrame(),
-    ) as mock:
-        _: pd.DataFrame = libra_client._Visualizer__prepare_candles(granularity=granularity)
-    mock.assert_called_with(start=from_with_spare, end=to_converted, granularity=granularity)
+        with patch(
+            "src.candle_loader.CandleLoader.load_candles_by_duration_for_hist",
+            return_value=pd.DataFrame(),
+        ) as mock:
+            _: pd.DataFrame = libra_client._Visualizer__prepare_candles(granularity=granularity)
+        mock.assert_called_with(
+            instrument="USD_JPY",  # TODO: set not static value
+            start=from_with_spare,
+            end=to_converted,
+            granularity=granularity,
+        )
 
 
 def test___adjust_time_for_merging(libra_client, win_sum_candles, hist_df):

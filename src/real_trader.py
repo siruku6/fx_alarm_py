@@ -1,14 +1,19 @@
-import datetime
+from datetime import datetime, timedelta
 from pprint import pprint
-from typing import Any, Callable, TypedDict, Union
+from typing import Any, Callable, List, Literal, Optional, TypedDict, Union
 
+from aws_lambda_powertools import Logger
 import numpy as np
 import pandas as pd
 
 from src.candle_storage import FXBase
+from src.clients import sns
 import src.trade_rules.scalping as scalping
 import src.trade_rules.stoploss as stoploss_strategy
 from src.trader import Trader
+
+LOGGER = Logger()
+PositionType = Literal["long", "short"]
 
 
 class PositionRequired(TypedDict):
@@ -20,6 +25,7 @@ class PositionRequired(TypedDict):
 class Position(PositionRequired, total=False):
     """Optional keys"""
 
+    id: str
     price: float
     openTime: str
     stoploss: float
@@ -28,9 +34,9 @@ class Position(PositionRequired, total=False):
 class RealTrader(Trader):
     """This class orders trading to Oanda following trading rules."""
 
-    def __init__(self, operation):
+    def __init__(self, **kwargs) -> None:
         print("[Trader] -------- start --------")
-        super(RealTrader, self).__init__(operation=operation, days=60)
+        super(RealTrader, self).__init__(**kwargs)
 
         self._position: Position = {"type": "none"}
         # self._set_position({'type': 'none'})
@@ -44,7 +50,7 @@ class RealTrader(Trader):
     #
     # Public
     #
-    def apply_trading_rule(self):
+    def apply_trading_rule(self) -> None:
         candles = FXBase.get_candles().copy()
         self._prepare_trade_signs(candles)
         candles["preconditions_allows"] = np.all(
@@ -54,13 +60,15 @@ class RealTrader(Trader):
         # self.__play_swing_trade(candles)
         self.__play_scalping_trade(candles)
 
-    def _set_position(self, position_dict: Position):
-        self._position: Position = position_dict
+    def _set_position(self, position_dict: Position) -> None:
+        self._position = position_dict
 
     #
     # Override shared methods
     #
-    def _create_position(self, previous_candle, direction, last_indicators=None):
+    def _create_position(
+        self, previous_candle: pd.Series, direction: str, last_indicators: pd.Series = None
+    ) -> None:
         """
         Order Oanda to create position
         """
@@ -79,9 +87,14 @@ class RealTrader(Trader):
             if last_indicators is not None:
                 stoploss = last_indicators["regist"]
 
-        self._client.order_oanda(method_type="entry", posi_nega_sign=sign, stoploss_price=stoploss)
+        result: dict = self._oanda_interface.order_oanda(
+            method_type="entry", posi_nega_sign=sign, stoploss_price=stoploss
+        )
+        LOGGER.info({"[Client] MarketOrder is done.": result["response"]})
 
-    def _trail_stoploss(self, new_stop):
+        sns.publish(result, "Message: {} is done !".format("entry"))
+
+    def _trail_stoploss(self, new_stop: float) -> None:
         """
         Order Oanda to trail stoploss-price
         Parameters
@@ -94,11 +107,20 @@ class RealTrader(Trader):
         None
         """
         # NOTE: trail先の価格を既に突破していたら自動でcloseしてくれた OandaAPI は優秀
-        self._client.order_oanda(method_type="trail", stoploss_price=new_stop)
+        result: dict = self._oanda_interface.order_oanda(
+            method_type="trail", trade_id=self._position["id"], stoploss_price=new_stop
+        )
+        LOGGER.info({"[Client] trail": result})
 
-    def __settle_position(self, reason=""):
+    def __settle_position(self, reason: str = "") -> None:
         """ポジションをcloseする"""
-        pprint(self._client.order_oanda(method_type="exit", reason=reason))
+        result: dict = self._oanda_interface.order_oanda(
+            method_type="exit", trade_id=self._position["id"], reason=reason
+        )
+
+        LOGGER.info({result["message"]: result["response"], "reason": result["reason"]})
+        sns.publish(result, "Message: {} is done !".format("exit"))
+        pprint(result)
 
     #
     # Private
@@ -106,7 +128,7 @@ class RealTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     #                       Swing
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __play_swing_trade(self, candles):
+    def __play_swing_trade(self, candles: pd.DataFrame) -> None:
         """現在のレートにおいて、スイングトレードルールでトレード"""
         last_candle = candles.iloc[-1, :]
 
@@ -145,11 +167,11 @@ class RealTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     #                       Scalping
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __play_scalping_trade(self, candles):
+    def __play_scalping_trade(self, candles: pd.DataFrame) -> None:
         """Trade with scalping rule"""
-        indicators = self._indicators
-        last_candle = candles.iloc[-1]
-        last_indicators = indicators.iloc[-1]
+        indicators: pd.DataFrame = self._indicators
+        last_candle: pd.Series = candles.iloc[-1]
+        last_indicators: pd.Series = indicators.iloc[-1]
 
         self._set_position(self.__fetch_current_position())
 
@@ -168,15 +190,21 @@ class RealTrader(Trader):
         )
         return None
 
-    def __drive_entry_process(self, candles, last_candle, indicators, last_indicators):
-        if self.__since_last_loss() < datetime.timedelta(hours=1):
+    def __drive_entry_process(
+        self,
+        candles: pd.DataFrame,
+        last_candle: pd.Series,
+        indicators: pd.DataFrame,
+        last_indicators: pd.Series,
+    ) -> Optional[PositionType]:
+        if self.__since_last_loss() < timedelta(hours=1):
             print("[Trader] skip: An hour has not passed since last loss.")
-            return False
+            return None
         elif not candles["preconditions_allows"].iat[-1] or last_candle.trend is None:
             self.__show_why_not_entry(candles)
-            return False
+            return None
 
-        direction = scalping.repulsion_exist(
+        direction: Optional[PositionType] = scalping.repulsion_exist(
             trend=last_candle.trend,
             previous_ema=indicators["10EMA"].iat[-2],
             two_before_high=candles.high.iat[-3],
@@ -190,7 +218,7 @@ class RealTrader(Trader):
                     last_candle.time, last_indicators["10EMA"]
                 )
             )
-            return False
+            return None
         # INFO: exitサインが出ているときにエントリーさせない場合はコメントインする
         # if self.__drive_exit_process(direction, last_indicators, last_candle, preliminary=True):
         #     return False
@@ -218,7 +246,9 @@ class RealTrader(Trader):
 
         return possible_stoploss
 
-    def __new_stoploss_is_closer(self, position_type, possible_stoploss, old_stoploss):
+    def __new_stoploss_is_closer(
+        self, position_type: str, possible_stoploss: float, old_stoploss: float
+    ) -> bool:
         if position_type in ["long", "short"] and old_stoploss in [np.nan, None]:
             return True
 
@@ -226,7 +256,13 @@ class RealTrader(Trader):
             (position_type == "short") and (possible_stoploss < old_stoploss)
         )
 
-    def __drive_exit_process(self, position_type, indicators, last_candle, preliminary=False):
+    def __drive_exit_process(
+        self,
+        position_type: str,
+        indicators: pd.DataFrame,
+        last_candle: pd.Series,
+        preliminary: bool = False,
+    ) -> None:
         # plus_2sigma = last_indicators['sigma*2_band']
         # minus_2sigma = last_indicators['sigma*-2_band']
         # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
@@ -242,7 +278,7 @@ class RealTrader(Trader):
             #             position_type, previous_indicator['stoD_3'], previous_indicator['stoSD_3']
             #         ):
             if preliminary:
-                return True
+                return
 
             reason = "stoc crossed at {} ! position_type: {}".format(
                 last_candle["time"], position_type
@@ -251,25 +287,33 @@ class RealTrader(Trader):
 
     def __fetch_current_position(self) -> Position:
         pos: Position = {"type": "none"}
-        open_trades = self._client.call_oanda("open_trades")
-        if open_trades == []:
+        result = self._oanda_interface.call_oanda("open_trades")
+        LOGGER.info({"[Client] OpenTrades": result["response"]})
+
+        positions: List[dict] = result["positions"]
+        if positions == []:
             return pos
 
         # Extract only the necessary information of open position
-        target = open_trades[0]
-        pos["price"] = float(target["price"])
-        pos["openTime"] = target["openTime"]
+        target: dict = positions[0]
         if target["currentUnits"][0] == "-":
-            pos["type"] = "short"
+            position_type: str = "short"
         else:
-            pos["type"] = "long"
+            position_type = "long"
+
+        pos = {
+            "id": target["id"],
+            "price": float(target["price"]),
+            "openTime": target["openTime"],
+            "type": position_type,
+        }
         if "stopLossOrder" not in target:
             return pos
 
         pos["stoploss"] = float(target["stopLossOrder"]["price"])
         return pos
 
-    def __since_last_loss(self):
+    def __since_last_loss(self) -> timedelta:
         """
         Return the elapsed time since the most recent lose
 
@@ -279,22 +323,22 @@ class RealTrader(Trader):
 
         Returns
         -------
-        time_since_loss : datetime
+        time_since_loss : timedelta
         """
         candle_size = 100
-        hist_df = self._client.call_oanda("transactions", count=candle_size)
+        hist_df = self._oanda_interface.call_oanda("transactions", count=candle_size)
         time_series = hist_df[hist_df.pl < 0]["time"]
         if time_series.empty:
-            return datetime.timedelta(hours=99)
+            return timedelta(hours=99)
 
         last_loss_time = time_series.iat[-1]
-        last_loss_datetime = datetime.datetime.strptime(
+        last_loss_datetime = datetime.strptime(
             last_loss_time.replace("T", " ")[:16], "%Y-%m-%d %H:%M"
         )
-        time_since_loss = datetime.datetime.utcnow() - last_loss_datetime
+        time_since_loss = datetime.utcnow() - last_loss_datetime
         return time_since_loss
 
-    def __show_why_not_entry(self, conditions_df):
+    def __show_why_not_entry(self, conditions_df: pd.DataFrame) -> None:
         time = conditions_df.time.values[-1]
         if conditions_df.trend.iat[-1] is None:
             self._log_skip_reason('c. {}: "trend" is None !'.format(time))

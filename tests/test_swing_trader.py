@@ -7,16 +7,18 @@ import pandas as pd
 import pytest
 
 from src.swing_trader import SwingTrader
+from tools.trade_lab import create_trader_instance
 
 
-@pytest.fixture(name="swing_client", scope="module", autouse=True)
-def fixture_swing_client(set_envs):
+@pytest.fixture(name="swing_client", scope="function", autouse=True)
+def fixture_swing_client(set_envs, patch_is_tradeable):
     with patch("src.trader_config.TraderConfig.get_instrument", return_value="USD_JPY"):
         set_envs
+        patch_is_tradeable
 
-        _trader: SwingTrader = SwingTrader(operation="unittest")
+        _trader, _ = create_trader_instance(SwingTrader, operation="unittest", days=60)
         yield _trader
-        _trader._client._ClientManager__oanda_client._OandaClient__api_client.client.close()
+        _trader._oanda_interface._OandaInterface__oanda_client._OandaClient__api_client.client.close()
 
 
 class TestSetStoplossPrices:

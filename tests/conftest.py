@@ -1,5 +1,6 @@
 import os
 from typing import Dict, List, Union
+from unittest.mock import patch
 
 import boto3
 from dotenv import load_dotenv
@@ -31,13 +32,14 @@ def fixture_stoploss_buffer():
     return 0.02
 
 
-@pytest.fixture(name="set_envs", scope="module", autouse=True)
+@pytest.fixture(name="set_envs", scope="function", autouse=True)
 def fixture_set_envs(instrument, stoploss_buffer):
     os.environ["OANDA_ACCOUNT_ID"] = "dummy_account_id"
     os.environ["OANDA_ACCESS_TOKEN"] = "dummy_accecc_token"
     os.environ["GRANULARITY"] = ""
     os.environ["INSTRUMENT"] = str(instrument)
     os.environ["STOPLOSS_BUFFER"] = str(stoploss_buffer)
+    os.environ["STOPLOSS_STRATEGY"] = "support"
     yield
 
 
@@ -47,31 +49,56 @@ def fixture_config(set_envs) -> TraderConfig:
     yield TraderConfig(operation="unittest")
 
 
+@pytest.fixture(name="patch_is_tradeable", scope="session")
+def fixture_patch_is_tradeable():
+    with patch("tools.trade_lab.is_tradeable", return_value={"info": "", "tradeable": True}):
+        yield
+
+
 @pytest.fixture(scope="session")
-def dummy_instruments():
+def dummy_instruments() -> Dict[str, Union[list, str]]:
     return {
         "candles": [
             {
                 "complete": True,
+                "ask": {"c": "111.577", "h": "111.577", "l": "111.567", "o": "111.574"},
                 "mid": {"c": "111.576", "h": "111.576", "l": "111.566", "o": "111.573"},
+                "bid": {"c": "111.575", "h": "111.575", "l": "111.565", "o": "111.572"},
                 "time": "2019-04-28T21:00:00.000000000Z",
                 "volume": 5,
             },
             {
                 "complete": True,
+                "ask": {"c": "111.572", "h": "111.572", "l": "111.572", "o": "111.572"},
                 "mid": {"c": "111.571", "h": "111.571", "l": "111.571", "o": "111.571"},
+                "bid": {"c": "111.570", "h": "111.570", "l": "111.570", "o": "111.570"},
                 "time": "2019-04-28T21:05:00.000000000Z",
                 "volume": 1,
             },
             {
                 "complete": True,
+                "ask": {"c": "111.569", "h": "111.591", "l": "111.569", "o": "111.575"},
                 "mid": {"c": "111.568", "h": "111.590", "l": "111.568", "o": "111.574"},
+                "bid": {"c": "111.567", "h": "111.589", "l": "111.567", "o": "111.573"},
                 "time": "2019-04-28T21:10:00.000000000Z",
                 "volume": 24,
             },
         ],
         "granularity": "M5",
         "instrument": "USD_JPY",
+    }
+
+
+@pytest.fixture(name="converted_dummy_instruments", scope="function")
+def fixture_converted_dummy_instruments() -> Dict[str, List[Union[float, str]]]:
+    return {
+        "close": [111.576, 111.571, 111.568],
+        "high": [111.576, 111.571, 111.590],
+        "low": [111.566, 111.571, 111.568],
+        "open": [111.573, 111.571, 111.574],
+        "volume": [5, 1, 24],
+        "complete": [True] * 3,
+        "time": ["2019-04-28 21:00:00", "2019-04-28 21:05:00", "2019-04-28 21:10:00"],
     }
 
 
@@ -90,7 +117,24 @@ def dummy_raw_open_trades():
                 "realizedPL": "0.0000",
                 "state": "OPEN",
                 "id": "2315",
-            }
+            },
+            {
+                "instrument": "USD_JPY",
+                "financing": "0.0000",
+                "openTime": "2016-10-28T14:28:05.231759081Z",
+                "stopLossOrder": {
+                    "createTime": "2016-10-28T14:28:05.231759081Z",
+                    "price": "125.210",
+                    "timeInForce": "GTC",
+                },
+                "initialUnits": "10",
+                "currentUnits": "10",
+                "price": "125.31",
+                "unrealizedPL": "136.0000",
+                "realizedPL": "0.0000",
+                "state": "OPEN",
+                "id": "2317",
+            },
         ],
         "lastTransactionID": "2317",
     }

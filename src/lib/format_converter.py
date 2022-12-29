@@ -1,9 +1,8 @@
 import datetime
 from typing import Any, Dict, List
 
+from oanda_accessor_pyv20.definitions import ISO_DATETIME_STR
 import pandas as pd
-
-from src.clients.oanda_client import ISO_DATETIME_STR
 
 TIME_STRING_FMT = "%Y-%m-%d %H:%M:%S"
 
@@ -11,23 +10,6 @@ TIME_STRING_FMT = "%Y-%m-%d %H:%M:%S"
 def str_to_datetime(time_string: str) -> datetime.datetime:
     result_dt = datetime.datetime.strptime(time_string, TIME_STRING_FMT)
     return result_dt
-
-
-def granularity_to_timedelta(granularity: str) -> datetime.timedelta:
-    time_unit: str = granularity[0]
-    if time_unit == "M":
-        candle_duration: datetime.timedelta = datetime.timedelta(minutes=int(granularity[1:]))
-    elif time_unit == "H":
-        candle_duration = datetime.timedelta(hours=int(granularity[1:]))
-    elif time_unit == "D":
-        candle_duration = datetime.timedelta(days=1)
-
-    return candle_duration
-
-
-def to_oanda_format(target_datetime: datetime.datetime) -> ISO_DATETIME_STR:
-    # datetime.datetime(2020,10,1).isoformat(timespec='microseconds') + 'Z'
-    return target_datetime.strftime("%Y-%m-%dT%H:%M:00.000000Z")
 
 
 def to_timestamp(oanda_str: str) -> pd.Timestamp:

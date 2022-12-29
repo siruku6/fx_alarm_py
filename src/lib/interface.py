@@ -1,4 +1,5 @@
-from typing import Dict, List
+from collections import OrderedDict
+from typing import Any, Dict, List, Union
 
 
 def ask_granularity() -> str:
@@ -61,7 +62,7 @@ def select_stoploss_digit() -> float:
 
 
 def select_from_dict(
-    dictionary: Dict[str, str], menumsg: str = "Please select one from followings!"
+    dictionary: Dict[str, Any], menumsg: str = "Please select one from followings!"
 ) -> str:
     menu: str = "[interface] {}".format(menumsg)
     for i, (key, _) in enumerate(dictionary.items()):
@@ -98,3 +99,21 @@ def prompt_inputting_decimal() -> int:
             return int(selection)
         else:
             print("Please, input the positive value (integer) ! \nINPUT AGAIN: ", end="")
+
+
+# ----------------------------------
+# Application methods
+# ----------------------------------
+def select_instrument(instrument: str = None) -> Dict[str, Union[str, float]]:
+    # TODO: configure reasonable and correct spread
+    instruments = OrderedDict(
+        USD_JPY={"spread": 0.004},
+        EUR_USD={"spread": 0.00014},
+        GBP_JPY={"spread": 0.014},
+        USD_CHF={"spread": 0.00014},
+    )
+    if instrument is not None:
+        return {"name": instrument, "spread": instruments[instrument]}
+
+    name: str = select_from_dict(instruments, menumsg="Which currency you want to trade ?\n")
+    return {"name": name, "spread": instruments[name]["spread"]}

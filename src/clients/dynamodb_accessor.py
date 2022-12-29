@@ -7,12 +7,15 @@ from typing import Dict, Optional, TypedDict
 
 import boto3
 from boto3.dynamodb.conditions import Attr, Key
-from botocore.exceptions import (ClientError, EndpointConnectionError,
-                                 WaiterError,)
+from botocore.exceptions import (
+    ClientError,
+    EndpointConnectionError,
+    WaiterError,
+)
 from numpy import nan
 import pandas as pd
 
-import src.tools.format_converter as converter
+import src.lib.format_converter as converter
 
 
 class CandleRecord(TypedDict, total=False):

@@ -1,0 +1,2 @@
+class FailedRequestingOanda(Exception):
+    pass

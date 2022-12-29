@@ -10,11 +10,15 @@ import pytest
 import src.real_trader as real
 from src.trader_config import FILTER_ELEMENTS
 from tests.conftest import fixture_sns
+from tools.trade_lab import create_trader_instance
 
 
 @pytest.fixture(scope="module")
-def real_trader_client():
-    yield real.RealTrader(operation="unittest")
+def real_trader_client(patch_is_tradeable):
+    patch_is_tradeable
+
+    tr_instance, _ = create_trader_instance(real.RealTrader, operation="unittest", days=60)
+    yield tr_instance
 
 
 @pytest.fixture(scope="module")
@@ -42,73 +46,113 @@ def fixture_support_and_resistance() -> pd.DataFrame:
 class TestInit:
     def test_not_tradeable(self):
         with patch(
-            "src.client_manager.ClientManager.call_oanda", return_value={"tradeable": False}
+            "tools.trade_lab.is_tradeable",
+            return_value={"info": "not tradeable", "tradeable": False},
         ):
-            real_trader: real.RealTrader = real.RealTrader(operation="live")
-        assert real_trader.tradeable is False
+            real_trader, _ = create_trader_instance(real.RealTrader, operation="live", days=60)
+        assert real_trader is None
 
 
-def test_not_entry(real_trader_client, dummy_candles, dummy_indicators):
-    # real_trader_client._ana.calc_indicators(dummy_candles, long_span_candles=dummy_candles)
-    indicators = dummy_indicators
+class TestDriveEntryProcess:
+    def test_no_time_since_lastloss(self, real_trader_client, dummy_candles, dummy_indicators):
+        """
+        Example: An hour hasn't passed since last loss.
+        """
+        indicators = dummy_indicators
 
-    # Example: 最後の損失から1時間が経過していない場合
-    no_time_since_lastloss = datetime.timedelta(hours=0)
-    with patch(
-        "src.real_trader.RealTrader._RealTrader__since_last_loss",
-        return_value=no_time_since_lastloss,
-    ):
-        result = real_trader_client._RealTrader__drive_entry_process(
-            dummy_candles, dummy_candles.iloc[-1], indicators, indicators.iloc[-1]
-        )
-        assert result is False
+        no_time_since_lastloss = datetime.timedelta(hours=0)
+        with patch(
+            "src.real_trader.RealTrader._RealTrader__since_last_loss",
+            return_value=no_time_since_lastloss,
+        ):
+            result = real_trader_client._RealTrader__drive_entry_process(
+                dummy_candles, dummy_candles.iloc[-1], indicators, indicators.iloc[-1]
+            )
+            assert result is None
 
-    # Example: 最後の損失から1時間が経過しているが、Entry条件を満たしていない(preconditions_allows が False)
-    two_hours_since_lastloss = datetime.timedelta(hours=2)
-    columns = ["trend", "preconditions_allows", "time"] + FILTER_ELEMENTS.copy()
-    tmp_dummy_candles = pd.DataFrame([[False for _ in columns]], columns=columns)
-    with patch(
-        "src.real_trader.RealTrader._RealTrader__since_last_loss",
-        return_value=two_hours_since_lastloss,
-    ):
-        result = real_trader_client._RealTrader__drive_entry_process(
-            tmp_dummy_candles, tmp_dummy_candles.iloc[-1], indicators, indicators.iloc[-1]
-        )
-        assert result is False
-
-    # Example: 最後の損失から1時間が経過し、preconditions_allows が True だが、 repulsion なし
-    tmp_dummy_candles = dummy_candles.tail(10).copy()
-    tmp_dummy_candles.loc[:, "preconditions_allows"] = True
-    tmp_dummy_candles.loc[:, "trend"] = "bull"
-    tmp_dummy_candles.loc[:, "time"] = "xxxx-xx-xx xx:xx"
-    repulsion = None
-    with patch(
-        "src.real_trader.RealTrader._RealTrader__since_last_loss",
-        return_value=two_hours_since_lastloss,
-    ):
-        with patch("src.trade_rules.scalping.repulsion_exist", return_value=repulsion):
+    def test_preconditions_not_allows(self, real_trader_client, dummy_indicators):
+        """
+        Example: An hour has passed since last loss, but preconditions don't allow.
+        """
+        indicators = dummy_indicators
+        two_hours_since_lastloss = datetime.timedelta(hours=2)
+        columns = ["trend", "preconditions_allows", "time"] + FILTER_ELEMENTS.copy()
+        tmp_dummy_candles = pd.DataFrame([[False for _ in columns]], columns=columns)
+        with patch(
+            "src.real_trader.RealTrader._RealTrader__since_last_loss",
+            return_value=two_hours_since_lastloss,
+        ):
             result = real_trader_client._RealTrader__drive_entry_process(
                 tmp_dummy_candles, tmp_dummy_candles.iloc[-1], indicators, indicators.iloc[-1]
             )
-            assert result is False
+            assert result is None
 
-    # Example: 最後の損失から1時間が経過し、preconditions_allows が True で、 repulsion あり
-    with patch(
-        "src.real_trader.RealTrader._RealTrader__since_last_loss",
-        return_value=two_hours_since_lastloss,
-    ):
-        repulsion = "long"
-        with patch("src.trade_rules.scalping.repulsion_exist", return_value=repulsion):
-            with patch("src.real_trader.RealTrader._create_position") as mock:
-                last_indicators = indicators.iloc[-1]
+    @pytest.fixture(name="tmp_dummy_allowed_candles")
+    def fixture_tmp_dummy_allowed_candles(self, dummy_candles):
+        """
+        dummy_candles with "preconditions_allows" assigned True
+        """
+        columns = ["trend", "preconditions_allows", "time"] + FILTER_ELEMENTS.copy()
+        tmp_dummy_candles = pd.DataFrame([[False for _ in columns]], columns=columns)
+        tmp_dummy_candles = dummy_candles.tail(10).copy()
+        tmp_dummy_candles.loc[:, "preconditions_allows"] = True
+        tmp_dummy_candles.loc[:, "trend"] = "bull"
+        tmp_dummy_candles.loc[:, "time"] = "xxxx-xx-xx xx:xx"
+        return tmp_dummy_candles
+
+    def test_no_repulsion(self, real_trader_client, tmp_dummy_allowed_candles, dummy_indicators):
+        """
+        Example:
+            - An hour has passed since last loss
+            - preconditions allow
+            - There is no repulsion
+        """
+        indicators = dummy_indicators
+        two_hours_since_lastloss = datetime.timedelta(hours=2)
+
+        repulsion = None
+        with patch(
+            "src.real_trader.RealTrader._RealTrader__since_last_loss",
+            return_value=two_hours_since_lastloss,
+        ):
+            with patch("src.trade_rules.scalping.repulsion_exist", return_value=repulsion):
                 result = real_trader_client._RealTrader__drive_entry_process(
-                    tmp_dummy_candles, tmp_dummy_candles.iloc[-1], indicators, last_indicators
+                    tmp_dummy_allowed_candles,
+                    tmp_dummy_allowed_candles.iloc[-1],
+                    indicators,
+                    indicators.iloc[-1],
                 )
-                assert result is repulsion
+                assert result is None
 
-    pd.testing.assert_series_equal(mock.call_args[0][0], tmp_dummy_candles.iloc[-2])
-    assert mock.call_args[0][1] == repulsion
-    pd.testing.assert_series_equal(mock.call_args[0][2], last_indicators)
+    def test_entry(self, real_trader_client, tmp_dummy_allowed_candles, dummy_indicators):
+        """
+        Example:
+            - An hour has passed since last loss
+            - preconditions allow
+            - There is a repulsion
+        """
+        indicators = dummy_indicators
+        two_hours_since_lastloss = datetime.timedelta(hours=2)
+
+        with patch(
+            "src.real_trader.RealTrader._RealTrader__since_last_loss",
+            return_value=two_hours_since_lastloss,
+        ):
+            repulsion = "long"
+            with patch("src.trade_rules.scalping.repulsion_exist", return_value=repulsion):
+                with patch("src.real_trader.RealTrader._create_position") as mock:
+                    last_indicators = indicators.iloc[-1]
+                    result = real_trader_client._RealTrader__drive_entry_process(
+                        tmp_dummy_allowed_candles,
+                        tmp_dummy_allowed_candles.iloc[-1],
+                        indicators,
+                        last_indicators,
+                    )
+                    assert result is repulsion
+
+        pd.testing.assert_series_equal(mock.call_args[0][0], tmp_dummy_allowed_candles.iloc[-2])
+        assert mock.call_args[0][1] == repulsion
+        pd.testing.assert_series_equal(mock.call_args[0][2], last_indicators)
 
 
 @mock_sns
@@ -189,15 +233,16 @@ class TestCreatePositionWithoutIndicators:
 
 
 def test__trail_stoploss(real_trader_client):
-    new_stop = 111.111
-    dummy_trade_id = "999"
-    real_trader_client._client._ClientManager__oanda_client._OandaClient__trade_ids = [
+    new_stop: float = 111.111
+    dummy_trade_id: str = "999"
+    real_trader_client._oanda_interface._OandaInterface__oanda_client._OandaClient__trade_ids = [
         dummy_trade_id
     ]
+    real_trader_client._position = {"id": dummy_trade_id}
     data = {"stopLoss": {"timeInForce": "GTC", "price": str(new_stop)[:7]}}
 
     with patch("oandapyV20.endpoints.trades.TradeCRCDO") as mock:
-        with patch("oandapyV20.API.request", return_value=""):
+        with patch("oandapyV20.API.request", return_value={}):
             real_trader_client._trail_stoploss(new_stop)
 
     mock.assert_called_with(
@@ -209,7 +254,8 @@ def test__trail_stoploss(real_trader_client):
 class TestDriveTrailProcess:
     def real_trader(self, stoploss_strategy_name: str):
         os.environ["STOPLOSS_STRATEGY"] = stoploss_strategy_name
-        return real.RealTrader(operation="unittest")
+        real_trader, _ = create_trader_instance(real.RealTrader, operation="unittest", days=60)
+        return real_trader
 
     # NOTE: stoploss is going to be set by step_trailing
     def test_no_position_with_step_trailing(self, dummy_candles, df_support_and_resistance):
@@ -347,14 +393,25 @@ def test___drive_exit_process_golden_cross(real_trader_client):
 
 class TestFetchCurrentPosition:
     def test_none_position(self, real_trader_client):
-        with patch("src.clients.oanda_client.OandaClient.request_open_trades", return_value=[]):
+        with patch(
+            "oanda_accessor_pyv20.OandaClient.request_open_trades",
+            return_value={
+                "positions": [],
+                "last_transaction_id": "9999",
+                "response": {"trades": [], "lastTransactionID": "2317"},
+            },
+        ):
             pos = real_trader_client._RealTrader__fetch_current_position()
         assert pos == {"type": "none"}
 
     def test_short_position(self, real_trader_client, dummy_open_trades):
         with patch(
-            "src.clients.oanda_client.OandaClient.request_open_trades",
-            return_value=dummy_open_trades,
+            "oanda_accessor_pyv20.OandaClient.request_open_trades",
+            return_value={
+                "positions": dummy_open_trades,
+                "last_transaction_id": "9999",
+                "response": dummy_open_trades,
+            },
         ):
             pos = real_trader_client._RealTrader__fetch_current_position()
         assert isinstance(pos, dict)
@@ -364,8 +421,12 @@ class TestFetchCurrentPosition:
 
     def test_long_position(self, real_trader_client, dummy_long_without_stoploss_trades):
         with patch(
-            "src.clients.oanda_client.OandaClient.request_open_trades",
-            return_value=dummy_long_without_stoploss_trades,
+            "oanda_accessor_pyv20.OandaClient.request_open_trades",
+            return_value={
+                "positions": dummy_long_without_stoploss_trades,
+                "last_transaction_id": "9999",
+                "response": dummy_long_without_stoploss_trades,
+            },
         ):
             pos = real_trader_client._RealTrader__fetch_current_position()
         assert isinstance(pos, dict)
@@ -378,7 +439,7 @@ def test___since_last_loss(real_trader_client):
     # Context: last loss is far from current
     dummy_transactions = pd.DataFrame({"pl": [121.03], "time": ["2019-02-01T12:15:02.436718568Z"]})
     with patch(
-        "src.client_manager.ClientManager._ClientManager__request_latest_transactions",
+        "oanda_accessor_pyv20.OandaInterface._OandaInterface__request_latest_transactions",
         return_value=dummy_transactions,
     ):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()
@@ -392,7 +453,7 @@ def test___since_last_loss(real_trader_client):
         }
     )
     with patch(
-        "src.client_manager.ClientManager._ClientManager__request_latest_transactions",
+        "oanda_accessor_pyv20.OandaInterface._OandaInterface__request_latest_transactions",
         return_value=dummy_transactions,
     ):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()

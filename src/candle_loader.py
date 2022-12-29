@@ -1,56 +1,63 @@
-from typing import Dict  # , List, Optional
+from datetime import datetime, timedelta
+from typing import Any, Dict, Optional, Tuple
 
 from aws_lambda_powertools import Logger
+from oanda_accessor_pyv20 import OandaInterface
 import pandas as pd
 
-from src import logic
 from src.candle_storage import FXBase
-from src.client_manager import ClientManager
-import src.tools.interface as i_face
+from src.clients.dynamodb_accessor import DynamodbAccessor
+import src.lib.format_converter as converter
+import src.lib.interface as i_face
 from src.trader_config import TraderConfig
 
 LOGGER = Logger()
 
 
 class CandleLoader:
-    def __init__(self, config: TraderConfig, client_manager: ClientManager) -> None:
+    def __init__(self, config: TraderConfig, interface: OandaInterface, days: int) -> None:
         self.config: TraderConfig = config
-        self.client_manager: ClientManager = client_manager
+        self.interface: OandaInterface = interface
+        self.need_request: bool = self.__select_need_request(operation=config.operation)
+        self.days: int = days
 
-    def run(self) -> Dict[str, str]:
+    def run(self) -> Dict[str, Optional[str]]:
         candles: pd.DataFrame
-        if self.config.need_request is False:
+        if self.need_request is False:
             candles = pd.read_csv("tests/fixtures/sample_candles.csv")
         elif self.config.operation in ("backtest", "forward_test"):
-            self.config.set_entry_rules("granularity", value=i_face.ask_granularity())
-            candles = self.client_manager.load_long_chart(
-                days=self.config.get_entry_rules("days"),
-                granularity=self.config.get_entry_rules("granularity"),
+            candles = self.interface.load_candles_by_days(
+                days=self.days,
+                granularity=self.config.get_entry_rules("granularity"),  # type: ignore
             )["candles"]
         elif self.config.operation == "live":
-            tradeable = self.client_manager.call_oanda("is_tradeable")["tradeable"]
-            if not tradeable:
-                return {"info": "Now the trading market is closed.", "tradable": False}
-            if logic.is_reasonable() is False:
-                return {"info": "Now it is not reasonable to trade.", "tradable": False}
-
-            candles = self.client_manager.load_specify_length_candles(
-                length=70, granularity=self.config.get_entry_rules("granularity")
+            candles = self.interface.load_specify_length_candles(
+                length=70, granularity=self.config.get_entry_rules("granularity")  # type: ignore
             )["candles"]
         else:
-            return {"info": "exit at once", "tradable": False}
+            raise ValueError(f"trader_config.operation is invalid!: {self.config.operation}")
 
         FXBase.set_candles(candles)
-        if self.config.need_request is False:
-            return {"info": None, "tradable": True}
+        if self.need_request is False:
+            return {"info": None}
 
-        latest_candle = self.client_manager.call_oanda("current_price")
+        latest_candle: Dict[str, Any] = self.interface.call_oanda("current_price")
         self.__update_latest_candle(latest_candle)
-        return {"info": None, "tradable": True}
+        return {"info": None}
+
+    def __select_need_request(self, operation: str) -> bool:
+        need_request: bool = True
+        if operation in ("backtest", "forward_test"):
+            need_request = i_face.ask_true_or_false(
+                msg="[Trader] Which do you use ?  [1]: current_candles, [2]: static_candles :"
+            )
+        elif operation == "unittest":
+            need_request = False
+        return need_request
 
     def load_long_span_candles(self) -> None:
         long_span_candles: pd.DataFrame
-        if self.config.need_request is False:
+        if self.need_request is False:
             long_span_candles = pd.read_csv("tests/fixtures/sample_candles_h4.csv")
         else:
             long_span_candles = self.__load_long_chart(granularity="D")
@@ -62,13 +69,15 @@ class CandleLoader:
 
     def __load_long_chart(self, granularity: str = None) -> pd.DataFrame:
         if granularity is None:
-            granularity: str = self.config.get_entry_rules("granularity")
+            granularity: str = self.config.get_entry_rules("granularity")  # type: ignore
+        if self.days is None:
+            raise RuntimeError("'days' must be specified, but is None.")
 
-        return self.client_manager.load_long_chart(
-            days=self.config.get_entry_rules("days"), granularity=granularity
-        )["candles"]
+        return self.interface.load_candles_by_days(days=self.days, granularity=granularity)[
+            "candles"
+        ]
 
-    def __update_latest_candle(self, latest_candle) -> None:
+    def __update_latest_candle(self, latest_candle: Dict[str, Any]) -> None:
         """
         Update the latest candle,
         if either end of the new latest candle is beyond either end of old latest candle
@@ -81,3 +90,73 @@ class CandleLoader:
             FXBase.replace_latest_price("low", latest_candle["low"])
         LOGGER.info({"[Client] Last_H4": candle_dict, "Current_M1": latest_candle})
         LOGGER.info({"[Client] New_H4": FXBase.get_candles().iloc[-1].to_dict()})
+
+    def load_candles_by_duration_for_hist(
+        self, instrument: str, start: datetime, end: datetime, granularity: str
+    ) -> pd.DataFrame:
+        """Prepare candles with specifying the range of datetime"""
+        # 1. query from DynamoDB
+        table_name: str = "{}_CANDLES".format(granularity)
+        dynamo = DynamodbAccessor(instrument, table_name=table_name)
+        candles: pd.DataFrame = dynamo.list_candles(
+            # INFO: now preparing a little wide range of candles
+            #   because 休日やらタイミングやらで、start, endを割り込むデータしか取得できないことがあるため
+            # TODO: not using `3`days, it seems better to alter number of days according to granurality
+            (start - timedelta(days=3)).isoformat(),
+            (end + timedelta(days=1)).isoformat(),
+        )
+        if self.interface.accessable is False:
+            print("[Manager] Skipped requesting candles from Oanda")
+            return candles
+
+        # 2. detect period of missing candles
+        missing_start, missing_end = self.__detect_missings(candles, start, end)
+        if missing_end <= missing_start:
+            return candles
+
+        # 3. complement missing candles using API
+        missed_candles: pd.DataFrame = self.interface.load_candles_by_duration(
+            missing_start, missing_end, granularity=granularity
+        )["candles"]
+        # INFO: If it is closed time between start and end, `missed_candles` is gonna be [].
+        #   Then, skip insert and union.
+        if len(missed_candles) > 0:
+            dynamo.batch_insert(items=missed_candles.copy())
+            candles = self.interface._OandaInterface__union_candles_distinct(
+                candles, missed_candles
+            )
+
+        return candles
+
+    def __detect_missings(
+        self, candles: pd.DataFrame, required_start: datetime, required_end: datetime
+    ) -> Tuple[datetime, datetime]:
+        """
+        Parameters
+        ----------
+        candles : pandas.DataFrame
+            Columns :
+
+        required_start : datetime
+            Example : datetime(2020, 1, 2, 12, 34)
+        required_end : datetime
+
+        Returns
+        -------
+        Array: [missing_start, missing_end]
+            missing_start : datetime
+            missing_end : datetime
+        """
+        if len(candles) == 0:
+            return required_start, required_end
+
+        # 1. DBから取得したデータの先頭と末尾の日時を取得
+        stocked_first: datetime = converter.str_to_datetime(candles.iloc[0]["time"])
+        stocked_last: datetime = converter.str_to_datetime(candles.iloc[-1]["time"])
+        ealiest: datetime = min(required_start, required_end, stocked_first, stocked_last)
+        latest: datetime = max(required_start, required_end, stocked_first, stocked_last)
+
+        # 2. どの期間のデータが不足しているのかを判別
+        missing_start: datetime = required_start if ealiest == required_start else stocked_last
+        missing_end: datetime = required_end if latest == required_end else stocked_first
+        return missing_start, missing_end

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from src.candle_storage import FXBase
-import src.tools.mathematics as mtmtcs
+import src.lib.mathematics as mtmtcs
 
 matplotlib.use("Agg")
 matplotlib.rcParams["axes.xmargin"] = 0
