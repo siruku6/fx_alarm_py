@@ -2,11 +2,11 @@ import datetime
 from unittest.mock import patch  # , MagicMock
 
 import numpy as np
+import oanda_accessor_pyv20.preprocessor as prepro
 import pandas as pd
 from pandas.testing import assert_frame_equal, assert_series_equal
 import pytest
 
-import src.clients.oanda_accessor_pyv20.preprocessor as prepro
 import src.history_visualizer as libra
 
 

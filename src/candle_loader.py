@@ -2,11 +2,11 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Tuple
 
 from aws_lambda_powertools import Logger
+from oanda_accessor_pyv20 import OandaInterface
 import pandas as pd
 
 from src.candle_storage import FXBase
 from src.clients.dynamodb_accessor import DynamodbAccessor
-from src.clients.oanda_accessor_pyv20.interface import OandaInterface
 import src.lib.format_converter as converter
 import src.lib.interface as i_face
 from src.trader_config import TraderConfig

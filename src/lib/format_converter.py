@@ -1,9 +1,8 @@
 import datetime
 from typing import Any, Dict, List
 
+from oanda_accessor_pyv20.definitions import ISO_DATETIME_STR
 import pandas as pd
-
-from src.clients.oanda_accessor_pyv20.definitions import ISO_DATETIME_STR
 
 TIME_STRING_FMT = "%Y-%m-%d %H:%M:%S"
 

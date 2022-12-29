@@ -242,7 +242,7 @@ def test__trail_stoploss(real_trader_client):
     data = {"stopLoss": {"timeInForce": "GTC", "price": str(new_stop)[:7]}}
 
     with patch("oandapyV20.endpoints.trades.TradeCRCDO") as mock:
-        with patch("oandapyV20.API.request", return_value=""):
+        with patch("oandapyV20.API.request", return_value={}):
             real_trader_client._trail_stoploss(new_stop)
 
     mock.assert_called_with(
@@ -394,16 +394,24 @@ def test___drive_exit_process_golden_cross(real_trader_client):
 class TestFetchCurrentPosition:
     def test_none_position(self, real_trader_client):
         with patch(
-            "src.clients.oanda_accessor_pyv20.api.OandaClient.request_open_trades",
-            return_value={"positions": [], "last_transaction_id": "9999"},
+            "oanda_accessor_pyv20.OandaClient.request_open_trades",
+            return_value={
+                "positions": [],
+                "last_transaction_id": "9999",
+                "response": {"trades": [], "lastTransactionID": "2317"},
+            },
         ):
             pos = real_trader_client._RealTrader__fetch_current_position()
         assert pos == {"type": "none"}
 
     def test_short_position(self, real_trader_client, dummy_open_trades):
         with patch(
-            "src.clients.oanda_accessor_pyv20.api.OandaClient.request_open_trades",
-            return_value={"positions": dummy_open_trades, "last_transaction_id": "9999"},
+            "oanda_accessor_pyv20.OandaClient.request_open_trades",
+            return_value={
+                "positions": dummy_open_trades,
+                "last_transaction_id": "9999",
+                "response": dummy_open_trades,
+            },
         ):
             pos = real_trader_client._RealTrader__fetch_current_position()
         assert isinstance(pos, dict)
@@ -413,10 +421,11 @@ class TestFetchCurrentPosition:
 
     def test_long_position(self, real_trader_client, dummy_long_without_stoploss_trades):
         with patch(
-            "src.clients.oanda_accessor_pyv20.api.OandaClient.request_open_trades",
+            "oanda_accessor_pyv20.OandaClient.request_open_trades",
             return_value={
                 "positions": dummy_long_without_stoploss_trades,
                 "last_transaction_id": "9999",
+                "response": dummy_long_without_stoploss_trades,
             },
         ):
             pos = real_trader_client._RealTrader__fetch_current_position()
@@ -430,7 +439,7 @@ def test___since_last_loss(real_trader_client):
     # Context: last loss is far from current
     dummy_transactions = pd.DataFrame({"pl": [121.03], "time": ["2019-02-01T12:15:02.436718568Z"]})
     with patch(
-        "src.clients.oanda_accessor_pyv20.interface.OandaInterface._OandaInterface__request_latest_transactions",
+        "oanda_accessor_pyv20.OandaInterface._OandaInterface__request_latest_transactions",
         return_value=dummy_transactions,
     ):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()
@@ -444,7 +453,7 @@ def test___since_last_loss(real_trader_client):
         }
     )
     with patch(
-        "src.clients.oanda_accessor_pyv20.interface.OandaInterface._OandaInterface__request_latest_transactions",
+        "oanda_accessor_pyv20.OandaInterface._OandaInterface__request_latest_transactions",
         return_value=dummy_transactions,
     ):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()

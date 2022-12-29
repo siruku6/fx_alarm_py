@@ -110,7 +110,7 @@ class RealTrader(Trader):
         result: dict = self._oanda_interface.order_oanda(
             method_type="trail", trade_id=self._position["id"], stoploss_price=new_stop
         )
-        LOGGER.info({"[Client] trail": result["response"]})
+        LOGGER.info({"[Client] trail": result})
 
     def __settle_position(self, reason: str = "") -> None:
         """ポジションをcloseする"""

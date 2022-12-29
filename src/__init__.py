@@ -6,11 +6,9 @@ from . import (
     real_trader,
     trader,
 )
-from .clients.oanda_accessor_pyv20 import interface
 
 __all__ = [
     "analyzer",
-    "interface",
     "drawer",
     "real_trader",
     "alpha_trader",

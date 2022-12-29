@@ -2,12 +2,12 @@ from datetime import datetime
 from typing import Dict
 from unittest.mock import patch
 
+from oanda_accessor_pyv20 import OandaInterface
 import pandas as pd
 import pytest
 
 from src.candle_loader import CandleLoader
 from src.candle_storage import FXBase
-from src.clients.oanda_accessor_pyv20.interface import OandaInterface
 
 
 @pytest.fixture(name="loader_instance")
@@ -57,7 +57,7 @@ class TestRun:
     def test_operation_live(self, loader_instance):
         dummy_df: pd.DataFrame = pd.read_csv("tests/fixtures/sample_candles.csv")
         with patch(
-            "src.clients.oanda_accessor_pyv20.interface.OandaInterface.load_specify_length_candles",
+            "oanda_accessor_pyv20.OandaInterface.load_specify_length_candles",
             return_value=dummy_df,
         ):
             result: Dict[str, str] = loader_instance.run()

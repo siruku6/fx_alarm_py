@@ -2,13 +2,13 @@ import datetime
 from datetime import timedelta
 from typing import List, Optional, Tuple, TypedDict
 
+from oanda_accessor_pyv20 import OandaInterface
+import oanda_accessor_pyv20.preprocessor as prepro
 import pandas as pd
 
 from src.analyzer import Analyzer
 from src.candle_loader import CandleLoader
 from src.candle_storage import FXBase
-from src.clients.oanda_accessor_pyv20.interface import OandaInterface
-import src.clients.oanda_accessor_pyv20.preprocessor as prepro
 from src.drawer import FigureDrawer
 import src.lib.format_converter as converter
 from src.lib.interface import select_instrument
