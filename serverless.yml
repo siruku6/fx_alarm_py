@@ -10,7 +10,7 @@ service: py-fx
 
 # You can pin your service to only deploy with a specific Serverless version
 # Check out our docs for more details
-frameworkVersion: '2'
+frameworkVersion: '3'
 
 plugins:
   - serverless-api-gateway-throttling
@@ -49,7 +49,9 @@ provider:
   versionFunctions: false
 
   # you can add statements to the Lambda function's IAM Role here
-  iamRoleStatements: ${file(./serverless_resources/iam.yml)}
+  iam:
+    role:
+      statements: ${file(./serverless_resources/iam.yml)}
 
 # you can add packaging information here
 package:

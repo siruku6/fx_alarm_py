@@ -21,6 +21,6 @@
   "homepage": "https://github.com/siruku6/fx_alarm_py#readme",
   "dependencies": {
     "npm": "^8.11.0",
-    "serverless-api-gateway-throttling": "^1.1.1"
+    "serverless-api-gateway-throttling": "^2.0.2"
   }
 }
