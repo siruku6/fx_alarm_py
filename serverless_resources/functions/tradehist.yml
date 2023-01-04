@@ -21,7 +21,6 @@ events:
           - OPTIONS
 
       # integration: lambda # Lambda統合されるが、Lambdaプロキシ統合はオフにする場合の記述
-      reqValidatorName: onlyStringParameters
       request:
         parameters:
           querystrings:
@@ -88,6 +87,8 @@ environment:
   INSTRUMENT: ${env:INSTRUMENT}
   GRANULARITY: ${env:GRANULARITY}
   STOPLOSS_BUFFER: ${env:STOPLOSS_BUFFER}
+  # TODO: Remove STOPLOSS_STRATEGY later
+  STOPLOSS_STRATEGY: ${env:STOPLOSS_STRATEGY}
   UNITS: ${env:UNITS}
   OANDA_ACCESS_TOKEN: ${env:OANDA_ACCESS_TOKEN}
   OANDA_ACCOUNT_ID: ${env:OANDA_ACCOUNT_ID}
