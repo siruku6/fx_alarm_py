@@ -1,6 +1,6 @@
 # FX_Alarm_py
 
-[![Python application](https://github.com/siruku6/fx_alarm_py/actions/workflows/lint_and_test.yml/badge.svg)](https://github.com/siruku6/fx_alarm_py/actions/workflows/lint_and_test.yml)
+[![Github Actions](https://github.com/siruku6/fx_alarm_py/actions/workflows/lint_and_test.yml/badge.svg)](https://github.com/siruku6/fx_alarm_py/actions/workflows/lint_and_test.yml)
 [![Maintainability](https://api.codeclimate.com/v1/badges/67acc571f4fe4e7f7959/maintainability)](https://codeclimate.com/github/siruku6/fx_alarm_py/maintainability)
 [![Test Coverage](https://api.codeclimate.com/v1/badges/67acc571f4fe4e7f7959/test_coverage)](https://codeclimate.com/github/siruku6/fx_alarm_py/test_coverage)
 
@@ -29,7 +29,7 @@ You have to introduce following packages before start developing.
 - node
     - serverless
     ```bash
-    $ npm -g install serverless@2
+    $ npm -g install serverless@3
     ```
 - DynamoDB Local (and, though it is optional, DynamoDB Admin)
 
