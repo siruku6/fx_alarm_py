@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Any, Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -8,13 +8,13 @@ from src.trader import Trader
 
 
 class AlphaTrader(Trader):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Dict[str, Any]):
         super(AlphaTrader, self).__init__(**kwargs)
 
     #
     # Public
     #
-    def backtest(self, candles) -> Dict[str, Union[str, pd.DataFrame]]:
+    def backtest(self, candles: pd.DataFrame) -> Dict[str, Union[str, pd.DataFrame]]:
         """backtest scalping trade"""
         candles["entryable_price"] = self._generate_entryable_price(candles)
         self.__generate_entry_column(candles)
