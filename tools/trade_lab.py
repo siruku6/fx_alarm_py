@@ -147,7 +147,7 @@ def create_trader_instance(
         return None, None
 
     tr_instance: Trader = trader_class(
-        ana=ana,
+        # ana=ana,
         o_interface=o_interface,
         config=config,
         indicators=indicators,
