@@ -2,7 +2,7 @@ Resources:
   SNSTopicSendMail:
     Type: AWS::SNS::Topic
     Properties:
-      DisplayName: TopicSendMailOnEntry
+      DisplayName: TopicSendMailFromLambda
       TopicName: ${self:custom.prefix}-topic-send-mail-on-entry
   SNSSubscriptionSendMail:
     Type: AWS::SNS::Subscription

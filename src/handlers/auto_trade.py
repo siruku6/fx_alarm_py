@@ -21,11 +21,13 @@ def lambda_handler(_event: EventBridgeEvent, _context: LambdaContext) -> Dict[st
 
         trader.apply_trading_rule()
         msg = "lambda function is correctly finished."
-    except (V20Error, SSLError, ConnectionError) as error:
-        # print(traceback.format_exc())
+    except (V20Error, SSLError, ConnectionError, Exception) as error:
+        type_, value, traceback_ = sys.exc_info()
+        tracebacks: list = traceback.format_exception(type_, value, traceback_)
+
         _notify_error(
             error,
-            sys._getframe().f_back.f_code.co_name,
+            raised_line=tracebacks[-1],  # sys._getframe().f_back.f_code.co_name,
             _traceback=traceback.format_exc(),
         )  # type: ignore
         # NOTE: https://www.yoheim.net/blog.php?q=20190601
@@ -36,4 +38,4 @@ def lambda_handler(_event: EventBridgeEvent, _context: LambdaContext) -> Dict[st
 
 # For local console
 if __name__ == "__main__":
-    lambda_handler(None, None)
+    lambda_handler(None, None)  # type: ignore
