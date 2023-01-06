@@ -5,7 +5,6 @@ from typing import Dict, List, Union
 import numpy as np
 import pandas as pd
 
-from src.analyzer import Analyzer
 from src.candle_storage import FXBase
 import src.trade_rules.base as base_rules
 from src.trader_config import FILTER_ELEMENTS
@@ -18,7 +17,7 @@ class Trader(metaclass=abc.ABCMeta):
 
     def __init__(
         self,
-        ana,
+        # ana,
         o_interface,
         config,
         indicators: pd.DataFrame,
@@ -35,7 +34,7 @@ class Trader(metaclass=abc.ABCMeta):
         -------
         None
         """
-        self._ana: "Analyzer" = ana
+        # self._ana: "Analyzer" = ana
         self._oanda_interface = o_interface
         self.config = config
         self._indicators: pd.DataFrame = indicators

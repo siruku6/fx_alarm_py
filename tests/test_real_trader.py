@@ -1,5 +1,6 @@
-import datetime
+from datetime import datetime, timedelta
 import os
+from typing import Any, Dict, List
 from unittest.mock import call, patch
 
 from moto import mock_sns
@@ -7,7 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import src.real_trader as real
+from src.analyzer import Analyzer
+from src.real_trader import Position, RealTrader
 from src.trader_config import FILTER_ELEMENTS
 from tests.conftest import fixture_sns
 from tools.trade_lab import create_trader_instance
@@ -17,7 +19,7 @@ from tools.trade_lab import create_trader_instance
 def real_trader_client(patch_is_tradeable):
     patch_is_tradeable
 
-    tr_instance, _ = create_trader_instance(real.RealTrader, operation="unittest", days=60)
+    tr_instance, _ = create_trader_instance(RealTrader, operation="unittest", days=60)
     yield tr_instance
 
 
@@ -30,17 +32,27 @@ def dummy_candles(d1_stoc_dummy):
     yield candles
 
 
-# INFO:
-#   fixture の使い方 https://qiita.com/_akiyama_/items/9ead227227d669b0564e
 @pytest.fixture(scope="module")
-def dummy_indicators(real_trader_client, dummy_candles):
-    real_trader_client._ana.calc_indicators(dummy_candles, long_span_candles=dummy_candles)
-    yield real_trader_client._ana.get_indicators()
+def dummy_indicators(dummy_candles):
+    ana = Analyzer()
+    ana.calc_indicators(dummy_candles, long_span_candles=dummy_candles)
+    yield ana.get_indicators()
 
 
 @pytest.fixture(name="df_support_and_resistance", scope="session")
 def fixture_support_and_resistance() -> pd.DataFrame:
     yield pd.DataFrame({"support": [98.0, 100.0], "regist": [123.456, 112.233]})
+
+
+@pytest.fixture(name="dummy_position", scope="function")
+def fixture_dummy_position() -> Position:
+    return Position(
+        id="9999",
+        type="long",
+        price=123.456,
+        openTime="2016-10-28T14:28:05.231759081Z",
+        stoploss=123.123,
+    )
 
 
 class TestInit:
@@ -49,8 +61,88 @@ class TestInit:
             "tools.trade_lab.is_tradeable",
             return_value={"info": "not tradeable", "tradeable": False},
         ):
-            real_trader, _ = create_trader_instance(real.RealTrader, operation="live", days=60)
+            real_trader, _ = create_trader_instance(RealTrader, operation="live", days=60)
         assert real_trader is None
+
+
+class TestPlayScalpingTrade:
+    @pytest.fixture(name="df_past_candles")
+    def fixture_past_candles(self, past_usd_candles: List[Dict[str, Any]]) -> pd.DataFrame:
+        df_candles: pd.DataFrame = pd.DataFrame(past_usd_candles)
+        return df_candles
+
+    @pytest.fixture(name="dummy_indicators")
+    def fixture_indicators(self, df_past_candles: pd.DataFrame):
+        ana = Analyzer()
+        ana.calc_indicators(df_past_candles)
+        indicators: pd.DataFrame = ana.get_indicators()
+        return indicators
+
+    @patch(
+        "src.real_trader.RealTrader._RealTrader__fetch_current_positions",
+        return_value=[],
+    )
+    def test_without_any_position(
+        self,
+        _patch_fetch_current_positions,
+        real_trader_client,
+        df_past_candles: pd.DataFrame,
+        dummy_indicators: pd.DataFrame,
+    ):
+        """
+        Condition:
+            - There is no open position,
+            - Doesn't create position.
+        """
+        df_candles: pd.DataFrame = pd.DataFrame(df_past_candles)
+        real_trader_client._indicators = dummy_indicators
+
+        with patch(
+            "src.real_trader.RealTrader._RealTrader__drive_entry_process",
+            return_value=None,
+        ) as mock:
+            real_trader_client._RealTrader__play_scalping_trade(df_candles)
+
+        mock.assert_called_once()
+
+    @patch(
+        "src.real_trader.RealTrader._RealTrader__fetch_current_positions",
+        return_value=[],
+    )
+    @patch(
+        "src.real_trader.scalping.repulsion_exist",
+        return_value="long",
+    )
+    @patch(
+        "src.real_trader.RealTrader._RealTrader__since_last_loss",
+        return_value=timedelta(hours=99),
+    )
+    def test_without_any_position_create_position(
+        self,
+        _patch_fetch_current_positions,
+        _patch_repulsion_exist,
+        _patch_since_last_loss,
+        real_trader_client,
+        df_past_candles: pd.DataFrame,
+        dummy_indicators: pd.DataFrame,
+    ):
+        """
+        Condition:
+            - There is no open position,
+            - Create position.
+        """
+        df_candles: pd.DataFrame = pd.DataFrame(df_past_candles)
+        df_candles["preconditions_allows"] = True
+        df_candles["trend"] = "long"
+        real_trader_client._indicators = dummy_indicators
+
+        with patch(
+            "src.real_trader.RealTrader._create_position",
+            return_value=None,
+        ) as mock:
+            real_trader_client._RealTrader__play_scalping_trade(df_candles)
+
+        mock.assert_called_once()
 
 
 class TestDriveEntryProcess:
@@ -60,7 +152,7 @@ class TestDriveEntryProcess:
         """
         indicators = dummy_indicators
 
-        no_time_since_lastloss = datetime.timedelta(hours=0)
+        no_time_since_lastloss = timedelta(hours=0)
         with patch(
             "src.real_trader.RealTrader._RealTrader__since_last_loss",
             return_value=no_time_since_lastloss,
@@ -75,7 +167,7 @@ class TestDriveEntryProcess:
         Example: An hour has passed since last loss, but preconditions don't allow.
         """
         indicators = dummy_indicators
-        two_hours_since_lastloss = datetime.timedelta(hours=2)
+        two_hours_since_lastloss = timedelta(hours=2)
         columns = ["trend", "preconditions_allows", "time"] + FILTER_ELEMENTS.copy()
         tmp_dummy_candles = pd.DataFrame([[False for _ in columns]], columns=columns)
         with patch(
@@ -108,7 +200,7 @@ class TestDriveEntryProcess:
             - There is no repulsion
         """
         indicators = dummy_indicators
-        two_hours_since_lastloss = datetime.timedelta(hours=2)
+        two_hours_since_lastloss = timedelta(hours=2)
 
         repulsion = None
         with patch(
@@ -132,7 +224,7 @@ class TestDriveEntryProcess:
             - There is a repulsion
         """
         indicators = dummy_indicators
-        two_hours_since_lastloss = datetime.timedelta(hours=2)
+        two_hours_since_lastloss = timedelta(hours=2)
 
         with patch(
             "src.real_trader.RealTrader._RealTrader__since_last_loss",
@@ -232,21 +324,19 @@ class TestCreatePositionWithoutIndicators:
         )
 
 
-def test__trail_stoploss(real_trader_client):
+def test__trail_stoploss(real_trader_client, dummy_position):
     new_stop: float = 111.111
-    dummy_trade_id: str = "999"
-    real_trader_client._oanda_interface._OandaInterface__oanda_client._OandaClient__trade_ids = [
-        dummy_trade_id
-    ]
-    real_trader_client._position = {"id": dummy_trade_id}
     data = {"stopLoss": {"timeInForce": "GTC", "price": str(new_stop)[:7]}}
+    real_trader_client._positions = [dummy_position]
 
     with patch("oandapyV20.endpoints.trades.TradeCRCDO") as mock:
         with patch("oandapyV20.API.request", return_value={}):
             real_trader_client._trail_stoploss(new_stop)
 
     mock.assert_called_with(
-        accountID=os.environ.get("OANDA_ACCOUNT_ID"), tradeID=dummy_trade_id, data=data
+        accountID=os.environ.get("OANDA_ACCOUNT_ID"),
+        tradeID=dummy_position.id,
+        data=data,
     )
 
 
@@ -254,28 +344,36 @@ def test__trail_stoploss(real_trader_client):
 class TestDriveTrailProcess:
     def real_trader(self, stoploss_strategy_name: str):
         os.environ["STOPLOSS_STRATEGY"] = stoploss_strategy_name
-        real_trader, _ = create_trader_instance(real.RealTrader, operation="unittest", days=60)
+        real_trader, _ = create_trader_instance(RealTrader, operation="unittest", days=60)
         return real_trader
 
-    # NOTE: stoploss is going to be set by step_trailing
-    def test_no_position_with_step_trailing(self, dummy_candles, df_support_and_resistance):
-        real_trader_client: real.RealTrader = self.real_trader("step")
-        real_trader_client._set_position({"type": "none"})
+    # # NOTE: stoploss is going to be set by step_trailing
+    # def test_no_position_with_step_trailing(self, dummy_candles, df_support_and_resistance):
+    #     real_trader_client: RealTrader = self.real_trader("step")
+    #     real_trader_client._set_position([])
 
-        with patch("src.real_trader.RealTrader._trail_stoploss") as mock:
-            real_trader_client._RealTrader__drive_trail_process(
-                dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
-            )
+    #     with patch("src.real_trader.RealTrader._trail_stoploss") as mock:
+    #         real_trader_client._RealTrader__drive_trail_process(
+    #             dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+    #         )
 
-            mock.assert_not_called()
+    #         mock.assert_not_called()
 
     def test_long_position_with_step_trailing(self, dummy_candles, df_support_and_resistance):
-        real_trader_client: real.RealTrader = self.real_trader("step")
-        real_trader_client._set_position({"type": "long", "stoploss": 98.765})
+        real_trader_client: RealTrader = self.real_trader("step")
+        pos: Position = Position(
+            id="9999",
+            price=99.42,
+            type="long",
+            openTime="2016-10-28T14:28:05.231759081Z",
+            stoploss=98.765,
+        )
 
         with patch("src.real_trader.RealTrader._trail_stoploss") as mock:
             real_trader_client._RealTrader__drive_trail_process(
-                dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+                pos,
+                dummy_candles.iloc[-2, :],
+                df_support_and_resistance.iloc[-1],
             )
             new_stop: float = (
                 dummy_candles.iloc[-2]["low"] - real_trader_client.config.stoploss_buffer_pips
@@ -284,12 +382,20 @@ class TestDriveTrailProcess:
             mock.assert_called_once_with(new_stop=round(new_stop, 3))
 
     def test_short_position_with_step_trailing(self, dummy_candles, df_support_and_resistance):
-        real_trader_client: real.RealTrader = self.real_trader("step")
-        real_trader_client._set_position({"type": "short", "stoploss": 140.012})
+        real_trader_client: RealTrader = self.real_trader("step")
+        pos: Position = Position(
+            id="9999",
+            price=139.8,
+            type="short",
+            openTime="2016-10-28T14:28:05.231759081Z",
+            stoploss=140.012,
+        )
 
         with patch("src.real_trader.RealTrader._trail_stoploss") as mock:
             real_trader_client._RealTrader__drive_trail_process(
-                dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+                pos,
+                dummy_candles.iloc[-2, :],
+                df_support_and_resistance.iloc[-1],
             )
             new_stop: float = (
                 dummy_candles.iloc[-2]["high"]
@@ -299,38 +405,54 @@ class TestDriveTrailProcess:
 
             mock.assert_called_once_with(new_stop=round(new_stop, 3))
 
-    # NOTE: stoploss is going to be set by support_or_resistance
-    def test_no_position_with_support(self, dummy_candles, df_support_and_resistance):
-        real_trader_client: real.RealTrader = self.real_trader("support")
-        real_trader_client._position = {"type": "none"}
+    # # NOTE: stoploss is going to be set by support_or_resistance
+    # def test_no_position_with_support(self, dummy_candles, df_support_and_resistance):
+    #     real_trader_client: RealTrader = self.real_trader("support")
+    #     real_trader_client._position = []
 
-        with patch("src.real_trader.RealTrader._trail_stoploss") as mock:
-            real_trader_client._RealTrader__drive_trail_process(
-                dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
-            )
-            mock.assert_not_called()
+    #     with patch("src.real_trader.RealTrader._trail_stoploss") as mock:
+    #         real_trader_client._RealTrader__drive_trail_process(
+    #             dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+    #         )
+    #         mock.assert_not_called()
 
     def test_long_position_with_support(
         self, real_trader_client, dummy_candles, df_support_and_resistance
     ):
-        real_trader_client: real.RealTrader = self.real_trader("support")
-        real_trader_client._position = {"type": "long", "stoploss": 99.5}
+        real_trader_client: RealTrader = self.real_trader("support")
+        pos: Position = Position(
+            id="9999",
+            price=101.2,
+            type="long",
+            openTime="2016-10-28T14:28:05.231759081Z",
+            stoploss=99.5,
+        )
 
         with patch("src.real_trader.RealTrader._trail_stoploss") as mock:
             real_trader_client._RealTrader__drive_trail_process(
-                dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+                target_pos=pos,
+                previous_candle=dummy_candles.iloc[-2, :],
+                last_indicators=df_support_and_resistance.iloc[-1],
             )
             mock.assert_called_once_with(new_stop=100.0)
 
     def test_short_position_with_support(
         self, real_trader_client, dummy_candles, df_support_and_resistance
     ):
-        real_trader_client: real.RealTrader = self.real_trader("support")
-        real_trader_client._position = {"type": "short", "stoploss": 113.5}
+        real_trader_client: RealTrader = self.real_trader("support")
+        pos: Position = Position(
+            id="9999",
+            price=113.2,
+            type="short",
+            openTime="2016-10-28T14:28:05.231759081Z",
+            stoploss=113.5,
+        )
 
         with patch("src.real_trader.RealTrader._trail_stoploss") as mock:
             real_trader_client._RealTrader__drive_trail_process(
-                dummy_candles.iloc[-2, :], df_support_and_resistance.iloc[-1]
+                target_pos=pos,
+                previous_candle=dummy_candles.iloc[-2, :],
+                last_indicators=df_support_and_resistance.iloc[-1],
             )
             mock.assert_called_once_with(new_stop=112.233)
 
@@ -401,8 +523,8 @@ class TestFetchCurrentPosition:
                 "response": {"trades": [], "lastTransactionID": "2317"},
             },
         ):
-            pos = real_trader_client._RealTrader__fetch_current_position()
-        assert pos == {"type": "none"}
+            pos = real_trader_client._RealTrader__fetch_current_positions()
+        assert pos == []
 
     def test_short_position(self, real_trader_client, dummy_open_trades):
         with patch(
@@ -413,11 +535,12 @@ class TestFetchCurrentPosition:
                 "response": dummy_open_trades,
             },
         ):
-            pos = real_trader_client._RealTrader__fetch_current_position()
-        assert isinstance(pos, dict)
-        assert pos["type"] == "short"
-        assert isinstance(pos["price"], float)
-        assert isinstance(pos["stoploss"], float)
+            positions = real_trader_client._RealTrader__fetch_current_positions()
+            pos = positions[-1]
+        assert isinstance(positions, list)
+        assert pos.type == "short"
+        assert isinstance(pos.price, float)
+        assert isinstance(pos.stoploss, float)
 
     def test_long_position(self, real_trader_client, dummy_long_without_stoploss_trades):
         with patch(
@@ -428,11 +551,12 @@ class TestFetchCurrentPosition:
                 "response": dummy_long_without_stoploss_trades,
             },
         ):
-            pos = real_trader_client._RealTrader__fetch_current_position()
-        assert isinstance(pos, dict)
-        assert pos["type"] == "long"
-        assert isinstance(pos["price"], float)
-        assert "stoploss" not in pos
+            positions = real_trader_client._RealTrader__fetch_current_positions()
+            pos = positions[-1]
+        assert isinstance(positions, list)
+        assert pos.type == "long"
+        assert isinstance(pos.price, float)
+        assert pos.stoploss is None
 
 
 def test___since_last_loss(real_trader_client):
@@ -443,13 +567,13 @@ def test___since_last_loss(real_trader_client):
         return_value=dummy_transactions,
     ):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()
-    assert time_since_loss == datetime.timedelta(hours=99)
+    assert time_since_loss == timedelta(hours=99)
 
     # Context: Within 1 hour after last loss
     dummy_transactions = pd.DataFrame(
         {
             "pl": [-121.03],
-            "time": [datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.xxxxxxxxxZ")],
+            "time": [datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.xxxxxxxxxZ")],
         }
     )
     with patch(
@@ -457,7 +581,7 @@ def test___since_last_loss(real_trader_client):
         return_value=dummy_transactions,
     ):
         time_since_loss = real_trader_client._RealTrader__since_last_loss()
-    assert time_since_loss < datetime.timedelta(hours=1)
+    assert time_since_loss < timedelta(hours=1)
 
 
 def test___show_why_not_entry(real_trader_client):
