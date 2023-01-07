@@ -14,10 +14,12 @@ class AlphaTrader(Trader):
     #
     # Public
     #
-    def backtest(self, candles: pd.DataFrame) -> Dict[str, Union[str, pd.DataFrame]]:
+    def backtest(
+        self, candles: pd.DataFrame, indicators: pd.DataFrame
+    ) -> Dict[str, Union[str, pd.DataFrame]]:
         """backtest scalping trade"""
         candles["entryable_price"] = self._generate_entryable_price(candles)
-        self.__generate_entry_column(candles)
+        self.__generate_entry_column(candles, indicators)
 
         candles.to_csv("./tmp/csvs/scalping_data_dump.csv")
         return {"result": "[Trader] Finsihed a series of backtest!", "candles": candles}
@@ -25,15 +27,19 @@ class AlphaTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Private
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def _generate_thrust_column(self, candles: pd.DataFrame, _: pd.Series = None) -> pd.Series:
-        return scalping.generate_repulsion_column(candles, ema=self._indicators["10EMA"])
+    def _generate_thrust_column(
+        self, candles: pd.DataFrame, _: pd.Series, indicators: pd.DataFrame
+    ) -> pd.Series:
+        return scalping.generate_repulsion_column(candles, ema=indicators["10EMA"])
 
     def _generate_entryable_price(self, candles: pd.DataFrame) -> np.ndarray:
         return scalping.generate_entryable_prices(
             candles[["open", "entryable"]], self.config.static_spread
         )
 
-    def __generate_entry_column(self, candles: pd.DataFrame) -> pd.DataFrame:
+    def __generate_entry_column(
+        self, candles: pd.DataFrame, indicators: pd.DataFrame
+    ) -> pd.DataFrame:
         # INFO: Commit when Entry / Exit is done
         base_df = pd.merge(
             candles[
@@ -48,9 +54,7 @@ class AlphaTrader(Trader):
                     "stoD_over_stoSD",
                 ]
             ],
-            self._indicators[
-                ["sigma*2_band", "sigma*-2_band", "stoD_3", "stoSD_3", "support", "regist"]
-            ],
+            indicators[["sigma*2_band", "sigma*-2_band", "stoD_3", "stoSD_3", "support", "regist"]],
             left_index=True,
             right_index=True,
         )

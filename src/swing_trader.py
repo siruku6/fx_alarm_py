@@ -19,7 +19,9 @@ class SwingTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Public
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def backtest(self, candles: pd.DataFrame) -> Dict[str, Union[str, pd.DataFrame]]:
+    def backtest(
+        self, candles: pd.DataFrame, indicators: pd.DataFrame
+    ) -> Dict[str, Union[str, pd.DataFrame]]:
         """backtest swing trade"""
         result_msg: str = self.__backtest_common_flow(candles)
         return {"result": result_msg, "candles": candles}

@@ -1,5 +1,4 @@
-# import sys
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 from aws_lambda_powertools import Logger
 
@@ -10,10 +9,12 @@ LOGGER = Logger()
 
 def _notify_error(
     error_body: Any,
-    raised_line: str,
+    raised_line: Union[str, list],
     _traceback: str,
 ) -> None:
-    error_summary_dict: Dict[str, str] = {
+    LOGGER.info({"callable options of e": dir(error_body)})  # type: ignore
+
+    error_summary_dict: Dict[str, Any] = {
         "class": error_body.__class__.__name__,
         "error_msg": error_body.msg,
         "raised_line": raised_line,
@@ -24,5 +25,3 @@ def _notify_error(
     LOGGER.error({"error_body": error_body})
 
     sns.publish(dic=error_summary_dict, subject=f"Error: {error_body.code}")
-
-    LOGGER.info({"callable options of e": dir(error_body)})  # type: ignore

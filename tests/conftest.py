@@ -50,9 +50,15 @@ def fixture_config(set_envs) -> TraderConfig:
     yield TraderConfig(operation="unittest")
 
 
-@pytest.fixture(name="patch_is_tradeable", scope="session")
+@pytest.fixture(name="patch_is_tradeable", scope="function")
 def fixture_patch_is_tradeable():
     with patch("tools.trade_lab.is_tradeable", return_value={"info": "", "tradeable": True}):
+        yield
+
+
+@pytest.fixture(name="patch_not_tradeable", scope="function")
+def fixture_patch_not_tradeable():
+    with patch("tools.trade_lab.is_tradeable", return_value={"info": "", "tradeable": False}):
         yield
 
 

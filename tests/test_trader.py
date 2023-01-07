@@ -10,7 +10,7 @@ from tools.trade_lab import create_trader_instance
 
 
 @pytest.fixture(name="trader_instance", scope="function")
-def fixture_trader_instance(set_envs) -> SwingTrader:
+def fixture_trader_instance(set_envs, patch_is_tradeable) -> SwingTrader:
     set_envs
 
     _trader, _ = create_trader_instance(SwingTrader, operation="unittest", days=60)
@@ -19,7 +19,7 @@ def fixture_trader_instance(set_envs) -> SwingTrader:
 
 
 @pytest.fixture(name="real_trader_instance", scope="function")
-def fixture_real_trader_instance(set_envs) -> RealTrader:
+def fixture_real_trader_instance(set_envs, patch_is_tradeable) -> RealTrader:
     set_envs
 
     real_trader, _ = create_trader_instance(RealTrader, operation="unittest", days=60)
@@ -69,7 +69,9 @@ def fixture_dummy_candles():
 def test__generate_thrust_column(real_trader_instance, dummy_trend_candles):
     dummy_df = dummy_trend_candles
     result: pd.Series = real_trader_instance._generate_thrust_column(
-        candles=dummy_df[["high", "low"]], trend=dummy_df[["bull", "bear"]]
+        candles=dummy_df[["high", "low"]],
+        trend=dummy_df[["bull", "bear"]],
+        _=None,
     )
     pd.testing.assert_series_equal(dummy_df["thrust"].rename(None), result)
 
@@ -108,14 +110,16 @@ class TestGenerateInBandsColumn:
         dummy_entrybale_prices: pd.DataFrame,
         dummy_candles: pd.DataFrame,
     ):
-        trader_instance._indicators = pd.DataFrame([])
-        trader_instance._indicators["sigma*2_band"] = dummy_sigmas["sigma*2_band"]
-        trader_instance._indicators["sigma*-2_band"] = dummy_sigmas["sigma*-2_band"]
+        indicators = pd.DataFrame([])
+        indicators["sigma*2_band"] = dummy_sigmas["sigma*2_band"]
+        indicators["sigma*-2_band"] = dummy_sigmas["sigma*-2_band"]
         with patch(
             "src.swing_trader.SwingTrader._generate_entryable_price",
             return_value=dummy_entrybale_prices,
         ):
-            result: np.ndarray = trader_instance._Trader__generate_in_bands_column(dummy_candles)
+            result: np.ndarray = trader_instance._Trader__generate_in_bands_column(
+                dummy_candles, indicators
+            )
         expected: np.ndarray = np.array([True, False, False, False])
 
         np.testing.assert_array_equal(result, expected)
@@ -153,8 +157,9 @@ class TestGenerateGettingSteeperColumn:
     def test_5_patterns(
         self, trader_instance: SwingTrader, dummy_mas: pd.DataFrame, dummy_trends: pd.DataFrame
     ):
-        trader_instance._indicators = dummy_mas
-        result: np.ndarray = trader_instance._Trader__generate_getting_steeper_column(dummy_trends)
+        result: np.ndarray = trader_instance._Trader__generate_getting_steeper_column(
+            dummy_trends, dummy_mas
+        )
         expected: np.ndarray = np.array([False, True, False, True, False])
 
         np.testing.assert_array_equal(result, expected)
@@ -164,8 +169,9 @@ class TestGenerateFollowingTrendColumn:
     def test_5_patterns(
         self, trader_instance: SwingTrader, dummy_mas: pd.DataFrame, dummy_trends: pd.DataFrame
     ):
-        trader_instance._indicators = dummy_mas
-        result: np.ndarray = trader_instance._Trader__generate_following_trend_column(dummy_trends)
+        result: np.ndarray = trader_instance._Trader__generate_following_trend_column(
+            dummy_trends, dummy_mas["20SMA"]
+        )
         expected: np.ndarray = np.array([False, True, False, True, False])
 
         np.testing.assert_array_equal(result, expected)
