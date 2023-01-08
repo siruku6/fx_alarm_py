@@ -9,7 +9,7 @@ import pandas as pd
 
 from src.candle_storage import FXBase
 from src.clients import sns
-from src.lib.time_series_generator import prepare_indicators
+from src.data_factory_clerk import prepare_indicators
 import src.trade_rules.scalping as scalping
 import src.trade_rules.stoploss as stoploss_strategy
 from src.trader import Trader
@@ -382,13 +382,20 @@ class RealTrader(Trader):
     def __show_why_not_entry(self, conditions_df: pd.DataFrame) -> None:
         time = conditions_df.time.values[-1]
         if conditions_df.trend.iat[-1] is None:
-            self._log_skip_reason('c. {}: "trend" is None !'.format(time))
+            msg: str = 'c. {}: "trend" is None !'.format(time)
+            print("[Trader] skip: {}".format(msg))
 
         columns = self.config.get_entry_rules("entry_filters")
         vals = conditions_df[columns].iloc[-1].values
         for reason, val in zip(columns, vals):
             if not val:
-                self._log_skip_reason('c. {}: "{}" is not satisfied !'.format(time, reason))
+                msg = 'c. {}: "{}" is not satisfied !'.format(time, reason)
+                print("[Trader] skip: {}".format(msg))
 
     def _generate_entryable_price(self, _) -> np.ndarray:
+        pass
+
+    def backtest(
+        self, candles: pd.DataFrame, indicators: pd.DataFrame
+    ) -> Dict[str, Union[str, pd.DataFrame]]:
         pass

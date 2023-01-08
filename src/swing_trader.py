@@ -1,4 +1,4 @@
-from typing import Dict, List, Union
+from typing import Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -29,29 +29,31 @@ class SwingTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Private
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def _backtest_wait_close(self, candles: pd.DataFrame) -> Dict[str, Union[str, pd.DataFrame]]:
-        """
-        (the difference from 'backtest' above)
-        entry is gonna be done just after the close of each candle is determined
-        """
-        shifted_candles: pd.DataFrame = self.__shift_trade_signs(candles)
-        # candles['thrust'] = wait_close.generate_thrust_column(candles)
+    # def _backtest_wait_close(
+    #     self, candles: pd.DataFrame, _: pd.DataFrame
+    # ) -> Dict[str, Union[str, pd.DataFrame]]:
+    #     """
+    #     (the difference from 'backtest' above)
+    #     entry is gonna be done just after the close of each candle is determined
+    #     """
+    #     shifted_candles: pd.DataFrame = self.__shift_trade_signs(candles)
+    #     # candles['thrust'] = wait_close.generate_thrust_column(candles)
 
-        result_msg: str = self.__backtest_common_flow(shifted_candles)
-        return {"result": result_msg, "candles": shifted_candles}
+    #     result_msg: str = self.__backtest_common_flow(shifted_candles)
+    #     return {"result": result_msg, "candles": shifted_candles}
 
-    # OPTIMIZE: This is not good rule...but at least working
-    def __shift_trade_signs(self, candles: pd.DataFrame) -> pd.DataFrame:
-        shift_target: List[str] = ["thrust", "entryable"] + self.config.get_entry_rules(
-            "entry_filters"
-        )
+    # # OPTIMIZE: This is not good rule...but at least working
+    # def __shift_trade_signs(self, candles: pd.DataFrame) -> pd.DataFrame:
+    #     shift_target: List[str] = ["thrust", "entryable"] + self.config.get_entry_rules(
+    #         "entry_filters"
+    #     )
 
-        df_shifted_target: pd.DataFrame = candles[shift_target].shift(1)
-        candles_without_shift_target: pd.DataFrame = candles.drop(shift_target, axis=1)
-        shifted_candles: pd.DataFrame = pd.concat(
-            [candles_without_shift_target, df_shifted_target], axis=1
-        )
-        return shifted_candles
+    #     df_shifted_target: pd.DataFrame = candles[shift_target].shift(1)
+    #     candles_without_shift_target: pd.DataFrame = candles.drop(shift_target, axis=1)
+    #     shifted_candles: pd.DataFrame = pd.concat(
+    #         [candles_without_shift_target, df_shifted_target], axis=1
+    #     )
+    #     return shifted_candles
 
     def __backtest_common_flow(self, candles: pd.DataFrame) -> str:
         candles.loc[:, "entryable_price"] = base_rules.generate_entryable_prices(

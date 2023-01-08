@@ -27,11 +27,6 @@ class AlphaTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Private
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def _generate_thrust_column(
-        self, candles: pd.DataFrame, _: pd.Series, indicators: pd.DataFrame
-    ) -> pd.Series:
-        return scalping.generate_repulsion_column(candles, ema=indicators["10EMA"])
-
     def _generate_entryable_price(self, candles: pd.DataFrame) -> np.ndarray:
         return scalping.generate_entryable_prices(
             candles[["open", "entryable"]], self.config.static_spread

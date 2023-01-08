@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 
@@ -117,7 +119,7 @@ def generate_stoc_allows_column(indicators, sr_trend):
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 #                         Single row Processor
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-def identify_trend_type(c_price, sma, ema):
+def identify_trend_type(c_price: float, sma: float, ema: float) -> Optional[str]:
     """
     Identify whether the trend type is 'bull', 'bear' or None
 

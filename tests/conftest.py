@@ -899,6 +899,27 @@ def past_usd_candles() -> List[Dict[str, Union[float, str, int]]]:
     return dummy_candles
 
 
+@pytest.fixture(scope="module")
+def dummy_trend_candles() -> List[dict]:
+    return [
+        {"high": 110.0, "low": 108.5, "bull": False, "bear": False, "thrust": None},
+        {"high": 110.0, "low": 108.5, "bull": False, "bear": False, "thrust": None},
+        {"high": 110.0, "low": 108.5, "bull": False, "bear": False, "thrust": None},
+        {"high": 110.0, "low": 108.5, "bull": False, "bear": False, "thrust": None},
+        {"high": 110.0, "low": 108.5, "bull": False, "bear": False, "thrust": None},
+        {"high": 110.0, "low": 108.5, "bull": False, "bear": False, "thrust": None},
+        {"high": 110.0, "low": 108.5, "bull": False, "bear": False, "thrust": None},
+        {"high": 110.0, "low": 108.5, "bull": False, "bear": False, "thrust": None},
+        {"high": 110.0, "low": 108.5, "bull": False, "bear": False, "thrust": None},
+        {"high": 110.0, "low": 108.5, "bull": False, "bear": False, "thrust": None},
+        {"high": 111.0, "low": 108.5, "bull": True, "bear": False, "thrust": "long"},
+        {"high": 110.0, "low": 107.5, "bull": False, "bear": True, "thrust": "short"},
+        {"high": 111.0, "low": 108.5, "bull": True, "bear": False, "thrust": "long"},
+        {"high": 110.0, "low": 107.5, "bull": False, "bear": True, "thrust": "short"},
+        {"high": 112.0, "low": 106.5, "bull": False, "bear": False, "thrust": None},
+    ]
+
+
 @pytest.fixture(scope="session")
 def d1_stoc_dummy():
     return [

@@ -6,7 +6,7 @@ import pytest
 
 from src.alpha_trader import AlphaTrader
 from src.candle_storage import FXBase
-from src.lib.time_series_generator import prepare_indicators
+from src.data_factory_clerk import prepare_indicators
 from tools.trade_lab import create_trader_instance
 
 

@@ -18,6 +18,8 @@ class ResultProcessor:
         self._drawer: Optional[FigureDrawer] = None
         if operation in ("backtest", "forward_test"):
             self.__set_drawing_option()
+        else:
+            self.__static_options = {"figure_option": 1}
 
     def __set_drawing_option(self) -> None:
         self.__static_options = {}
