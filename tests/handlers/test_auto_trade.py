@@ -7,7 +7,8 @@ from src.handlers import auto_trade
 
 
 class TestLambdaHandler:
-    def test_market_is_closed(self):
+    # @patch("src.clients.sns.publish")
+    def test_market_is_closed(self, patch_not_tradeable):
         """
         Condition: loading candles from OandaAPI is failed
         """

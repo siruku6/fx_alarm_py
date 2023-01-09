@@ -15,10 +15,8 @@ from tests.conftest import fixture_sns
 from tools.trade_lab import create_trader_instance
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def real_trader_client(patch_is_tradeable):
-    patch_is_tradeable
-
     tr_instance, _ = create_trader_instance(RealTrader, operation="unittest", days=60)
     yield tr_instance
 
@@ -95,13 +93,12 @@ class TestPlayScalpingTrade:
             - Doesn't create position.
         """
         df_candles: pd.DataFrame = pd.DataFrame(df_past_candles)
-        real_trader_client._indicators = dummy_indicators
 
         with patch(
             "src.real_trader.RealTrader._RealTrader__drive_entry_process",
             return_value=None,
         ) as mock:
-            real_trader_client._RealTrader__play_scalping_trade(df_candles)
+            real_trader_client._RealTrader__play_scalping_trade(df_candles, dummy_indicators)
 
         mock.assert_called_once()
 
@@ -134,13 +131,12 @@ class TestPlayScalpingTrade:
         df_candles: pd.DataFrame = pd.DataFrame(df_past_candles)
         df_candles["preconditions_allows"] = True
         df_candles["trend"] = "long"
-        real_trader_client._indicators = dummy_indicators
 
         with patch(
             "src.real_trader.RealTrader._create_position",
             return_value=None,
         ) as mock:
-            real_trader_client._RealTrader__play_scalping_trade(df_candles)
+            real_trader_client._RealTrader__play_scalping_trade(df_candles, dummy_indicators)
 
         mock.assert_called_once()
 
@@ -359,7 +355,12 @@ class TestDriveTrailProcess:
 
     #         mock.assert_not_called()
 
-    def test_long_position_with_step_trailing(self, dummy_candles, df_support_and_resistance):
+    def test_long_position_with_step_trailing(
+        self,
+        patch_is_tradeable,
+        dummy_candles,
+        df_support_and_resistance,
+    ):
         real_trader_client: RealTrader = self.real_trader("step")
         pos: Position = Position(
             id="9999",
@@ -381,7 +382,12 @@ class TestDriveTrailProcess:
 
             mock.assert_called_once_with(new_stop=round(new_stop, 3))
 
-    def test_short_position_with_step_trailing(self, dummy_candles, df_support_and_resistance):
+    def test_short_position_with_step_trailing(
+        self,
+        patch_is_tradeable,
+        dummy_candles,
+        df_support_and_resistance,
+    ):
         real_trader_client: RealTrader = self.real_trader("step")
         pos: Position = Position(
             id="9999",
@@ -584,32 +590,50 @@ def test___since_last_loss(real_trader_client):
     assert time_since_loss < timedelta(hours=1)
 
 
-def test___show_why_not_entry(real_trader_client):
-    entry_filters = FILTER_ELEMENTS
-    real_trader_client.config.set_entry_rules("entry_filters", entry_filters)
+class TestShowWhyNotEntry:
+    @pytest.fixture(name="column_names")
+    def fixture_column_names(self) -> List[str]:
+        columns = FILTER_ELEMENTS.copy()
+        columns.extend(["trend", "time"])
+        return columns
 
-    columns = entry_filters.copy()
-    columns.extend(["trend", "time"])
+    def test_not_called(self, real_trader_client, column_names: List[str]):
+        """
+        Example: conditions are all True
+        """
+        real_trader_client.config.set_entry_rules("entry_filters", FILTER_ELEMENTS)
 
-    # Example: conditions are all True
-    conditions_df = pd.DataFrame([np.full(len(columns), True)], columns=columns)
-    with patch("src.real_trader.RealTrader._log_skip_reason") as mock:
-        real_trader_client._RealTrader__show_why_not_entry(conditions_df)
-    mock.assert_not_called()
+        conditions_df = pd.DataFrame([np.full(len(column_names), True)], columns=column_names)
+        with patch("builtins.print") as mock:
+            real_trader_client._RealTrader__show_why_not_entry(conditions_df)
+        mock.assert_not_called()
 
-    # Example: conditions are all False
-    conditions_df = pd.DataFrame([np.full(len(columns), False)], columns=columns)
-    with patch("src.real_trader.RealTrader._log_skip_reason") as mock:
-        real_trader_client._RealTrader__show_why_not_entry(conditions_df)
+    def test_show_two_reason(self, real_trader_client, column_names: List[str]):
+        """
+        Example: conditions are all False
+        """
+        real_trader_client.config.set_entry_rules("entry_filters", FILTER_ELEMENTS)
 
-    calls = [call('c. {}: "{}" is not satisfied !'.format(False, item)) for item in entry_filters]
-    mock.assert_has_calls(calls)
+        conditions_df = pd.DataFrame([np.full(len(column_names), False)], columns=column_names)
+        with patch("builtins.print") as mock:
+            real_trader_client._RealTrader__show_why_not_entry(conditions_df)
 
-    # Example: conditions are all None
-    conditions_df = pd.DataFrame([np.full(len(columns), None)], columns=columns)
-    with patch("src.real_trader.RealTrader._log_skip_reason") as mock:
-        real_trader_client._RealTrader__show_why_not_entry(conditions_df)
-    mock.assert_any_call('c. {}: "trend" is None !'.format(None))
+        calls = [
+            call('[Trader] skip: c. {}: "{}" is not satisfied !'.format(False, item))
+            for item in FILTER_ELEMENTS
+        ]
+        mock.assert_has_calls(calls)
+
+    def test_show_trend_is_none(self, real_trader_client, column_names: List[str]):
+        """
+        Example: conditions are all None
+        """
+        real_trader_client.config.set_entry_rules("entry_filters", FILTER_ELEMENTS)
+
+        conditions_df = pd.DataFrame([np.full(len(column_names), None)], columns=column_names)
+        with patch("builtins.print") as mock:
+            real_trader_client._RealTrader__show_why_not_entry(conditions_df)
+        mock.assert_any_call('[Trader] skip: c. {}: "trend" is None !'.format(None))
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

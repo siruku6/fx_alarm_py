@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal  # , ROUND_HALF_EVEN
 import os
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -57,9 +58,9 @@ def aggregate_backtest_result(
             Name: profit, dtype=float64
             Name: gross,  dtype=float64
     """
-    filter_boolean = __filter_to_boolean(config.get_entry_rules("entry_filters"))
+    filter_boolean: List[bool] = __filter_to_boolean(config.get_entry_rules("entry_filters"))  # type: ignore
 
-    positions = df_positions.loc[df_positions.position.notnull(), :].copy()
+    positions: pd.DataFrame = df_positions.loc[df_positions.position.notnull(), :].copy()
     positions = __calc_profit(copied_positions=positions)
     positions.loc[:, "gross"] = positions.profit.cumsum()
     positions.loc[:, "drawdown"] = positions.gross - positions.gross.cummax()
@@ -67,40 +68,43 @@ def aggregate_backtest_result(
     performance_result = __calc_performance_indicators(positions)
     __append_performance_result_to_csv(
         rule=rule,
-        granularity=config.get_entry_rules("granularity"),
+        granularity=config.get_entry_rules("granularity"),  # type: ignore
         sl_buf=config.stoploss_buffer_pips,
         spread=config.static_spread,
         candles=df_positions,
         performance_result=performance_result,
         filter_boolean=filter_boolean,
+        operation=config.operation,
     )
+
     # TODO: Remove - this is a temporary line of cord.
-    positions.to_csv("./tmp/csvs/positions_dump.csv")
+    if config.operation != "unittest":
+        positions.to_csv("./tmp/csvs/positions_dump.csv")
     return positions[["time", "profit", "gross"]].copy()
 
 
-def __filter_to_boolean(_filter):
+def __filter_to_boolean(_filter: List[str]) -> List[bool]:
     return [(elem in _filter) for elem in FILTER_ELEMENTS]
 
 
-def __calc_profit(copied_positions):
+def __calc_profit(copied_positions: pd.DataFrame) -> pd.DataFrame:
     """calculate the profit and loss for each trades"""
-    copied_positions.loc[:, "profit"] = 0
+    copied_positions.loc[:, "profit"] = 0.0
 
     # INFO: entry したその足で exit してしまった分の profit を計算
-    is_soon_exit = (
+    is_soon_exit: pd.Series = (
         copied_positions["exitable_price"].notnull() & copied_positions["entry_price"].notnull()
     )
-    soon_exit_positions = copied_positions[is_soon_exit]
-    exit_entry_diffs = (soon_exit_positions.exitable_price - soon_exit_positions.entry_price).map(
-        __round_really
-    )
+    soon_exit_positions: pd.DataFrame = copied_positions[is_soon_exit]
+    exit_entry_diffs: pd.Series = (
+        soon_exit_positions.exitable_price - soon_exit_positions.entry_price
+    ).map(__round_really)
     copied_positions.loc[is_soon_exit, "profit"] = __pl_calculator(
         soon_exit_positions.position, exit_entry_diffs
     )
 
     # INFO: entry 後、次の足までは position を持ち越した分の profit を計算
-    continued_index = (
+    continued_index: pd.Series = (
         copied_positions["exitable_price"].notnull()
         & copied_positions.shift(1)["exitable_price"].isna()
     )
@@ -110,15 +114,15 @@ def __calc_profit(copied_positions):
     copied_positions.loc[continued_index, "profit"] += __pl_calculator(
         copied_positions[continued_index].position, exit_entry_diffs
     )
-    return copied_positions
+    return copied_positions.astype({"profit": float})
 
 
-def __pl_calculator(position_series, diffs):
+def __pl_calculator(position_series: pd.Series, diffs: pd.Series) -> np.ndarray:
     # INFO: long か short かで正負を逆にする
     return np.nan_to_num(np.where(position_series == "sell_exit", diffs, diffs * -1))
 
 
-def __calc_performance_indicators(positions):
+def __calc_performance_indicators(positions: pd.DataFrame) -> Dict[str, Any]:
     long_cnt = len(positions[__hist_index_of(positions, sign="long|sell_exit")])
     short_cnt = len(positions[__hist_index_of(positions, sign="short|buy_exit")])
     entry_cnt = long_cnt + short_cnt
@@ -153,7 +157,7 @@ def __calc_performance_indicators(positions):
     }
 
 
-def __hist_index_of(positions, sign):
+def __hist_index_of(positions: pd.DataFrame, sign: str) -> pd.Series:
     """
     long 又は short どちらかのみの position を絞り込むための boolean 型 Series を生成する
     params:
@@ -173,8 +177,15 @@ def __hist_index_of(positions, sign):
 
 
 def __append_performance_result_to_csv(
-    rule, granularity, sl_buf, spread, candles, performance_result, filter_boolean
-):
+    rule: str,
+    granularity: str,
+    sl_buf: float,
+    spread: float,
+    candles: pd.DataFrame,
+    performance_result: pd.DataFrame,
+    filter_boolean: List[bool],
+    operation: str,
+) -> pd.DataFrame:
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     duration = "{start} ~ {end}".format(start=candles.time[20], end=candles.iloc[-1].time)
     result_row = [
@@ -200,16 +211,19 @@ def __append_performance_result_to_csv(
         performance_result["sharp_ratio"],  # 'Sharp Ratio'
         performance_result["sortino_ratio"],  # 'Sortino Ratio'
     ]
-    result_df = pd.DataFrame(
+    result_df: pd.DataFrame = pd.DataFrame(
         [result_row + filter_boolean], columns=TRADE_RESULT_ITEMS + FILTER_ELEMENTS
     )
 
-    filepath: str = "tmp/csvs/verify_results.csv"
-    need_header: bool = not os.path.isfile(filepath)
-    result_df.to_csv(filepath, encoding="shift-jis", mode="a", index=False, header=need_header)
-    print("[Trader] Added the result of backtest in 'verify_results.csv'!")
+    if operation != "unittest":
+        filepath: str = "tmp/csvs/verify_results.csv"
+        need_header: bool = not os.path.isfile(filepath)
+        result_df.to_csv(filepath, encoding="shift-jis", mode="a", index=False, header=need_header)
+        print("[Trader] Added the result of backtest in 'verify_results.csv'!")
+
+    return result_df
 
 
-def __round_really(x):
+def __round_really(x: float) -> float:
     """小数点第3位で四捨五入(roundでは四捨五入できないため、実装した)"""
     return float(Decimal(str(x)).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP))

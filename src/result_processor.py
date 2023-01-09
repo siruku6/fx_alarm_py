@@ -15,18 +15,20 @@ class ResultProcessor:
 
     def __init__(self, operation: str, config: TraderConfig) -> None:
         self._config: TraderConfig = config
-        self._drawer: FigureDrawer = None
+        self._drawer: Optional[FigureDrawer] = None
         if operation in ("backtest", "forward_test"):
             self.__set_drawing_option()
+        else:
+            self.__static_options = {"figure_option": 1}
 
-    def __set_drawing_option(self):
+    def __set_drawing_option(self) -> None:
         self.__static_options = {}
         self.__static_options["figure_option"] = i_face.ask_number(
             msg="[Trader] 画像描画する？ [1]: No, [2]: Yes, [3]: with_P/L ", limit=3
         )
         self._drawer = None
 
-    def reset_drawer(self):
+    def reset_drawer(self) -> None:
         if self.__static_options["figure_option"] > 1:
             self._drawer = FigureDrawer(
                 rows_num=self.__static_options["figure_option"],
@@ -66,7 +68,7 @@ class ResultProcessor:
         df_positions: pd.DataFrame = self._preprocess_backtest_result(
             rule, result["candles"][positions_columns]
         )
-        df_positions: pd.DataFrame = self._wrangle_result_for_graph(df_positions.copy())
+        df_positions = self._wrangle_result_for_graph(df_positions.copy())
         self._drive_drawing_charts(df_positions=df_positions, indicators=indicators)
 
         return df_positions
@@ -126,7 +128,7 @@ class ResultProcessor:
 
         return positions_df
 
-    def _drive_drawing_charts(self, df_positions: pd.DataFrame, indicators: pd.DataFrame):
+    def _drive_drawing_charts(self, df_positions: pd.DataFrame, indicators: pd.DataFrame) -> None:
         if self._drawer is None:
             return
 
@@ -153,7 +155,7 @@ class ResultProcessor:
         df_index: int,
         indicators: pd.DataFrame,
         positions_df: pd.DataFrame,
-    ):
+    ) -> None:
         def query_entry_rows(
             position_df: pd.DataFrame, position_type: str, exit_type: str
         ) -> pd.DataFrame:
@@ -220,7 +222,7 @@ class ResultProcessor:
 
     def __split_df_by_200rows(self, d_frame: pd.DataFrame) -> List[pd.DataFrame]:
         dfs: List[Optional[pd.DataFrame]] = []
-        df_len: str = len(d_frame)
+        df_len: int = len(d_frame)
         loop: int = 0
 
         while ResultProcessor.MAX_ROWS_COUNT * loop < df_len:

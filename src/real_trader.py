@@ -9,6 +9,7 @@ import pandas as pd
 
 from src.candle_storage import FXBase
 from src.clients import sns
+from src.data_factory_clerk import prepare_indicators
 import src.trade_rules.scalping as scalping
 import src.trade_rules.stoploss as stoploss_strategy
 from src.trader import Trader
@@ -62,14 +63,15 @@ class RealTrader(Trader):
     # Public
     #
     def apply_trading_rule(self) -> None:
+        indicators = prepare_indicators()
         candles = FXBase.get_candles().copy()
-        self._prepare_trade_signs(candles)
+        self._prepare_trade_signs("scalping", candles, indicators)
         candles["preconditions_allows"] = np.all(
             candles[self.config.get_entry_rules("entry_filters")], axis=1
         )
         # candles = self._merge_long_indicators(candles) # already merged on Trader.__init__()
         # self.__play_swing_trade(candles)
-        self.__play_scalping_trade(candles)
+        self.__play_scalping_trade(candles, indicators)
 
     def _set_positions(self, positions: List[Optional[Position]]) -> None:
         self._positions = positions
@@ -139,7 +141,11 @@ class RealTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     #                       Swing
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __play_swing_trade(self, candles: pd.DataFrame) -> None:
+    def __play_swing_trade(
+        self,
+        candles: pd.DataFrame,
+        indicators: pd.DataFrame,
+    ) -> None:
         """現在のレートにおいて、スイングトレードルールでトレード"""
         last_candle = candles.iloc[-1, :]
 
@@ -165,16 +171,16 @@ class RealTrader(Trader):
             self._create_position(candles.iloc[-2], direction)
         else:
             new_stop = self.__drive_trail_process(
-                self._positions[-1],
+                self._positions[-1],  # type: ignore
                 candles.iloc[-2, :],
-                self._indicators.iloc[-1],
+                indicators.iloc[-1],
             )
 
         print(
             "[Trader] position: {}, possible_SL: {}, stoploss: {}".format(
-                self._positions[-1].type,
+                self._positions[-1].type,  # type: ignore
                 new_stop if "new_stop" in locals() else "-",
-                self._positions[-1].stoploss,
+                self._positions[-1].stoploss,  # type: ignore
             )
         )
         return None
@@ -182,9 +188,14 @@ class RealTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     #                       Scalping
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __play_scalping_trade(self, candles: pd.DataFrame) -> None:
-        """Trade with scalping rule"""
-        indicators: pd.DataFrame = self._indicators
+    def __play_scalping_trade(
+        self,
+        candles: pd.DataFrame,
+        indicators: pd.DataFrame,
+    ) -> None:
+        """
+        Trade with scalping rule
+        """
         last_candle: pd.Series = candles.iloc[-1]
         last_indicators: pd.Series = indicators.iloc[-1]
 
@@ -192,9 +203,15 @@ class RealTrader(Trader):
 
         if len(self._positions) >= 1:
             new_stop: float = self.__drive_trail_process(
-                self._positions[-1], candles.iloc[-2], last_indicators
+                self._positions[-1],  # type: ignore
+                candles.iloc[-2],
+                last_indicators,
             )
-            self.__drive_exit_process(self._positions[-1].type, indicators, last_candle)
+            self.__drive_exit_process(
+                self._positions[-1].type,  # type: ignore
+                indicators,
+                last_candle,
+            )
         else:
             self.__drive_entry_process(candles, last_candle, indicators, last_indicators)
 
@@ -203,9 +220,9 @@ class RealTrader(Trader):
 
         print(
             "[Trader] position: {}, possible_SL: {}, stoploss: {}".format(
-                self._positions[-1].type,
+                self._positions[-1].type,  # type: ignore
                 new_stop if "new_stop" in locals() else "-",
-                self._positions[-1].stoploss,
+                self._positions[-1].stoploss,  # type: ignore
             )
         )
         return None
@@ -365,13 +382,20 @@ class RealTrader(Trader):
     def __show_why_not_entry(self, conditions_df: pd.DataFrame) -> None:
         time = conditions_df.time.values[-1]
         if conditions_df.trend.iat[-1] is None:
-            self._log_skip_reason('c. {}: "trend" is None !'.format(time))
+            msg: str = 'c. {}: "trend" is None !'.format(time)
+            print("[Trader] skip: {}".format(msg))
 
         columns = self.config.get_entry_rules("entry_filters")
         vals = conditions_df[columns].iloc[-1].values
         for reason, val in zip(columns, vals):
             if not val:
-                self._log_skip_reason('c. {}: "{}" is not satisfied !'.format(time, reason))
+                msg = 'c. {}: "{}" is not satisfied !'.format(time, reason)
+                print("[Trader] skip: {}".format(msg))
 
     def _generate_entryable_price(self, _) -> np.ndarray:
+        pass
+
+    def backtest(
+        self, candles: pd.DataFrame, indicators: pd.DataFrame
+    ) -> Dict[str, Union[str, pd.DataFrame]]:
         pass
