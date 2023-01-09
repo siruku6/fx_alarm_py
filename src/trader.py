@@ -122,7 +122,6 @@ class Trader(metaclass=abc.ABCMeta):
                 "bear": np.where(candles["trend"] == "bear", True, False),
             }
         )
-        # NOTE: _generate_thrust_column varies by the super class
         candles["thrust"] = generate_thrust_column(rule, candles, trend, indicators)
         # 60EMA is necessary?
         # candles['ema60_allows'] = generate_ema_allows_column(candles=candles)

@@ -65,7 +65,7 @@ class RealTrader(Trader):
     def apply_trading_rule(self) -> None:
         indicators = prepare_indicators()
         candles = FXBase.get_candles().copy()
-        self._prepare_trade_signs(candles, indicators)
+        self._prepare_trade_signs("scalping", candles, indicators)
         candles["preconditions_allows"] = np.all(
             candles[self.config.get_entry_rules("entry_filters")], axis=1
         )

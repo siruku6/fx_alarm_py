@@ -119,7 +119,7 @@ def create_trader_instance(
 
     result: Dict[str, Union[str, bool]] = is_tradeable(interface=o_interface)
 
-    if result["tradeable"] is False:
+    if candle_loader.need_request and (result["tradeable"] is False):
         print("[TradeLab]", result["info"])
         return None, None
 

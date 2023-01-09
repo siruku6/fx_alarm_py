@@ -12,7 +12,7 @@ def generate_thrust_column_for_swing(
     trend: pd.DataFrame,
     _: pd.DataFrame,
 ) -> pd.Series:
-    # INFO: the most highest or lowest in last 10 candles
+    # INFO: the most highest or lowest in last 3 candles
     recent_highests: pd.Series = candles["high"] == candles["high"].rolling(window=3).max()
     recent_lowests: pd.Series = candles["low"] == candles["low"].rolling(window=3).min()
 
