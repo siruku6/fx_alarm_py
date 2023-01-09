@@ -42,6 +42,7 @@ class CandleLoader:
             return {"info": None}
 
         latest_candle: Dict[str, Any] = self.interface.call_oanda("current_price")
+        LOGGER.info({"latest_candle": latest_candle})
         self.__update_latest_candle(latest_candle)
         return {"info": None}
 
@@ -67,7 +68,7 @@ class CandleLoader:
         FXBase.set_long_span_candles(long_span_candles)
         # long_span_candles.resample('4H').ffill() # upsamplingしようとしたがいらなかった。
 
-    def __load_long_chart(self, granularity: str = None) -> pd.DataFrame:
+    def __load_long_chart(self, granularity: Optional[str] = None) -> pd.DataFrame:
         if granularity is None:
             granularity: str = self.config.get_entry_rules("granularity")  # type: ignore
         if self.days is None:
@@ -88,8 +89,13 @@ class CandleLoader:
             FXBase.replace_latest_price("high", latest_candle["high"])
         if candle_dict["low"] > latest_candle["low"]:
             FXBase.replace_latest_price("low", latest_candle["low"])
-        LOGGER.info({"[Client] Last_H4": candle_dict, "Current_M1": latest_candle})
-        LOGGER.info({"[Client] New_H4": FXBase.get_candles().iloc[-1].to_dict()})
+        LOGGER.info(
+            {
+                "[Client] Last_H4": candle_dict,
+                "Current_M1": latest_candle,
+                "[Client] New_H4": FXBase.get_candles().iloc[-1].to_dict(),
+            }
+        )
 
     def load_candles_by_duration_for_hist(
         self, instrument: str, start: datetime, end: datetime, granularity: str

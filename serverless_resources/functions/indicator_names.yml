@@ -19,7 +19,6 @@ events:
         methods:
           - GET
           - OPTIONS
-      reqValidatorName: noParameter
 
 
 # Define environment variables

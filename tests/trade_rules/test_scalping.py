@@ -39,7 +39,6 @@ def test_generate_down_repulsion_column():
         orient="index",
     )
     repulsion_series = scalping.generate_repulsion_column(candles=test_df, ema=test_df.ema)
-    # import pdb; pdb.set_trace()
 
     assert repulsion_series[0] is None
     assert repulsion_series[1] is None

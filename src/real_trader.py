@@ -1,6 +1,7 @@
+import dataclasses
 from datetime import datetime, timedelta
 from pprint import pprint
-from typing import Any, Callable, List, Literal, Optional, TypedDict, Union
+from typing import Any, Callable, Dict, List, Literal, Optional, Union
 
 from aws_lambda_powertools import Logger
 import numpy as np
@@ -8,6 +9,7 @@ import pandas as pd
 
 from src.candle_storage import FXBase
 from src.clients import sns
+from src.data_factory_clerk import prepare_indicators
 import src.trade_rules.scalping as scalping
 import src.trade_rules.stoploss as stoploss_strategy
 from src.trader import Trader
@@ -16,32 +18,42 @@ LOGGER = Logger()
 PositionType = Literal["long", "short"]
 
 
-class PositionRequired(TypedDict):
-    """Required keys"""
+@dataclasses.dataclass
+class Position:
+    id: Optional[str]
+    type: PositionType
+    price: Optional[float]
+    openTime: Optional[str]
+    stoploss: Optional[float]
 
-    type: str
-
-
-class Position(PositionRequired, total=False):
-    """Optional keys"""
-
-    id: str
-    price: float
-    openTime: str
-    stoploss: float
+    # @classmethod
+    # def init(
+    #     cls,
+    #     type,
+    #     id: Optional[str] = None,
+    #     price: Optional[float] = None,
+    #     openTime: Optional[str] = None,
+    #     stoploss: Optional[float] = None,
+    # ):
+    #     position: Position = Position(
+    #         id=id,
+    #         type=type,
+    #         price=price,
+    #         openTime=openTime,
+    #         stoploss=stoploss,
+    #     )
+    #     return position
 
 
 class RealTrader(Trader):
     """This class orders trading to Oanda following trading rules."""
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: Dict[str, Any]) -> None:
         print("[Trader] -------- start --------")
         super(RealTrader, self).__init__(**kwargs)
 
-        self._position: Position = {"type": "none"}
-        # self._set_position({'type': 'none'})
+        self._positions: List[Optional[Position]] = []
 
-    @property
     def stoploss_method(
         self,
     ) -> Union[Callable[[str, float, float], float], Callable[[str, float, float, Any], float]]:
@@ -51,17 +63,18 @@ class RealTrader(Trader):
     # Public
     #
     def apply_trading_rule(self) -> None:
+        indicators = prepare_indicators()
         candles = FXBase.get_candles().copy()
-        self._prepare_trade_signs(candles)
+        self._prepare_trade_signs("scalping", candles, indicators)
         candles["preconditions_allows"] = np.all(
             candles[self.config.get_entry_rules("entry_filters")], axis=1
         )
         # candles = self._merge_long_indicators(candles) # already merged on Trader.__init__()
         # self.__play_swing_trade(candles)
-        self.__play_scalping_trade(candles)
+        self.__play_scalping_trade(candles, indicators)
 
-    def _set_position(self, position_dict: Position) -> None:
-        self._position = position_dict
+    def _set_positions(self, positions: List[Optional[Position]]) -> None:
+        self._positions = positions
 
     #
     # Override shared methods
@@ -108,14 +121,14 @@ class RealTrader(Trader):
         """
         # NOTE: trail先の価格を既に突破していたら自動でcloseしてくれた OandaAPI は優秀
         result: dict = self._oanda_interface.order_oanda(
-            method_type="trail", trade_id=self._position["id"], stoploss_price=new_stop
+            method_type="trail", trade_id=self._positions[-1].id, stoploss_price=new_stop
         )
         LOGGER.info({"[Client] trail": result})
 
     def __settle_position(self, reason: str = "") -> None:
         """ポジションをcloseする"""
         result: dict = self._oanda_interface.order_oanda(
-            method_type="exit", trade_id=self._position["id"], reason=reason
+            method_type="exit", trade_id=self._positions[-1].id, reason=reason
         )
 
         LOGGER.info({result["message"]: result["response"], "reason": result["reason"]})
@@ -128,12 +141,16 @@ class RealTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     #                       Swing
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __play_swing_trade(self, candles: pd.DataFrame) -> None:
+    def __play_swing_trade(
+        self,
+        candles: pd.DataFrame,
+        indicators: pd.DataFrame,
+    ) -> None:
         """現在のレートにおいて、スイングトレードルールでトレード"""
         last_candle = candles.iloc[-1, :]
 
-        self._set_position(self.__fetch_current_position())
-        if self._position["type"] == "none":
+        self._set_positions(self.__fetch_current_positions())
+        if len(self._positions) == 0:
             entry_rules = [
                 "sma_follow_trend",
                 "band_expansion",
@@ -153,13 +170,17 @@ class RealTrader(Trader):
 
             self._create_position(candles.iloc[-2], direction)
         else:
-            new_stop = self.__drive_trail_process(candles.iloc[-2, :], self._indicators.iloc[-1])
+            new_stop = self.__drive_trail_process(
+                self._positions[-1],  # type: ignore
+                candles.iloc[-2, :],
+                indicators.iloc[-1],
+            )
 
         print(
             "[Trader] position: {}, possible_SL: {}, stoploss: {}".format(
-                self._position["type"],
+                self._positions[-1].type,  # type: ignore
                 new_stop if "new_stop" in locals() else "-",
-                self._position.get("stoploss", None),
+                self._positions[-1].stoploss,  # type: ignore
             )
         )
         return None
@@ -167,25 +188,41 @@ class RealTrader(Trader):
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     #                       Scalping
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    def __play_scalping_trade(self, candles: pd.DataFrame) -> None:
-        """Trade with scalping rule"""
-        indicators: pd.DataFrame = self._indicators
+    def __play_scalping_trade(
+        self,
+        candles: pd.DataFrame,
+        indicators: pd.DataFrame,
+    ) -> None:
+        """
+        Trade with scalping rule
+        """
         last_candle: pd.Series = candles.iloc[-1]
         last_indicators: pd.Series = indicators.iloc[-1]
 
-        self._set_position(self.__fetch_current_position())
+        self._set_positions(self.__fetch_current_positions())
 
-        if self._position["type"] != "none":
-            new_stop: float = self.__drive_trail_process(candles.iloc[-2], last_indicators)
-            self.__drive_exit_process(self._position["type"], indicators, last_candle)
+        if len(self._positions) >= 1:
+            new_stop: float = self.__drive_trail_process(
+                self._positions[-1],  # type: ignore
+                candles.iloc[-2],
+                last_indicators,
+            )
+            self.__drive_exit_process(
+                self._positions[-1].type,  # type: ignore
+                indicators,
+                last_candle,
+            )
         else:
             self.__drive_entry_process(candles, last_candle, indicators, last_indicators)
 
+        if len(self._positions) == 0:
+            return None
+
         print(
             "[Trader] position: {}, possible_SL: {}, stoploss: {}".format(
-                self._position["type"],
+                self._positions[-1].type,  # type: ignore
                 new_stop if "new_stop" in locals() else "-",
-                self._position.get("stoploss", None),
+                self._positions[-1].stoploss,  # type: ignore
             )
         )
         return None
@@ -228,18 +265,19 @@ class RealTrader(Trader):
         return direction
 
     def __drive_trail_process(
-        self, previous_candle: pd.Series, last_indicators: pd.Series
+        self, target_pos: Position, previous_candle: pd.Series, last_indicators: pd.Series
     ) -> float:
-        old_stoploss: float = self._position.get("stoploss", np.nan)
-        possible_stoploss: float = self.stoploss_method(
-            position_type=self._position["type"],
+        old_stoploss: float = target_pos.stoploss or np.nan
+        stoploss_func = self.stoploss_method()
+        possible_stoploss: float = stoploss_func(
+            position_type=target_pos.type,
             previous_low=previous_candle["low"],
             previous_high=previous_candle["high"],
             config=self.config,
             current_sup=last_indicators["support"],
             current_regist=last_indicators["regist"],
         )
-        if self.__new_stoploss_is_closer(self._position["type"], possible_stoploss, old_stoploss):
+        if self.__new_stoploss_is_closer(target_pos.type, possible_stoploss, old_stoploss):
             self._trail_stoploss(new_stop=possible_stoploss)
         else:
             possible_stoploss = old_stoploss
@@ -285,14 +323,13 @@ class RealTrader(Trader):
             )
             self.__settle_position(reason=reason)
 
-    def __fetch_current_position(self) -> Position:
-        pos: Position = {"type": "none"}
+    def __fetch_current_positions(self) -> List[Optional[Position]]:
         result = self._oanda_interface.call_oanda("open_trades")
         LOGGER.info({"[Client] OpenTrades": result["response"]})
 
         positions: List[dict] = result["positions"]
         if positions == []:
-            return pos
+            return []
 
         # Extract only the necessary information of open position
         target: dict = positions[0]
@@ -301,17 +338,19 @@ class RealTrader(Trader):
         else:
             position_type = "long"
 
+        if "stopLossOrder" not in target:
+            sl_price: Optional[float] = None
+        else:
+            sl_price = float(target["stopLossOrder"]["price"])
+
         pos = {
             "id": target["id"],
             "price": float(target["price"]),
             "openTime": target["openTime"],
             "type": position_type,
+            "stoploss": sl_price,
         }
-        if "stopLossOrder" not in target:
-            return pos
-
-        pos["stoploss"] = float(target["stopLossOrder"]["price"])
-        return pos
+        return [Position(**pos)]
 
     def __since_last_loss(self) -> timedelta:
         """
@@ -327,6 +366,8 @@ class RealTrader(Trader):
         """
         candle_size = 100
         hist_df = self._oanda_interface.call_oanda("transactions", count=candle_size)
+        LOGGER.info({"hist_df": hist_df})
+
         time_series = hist_df[hist_df.pl < 0]["time"]
         if time_series.empty:
             return timedelta(hours=99)
@@ -341,13 +382,20 @@ class RealTrader(Trader):
     def __show_why_not_entry(self, conditions_df: pd.DataFrame) -> None:
         time = conditions_df.time.values[-1]
         if conditions_df.trend.iat[-1] is None:
-            self._log_skip_reason('c. {}: "trend" is None !'.format(time))
+            msg: str = 'c. {}: "trend" is None !'.format(time)
+            print("[Trader] skip: {}".format(msg))
 
         columns = self.config.get_entry_rules("entry_filters")
         vals = conditions_df[columns].iloc[-1].values
         for reason, val in zip(columns, vals):
             if not val:
-                self._log_skip_reason('c. {}: "{}" is not satisfied !'.format(time, reason))
+                msg = 'c. {}: "{}" is not satisfied !'.format(time, reason)
+                print("[Trader] skip: {}".format(msg))
 
     def _generate_entryable_price(self, _) -> np.ndarray:
+        pass
+
+    def backtest(
+        self, candles: pd.DataFrame, indicators: pd.DataFrame
+    ) -> Dict[str, Union[str, pd.DataFrame]]:
         pass

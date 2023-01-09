@@ -1,3 +1,5 @@
+from typing import List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 
@@ -7,15 +9,15 @@ import src.trade_rules.stoploss as stoploss_strategy
 # - - - - - - - - - - - - - - - - - - - - - - - -
 #                Driver of logics
 # - - - - - - - - - - - - - - - - - - - - - - - -
-def generate_repulsion_column(candles, ema):
+def generate_repulsion_column(candles: pd.DataFrame, ema: pd.Series) -> np.ndarray:
     method_thrust_checker = np.frompyfunc(repulsion_exist, 6, 1)
-    result = method_thrust_checker(
-        candles.trend,
+    result: np.ndarray = method_thrust_checker(
+        candles["trend"],
         ema.shift(1),
-        candles.high.shift(2),
-        candles.high.shift(1),
-        candles.low.shift(2),
-        candles.low.shift(1),
+        candles["high"].shift(2),
+        candles["high"].shift(1),
+        candles["low"].shift(2),
+        candles["low"].shift(1),
     )
     return result
 
@@ -48,7 +50,7 @@ def generate_entryable_prices(candles: pd.DataFrame, spread: float) -> np.ndarra
     return result
 
 
-def commit_positions_by_loop(factor_dicts):
+def commit_positions_by_loop(factor_dicts: List[dict]) -> pd.DataFrame:
     """
     Parameters
     ----------
@@ -70,7 +72,12 @@ def commit_positions_by_loop(factor_dicts):
     ]
 
 
-def __trade_routine(entry_direction, factor_dicts, index, one_frame):
+def __trade_routine(
+    entry_direction: str,
+    factor_dicts: List[dict],
+    index: int,
+    one_frame: pd.Series,
+) -> str:
     # entry 中でなければ continue
     if entry_direction not in ("long", "short"):
         entry_direction = __reset_next_position(factor_dicts, index, entry_direction)
@@ -95,7 +102,7 @@ def __trade_routine(entry_direction, factor_dicts, index, one_frame):
     return entry_direction
 
 
-def __reset_next_position(factor_dicts, index, entry_direction):
+def __reset_next_position(factor_dicts: List[dict], index: int, entry_direction: str) -> str:
     if factor_dicts[-1]["time"] == factor_dicts[index]["time"]:
         return "It is the last"
 
@@ -103,29 +110,34 @@ def __reset_next_position(factor_dicts, index, entry_direction):
     return entry_direction
 
 
-def __decide_exit_price(entry_direction, one_frame, previous_frame):
+def __decide_exit_price(
+    entry_direction: str, one_frame: pd.Series, previous_frame: pd.Series
+) -> Tuple[float, str, str]:
     if entry_direction == "long":
         # edge_price = one_frame['high']
         exit_type = "sell_exit"
     elif entry_direction == "short":
         # edge_price = one_frame['low']
         exit_type = "buy_exit"
+
+    exit_price: Optional[float]
+    exit_reason: Optional[str]
     exit_price, exit_reason = __exit_by_stoploss(one_frame)
     if exit_price is not None:
-        return exit_price, exit_type, exit_reason
+        return exit_price, exit_type, exit_reason  # type: ignore
 
     # if is_exitable_by_bollinger(edge_price, one_frame['sigma*2_band'], one_frame['sigma*-2_band']):
     #     exit_price = one_frame['sigma*2_band'] if entry_direction == 'long' else one_frame['sigma*-2_band']
     if is_exitable(entry_direction, one_frame, previous_frame):
         exit_price = one_frame["open"]  # 'low'] if entry_direction == 'long' else one_frame['high']
         exit_reason = "Stochastics of both long and target-span are crossed"
-    return exit_price, exit_type, exit_reason
+    return exit_price, exit_type, exit_reason  # type: ignore
 
 
-def __exit_by_stoploss(one_frame):
+def __exit_by_stoploss(one_frame: pd.Series) -> Tuple[Optional[float], Optional[str]]:
     """stoploss による exit の判定"""
-    exit_price = None
-    exit_reason = None
+    exit_price: Optional[float] = None
+    exit_reason: Optional[str] = None
 
     if one_frame["low"] < one_frame["possible_stoploss"] < one_frame["high"]:
         exit_price = one_frame["possible_stoploss"]
@@ -133,7 +145,7 @@ def __exit_by_stoploss(one_frame):
     return exit_price, exit_reason
 
 
-def __tmp_delay_irregular_entry(factor_dicts, index):
+def __tmp_delay_irregular_entry(factor_dicts: List[dict], index: int) -> None:
     one_frame = factor_dicts[index]
     # HACK: long なのに buy_exit などの逆行減少があるときは entryを消しておく (暫定措置)
     long_buy_exit = one_frame["entryable"] == "long" and one_frame["position"] == "buy_exit"
@@ -151,9 +163,18 @@ def __tmp_delay_irregular_entry(factor_dicts, index):
 #                  Trade Logics
 # - - - - - - - - - - - - - - - - - - - - - - - -
 def repulsion_exist(
-    trend, previous_ema, two_before_high, previous_high, two_before_low, previous_low
-):
-    """1, 2本前の足から見て、trend方向にcrossしていればentry可のsignを出す"""
+    trend: str,
+    previous_ema: float,
+    two_before_high: float,
+    previous_high: float,
+    two_before_low: float,
+    previous_low: float,
+) -> Optional[str]:
+    """
+    "long": the price surpass 10ema in bull trend
+    "short": the price underperform 10ema in bear trend
+    1, 2本前の足から見て、trend方向にcrossしていればentry可のsignを出す
+    """
     # OPTIMIZE: rising, falling は試験的に削除したが、検証が必要
     #   => 他の条件が整っていさえすれば、早いタイミングでエントリーするようになった
     if trend == "bull":
@@ -173,8 +194,12 @@ def repulsion_exist(
     return None
 
 
-def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
-    bollinger_is_touched = spot_price < minus_2sigma or plus_2sigma < spot_price
+def is_exitable_by_bollinger(
+    spot_price: float,
+    plus_2sigma: float,
+    minus_2sigma: float,
+) -> bool:
+    bollinger_is_touched: bool = spot_price < minus_2sigma or plus_2sigma < spot_price
 
     if bollinger_is_touched:
         return True
@@ -182,14 +207,21 @@ def is_exitable_by_bollinger(spot_price, plus_2sigma, minus_2sigma):
         return False
 
 
-def is_exitable(entry_direction, one_frame, previous_frame):
-    result = (
-        _exitable_by_long_stoccross(entry_direction, long_stod_greater=one_frame["stoD_over_stoSD"])
-        and _exitable_by_stoccross(
-            entry_direction, stod=one_frame["stoD_3"], stosd=one_frame["stoSD_3"]
+def is_exitable(entry_direction: str, one_frame: pd.Series, previous_frame: pd.Series) -> bool:
+    result: bool = (
+        _exitable_by_long_stoccross(
+            entry_direction,
+            long_stod_greater=one_frame["stoD_over_stoSD"],
         )
         and _exitable_by_stoccross(
-            entry_direction, stod=previous_frame["stoD_3"], stosd=previous_frame["stoSD_3"]
+            entry_direction,
+            stod=one_frame["stoD_3"],
+            stosd=one_frame["stoSD_3"],
+        )
+        and _exitable_by_stoccross(
+            entry_direction,
+            stod=previous_frame["stoD_3"],
+            stosd=previous_frame["stoSD_3"],
         )
     )
     return result
@@ -197,8 +229,8 @@ def is_exitable(entry_direction, one_frame, previous_frame):
 
 # INFO: stod, stosd は、直前の足の確定値を使う
 #   その方が、forward test に近い結果を出せるため
-def _exitable_by_stoccross(position_type, stod, stosd):
-    stoc_crossed = ((position_type == "long") and (stod < stosd)) or (
+def _exitable_by_stoccross(position_type: str, stod: float, stosd: float) -> bool:
+    stoc_crossed: bool = ((position_type == "long") and (stod < stosd)) or (
         (position_type == "short") and (stod > stosd)
     )
 
@@ -208,8 +240,8 @@ def _exitable_by_stoccross(position_type, stod, stosd):
         return False
 
 
-def _exitable_by_long_stoccross(entry_direction, long_stod_greater):
-    stoc_crossed = ((entry_direction == "long") and not long_stod_greater) or (
+def _exitable_by_long_stoccross(entry_direction: str, long_stod_greater: bool) -> bool:
+    stoc_crossed: bool = ((entry_direction == "long") and not long_stod_greater) or (
         (entry_direction == "short") and long_stod_greater
     )
 

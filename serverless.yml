@@ -10,14 +10,10 @@ service: py-fx
 
 # You can pin your service to only deploy with a specific Serverless version
 # Check out our docs for more details
-frameworkVersion: '2'
+frameworkVersion: '3'
 
 plugins:
   - serverless-api-gateway-throttling
-
-  # Following two plugins are for Request Validation
-  - serverless-reqvalidator-plugin
-  - serverless-aws-documentation
 
 useDotenv: true
 custom:
@@ -53,7 +49,9 @@ provider:
   versionFunctions: false
 
   # you can add statements to the Lambda function's IAM Role here
-  iamRoleStatements: ${file(./serverless_resources/iam.yml)}
+  iam:
+    role:
+      statements: ${file(./serverless_resources/iam.yml)}
 
 # you can add packaging information here
 package:
@@ -88,6 +86,3 @@ resources:
   - ${file(./serverless_resources/sns.yml)}
   # NOTE: Cloudwatch Alarm
   - ${file(./serverless_resources/alarm.yml)}
-  # NOTE: Enable request validation for API Gateway
-  - ${file(./serverless_resources/validation.yml)}
-

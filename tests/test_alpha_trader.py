@@ -6,6 +6,7 @@ import pytest
 
 from src.alpha_trader import AlphaTrader
 from src.candle_storage import FXBase
+from src.data_factory_clerk import prepare_indicators
 from tools.trade_lab import create_trader_instance
 
 
@@ -39,6 +40,7 @@ class TestGenerateEntryColumn:
         )
 
     def test_columns_adding(self, trader_instance: AlphaTrader, commited_df: pd.DataFrame):
+        indicators: pd.DataFrame = prepare_indicators()
         candles: pd.DataFrame = FXBase.get_candles().copy()
         candles.loc[:, "entryable"] = True
         candles.loc[:, "entryable_price"] = 100.0
@@ -48,7 +50,7 @@ class TestGenerateEntryColumn:
             with patch(
                 "src.trade_rules.scalping.commit_positions_by_loop", return_value=commited_df
             ):  # as mock:
-                trader_instance._AlphaTrader__generate_entry_column(candles)
+                trader_instance._AlphaTrader__generate_entry_column(candles, indicators)
 
         expected: pd.DataFrame = commited_df.rename(columns={"entryable_price": "entry_price"})
         assert_frame_equal(
