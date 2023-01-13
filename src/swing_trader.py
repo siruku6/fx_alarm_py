@@ -1,19 +1,14 @@
-from typing import Dict, Union
+from typing import Any, Dict, Union
 
-import numpy as np
 import pandas as pd
 
 import src.trade_rules.base as base_rules
 import src.trade_rules.stoploss as stoploss_strategy
 from src.trader import Trader
 
-# import src.trade_rules.wait_close as wait_close
-
 
 class SwingTrader(Trader):
-    """トレードルールに基づいてOandaへの発注を行うclass"""
-
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Dict[str, Any]):
         super(SwingTrader, self).__init__(**kwargs)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -23,54 +18,16 @@ class SwingTrader(Trader):
         self, candles: pd.DataFrame, indicators: pd.DataFrame
     ) -> Dict[str, Union[str, pd.DataFrame]]:
         """backtest swing trade"""
-        result_msg: str = self.__backtest_common_flow(candles)
-        return {"result": result_msg, "candles": candles}
-
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # Private
-    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    # def _backtest_wait_close(
-    #     self, candles: pd.DataFrame, _: pd.DataFrame
-    # ) -> Dict[str, Union[str, pd.DataFrame]]:
-    #     """
-    #     (the difference from 'backtest' above)
-    #     entry is gonna be done just after the close of each candle is determined
-    #     """
-    #     shifted_candles: pd.DataFrame = self.__shift_trade_signs(candles)
-    #     # candles['thrust'] = wait_close.generate_thrust_column(candles)
-
-    #     result_msg: str = self.__backtest_common_flow(shifted_candles)
-    #     return {"result": result_msg, "candles": shifted_candles}
-
-    # # OPTIMIZE: This is not good rule...but at least working
-    # def __shift_trade_signs(self, candles: pd.DataFrame) -> pd.DataFrame:
-    #     shift_target: List[str] = ["thrust", "entryable"] + self.config.get_entry_rules(
-    #         "entry_filters"
-    #     )
-
-    #     df_shifted_target: pd.DataFrame = candles[shift_target].shift(1)
-    #     candles_without_shift_target: pd.DataFrame = candles.drop(shift_target, axis=1)
-    #     shifted_candles: pd.DataFrame = pd.concat(
-    #         [candles_without_shift_target, df_shifted_target], axis=1
-    #     )
-    #     return shifted_candles
-
-    def __backtest_common_flow(self, candles: pd.DataFrame) -> str:
-        candles.loc[:, "entryable_price"] = base_rules.generate_entryable_prices(
-            candles, self.config.static_spread
-        )
         self.__generate_entry_column(candles=candles)
         sliding_result = self.__slide_to_reasonable_prices(candles=candles)
 
         candles.to_csv("./tmp/csvs/full_data_dump.csv")
         result_msg: str = self.__result_message(sliding_result["result"])
-        return result_msg
+        return {"result": result_msg, "candles": candles}
 
-    def _generate_entryable_price(self, candles: pd.DataFrame) -> np.ndarray:
-        return base_rules.generate_entryable_prices(
-            candles[["open", "high", "low", "entryable"]], self.config.static_spread
-        )
-
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    # Private
+    # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     def __generate_entry_column(self, candles: pd.DataFrame) -> None:
         print("[Trader] judging entryable or not ...")
 
@@ -92,7 +49,7 @@ class SwingTrader(Trader):
         return candles
 
     # OPTIMIZE: probably this method has many unnecessary processings!
-    def __slide_to_reasonable_prices(self, candles):
+    def __slide_to_reasonable_prices(self, candles: pd.DataFrame) -> Dict[str, str]:
         print("[Trader] start sliding ...")
 
         position_index = candles.position.isin(["long", "short"]) | (

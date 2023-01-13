@@ -392,9 +392,6 @@ class RealTrader(Trader):
                 msg = 'c. {}: "{}" is not satisfied !'.format(time, reason)
                 print("[Trader] skip: {}".format(msg))
 
-    def _generate_entryable_price(self, _) -> np.ndarray:
-        pass
-
     def backtest(
         self, candles: pd.DataFrame, indicators: pd.DataFrame
     ) -> Dict[str, Union[str, pd.DataFrame]]:
