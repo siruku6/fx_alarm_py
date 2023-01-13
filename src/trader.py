@@ -74,6 +74,8 @@ class Trader(metaclass=abc.ABCMeta):
         )
         result: Dict[str, Union[str, pd.DataFrame]] = backtest(candles, indicators)
 
+        result["candles"].to_csv(f"./tmp/csvs/{rule}_data_dump.csv")  # type: ignore
+
         print("{} ... (perform)".format(result["result"]))
         df_positions: pd.DataFrame = self._result_processor.run(rule, result, indicators)
         return df_positions

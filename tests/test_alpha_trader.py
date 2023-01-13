@@ -48,7 +48,7 @@ class TestGenerateEntryColumn:
         # TODO: The result of merge should be also tested!
         with patch("pandas.merge", return_value=candles):
             with patch(
-                "src.trade_rules.scalping.commit_positions_by_loop", return_value=commited_df
+                "src.lib.transition_loop.commit_positions_by_loop", return_value=commited_df
             ):  # as mock:
                 trader_instance._AlphaTrader__generate_entry_column(candles, indicators)
 

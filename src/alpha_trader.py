@@ -2,7 +2,7 @@ from typing import Any, Dict, Union
 
 import pandas as pd
 
-import src.trade_rules.scalping as scalping
+from src.lib import transition_loop
 from src.trader import Trader
 
 
@@ -17,10 +17,12 @@ class AlphaTrader(Trader):
         self, candles: pd.DataFrame, indicators: pd.DataFrame
     ) -> Dict[str, Union[str, pd.DataFrame]]:
         """backtest scalping trade"""
-        self.__generate_entry_column(candles, indicators)
+        candles = self.__generate_entry_column(candles, indicators)
 
-        candles.to_csv("./tmp/csvs/scalping_data_dump.csv")
-        return {"result": "[Trader] Finsihed a series of backtest!", "candles": candles}
+        return {
+            "result": "[Trader] Finsihed a series of backtest!",
+            "candles": candles,
+        }
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Private
@@ -46,7 +48,9 @@ class AlphaTrader(Trader):
             left_index=True,
             right_index=True,
         )
-        commited_df = scalping.commit_positions_by_loop(factor_dicts=base_df.to_dict("records"))
+        commited_df = transition_loop.commit_positions_by_loop(
+            factor_dicts=base_df.to_dict("records")
+        )
         # OPTIMIZE: We may be able to  merge two dataframes by the way written in following article.
         #   https://ymt-lab.com/post/2020/python-pandas-insert-columns/
         # like this (but this doesn't work anyway)
@@ -57,3 +61,4 @@ class AlphaTrader(Trader):
         candles.loc[:, "exitable_price"] = commited_df["exitable_price"]
         candles.loc[:, "exit_reason"] = commited_df["exit_reason"]
         candles.loc[:, "possible_stoploss"] = commited_df["possible_stoploss"]
+        return candles
