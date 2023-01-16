@@ -31,7 +31,7 @@ class AlphaTrader(Trader):
         self, candles: pd.DataFrame, indicators: pd.DataFrame
     ) -> pd.DataFrame:
         # INFO: Commit when Entry / Exit is done
-        base_df = pd.merge(
+        base_df: pd.DataFrame = pd.merge(
             candles[
                 [
                     "open",
@@ -48,17 +48,10 @@ class AlphaTrader(Trader):
             left_index=True,
             right_index=True,
         )
-        commited_df = transition_loop.commit_positions_by_loop(
+        committed_df: pd.DataFrame = transition_loop.commit_positions_by_loop(
             factor_dicts=base_df.to_dict("records")
         )
-        # OPTIMIZE: We may be able to  merge two dataframes by the way written in following article.
-        #   https://ymt-lab.com/post/2020/python-pandas-insert-columns/
-        # like this (but this doesn't work anyway)
-        # return pd.concat([candles, commited_df], axis=1) \
-        #          .rename(columns={'entryable_price': 'entry_price'})
-        candles.loc[:, "entry_price"] = commited_df["entryable_price"]
-        candles.loc[:, "position"] = commited_df["position"]
-        candles.loc[:, "exitable_price"] = commited_df["exitable_price"]
-        candles.loc[:, "exit_reason"] = commited_df["exit_reason"]
-        candles.loc[:, "possible_stoploss"] = commited_df["possible_stoploss"]
-        return candles
+        orignal_candles: pd.DataFrame = candles.drop(labels=["entryable_price"], axis=1)
+        return pd.concat([orignal_candles, committed_df], axis=1).rename(
+            columns={"entryable_price": "entry_price"}
+        )
