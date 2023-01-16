@@ -10,6 +10,7 @@ import pandas as pd
 from src.candle_storage import FXBase
 from src.clients import sns
 from src.data_factory_clerk import prepare_indicators
+from src.lib import transition_loop
 import src.trade_rules.scalping as scalping
 import src.trade_rules.stoploss as stoploss_strategy
 from src.trader import Trader
@@ -303,16 +304,16 @@ class RealTrader(Trader):
     ) -> None:
         # plus_2sigma = last_indicators['sigma*2_band']
         # minus_2sigma = last_indicators['sigma*-2_band']
-        # if scalping.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
+        # if transition_loop.is_exitable_by_bollinger(last_candle.close, plus_2sigma, minus_2sigma):
 
         current_indicator = indicators.iloc[-1].copy()
         current_indicator["stoD_over_stoSD"] = last_candle["stoD_over_stoSD"]
         previous_indicator = indicators.iloc[-2]
 
         # stod_over_stosd_on_long = last_candle['stoD_over_stoSD']
-        if scalping.is_exitable(position_type, current_indicator, previous_indicator):
-            # if scalping._exitable_by_long_stoccross(position_type, stod_over_stosd_on_long) \
-            #         and scalping._exitable_by_stoccross(
+        if transition_loop.is_exitable(position_type, current_indicator, previous_indicator):
+            # if transition_loop._exitable_by_long_stoccross(position_type, stod_over_stosd_on_long) \
+            #         and transition_loop._exitable_by_stoccross(
             #             position_type, previous_indicator['stoD_3'], previous_indicator['stoSD_3']
             #         ):
             if preliminary:
@@ -391,9 +392,6 @@ class RealTrader(Trader):
             if not val:
                 msg = 'c. {}: "{}" is not satisfied !'.format(time, reason)
                 print("[Trader] skip: {}".format(msg))
-
-    def _generate_entryable_price(self, _) -> np.ndarray:
-        pass
 
     def backtest(
         self, candles: pd.DataFrame, indicators: pd.DataFrame

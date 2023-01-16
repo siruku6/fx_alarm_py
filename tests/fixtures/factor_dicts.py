@@ -16,6 +16,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 65.35383457466865,
         "support": 127.36,
         "regist": 132.053,
+        "stoploss_for_long": np.nan,
+        "stoploss_for_short": np.nan,
     },
     {
         "open": 130.20600000000002,
@@ -32,6 +34,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 79.13209879939662,
         "support": 127.36,
         "regist": 131.439,
+        "stoploss_for_long": 127.36,
+        "stoploss_for_short": 132.053,
     },
     {
         "open": 131.126,
@@ -48,6 +52,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 87.16796029827616,
         "support": 127.36,
         "regist": 131.439,
+        "stoploss_for_long": 127.36,
+        "stoploss_for_short": 131.439,
     },
     {
         "open": 130.79,
@@ -64,6 +70,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 87.78599003868736,
         "support": 127.36,
         "regist": 131.439,
+        "stoploss_for_long": 127.36,
+        "stoploss_for_short": 131.439,
     },
     {
         "open": 133.476,
@@ -80,6 +88,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 30.74676026942556,
         "support": 129.865,
         "regist": 134.627,
+        "stoploss_for_long": 127.36,
+        "stoploss_for_short": 131.439,
     },
     {
         "open": 133.38,
@@ -96,6 +106,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 19.491009992322088,
         "support": 132.575,
         "regist": 134.627,
+        "stoploss_for_long": 129.865,
+        "stoploss_for_short": 134.627,
     },
     {
         "open": 132.95,
@@ -112,6 +124,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 17.519675610545722,
         "support": 132.575,
         "regist": 134.627,
+        "stoploss_for_long": 132.575,
+        "stoploss_for_short": 134.627,
     },
     {
         "open": 133.0,
@@ -128,8 +142,9 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 18.400490983455885,
         "support": 132.575,
         "regist": 134.627,
+        "stoploss_for_long": 132.575,
+        "stoploss_for_short": 134.627,
     },
-    # index=8
     {
         "open": 132.733,
         "high": 133.085,
@@ -145,6 +160,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 18.784823062061093,
         "support": 132.489,
         "regist": 134.627,
+        "stoploss_for_long": 132.575,
+        "stoploss_for_short": 134.627,
     },
     {
         "open": 132.597,
@@ -161,6 +178,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 21.529954573063605,
         "support": 132.489,
         "regist": 134.627,
+        "stoploss_for_long": 132.489,
+        "stoploss_for_short": 134.627,
     },
     {
         "open": 133.088,
@@ -177,6 +196,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 30.220861073567963,
         "support": 132.489,
         "regist": 134.627,
+        "stoploss_for_long": 132.489,
+        "stoploss_for_short": 134.627,
     },
     {
         "open": 133.162,
@@ -193,6 +214,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 48.11732018336525,
         "support": 132.489,
         "regist": 134.627,
+        "stoploss_for_long": 132.489,
+        "stoploss_for_short": 134.627,
     },
     {
         "open": 133.326,
@@ -209,6 +232,8 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 60.44633415933621,
         "support": 132.489,
         "regist": 133.894,
+        "stoploss_for_long": 132.489,
+        "stoploss_for_short": 134.627,
     },
     {
         "open": 133.079,
@@ -225,5 +250,7 @@ DUMMY_FACTOR_DICTS = [
         "stoSD_3": 67.05628382227572,
         "support": 132.489,
         "regist": 133.894,
+        "stoploss_for_long": 132.489,
+        "stoploss_for_short": 133.894,
     },
 ]

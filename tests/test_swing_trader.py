@@ -30,11 +30,10 @@ class TestSetStoplossPrices:
         dummy_candles: pd.DataFrame = pd.DataFrame(
             [{"high": 111.222, "low": 123.456}, {"high": 111.222, "low": 123.456}]
         )
-        result: pd.DataFrame = swing_client._SwingTrader__set_stoploss_prices(
+        result: pd.Series = swing_client._SwingTrader__set_stoploss_prices(
             dummy_candles.copy(), entry_direction=np.array([np.nan, "long"])
         )
-        np.testing.assert_array_equal(result.columns, ["high", "low", "possible_stoploss"])
-        assert result["possible_stoploss"].dtype == np.float64
+        assert result.dtype == np.float64
 
     def test_basic(self, swing_client: SwingTrader, stoploss_buffer: float):
         dummy_candles: pd.DataFrame = pd.DataFrame(
@@ -45,11 +44,55 @@ class TestSetStoplossPrices:
                 {"high": 111.222, "low": 123.456},
             ]
         )
-        result: pd.DataFrame = swing_client._SwingTrader__set_stoploss_prices(
+        result: pd.Series = swing_client._SwingTrader__set_stoploss_prices(
             dummy_candles.copy(), entry_direction=np.array([np.nan, "long", "short", "short"])
         )
 
         expected: pd.DataFrame = dummy_candles
         expected.loc[1, "possible_stoploss"] = expected.loc[1, "low"] - stoploss_buffer
         expected.loc[2:4, "possible_stoploss"] = expected.loc[2:4, "high"] + stoploss_buffer
-        pd.testing.assert_frame_equal(result, expected)
+        np.testing.assert_array_equal(result, expected["possible_stoploss"])
+
+
+class TestCommitPositions:
+    @pytest.fixture(name="spread", scope="module")
+    def fixture_spread(self) -> float:
+        return 0.005
+
+    @pytest.fixture(name="dummy_candles", scope="module")
+    def fixture_dummy_candles(self):
+        return pd.DataFrame(
+            [
+                [123.456, 123.123, 123.333, 123.122, "long"],
+                [123.456, 123.123, 123.333, 123.124, None],
+                [123.456, 123.123, 123.333, 123.462, "short"],
+                [123.456, 123.123, 123.333, 123.462, "short"],
+                [123.456, 123.123, 123.333, 123.460, np.nan],
+            ],
+            columns=[
+                "high",
+                "low",
+                "entryable_price",
+                "possible_stoploss",
+                "entryable",  # , 'time'
+            ],
+        )
+
+    def test_basic(self, swing_client: SwingTrader, dummy_candles: pd.DataFrame, spread: float):
+        entry_direction: pd.Series = dummy_candles["entryable"].fillna(method="ffill")
+        long_direction_index: pd.Series = entry_direction == "long"
+        short_direction_index: pd.Series = entry_direction == "short"
+
+        swing_client._commit_positions(
+            dummy_candles, long_direction_index, short_direction_index, spread
+        )
+
+        expected_positions: pd.Series = pd.Series(
+            ["long", "sell_exit", "short", None, "buy_exit"], name="position"
+        )
+        pd.testing.assert_series_equal(dummy_candles["position"], expected_positions)
+
+        expected_exitable_prices: pd.Series = pd.Series(
+            [None, 123.124, None, None, 123.460], name="exitable_price"
+        )
+        pd.testing.assert_series_equal(dummy_candles["exitable_price"], expected_exitable_prices)

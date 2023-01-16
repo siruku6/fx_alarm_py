@@ -18,7 +18,6 @@ from src.trader_config import FILTER_ELEMENTS, TraderConfig
 
 RULE_DICT = OrderedDict(
     swing={"dummy": ""},
-    # wait_close={"dummy": ""},
     scalping={"dummy": ""},
     cancel={"dummy": ""},
 )
@@ -26,7 +25,6 @@ RULE_DICT = OrderedDict(
 TRADER_CLASSES: Dict[str, Type["Trader"]] = {
     "scalping": AlphaTrader,
     "swing": SwingTrader,
-    # "wait_close": SwingTrader,
 }
 
 

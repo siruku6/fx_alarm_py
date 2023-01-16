@@ -66,7 +66,7 @@ class ResultProcessor:
             return pd.DataFrame([], columns=positions_columns)
 
         df_positions: pd.DataFrame = self._preprocess_backtest_result(
-            rule, result["candles"][positions_columns]
+            rule, result["candles"][positions_columns]  # type: ignore
         )
         df_positions = self._wrangle_result_for_graph(df_positions.copy())
         self._drive_drawing_charts(df_positions=df_positions, indicators=indicators)
