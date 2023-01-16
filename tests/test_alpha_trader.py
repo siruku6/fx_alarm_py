@@ -6,6 +6,7 @@ import pytest
 from src.alpha_trader import AlphaTrader
 from src.candle_storage import FXBase
 from src.data_factory_clerk import prepare_indicators
+from src.trade_rules.stoploss import generate_sup_reg_stoploss
 from tools.trade_lab import create_trader_instance
 
 
@@ -43,6 +44,9 @@ class TestGenerateEntryColumn:
         candles: pd.DataFrame = FXBase.get_candles().copy()
         candles.loc[:, "entryable"] = True
         candles.loc[:, "entryable_price"] = 100.0
+        candles["stoploss_for_long"], candles["stoploss_for_short"] = generate_sup_reg_stoploss(
+            indicators["support"], indicators["regist"]
+        )
 
         with patch("pandas.merge", return_value=candles):
             with patch(

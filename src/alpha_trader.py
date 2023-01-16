@@ -3,6 +3,7 @@ from typing import Any, Dict, Union
 import pandas as pd
 
 from src.lib import transition_loop
+from src.trade_rules.stoploss import generate_sup_reg_stoploss
 from src.trader import Trader
 
 
@@ -17,6 +18,9 @@ class AlphaTrader(Trader):
         self, candles: pd.DataFrame, indicators: pd.DataFrame
     ) -> Dict[str, Union[str, pd.DataFrame]]:
         """backtest scalping trade"""
+        candles["stoploss_for_long"], candles["stoploss_for_short"] = generate_sup_reg_stoploss(
+            indicators["support"], indicators["regist"]
+        )
         candles = self.__generate_entry_column(candles, indicators)
 
         return {
@@ -42,9 +46,11 @@ class AlphaTrader(Trader):
                     "entryable",
                     "entryable_price",
                     "stoD_over_stoSD",
+                    "stoploss_for_long",
+                    "stoploss_for_short",
                 ]
             ],
-            indicators[["sigma*2_band", "sigma*-2_band", "stoD_3", "stoSD_3", "support", "regist"]],
+            indicators[["sigma*2_band", "sigma*-2_band", "stoD_3", "stoSD_3"]],
             left_index=True,
             right_index=True,
         )

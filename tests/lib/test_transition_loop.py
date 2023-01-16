@@ -1,62 +1,35 @@
 import math
 
-import pytest
-
-from src.lib import transition_loop
+from src.lib.transition_loop import (
+    __decide_exit_price,
+    __exit_by_stoploss,
+    _trade_routine,
+)
 from tests.fixtures.factor_dicts import DUMMY_FACTOR_DICTS
 
-examples_for_exitable = (
-    ("long", 40, 90, True),
-    ("long", 70, 80, True),
-    ("long", 80, 70, False),
-    ("short", 90, 40, True),
-    ("short", 80, 70, True),
-    ("short", 70, 80, False),
-)
 
+class TestTradeRoutine:
+    def test_no_long(self):
+        """
+        Example: no position, but next is long
+        """
+        dummy_dicts = DUMMY_FACTOR_DICTS
 
-@pytest.mark.parametrize("position_type, stod, stosd, exitable", examples_for_exitable)
-def test_exitable_by_stoccross(position_type, stod, stosd, exitable):
-    # for row in test_dicts:
-    is_exitable = transition_loop._exitable_by_stoccross(
-        position_type=position_type, stod=stod, stosd=stosd
-    )
-    assert is_exitable == exitable
+        index = 1
+        next_direction = _trade_routine(None, dummy_dicts, index, dummy_dicts[index])
+        assert next_direction == "long"
+        assert "position" not in dummy_dicts[index]
+        assert dummy_dicts[index + 1]["position"] == dummy_dicts[index + 1]["entryable"]
 
-
-def test_is_exitable_by_bollinger():
-    test_dicts = [
-        {"spot_price": 125.5, "plus_2sigma": 130, "minus_2sigma": 120, "exitable": False},
-        {"spot_price": 130.5, "plus_2sigma": 130, "minus_2sigma": 120, "exitable": True},
-        {"spot_price": 119.5, "plus_2sigma": 130, "minus_2sigma": 120, "exitable": True},
-    ]
-    for row in test_dicts:
-        is_exitable = transition_loop.is_exitable_by_bollinger(
-            row["spot_price"], row["plus_2sigma"], row["minus_2sigma"]
-        )
-        assert is_exitable == row["exitable"]
-
-
-# def test___trade_routine():
-#     dummy_dicts = DUMMY_FACTOR_DICTS.copy()
-#     transition_loop.commit_positions_by_loop(dummy_dicts)
-
-
-def test___trade_routine():
-    dummy_dicts = DUMMY_FACTOR_DICTS.copy()
-
-    # Example: no position, but next is long
-    index = 1
-    next_direction = transition_loop.__trade_routine(None, dummy_dicts, index, dummy_dicts[index])
-    assert next_direction == "long"
-    assert "position" not in dummy_dicts[index]
-    assert dummy_dicts[index + 1]["position"] == dummy_dicts[index + 1]["entryable"]
-
-    # Example: sell_exit
-    index = 8
-    next_direction = transition_loop.__trade_routine("long", dummy_dicts, index, dummy_dicts[index])
-    assert dummy_dicts[index]["position"] == "sell_exit"
-    assert dummy_dicts[index + 1]["position"] == dummy_dicts[index + 1]["entryable"]
+    def test_long_sell_exit(self):
+        """
+        Example: sell_exit
+        """
+        dummy_dicts = DUMMY_FACTOR_DICTS
+        index = 8
+        _ = _trade_routine("long", dummy_dicts, index, dummy_dicts[index])
+        assert dummy_dicts[index]["position"] == "sell_exit"
+        assert dummy_dicts[index + 1]["position"] == dummy_dicts[index + 1]["entryable"]
 
 
 def test___decide_exit_price():
@@ -78,7 +51,7 @@ def test___decide_exit_price():
         "stoD_over_stoSD": True,
     }
     previous_frame = {"support": 80.0, "regist": 120.0}
-    exit_price, exit_type, exit_reason = transition_loop.__decide_exit_price(
+    exit_price, exit_type, exit_reason = __decide_exit_price(
         entry_direction, one_frame, previous_frame
     )
     assert exit_price is None
@@ -90,7 +63,7 @@ def test___decide_exit_price():
     #     'open': 100.0, 'high': 130.0, 'low': 90.0, 'close': 120.0,
     #     'possible_stoploss': 80, 'sigma*2_band': 140, 'sigma*-2_band': 85, 'stoD_3': 60, 'stoSD_3': 50
     # }
-    # exit_price, exit_reason = transition_loop.__decide_exit_price(entry_direction, one_frame)
+    # exit_price, exit_reason = __decide_exit_price(entry_direction, one_frame)
     # assert exit_price is None
 
     # - - - - - - - - - - - - - - - - - - - -
@@ -111,7 +84,7 @@ def test___decide_exit_price():
         "stoD_over_stoSD": False,
     }
     previous_frame = {"support": 90.0, "regist": 120.0}
-    exit_price, exit_type, exit_reason = transition_loop.__decide_exit_price(
+    exit_price, exit_type, exit_reason = __decide_exit_price(
         entry_direction, one_frame, previous_frame
     )
     assert exit_price is None
@@ -122,7 +95,7 @@ def test___decide_exit_price():
 def test___exit_by_stoploss():
     def test_stoploss(candles):
         for row in candles:
-            exit_price, exit_reason = transition_loop.__exit_by_stoploss(row)
+            exit_price, exit_reason = __exit_by_stoploss(row)
 
             if exit_price is None:
                 assert exit_price is row["expected_exitprice"]

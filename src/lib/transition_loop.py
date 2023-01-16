@@ -2,8 +2,6 @@ from typing import List, Optional, Tuple
 
 import pandas as pd
 
-import src.trade_rules.stoploss as stoploss_strategy
-
 
 def commit_positions_by_loop(factor_dicts: List[dict]) -> pd.DataFrame:
     """
@@ -20,14 +18,14 @@ def commit_positions_by_loop(factor_dicts: List[dict]) -> pd.DataFrame:
     entry_direction = factor_dicts[0]["entryable"]  # 'long', 'short' or nan
 
     for index, one_frame in enumerate(loop_objects):
-        entry_direction = __trade_routine(entry_direction, factor_dicts, index, one_frame)
+        entry_direction = _trade_routine(entry_direction, factor_dicts, index, one_frame)
 
     return pd.DataFrame.from_dict(factor_dicts)[
         ["entryable_price", "position", "exitable_price", "exit_reason", "possible_stoploss"]
     ]
 
 
-def __trade_routine(
+def _trade_routine(
     entry_direction: str,
     factor_dicts: List[dict],
     index: int,
@@ -38,11 +36,13 @@ def __trade_routine(
         entry_direction = __reset_next_position(factor_dicts, index, entry_direction)
         return entry_direction
 
-    previous_frame = factor_dicts[index - 1]
-    one_frame["possible_stoploss"] = stoploss_strategy.support_or_registance(
-        entry_direction, previous_frame["support"], previous_frame["regist"]
+    one_frame["possible_stoploss"] = __set_stoploss(
+        entry_direction,
+        one_frame["stoploss_for_long"],
+        one_frame["stoploss_for_short"],
     )
 
+    previous_frame = factor_dicts[index - 1]
     exit_price, exit_type, exit_reason = __decide_exit_price(
         entry_direction, one_frame, previous_frame=previous_frame
     )
@@ -63,6 +63,17 @@ def __reset_next_position(factor_dicts: List[dict], index: int, entry_direction:
 
     factor_dicts[index + 1]["position"] = entry_direction = factor_dicts[index + 1]["entryable"]
     return entry_direction
+
+
+def __set_stoploss(
+    position_type: str, stoploss_for_long: float, stoploss_for_short: float
+) -> Optional[float]:
+    stoploss: Optional[float] = None
+    if position_type == "long":
+        stoploss = stoploss_for_long
+    elif position_type == "short":
+        stoploss = stoploss_for_short
+    return stoploss
 
 
 def __decide_exit_price(
